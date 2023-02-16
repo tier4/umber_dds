@@ -40,6 +40,7 @@ DomainParticipantInner::new() {
 - line 68 - 92
 特にパケットは送信されない
 - line 92 - 93
+このとき20個のスレッドが起動されているから、パケットがどのスレッドから送信されたか注意
 rpポートからマルチキャスト:7400にRTPSパケットを5つ送信
 RTPS Submessage (p. 44)
     The Entity Submessage
@@ -106,6 +107,15 @@ RTPS Submessage (p. 44)
         firstAvailableSeqNumber: 1
         lastSeqNumber: 1
         count: 2
+
+最初の4つの長さ106のINFO_TS, HEARTBEATのrtpsパケットを送信してる箇所
+thread 2 "RustDDS Partici"の
+dds/dp_event_loop.rs:229: match EntityId::from_token(event.token()) { ; この時点ではキャプチャされない
+dds/dp_event_loop.rs:316: TokenDecode::Entity(eid) => { : EntityId ; ここに到達した時点で1つキャプチャされる
+2回目229行目に到達した時点で2つめをキャプチャ
+3回目229行目に到達した時点で3つめをキャプチャ
+4回目229行目に到達した時点で4つめをキャプチャ
+TODO: このパケットを送信してるコードを見つけ出す
 
 
 
