@@ -23,14 +23,21 @@ rtps解析のためのdocker環境
 
 ## 既存実装の解析
 - RustDDSのshape_demoのコンパイル
-`cargo build --example=shapes_demo`
+```
+$ cargo build --example=shapes_demo
+```
 - ShpeDemoのコンパイル
-`colcon build`
+```
+$ colcon build
+```
 
 dds-dockerでDockerコンテナを起動して
 1. ShapeDemoのPublisher側を起動
-- ShapesDemoデレクトリで`source ./install/setup.bash`
-- `ShapeDemo`
+- ShapesDemoデレクトリで
+```
+$ source ./install/setup.bash
+$ ShapeDemo
+```
 - Publish
 2. RustDDSのサブスクライバー側を起動
 RustDDSディレクトリで`./target/debug/examples/shapes_demo -S -t Square`もしくは、デバッガ上で起動
