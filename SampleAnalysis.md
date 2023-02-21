@@ -5,7 +5,7 @@ RustDDSを参考実装としてRTPSの解析を行う
 RustDDSに付属のShapeDemoをSubscriberとして動作させてRTPSのSubscriber側の解析をおこなう
 
 ### main.rs
-- line 65 - 68
+- line 65 - 65
 新しく20個のスレッドが生成されることを確認。
 このタイミングでUDPマルチキャストのグループに加入したことを知らせるIGMPv3のパケットをキャプチャ
 ```
@@ -18,7 +18,9 @@ shapes_de 160 root   10u  IPv4 457163      0t0  UDP *:35442
 shapes_de 160 root   11u  IPv4 457165      0t0  UDP 69d7d3c3fefa:39541 // このポートは毎回変わる
                                                                         // このポート番号を以下rpとする
 ```
-`DomainParticipant::new(domain_id)`(src/dds/participant.rs)が実行
+開かれるportはp. 165にある。RustDDSのポートを決める実装はsrc/network/constant.rsにあり、仕様書のdefault通りに実装されている。
+
+line 65 `DomainParticipant::new(domain_id)`(src/dds/participant.rs)を実行
 大まかな構造
 ```
 DomainParticipant::new() {
@@ -29,16 +31,33 @@ DomainParticipantDisc::new() {
     DomainParticipantInner::new()
 }
 DomainParticipantInner::new() {
+
+    // Discovery trafficのためのunicast, multicastのソケットをopen
     UDPListener::new_multicast()
-    // "0.0.0.0:domain_id"を"239.255.0.1"のマルチキャストグループに加入
-    // この他にも4つUDPListener::new_multicast()がある
+    // "0.0.0.0:spdp_well_known_multicast_port(domain_id)"を開いて"239.255.0.1"のマルチキャストグループに加入
+    UDPListener::new_unicast()
+    // "0.0.0.0:spdp_well_known_unicast_port(domain_id, , participant_id)"を開く
+
+    // User trafficのためのunicast, multicastのソケットをopen
+    UDPListener::new_multicast()
+    // "0.0.0.0:user_traffic_multicast_port(domain_id)"を開いて"239.255.0.1"のマルチキャストグループに加入
+    UDPListener::new_unicast()
+    // "0.0.0.0:user_traffic_unicast_port(domain_id, participant_id)"を開く
+
+    let ev_loop_handle = thread::Builder::new()
+        .spawn(move || {
+            // ここでUDP *:35442とUDP 69d7d3c3fefa:39541 がopenされる
+        })
 }
 ```
 
+TODO: 毎回開かれるポート(rp)が変わるが、どのようにきめているのか？
+        そして、どこで開かれているのか？
 
-
-- line 68 - 92
+- line 65 - 92
 特にパケットは送信されない
+
+
 - line 92 - 93
 このとき20個のスレッドが起動されているから、パケットがどのスレッドから送信されたか注意
 rpポートからマルチキャスト:7400にRTPSパケットを5つ送信
@@ -116,6 +135,7 @@ dds/dp_event_loop.rs:316: TokenDecode::Entity(eid) => { : EntityId ; ここに�
 3回目229行目に到達した時点で3つめをキャプチャ
 4回目229行目に到達した時点で4つめをキャプチャ
 TODO: このパケットを送信してるコードを見つけ出す
+名前からsend_to_udp_socketでパケットを送信してると思われるから、これにbreakポイント貼って調査
 
 
 
