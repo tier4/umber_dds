@@ -19,9 +19,11 @@ shapes_de 160 root   11u  IPv4 457165      0t0  UDP 69d7d3c3fefa:39541 // この
                                                                         // このポート番号を以下rpとする
 ```
 開かれるportはp. 165にある。RustDDSのポートを決める実装はsrc/network/constant.rsにあり、仕様書のdefault通りに実装されている。
+上4つは受信用, 下2つは送信用。
+受信用はsubscribeのため、送信用はdiscoveryのため。
 
 line 65 `DomainParticipant::new(domain_id)`(src/dds/participant.rs)を実行
-大まかな構造
+dds/participant.rsの大まかな構造
 ```
 DomainParticipant::new() {
     DomainParticipantDisc::new()
@@ -46,13 +48,36 @@ DomainParticipantInner::new() {
 
     let ev_loop_handle = thread::Builder::new()
         .spawn(move || {
-            // ここでUDP *:35442とUDP 69d7d3c3fefa:39541 がopenされる
+            let dp_event_loop = DPEventLoop::new()
+            dp_event_loop.event_loop();
+            // ここでUDP *:rpがopenされる
         })
 }
 ```
+dds/dp_event_loop.rs
+```
+DPEventLoop::new() {
+    // port number 0 means OS chooses an available port number.
+    // ポート番号0はOSが使用可能なポート番号を選択することを意味する。
+    let udp_sender = UDPSender::new(0).expect("UDPSender construction fail");
+}
 
-TODO: 毎回開かれるポート(rp)が変わるが、どのようにきめているのか？
-        そして、どこで開かれているのか？
+```
+
+network/udp_sender.rs
+```
+UDPSender::new() {
+    let unicast_socket = {
+        let saddr: SocketAddr = SocketAddr::new("0.0.0.0".parse().unwrap(), sender_port);
+        UdpSocket::bind(&saddr)?
+        // UDP *:35442をオープン
+    };
+    let mut multicast_sockets = Vec::with_capacity(1);
+    for multicast_if_ipaddr in get_local_multicast_ip_addrs()? {
+        // 69d7d3c3fefa:39541をオープン
+    }
+}
+```
 
 - line 65 - 92
 特にパケットは送信されない
@@ -78,7 +103,10 @@ RTPS Submessage (p. 44)
 長さ106のINFO_TS, HEARTBEAT
     INFO_TS
         Flags: 0x01 ; Endianness bit set
+        // amd64はlittele endiannだから0x01になってると思われる
         Timestamp ; 時刻
+        // InvalidateFlag がヘッダーにないときのみ使われる
+        // 次のSubmessageを処理するために使われるtimestamp (p. 59)
         octetsToNextHeader: 8
     HEARBEAT
         Flags: 0x01 ; Endianness bit set
@@ -112,7 +140,7 @@ RTPS Submessage (p. 44)
                 PID_~~
                 ~~
                 PID_~~
-
+        // このserializedDataはリモートParticipantを探すのためのSPDPdiscoveredParticipantData (p. 118)
 
     HEARBEAT
         Flags: 0x01 ; Endianness bit set
