@@ -165,5 +165,31 @@ dds/dp_event_loop.rs:316: TokenDecode::Entity(eid) => { : EntityId ; ここに�
 TODO: このパケットを送信してるコードを見つけ出す
 名前からsend_to_udp_socketでパケットを送信してると思われるから、これにbreakポイント貼って調査
 
+## DomainParticipantの構造
+```
+struct DomainParticipant {
+    dpi: Arc<Mutex<DomainParticipantDisc>>,
+}
+
+struct DomainParticipantDisc {
+    dpi: Arc<Mutex<DomainParticipantInner>>,
+    // Discovery control
+    discovery_command_sender: mio_channel::SyncSender<DiscoveryCommand>,
+    discovery_join_handle: mio_channel::Receiver<JoinHandle<()>>,
+    // This allows deterministic generation of EntityIds for DataReader, DataWriter, etc.
+    // EntitiyIdを決定するためのもの？
+    entity_id_generator: atomic::AtomicU32,
+
+}
+```
+
+## Memo
+- socket2 creat
+socketに対してunsafeを使わずに詳細な設定をするためのクレート
+
+network/udp_listener.rsでsocket2::Socketを作ってから、UdpSocketを作ってる理由
+SO_REUSEADDRを設定するため
+https://hana-shin.hatenablog.com/entry/2022/10/18/205924
+リスニングソケットではSO_REUSEADRをtrueに設定するのが一般的
 
 
