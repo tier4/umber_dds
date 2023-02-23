@@ -84,15 +84,19 @@ UDPSender::new() {
 
 
 - line 92 - 93
+
 このとき20個のスレッドが起動されているから、パケットがどのスレッドから送信されたか注意
+
 rpポートからマルチキャスト:7400にRTPSパケットを5つ送信
+```
 RTPS Submessage (p. 44)
     The Entity Submessage
         HEARTBEAT Submessage: Writerが1つ以上のReaderに向けてWriterの持っている情報を説明する
         Data: ReaderまたはWriterによって送られる、application Data-objectの値に関する情報を含む。
     The Interpreter Submessage
         InfoTimestamp: 次のEntity Submessageのsource timestampを提供する
-
+```
+```
 パケットの詳細
 最初の4つは長さ106のINFO_TS, HEARTBEAT
 最後の1つは長さ310のDATA(p), HEARTBEAT
@@ -154,15 +158,21 @@ RTPS Submessage (p. 44)
         firstAvailableSeqNumber: 1
         lastSeqNumber: 1
         count: 2
-
+```
 最初の4つの長さ106のINFO_TS, HEARTBEATのrtpsパケットを送信してる箇所
+
 thread 2 "RustDDS Partici"の
-dds/dp_event_loop.rs:229: match EntityId::from_token(event.token()) { ; この時点ではキャプチャされない
-dds/dp_event_loop.rs:316: TokenDecode::Entity(eid) => { : EntityId ; ここに到達した時点で1つキャプチャされる
+`dds/dp_event_loop.rs:229: match EntityId::from_token(event.token()) { ; この時点ではキャプチャされない`
+`dds/dp_event_loop.rs:316: TokenDecode::Entity(eid) => { : EntityId ; ここに到達した時点で1つキャプチャされる`
+
 2回目229行目に到達した時点で2つめをキャプチャ
+
 3回目229行目に到達した時点で3つめをキャプチャ
+
 4回目229行目に到達した時点で4つめをキャプチャ
+
 TODO: このパケットを送信してるコードを見つけ出す
+
 名前からsend_to_udp_socketでパケットを送信してると思われるから、これにbreakポイント貼って調査
 
 ## DomainParticipantの構造
@@ -183,7 +193,8 @@ struct DomainParticipantDisc {
 }
 ```
 
-DomainParticipantInnerがGUID(globally Unique Id)をもってる
+DomainParticipantInnerがGUID(globally Unique Id)をもってる。
+
 "The GUID (Globally Unique Identifier) is an attribute of all RTPS Entities and uniquely identifies the Entity within a DDS Domain" (p. 24)
 
 ## 用語集
@@ -193,36 +204,45 @@ DDS domainの中にDomainParticipantとtopicがある。
 DomainParticipantの中にPublisher, Subscriberがある。
 Publisher, SubscriberはDataWriter/DataReader objectを持つ。
 - DCPS entity
-例: Pubulisher, Subscriber
+
+    例: Pubulisher, Subscriber
 
 - entity
-例: DataWriter, DataReader, Topic
+
+    例: DataWriter, DataReader, Topic
 
 - DomainParticipant
-Domainに参加している独立したアプリケーション。domain IDによって識別される。
+
+    Domainに参加している独立したアプリケーション。domain IDによって識別される。
 
 ### RTPS
 RTPS domainの中にRTPSParticipantがある。
 RTPSParticipantの中にwriter, readerがある。
 - Entity
-Entity の例: 
+
+    Entity の例: 
 
 - RTPS Participant
+
 dataを送信, 受信できる要素
 
--Endpoint
-例: RTPSWriter, RTPSReader
+- Endpoint
+
+    例: RTPSWriter, RTPSReader
 
 - Topic
-データがどのように交換されるかをラベル付と定義する。
-特定のParticipantに属さない。
+
+    データがどのように交換されるかをラベル付と定義する。
+    特定のParticipantに属さない。
 
 - GUID
-Entityが持つ値
+
+    Entityが持つ値
 
 
 ## Memo
 - socket2 creat
+
 socketに対してunsafeを使わずに詳細な設定をするためのクレート
 
 network/udp_listener.rsでsocket2::Socketを作ってから、UdpSocketを作ってる理由
