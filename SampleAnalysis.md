@@ -183,6 +183,44 @@ struct DomainParticipantDisc {
 }
 ```
 
+DomainParticipantInnerがGUID(globally Unique Id)をもってる
+"The GUID (Globally Unique Identifier) is an attribute of all RTPS Entities and uniquely identifies the Entity within a DDS Domain" (p. 24)
+
+## 用語集
+https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html
+### DDS
+DDS domainの中にDomainParticipantとtopicがある。
+DomainParticipantの中にPublisher, Subscriberがある。
+Publisher, SubscriberはDataWriter/DataReader objectを持つ。
+- DCPS entity
+例: Pubulisher, Subscriber
+
+- entity
+例: DataWriter, DataReader, Topic
+
+- DomainParticipant
+Domainに参加している独立したアプリケーション。domain IDによって識別される。
+
+### RTPS
+RTPS domainの中にRTPSParticipantがある。
+RTPSParticipantの中にwriter, readerがある。
+- Entity
+Entity の例: 
+
+- RTPS Participant
+dataを送信, 受信できる要素
+
+-Endpoint
+例: RTPSWriter, RTPSReader
+
+- Topic
+データがどのように交換されるかをラベル付と定義する。
+特定のParticipantに属さない。
+
+- GUID
+Entityが持つ値
+
+
 ## Memo
 - socket2 creat
 socketに対してunsafeを使わずに詳細な設定をするためのクレート
