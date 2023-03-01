@@ -1,10 +1,13 @@
 use std::collections::HashMap;
-use std::net;
+use std::str::FromStr;
+use std::net::{self, Ipv4Addr};
 use std::thread;
 use mio::net::UdpSocket;
 use mio::{Poll, Events};
+use crate::network::net_util::*;
 
-use crate::{network::{udp_listinig_socket::*, net_util::*}, dds::event_loop::EventLoop};
+use crate::{
+    network::{udp_listinig_socket::*, net_util::*}, dds::event_loop::EventLoop};
 
 pub struct DomainParticipant {
     domain_id: u16,
@@ -15,10 +18,10 @@ pub struct DomainParticipant {
 impl DomainParticipant {
     pub fn new(domain_id: u16) -> DomainParticipant {
         let mut socket_list: HashMap<mio::Token, UdpSocket> = HashMap::new();
-        let spdp_multi_socket = new_multicast("0.0.0.0", spdp_multicast_port(domain_id));
+        let spdp_multi_socket = new_multicast("0.0.0.0", spdp_multicast_port(domain_id), Ipv4Addr::new(239, 255, 0, 1));
         let spdp_uni_socket = new_unicast("0.0.0.0", spdp_unicast_port(domain_id, 0));
-        socket_list.insert(mio::Token(0), spdp_uni_socket);
-        socket_list.insert(mio::Token(1), spdp_multi_socket);
+        socket_list.insert(DISCOVERY_UNI_TOKEN, spdp_uni_socket);
+        socket_list.insert(DISCOVERY_MUTI_TOKEN, spdp_multi_socket);
 
         
         let new_thread = thread::spawn(|| {
