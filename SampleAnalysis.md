@@ -57,6 +57,7 @@ DomainParticipantInner::new() {
 dds/dp_event_loop.rs
 ```
 DPEventLoop::new() {
+    // こいつがDomainParticipantInner::new()で開いたsocketとTokenのhashmapを受け取り所有する
     // port number 0 means OS chooses an available port number.
     // ポート番号0はOSが使用可能なポート番号を選択することを意味する。
     let udp_sender = UDPSender::new(0).expect("UDPSender construction fail");
@@ -172,6 +173,7 @@ thread 2 "RustDDS Partici"の
 4回目229行目に到達した時点で4つめをキャプチャ
 
 TODO: このパケットを送信してるコードを見つけ出す
+-> 多分writer.process_writer_command()とか、ev_wrapper.message_receiver.handle_received_packet(&packet);の中で送信されてる
 
 名前からsend_to_udp_socketでパケットを送信してると思われるから、これにbreakポイント貼って調査
 
@@ -191,11 +193,64 @@ struct DomainParticipantDisc {
     entity_id_generator: atomic::AtomicU32,
 
 }
+
+pub struct DomainParticipantInner {
+    domain_id: u16,
+    participant_id: u16,
+
+    my_guid: GUID,
+
+    // Adding Readers
+    sender_add_reader: mio_channel::SyncSender<ReaderIngredients>,
+    sender_remove_reader: mio_channel::SyncSender<GUID>,
+
+    // dp_event_loop control
+    stop_poll_sender: mio_channel::Sender<()>,
+    ev_loop_handle: Option<JoinHandle<()>>, // this is Option, because it needs to be extracted
+    // out of the struct (take) in order to .join() on the handle.
+
+    // Writers
+    add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
+    remove_writer_sender: mio_channel::SyncSender<GUID>,
+
+    dds_cache: Arc<RwLock<DDSCache>>,
+    discovery_db: Arc<RwLock<DiscoveryDB>>,
+    discovery_db_event_receiver: mio_channel::Receiver<()>,
+
+    // RTPS locators describing how to reach this DP
+    self_locators: HashMap<Token, Vec<Locator>>,
+}
 ```
+openしたsocketはev_loop_handleが持つ。
+
 
 DomainParticipantInnerがGUID(globally Unique Id)をもってる。
 
 "The GUID (Globally Unique Identifier) is an attribute of all RTPS Entities and uniquely identifies the Entity within a DDS Domain" (p. 24)
+
+## DPEvnetLoopの調査
+`HashMap<mio::Token, UdpListener>`を受け取り、mioのpollにUdpListenerを登録
+
+loopの中でpoll.pool()、イベントが発火したらそれを処理。
+イベントが`DISCOVERY_*`の場合受信内容をUDPListener::messagesでVec<Byte>にして、forでVecの要素を順に`MessageReceiver::handle_received_packet()`に渡して処理する。
+
+## MessageReceiver::handle_received_packet()の調査
+dds/message_receiver.rs
+MessageReceiver::handle_received_packet()
+- DDSPINGかどうか確認
+    先頭4byteが"RTPS"か、先頭9から16byteが"DDSPING"か確認
+- Speedy readerを呼ぶ
+Crate speedy (https://docs.rs/speedy/latest/speedy/index.html)
+
+Speedy readerはバイナリをシリアライズするためのもので、RustDDSではエンディアンを実行時に決めるために、代わりにMessageを実装している。
+`let rtps_message = match Message::read_from_buffer(msg_bytes) {}`
+- メッセージを処理する
+`self.handle_parsed_message(rtps_message);`
+
+## DomainParticipant::new(domain_id)からの実行path
+```
+DomainParticipant::new() -> DomainParticipantDisc::new() -> DomainParticipantInner::new()
+```
 
 ## 用語集
 https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html
@@ -215,13 +270,13 @@ Publisher, SubscriberはDataWriter/DataReader objectを持つ。
 
     Domainに参加している独立したアプリケーション。domain IDによって識別される。
 
+- GUID
+
+    Entityが持つ値
+
 ### RTPS
 RTPS domainの中にRTPSParticipantがある。
 RTPSParticipantの中にwriter, readerがある。
-- Entity
-
-    Entity の例: 
-
 - RTPS Participant
 
 dataを送信, 受信できる要素
@@ -235,9 +290,7 @@ dataを送信, 受信できる要素
     データがどのように交換されるかをラベル付と定義する。
     特定のParticipantに属さない。
 
-- GUID
 
-    Entityが持つ値
 
 
 ## Memo
