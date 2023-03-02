@@ -234,6 +234,9 @@ DomainParticipantInnerがGUID(globally Unique Id)をもってる。
 loopの中でpoll.pool()、イベントが発火したらそれを処理。
 イベントが`DISCOVERY_*`の場合受信内容をUDPListener::messagesでVec<Byte>にして、forでVecの要素を順に`MessageReceiver::handle_received_packet()`に渡して処理する。
 
+受け取った内容をどうやってb'RTPS'から始まるパケットに分割してるか不明。
+TODO: network/udp_listener.rs: UdpListener::messages()を調査
+
 ## MessageReceiver::handle_received_packet()の調査
 dds/message_receiver.rs
 MessageReceiver::handle_received_packet()
@@ -246,6 +249,37 @@ Speedy readerはバイナリをシリアライズするためのもので、Rust
 `let rtps_message = match Message::read_from_buffer(msg_bytes) {}`
 - メッセージを処理する
 `self.handle_parsed_message(rtps_message);`
+
+## Message::read_from_buffer(msg_bytes)
+msg_bytesはBytes::bytes型の理由 -> enndiannの扱いが楽だからと思ったけど、ちがうかも。よくわかんない
+RTPS Headerは20 Byte (p. 155)
+SubmessageHeaderは4 Byte (p. 156)
+- SubmessageのoctetsToNextHeaderの意味 (p. 157)
+    - octetsToNextHeader == 0
+        - PAD or INFO_TS
+
+            contensの大きさは0
+        - NOT (PAD or INFO_TS)
+
+            contensの大きさは0,
+            SubmessageはMessageの中で最後となり、Messageの大きさを広げる
+
+            This makes it possible to send Submessages larger than 64k (the size that can be stored in the octetsToNextHeader field), provided they are the last Submessage in the
+Message.
+
+    - octetsToNextHeader > 0
+        - SubmessageがMessageの中で最後でない場合
+
+            submessageの最初のcotetから次のsubmessageの最初のoctetまでのoctet数
+        - SubmessageがMessageの中で最後な場合
+
+            Messageの残りのoctet数
+
+endianness_flagを取得
+RTPS SubmessageはInterpreter-SubmessageとEntity-Submessageの２グループに分けられる。(p. 44)
+
+Submessage IDごとにそれぞれ処理する
+
 
 ## DomainParticipant::new(domain_id)からの実行path
 ```
