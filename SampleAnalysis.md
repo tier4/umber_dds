@@ -232,16 +232,39 @@ DomainParticipantInnerがGUID(globally Unique Id)をもってる。
 `HashMap<mio::Token, UdpListener>`を受け取り、mioのpollにUdpListenerを登録
 
 loopの中でpoll.pool()、イベントが発火したらそれを処理。
-イベントが`DISCOVERY_*`の場合受信内容をUDPListener::messagesでVec<Byte>にして、forでVecの要素を順に`MessageReceiver::handle_received_packet()`に渡して処理する。
+イベントが`DISCOVERY_*`の場合受信内容を`UDPListener::messages`でVec<Byte>にして、forでVecの要素を順に`MessageReceiver::handle_received_packet()`に渡して処理する。
 
-受け取った内容をどうやってb'RTPS'から始まるパケットに分割してるか不明。
-TODO: network/udp_listener.rs: UdpListener::messages()を調査
+~~受け取った内容をどうやってb'RTPS'から始まるパケットに分割してるか不明。~~
+socket::receive()で受け取れるのが、b'RTPS'から始まるパケット1つ。
+ループの中でsocket::receive()を実行して、逐次Vecにpushしてる。
+
+## UdpListener::messages()の調査
+socket::receive()して、4byteにアラインメントされてるか確認(必要？)
+アラインメントされてなければ0xCCを追加(0xCCの根拠はない-> アクセスされないから)
+送信時にアラインメントされないの？
+TODO: なんかよくわかんない処理が行われているから必要かどうか調査する。
+
+### ByteMutの取扱
+buf = BytesMut::with_capacity(CAP)を実行するとスタックフレーム上に[*buf, CAP, len(=0)]が作られる。ことのき、ヒープ上のbufは最大でCAP byte確保できるが、現在確保されているサイズはlen byte。
+lenを手動でセットするにはunsafeの中である必要がある。(CAP >= lenをプログラマが保証すれば安全にセットできる)
+bufのlenを設定せずにlister.recev(&buf)すると、bufの長さが0になり何も受け取れない。
+
+### Bloking IO と Non-Bloking IO
+- Bloking IO
+
+パケットが受信できるまで待機する。UDPListenerのデフォルト。
+
+- Non-Bloking IO
+
+パケットが受信できない場合、エラーを返す。`.set_nonblocking(true)`
+
 
 ## MessageReceiver::handle_received_packet()の調査
 dds/message_receiver.rs
 MessageReceiver::handle_received_packet()
 - DDSPINGかどうか確認
-    先頭4byteが"RTPS"か、先頭9から16byteが"DDSPING"か確認
+    先頭4byteが"RTPS"か、先頭9から16byteが"DDSPING"か確認。
+    DDSPINGだった場合何をすべきか仕様書に書いてない
 - Speedy readerを呼ぶ
 Crate speedy (https://docs.rs/speedy/latest/speedy/index.html)
 
@@ -323,8 +346,6 @@ dataを送信, 受信できる要素
 
     データがどのように交換されるかをラベル付と定義する。
     特定のParticipantに属さない。
-
-
 
 
 ## Memo
