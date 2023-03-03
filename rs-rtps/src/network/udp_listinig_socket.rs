@@ -12,6 +12,7 @@ fn new_listening_socket(addr: &str, port: u16, reuse_addr: bool) -> io::Result<U
     raw_socket.bind(&SockAddr::from(address))?;
 
     let udp_socket = std::net::UdpSocket::from(raw_socket);
+    udp_socket.set_nonblocking(true).expect("Clouldn't set nonbloking");
     let mio_socket = UdpSocket::from_std(udp_socket);
     Ok(mio_socket)
 }
