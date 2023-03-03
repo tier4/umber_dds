@@ -4,7 +4,7 @@ use mio::net::UdpSocket;
 use mio::{Poll, Events, Interest, Token};
 use std::net::SocketAddr;
 use bytes::{Bytes, BytesMut};
-use crate::rtps::message;
+use crate::rtps::{message, submessage};
 
 use speedy::Readable;
 
@@ -62,7 +62,9 @@ impl EventLoop {
                     return packets;
                 },
             };
-            packets.push(buf);
+            let mut packet = buf.split_to(buf.len());
+            packet.truncate(num_of_byte);
+            packets.push(packet);
         }
     }
 
@@ -82,8 +84,26 @@ impl EventLoop {
                 Ok(h) => h,
                 Err(e) => panic!("{:?}", e),
             };
-            // let rtps_contens = packet[20..];
-
+            let mut rtps_body_buf = packet_buf.slice(20..);
+            // ループの中で
+            // bufの4byteをSubMessageHeaderにシリアライズ
+            // bufの4からoctetsToNextHeaderをSubMessageBodyにシリアライズ
+            // Vecに突っ込む
+            let submessages: Vec<submessage::SubMessage> = Vec::new();
+            println!(">>>>>>>>>>>>>>>>");
+            println!("header: {:?}", rtps_header);
+            while !rtps_body_buf.is_empty() {
+                let submessage_header_buf = rtps_body_buf.split_to(4);
+                let submessage_header = match submessage::SubMessageHeader::read_from_buffer(&submessage_header_buf) {
+                    Ok(h) => h,
+                    Err(e) => panic!("{:?}", e),
+                };
+                let submessage_body_buf = rtps_body_buf.split_to(submessage_header.octetsToNextHeader as usize);
+                // let submessage_body = ;
+                println!("submessage header: {:?}", submessage_header);
+                println!("submessage body: {:?}", rtps_body_buf);
+            }
+            println!("<<<<<<<<<<<<<<<");
             // loop {
                 // process Submessage
             // }

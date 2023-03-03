@@ -6,14 +6,14 @@ pub struct SubMessage {
     body: SubMessageBody,
 }
 
-#[derive(Readable)]
-struct SubMessageHeader {
+#[derive(Readable, Debug)]
+pub struct SubMessageHeader {
     submessageId: SubMessageId,
     flags: u8,
-    octetsToNextHeader: u16,
+    pub octetsToNextHeader: u16,
 }
 
-#[derive(Readable)]
+#[derive(Readable, Debug)]
 struct SubMessageId {
     submessageId: u8,
 }
