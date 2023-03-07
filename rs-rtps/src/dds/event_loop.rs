@@ -4,7 +4,7 @@ use mio::net::UdpSocket;
 use mio::{Poll, Events, Interest, Token};
 use std::net::SocketAddr;
 use bytes::{Bytes, BytesMut};
-use crate::rtps::{message, submessage};
+use crate::rtps::{message, submessage::*};
 
 use speedy::Readable;
 
@@ -77,7 +77,6 @@ impl EventLoop {
                     return;
                 }
             }
-            // TODO: Process RTPS header
             let packet_buf =packet.freeze();
             let rtps_header_buf = packet_buf.slice(..20);
             let rtps_header = match message::Header::read_from_buffer(&rtps_header_buf) {
@@ -89,24 +88,31 @@ impl EventLoop {
             // bufの4byteをSubMessageHeaderにシリアライズ
             // bufの4からoctetsToNextHeaderをSubMessageBodyにシリアライズ
             // Vecに突っ込む
-            let submessages: Vec<submessage::SubMessage> = Vec::new();
+            let submessages: Vec<SubMessage> = Vec::new();
             println!(">>>>>>>>>>>>>>>>");
             println!("header: {:?}", rtps_header);
             while !rtps_body_buf.is_empty() {
                 let submessage_header_buf = rtps_body_buf.split_to(4);
-                let submessage_header = match submessage::SubMessageHeader::read_from_buffer(&submessage_header_buf) {
+                let submessage_header = match SubMessageHeader::read_from_buffer(&submessage_header_buf) {
                     Ok(h) => h,
                     Err(e) => panic!("{:?}", e),
                 };
-                let submessage_body_buf = rtps_body_buf.split_to(submessage_header.octetsToNextHeader as usize);
-                // let submessage_body = ;
+                let submessage_body_buf = rtps_body_buf.split_to(submessage_header.get_octets2nh() as usize);
                 println!("submessage header: {:?}", submessage_header);
+                println!("submessage kind: {:?}", submessage_header.get_submessagekind());
                 println!("submessage body: {:?}", rtps_body_buf);
+                let submessage = SubMessage::new(submessage_header, submessage_body_buf);
+                match submessage {
+                    Some(msg) => EventLoop::process_submessage(msg),
+                    None => println!("received UNKNOWN_RTPS or VENDORSPECIFIC"),
+                }
             }
             println!("<<<<<<<<<<<<<<<");
-            // loop {
-                // process Submessage
-            // }
         }
     }
+
+    fn process_submessage(submessage: SubMessage)  {
+        todo!();
+    }
 }
+
