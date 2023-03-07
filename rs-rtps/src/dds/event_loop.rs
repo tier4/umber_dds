@@ -4,7 +4,7 @@ use mio::net::UdpSocket;
 use mio::{Poll, Events, Interest, Token};
 use std::net::SocketAddr;
 use bytes::{Bytes, BytesMut};
-use crate::rtps::{message, submessage::*};
+use crate::message::{message, submessage::*};
 
 use speedy::Readable;
 
@@ -95,7 +95,7 @@ impl EventLoop {
                     Ok(h) => h,
                     Err(e) => panic!("{:?}", e),
                 };
-                let submessage_body_buf = rtps_body_buf.split_to(submessage_header.get_octets2nh() as usize);
+                let submessage_body_buf = rtps_body_buf.split_to(submessage_header.get_len() as usize);
                 let submessage = SubMessage::new(submessage_header, submessage_body_buf);
                 match submessage {
                     Some(msg) => submessages.push(msg),

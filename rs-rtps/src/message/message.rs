@@ -1,6 +1,6 @@
 use bytes::BytesMut;
 use speedy::{Readable, Writable};
-use crate::rtps::submessage::SubMessage;
+use crate::message::submessage::SubMessage;
 
 #[derive(Readable, Debug)]
 struct RtpsVersion {
@@ -20,7 +20,7 @@ struct GuidPrefix {
 
 #[derive(Readable, Debug)]
 pub struct Header {
-    rtps: [u8; 4],
+    protocol: [u8; 4],
     version: RtpsVersion,
     venderId: VenderId,
     guidPrefix: u64,

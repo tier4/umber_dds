@@ -4,7 +4,7 @@ use bytes::Bytes;
 
 pub struct SubMessage {
     pub header: SubMessageHeader,
-    pub body: SubMessageBody,
+    pub element: SubMessageElement,
 }
 
 impl SubMessage {
@@ -14,19 +14,19 @@ impl SubMessage {
          match header.get_submessagekind() {
              DATA | DATA_FRAG | HEARTBEAT | HEARTBEAT_FRAG |
              GAP | ACKNACK | NACK_FRAG
-                => Some(SubMessage { header, body: SubMessageBody::Entity(body_buf) }),
+                => Some(SubMessage { header, element: SubMessageElement::Entity(body_buf) }),
              INFO_SRC | INFO_DST | INFO_REPLY |
              INFO_REPLY_IP4 | INFO_TS | PAD
-                => Some(SubMessage { header, body: SubMessageBody::Interpreter(body_buf) }),
+                => Some(SubMessage { header, element: SubMessageElement::Interpreter(body_buf) }),
              UNKNOWN_RTPS => None,
              VENDORSPECIFIC => None,
          }
     }
 
     pub fn handle_submessage(& self) {
-        match &self.body {
-            SubMessageBody::Entity(e) => self.handel_entity_submessage(e),
-            SubMessageBody::Interpreter(i) => self.handel_interpreter_submessage(i),
+        match &self.element {
+            SubMessageElement::Entity(e) => self.handel_entity_submessage(e),
+            SubMessageElement::Interpreter(i) => self.handel_interpreter_submessage(i),
         }
     }
 
@@ -48,7 +48,7 @@ impl SubMessage {
 
 }
 
-pub enum SubMessageBody {
+pub enum SubMessageElement {
     Entity(Bytes),
     Interpreter(Bytes),
 }
@@ -57,12 +57,12 @@ pub enum SubMessageBody {
 pub struct SubMessageHeader {
     submessageId: u8,
     flags: u8,
-    octetsToNextHeader: u16,
+    submessageLength: u16,
 }
 
 impl SubMessageHeader {
-    pub fn get_octets2nh(&self) -> u16 {
-        self.octetsToNextHeader
+    pub fn get_len(&self) -> u16 {
+        self.submessageLength
     }
 
     pub fn get_submessagekind(&self) -> SubMessageKind {
