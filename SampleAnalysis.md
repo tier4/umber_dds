@@ -261,6 +261,8 @@ bufのlenを設定せずにlister.recev(&buf)すると、bufの長さが0にな�
 
 ## MessageReceiver::handle_received_packet()の調査
 dds/message_receiver.rs
+MessageReceiverは仕様書: 8.3.4 The RTPS Message Receiverに基づいて実装されている
+
 MessageReceiver::handle_received_packet()
 - DDSPINGかどうか確認
     先頭4byteが"RTPS"か、先頭9から16byteが"DDSPING"か確認。
@@ -293,10 +295,10 @@ Message.
     - octetsToNextHeader > 0
         - SubmessageがMessageの中で最後でない場合
 
-            submessageの最初のcotetから次のsubmessageの最初のoctetまでのoctet数
+            submessageのcontensの最初のcotetから次のsubmessageの最初のoctetまでのoctet数
         - SubmessageがMessageの中で最後な場合
 
-            Messageの残りのoctet数
+            submessageのheaderを除いたMessageの残りのoctet数
 
 endianness_flagを取得
 RTPS SubmessageはInterpreter-SubmessageとEntity-Submessageの２グループに分けられる。(p. 44)
@@ -308,6 +310,18 @@ Submessage IDごとにそれぞれ処理する
 ```
 DomainParticipant::new() -> DomainParticipantDisc::new() -> DomainParticipantInner::new()
 ```
+
+## SubmessageKindがstructで定義されている理由
+messages/submessages/submessage_kind.rs
+```
+pub struct SubmessageKind {
+    value: u8,
+}
+```
+submessageIdは0x00..=0x7fの範囲はRTPSプロトコルで予約されていて、
+0x80..=0xffはベンダーが自由に使うために予約されている。
+RTPS version 2.4では13種類のSubmessageKindが定義されているが、メジャーバージョン増えると増える可能性がある。
+enumだとsubmessageIdがv2.4で定義された13種類以外を受信したときにそのIDを保持できないから。
 
 ## 用語集
 https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html
