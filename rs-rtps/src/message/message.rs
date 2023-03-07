@@ -9,8 +9,8 @@ struct RtpsVersion {
 }
 
 #[derive(Readable, Debug)]
-struct VenderId {
-    vender_id: [u8; 2],
+struct VendorId {
+    vend0r_id: [u8; 2],
 }
 
 #[derive(Readable, Debug)]
@@ -22,7 +22,7 @@ struct GuidPrefix {
 pub struct Header {
     protocol: [u8; 4],
     version: RtpsVersion,
-    venderId: VenderId,
+    vendorId: VendorId,
     guidPrefix: u64,
 }
 
