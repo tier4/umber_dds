@@ -30,3 +30,18 @@ pub struct Message {
     header: Header,
     submessages: Vec<SubMessage>,
 }
+
+impl Message {
+    pub fn new(header: Header, submessages: Vec<SubMessage>) -> Message {
+        Message { header, submessages }
+    }
+
+    pub fn handle_submessage(& self) {
+        println!(">>>>>>>>>>>>>>>>");
+        println!("header: {:?}", self.header);
+        for submsg in &self.submessages {
+            submsg.handle_submessage();
+        }
+        println!("<<<<<<<<<<<<<<<<\n");
+    }
+}

@@ -3,8 +3,8 @@ use std::{fmt, fmt::Debug};
 use bytes::Bytes;
 
 pub struct SubMessage {
-    header: SubMessageHeader,
-    body: SubMessageBody,
+    pub header: SubMessageHeader,
+    pub body: SubMessageBody,
 }
 
 impl SubMessage {
@@ -12,12 +12,38 @@ impl SubMessage {
     pub fn new(header: SubMessageHeader, body_buf: Bytes) -> Option<SubMessage> {
          use SubMessageKind::*;
          match header.get_submessagekind() {
-             DATA | DATA_FRAG | HEARTBEAT | HEARTBEAT_FRAG | GAP | ACKNACK | NACK_FRAG => Some(SubMessage { header, body: SubMessageBody::Entity(body_buf) }),
-             INFO_SRC | INFO_DST | INFO_REPLY | INFO_REPLY_IP4 | INFO_TS | PAD => Some(SubMessage { header, body: SubMessageBody::Interpreter(body_buf) }),
+             DATA | DATA_FRAG | HEARTBEAT | HEARTBEAT_FRAG |
+             GAP | ACKNACK | NACK_FRAG
+                => Some(SubMessage { header, body: SubMessageBody::Entity(body_buf) }),
+             INFO_SRC | INFO_DST | INFO_REPLY |
+             INFO_REPLY_IP4 | INFO_TS | PAD
+                => Some(SubMessage { header, body: SubMessageBody::Interpreter(body_buf) }),
              UNKNOWN_RTPS => None,
              VENDORSPECIFIC => None,
          }
+    }
 
+    pub fn handle_submessage(& self) {
+        match &self.body {
+            SubMessageBody::Entity(e) => self.handel_entity_submessage(e),
+            SubMessageBody::Interpreter(i) => self.handel_interpreter_submessage(i),
+        }
+    }
+
+    fn handel_entity_submessage(&self, e: &Bytes) {
+        println!("handle entity submsg");
+        println!("submessage header: {:?}", self.header);
+        println!("submessage kind: {:?}", self.header.get_submessagekind());
+        println!("submessage body: {:?}", e);
+        todo!();
+    }
+
+    fn handel_interpreter_submessage(&self, i: &Bytes) {
+        println!("handle interpreter submsg");
+        println!("submessage header: {:?}", self.header);
+        println!("submessage kind: {:?}", self.header.get_submessagekind());
+        println!("submessage body: {:?}", i);
+        todo!();
     }
 
 }

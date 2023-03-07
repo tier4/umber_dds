@@ -88,9 +88,7 @@ impl EventLoop {
             // bufの4byteをSubMessageHeaderにシリアライズ
             // bufの4からoctetsToNextHeaderをSubMessageBodyにシリアライズ
             // Vecに突っ込む
-            let submessages: Vec<SubMessage> = Vec::new();
-            println!(">>>>>>>>>>>>>>>>");
-            println!("header: {:?}", rtps_header);
+            let mut submessages: Vec<SubMessage> = Vec::new();
             while !rtps_body_buf.is_empty() {
                 let submessage_header_buf = rtps_body_buf.split_to(4);
                 let submessage_header = match SubMessageHeader::read_from_buffer(&submessage_header_buf) {
@@ -98,21 +96,14 @@ impl EventLoop {
                     Err(e) => panic!("{:?}", e),
                 };
                 let submessage_body_buf = rtps_body_buf.split_to(submessage_header.get_octets2nh() as usize);
-                println!("submessage header: {:?}", submessage_header);
-                println!("submessage kind: {:?}", submessage_header.get_submessagekind());
-                println!("submessage body: {:?}", rtps_body_buf);
                 let submessage = SubMessage::new(submessage_header, submessage_body_buf);
                 match submessage {
-                    Some(msg) => EventLoop::process_submessage(msg),
+                    Some(msg) => submessages.push(msg),
                     None => println!("received UNKNOWN_RTPS or VENDORSPECIFIC"),
                 }
             }
-            println!("<<<<<<<<<<<<<<<");
+            let rtps_message = message::Message::new( rtps_header, submessages );
+            rtps_message.handle_submessage();
         }
     }
-
-    fn process_submessage(submessage: SubMessage)  {
-        todo!();
-    }
 }
-
