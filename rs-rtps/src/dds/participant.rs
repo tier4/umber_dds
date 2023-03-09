@@ -23,7 +23,6 @@ impl DomainParticipant {
 
         
         let new_thread = thread::spawn(|| {
-            // TODO: gen new guid_prefix
             let guid_prefix = GuidPrefix::new();
             let ev_loop = EventLoop::new(socket_list, guid_prefix);
             ev_loop.event_loop();
