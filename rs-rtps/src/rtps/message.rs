@@ -1,29 +1,36 @@
-use bytes::BytesMut;
-use speedy::{Readable, Writable};
-use crate::message::submessage::SubMessage;
+use speedy::Readable;
+use crate::rtps::{submessage::SubMessage, vendorId::*, guid::*};
 
 #[derive(Readable, Debug)]
-struct RtpsVersion {
+pub struct ProtocolVersion {
     major: u8,
     minor: u8,
 }
 
-#[derive(Readable, Debug)]
-struct VendorId {
-    vend0r_id: [u8; 2],
+impl ProtocolVersion {
+    pub const PROTOCOLVERSION: Self = Self {
+        major: 2, minor: 4
+    };
 }
 
+
 #[derive(Readable, Debug)]
-struct GuidPrefix {
-    guid_prefix: [u8; 12]
+struct ProtocolId {
+    protocol_id: [u8; 4],
+}
+
+impl ProtocolId {
+    pub const PROTOCOLVID: Self = Self {
+        protocol_id: [b'R', b'T', b'P', b'S']
+    };
 }
 
 #[derive(Readable, Debug)]
 pub struct Header {
-    protocol: [u8; 4],
-    version: RtpsVersion,
+    protocol: ProtocolId,
+    version: ProtocolVersion,
     vendorId: VendorId,
-    guidPrefix: u64,
+    guidPrefix: GuidPrefix,
 }
 
 pub struct Message {
@@ -36,7 +43,7 @@ impl Message {
         Message { header, submessages }
     }
 
-    pub fn handle_submessage(& self) {
+    pub fn handle_submessages(& self) {
         println!(">>>>>>>>>>>>>>>>");
         println!("header: {:?}", self.header);
         for submsg in &self.submessages {

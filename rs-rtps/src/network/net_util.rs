@@ -1,4 +1,6 @@
 use mio::Token;
+use bytes::BytesMut;
+use std::net::SocketAddr;
 
 const PB: u16 = 7400;
 const DG: u16 = 250;
@@ -10,6 +12,11 @@ const d3:u16 = 11;
 
 pub const DISCOVERY_UNI_TOKEN: Token = Token(0);
 pub const DISCOVERY_MUTI_TOKEN: Token = Token(1);
+
+pub struct UdpMessage {
+    pub message: BytesMut,
+    pub addr: SocketAddr,
+}
 
 pub fn spdp_multicast_port(domainId: u16) -> u16 {
     PB + DG * domainId + d0

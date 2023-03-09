@@ -1,13 +1,11 @@
 use std::collections::HashMap;
-use std::str::FromStr;
-use std::net::{self, Ipv4Addr};
+use std::net::Ipv4Addr;
 use std::thread;
 use mio::net::UdpSocket;
-use mio::{Poll, Events};
 use crate::network::net_util::*;
-
+use crate::rtps::guid::*;
 use crate::{
-    network::{udp_listinig_socket::*, net_util::*}, dds::event_loop::EventLoop};
+    network::udp_listinig_socket::*, dds::event_loop::EventLoop};
 
 pub struct DomainParticipant {
     domain_id: u16,
@@ -25,7 +23,9 @@ impl DomainParticipant {
 
         
         let new_thread = thread::spawn(|| {
-            let ev_loop = EventLoop::new(socket_list);
+            // TODO: gen new guid_prefix
+            let guid_prefix = GuidPrefix::new();
+            let ev_loop = EventLoop::new(socket_list, guid_prefix);
             ev_loop.event_loop();
         });
 
