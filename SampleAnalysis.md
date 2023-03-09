@@ -259,10 +259,34 @@ bufのlenを設定せずにlister.recev(&buf)すると、bufの長さが0にな�
 パケットが受信できない場合、エラーを返す。`.set_nonblocking(true)`
 
 
-## MessageReceiver::handle_received_packet()の調査
+## MessageReceiverの調査
 dds/message_receiver.rs
-MessageReceiverは仕様書: 8.3.4 The RTPS Message Receiverに基づいて実装されている
 
+MessageReceiverは仕様書 8.3.4: The RTPS Message Receiver で説明されている、submessageの連続体を解釈するもの。submaessageの連続体をパースするためにmessage/submessageのデシリアライザーを呼ぶ。そして、Interpreter Submessageの命令を実行し、Entity Submessageのデータを適切なEntityに渡す(仕様書 8.3.7を参照)
+
+/src/dds/message_receiver.rs
+
+~~TODO:~~
+MessageReceiver::new()で*_reply_locator_listの初期値が`vec![Locator::Invalid]`になっている。しかし、仕様書のp. 38にはLocatorの初期値には受信したメッセージにしたがって値をセットすると書いてあるから、RustDDSが初期値をInvalidに設定している理由を調査。
+
+-> "The list is initialized to contain a single Locator_t with the LocatorKind,"と書いてあるから要素を1つ含むVecとして初期化しないといけない。
+しかし、コンストラクターを実行するのは受信前だからアドレスもポートも設定できないからINVALID一つを要素として初期化している。
+
+### Message Receiverが従うルール (spec 8.3.4.1)
+1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
+2. submessageLengthフィールドは次のsubmessageがどこから始まるかを定義する、もしくは、Section 8.3.3.2.3(p. 34)で示されるようにMessageの終わりを拡張するSubmessageを指し示す。もしこのフィールドが無効なら、残りのMessageは無効である。
+3. 未知のSubmessageIDをもつSubmessageは無視されなければならず、次のSubmessageに継続してパースされなければならない。具体的にRTPS 2.4の実装ではversion 2.4で定義されているSubmessageKind以外のIDをもつSubmessageは無視される。
+未知のvenderId由来のvender-specificの範囲のSubmessageIdも無視されなければならず、次のSubmessageに継続してパースされなければならない。
+4. Submessage flags.Submessageのreceiverは未知のflagを無視されるべきである。RTPS2.4の実装では"X"(unused)とプロトコルにマークされたすべてのフラッグは飛ばされるべきである。
+5. 正しいsubmessageLengthフィールドは既知のIDをもつSubmessageであっても、常に次のSubmessageを探すのに使われなくてはならない。
+6. 既知だが、無効なSubmessageは残りのMessageを無効にする。
+
+### guid_prefix, EntityIdの調査
+TODO:
+- guid_prefix
+    先頭2 octetはvenderIdの先頭2 octetと同じにする。これによってDDS Domain内で複数のRTPS実装が使われてもguidが衝突しない。残りの 10 octetは衝突しなければどんな方法で生成してもいい。(p. 144)
+
+### MessageReceiver::handle_received_packet()の調査
 MessageReceiver::handle_received_packet()
 - DDSPINGかどうか確認
     先頭4byteが"RTPS"か、先頭9から16byteが"DDSPING"か確認。
@@ -274,6 +298,22 @@ Speedy readerはバイナリをシリアライズするためのもので、Rust
 `let rtps_message = match Message::read_from_buffer(msg_bytes) {}`
 - メッセージを処理する
 `self.handle_parsed_message(rtps_message);`
+
+### timestamp
+src/structure/time.rs
+```
+pub struct Timestamp {
+    seconds: u32,
+    fraction: u32,
+}
+impl Timestamp {
+    fn from_nanos(nanos_since_unix_epoch: u64) -> Self {
+        Self {
+            seconds: (nanos_since_unix_epoch / 1_000_000_000) as u32,
+            fraction: (((nanos_since_unix_epoch % 1_000_000_000) << 32) / 1_000_000_000) as u32,
+}
+```
+8 octet(64 bit)で上位4 octetがunix epochの秒の部分、下位4 octetがunix epochの秒より細かい部分
 
 ## Message::read_from_buffer(msg_bytes)
 msg_bytesはBytes::bytes型の理由 -> enndiannの扱いが楽だからと思ったけど、ちがうかも。よくわかんない
