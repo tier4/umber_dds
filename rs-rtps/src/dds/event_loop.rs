@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use mio::net::UdpSocket;
 use mio::{Poll, Events, Interest, Token};
 use bytes::BytesMut;
-use crate::rtps::guid::*;
+use crate::structure::guid::*;
 
 
 use crate::network::net_util::*;
-use crate::rtps::message_receiver::*;
+use crate::message::message_receiver::*;
 
 const MAX_MESSAGE_SIZE: usize = 64 * 1024; // This is max we can get from UDP.
 const MESSAGE_BUFFER_ALLOCATION_CHUNK: usize = 256 * 1024;
@@ -36,7 +36,7 @@ impl EventLoop {
                     DISCOVERY_MUTI_TOKEN | DISCOVERY_UNI_TOKEN => {
                         let udp_sock = self.sockets.get_mut(&event.token()).unwrap();
                         let packets = EventLoop::receiv_packet(udp_sock);
-                        MessageReceiver::handle_packet(packets);
+                        self.message_receiver.handle_packet(packets);
                     },
                     _ => println!("undefined event"),
                 }

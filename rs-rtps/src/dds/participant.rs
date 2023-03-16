@@ -3,9 +3,10 @@ use std::net::Ipv4Addr;
 use std::thread;
 use mio::net::UdpSocket;
 use crate::network::net_util::*;
-use crate::rtps::guid::*;
 use crate::{
-    network::udp_listinig_socket::*, dds::event_loop::EventLoop};
+    network::udp_listinig_socket::*,
+    dds::event_loop::EventLoop,
+    structure::guid::*};
 
 pub struct DomainParticipant {
     domain_id: u16,

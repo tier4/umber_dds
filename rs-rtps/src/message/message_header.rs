@@ -1,5 +1,5 @@
 use speedy::Readable;
-use crate::rtps::{submessage::SubMessage, vendorId::*, guid::*};
+use crate::structure::{guid::*, vendorId::*};
 
 #[derive(Readable, Debug)]
 pub struct ProtocolVersion {
@@ -31,24 +31,4 @@ pub struct Header {
     version: ProtocolVersion,
     vendorId: VendorId,
     guidPrefix: GuidPrefix,
-}
-
-pub struct Message {
-    header: Header,
-    submessages: Vec<SubMessage>,
-}
-
-impl Message {
-    pub fn new(header: Header, submessages: Vec<SubMessage>) -> Message {
-        Message { header, submessages }
-    }
-
-    pub fn handle_submessages(& self) {
-        println!(">>>>>>>>>>>>>>>>");
-        println!("header: {:?}", self.header);
-        for submsg in &self.submessages {
-            submsg.handle_submessage();
-        }
-        println!("<<<<<<<<<<<<<<<<\n");
-    }
 }

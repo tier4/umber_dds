@@ -1,48 +1,19 @@
-use crate::rtps::{message::*, submessage::*, vendorId::*};
+use crate::message::{*, submessage::{*, submessage_header::*, serialize::*, element::*}};
 use crate::net_util::*;
 use speedy::Readable;
-use crate::rtps::guid::*;
+use crate::structure::{guid::*, vendorId::*};
+use bytes::Bytes;
 
-
-pub struct TimeStamp {
-    seconds: u32,
-    fractions: u32,
-}
-
-impl TimeStamp {
-    pub const TIME_INVALID: Self = Self {
-        seconds: 0x00,
-        fractions: 0x00,
-    };
-}
-
-// spec versin 2.3 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
-struct LocatorList {
-    kind: i64,
-    port: u64,
-    address: [u8; 16],
-}
-
-impl LocatorList {
-    pub const KIND_INVALID: i64 = -1;
-    pub const KIND_RESERVED: i64 = 0;
-    pub const KIND_UDPv4: i64 = 1;
-    pub const KIND_UDPv6: i64 = 2;
-    pub const PORT_INVALID: u64 = 0;
-    pub const ADDRESS_INVALID: [u8; 16] = [0; 16];
-    pub const INVALID: Self = Self { kind: Self::KIND_INVALID, port: Self::PORT_INVALID, address: Self::ADDRESS_INVALID };
-
-}
 
 pub struct MessageReceiver {
     sourceVersion: ProtocolVersion,
     sourceVendorId: VendorId,
     sourceGuidPrefix: GuidPrefix,
     destGuidPrefix: GuidPrefix,
-    unicastReplyLocatorList: Vec<LocatorList>,
-    multicastReplyLocatorList: Vec<LocatorList>,
+    unicastReplyLocatorList: Vec<Locator>,
+    multicastReplyLocatorList: Vec<Locator>,
     haveTimestamp: bool,
-    timestamp: TimeStamp,
+    timestamp: Timestamp,
 }
 
 impl MessageReceiver {
@@ -52,14 +23,14 @@ impl MessageReceiver {
             sourceVendorId: VendorId::VENDORID_UNKNOW,
             sourceGuidPrefix: GuidPrefix::UNKNOW,
             destGuidPrefix: participant_guidprefix,
-            unicastReplyLocatorList: vec!(LocatorList::INVALID),
-            multicastReplyLocatorList: vec!(LocatorList::INVALID),
+            unicastReplyLocatorList: vec!(Locator::INVALID),
+            multicastReplyLocatorList: vec!(Locator::INVALID),
             haveTimestamp: false,
-            timestamp: TimeStamp::TIME_INVALID,
+            timestamp: Timestamp::TIME_INVALID,
         }
     }
 
-    pub fn handle_packet(packets: Vec<UdpMessage>) {
+    pub fn handle_packet(&self, packets: Vec<UdpMessage>) {
         for packet in packets {
             // Is DDSPING
             let msg = packet.message;
@@ -69,7 +40,7 @@ impl MessageReceiver {
                     return;
                 }
             }
-            let packet_buf =msg.freeze();
+            let packet_buf = msg.freeze();
             let rtps_header_buf = packet_buf.slice(..20);
             let rtps_header = match Header::read_from_buffer(&rtps_header_buf) {
                 Ok(h) => h,
@@ -88,7 +59,7 @@ impl MessageReceiver {
                 // Messageの拡張の実装
                 let submessage_header = match SubMessageHeader::read_from_buffer(&submessage_header_buf) {
                     Ok(h) => h,
-                    Err(e) => panic!("{:?}", e),
+                    Err(_) => break,
                 };
                 let submessage_body_buf = rtps_body_buf.split_to(submessage_header.get_len() as usize);
                 let submessage = SubMessage::new(submessage_header, submessage_body_buf);
@@ -98,7 +69,31 @@ impl MessageReceiver {
                 }
             }
             let rtps_message = Message::new( rtps_header, submessages );
-            rtps_message.handle_submessages();
+            self.handle_parsed_packet(rtps_message);
         }
+    }
+
+    fn handle_parsed_packet(&self, rtps_msg: Message){
+        // TODO: 自身のメンバー変数をメッセージのヘッダに従って更新
+        println!(">>>>>>>>>>>>>>>>");
+        println!("header: {:?}", rtps_msg.header);
+        for submsg in rtps_msg.submessages {
+            println!("submessage header: {:?}", submsg.header);
+            println!("submessage kind: {:?}", submsg.header.get_submessagekind());
+            match submsg.body {
+                SubMessageBody::Entity(e) => self.handle_entity_submessage(e),
+                SubMessageBody::Interpreter(i) => self.handle_interpreter_submessage(i),
+            }
+        }
+        println!("<<<<<<<<<<<<<<<<\n");
+    }
+
+    fn handle_entity_submessage(&self, e: EntitySubmessage) {
+        println!("handle entity submsg");
+        todo!();
+    }
+    fn handle_interpreter_submessage(&self, i: InterpreterSubmessage) {
+        println!("handle entity submsg");
+        todo!();
     }
 }
