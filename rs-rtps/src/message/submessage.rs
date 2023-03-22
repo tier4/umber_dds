@@ -1,11 +1,14 @@
 pub mod submessage_flag;
 pub mod submessage_header;
-pub mod serialize;
 pub mod element;
 use speedy::Readable;
 use std::{fmt, fmt::Debug};
 use bytes::Bytes;
-use crate::message::submessage::{submessage_header::*, serialize::*};
+use crate::message::submessage::submessage_header::*;
+
+use enumflags2::BitFlags;
+use crate::message::submessage::submessage_flag::*;
+use crate::message::submessage::element::{acknack::AckNack, data::Data, datafrag::DataFrag, gap::Gap, heartbeat::Heartbeat, heartbeatfrag::HeartbeatFrag, nackfrag::NackFrag, infodst::InfoDestination, infosrc::InfoSource, inforeply::InfoReply, infots::InfoTimestamp};
 
 pub struct SubMessage {
     pub header: SubMessageHeader,
@@ -15,18 +18,50 @@ pub struct SubMessage {
 impl SubMessage {
 
     pub fn new(header: SubMessageHeader, body_buf: Bytes) -> Option<SubMessage> {
-        let body = match Self::parse_body_bud(body_buf) {
+        let body = match Self::parse_body_bud(&header, body_buf) {
             Some(b) => b,
             None => return None,
         };
         Some(SubMessage { header, body})
-
-
     }
 
-    fn parse_body_bud(body_buf: Bytes) -> Option<SubMessageBody> {
+    fn parse_body_bud(header: &SubMessageHeader, body_buf: Bytes) -> Option<SubMessageBody> {
+        println!("submessage header: {:?}", header);
+        print!("submessage {:?}: ", header.get_submessagekind());
+        for i in body_buf.iter() {
+            print!("0x{:02X} ", i);
+        }
+        println!();
         // TODO: body_buf をパースする
-        todo!();
+        // RustDDSでの該当箇所はsrc/dds/message_receiver.rs
+        // let rtps_message = match Message::read_from_buffer(msg_bytes)
+        // あたり
+        // DATAとかの構造体にdeseriarizerをもたせてるっぽい
+        let submessage_body = match header.get_submessagekind() {
+            // entity
+            SubMessageKind::DATA => {
+                let f = BitFlags::<DataFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Entity(
+                    EntitySubmessage::Data(Data::deserialize_data(&body_buf, f), f)
+                )
+            },
+            /*
+            SubMessageKind::DATA_FRAG => (),
+            SubMessageKind::HEARTBEAT => (),
+            SubMessageKind::HEARTBEAT_FRAG => (),
+            SubMessageKind::GAP => (),
+            SubMessageKind::ACKNACK => (),
+            SubMessageKind::NACK_FRAG => (),
+            // interpreter
+            SubMessageKind::INFO_SRC => (),
+            SubMessageKind::INFO_DST => (),
+            SubMessageKind::INFO_TS => (),
+            SubMessageKind::INFO_REPLY => (),
+            SubMessageKind::INFO_REPLY_IP4 => (),
+            */
+            _ => return None,
+        };
+        Some(submessage_body)
     }
 }
 
@@ -76,3 +111,20 @@ impl Debug for SubMessageKind {
     }
 }
 
+pub enum EntitySubmessage {
+    Data(Data, BitFlags<DataFlag>),
+    DataFrag(DataFrag, BitFlags<DataFragFlag>),
+    HeartBeat(Heartbeat, BitFlags<HeartbeatFlag>),
+    HeartbeatFrag(HeartbeatFrag, BitFlags<HeartbeatFragFlag>),
+    Gap(Gap, BitFlags<GapFlag>),
+    AckNack(AckNack, BitFlags<AckNackFlag>),
+    NackFrag(NackFrag, BitFlags<NackFragFlag>),
+}
+
+pub enum InterpreterSubmessage{
+    InfoSource(InfoSource, InfoSourceFlag),
+    InfoDestinatio(InfoDestination, InfoDestionationFlag),
+    InfoTImestamp(InfoTimestamp, InfoTimestampFlag),
+    InfoReply(InfoReply, InfoReplyFlag),
+    Pad,
+}

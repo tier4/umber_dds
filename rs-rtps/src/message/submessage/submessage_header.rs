@@ -9,8 +9,12 @@ pub struct SubMessageHeader {
 }
 
 impl SubMessageHeader {
-    pub fn get_len(&self) -> u16 {
+    pub fn get_content_len(&self) -> u16 {
         self.submessageLength
+    }
+
+    pub fn get_flags(&self) -> u8 {
+        self.flags
     }
 
     pub fn get_submessagekind(&self) -> SubMessageKind {

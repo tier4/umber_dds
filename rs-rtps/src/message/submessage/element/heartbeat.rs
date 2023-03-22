@@ -1,5 +1,6 @@
 use crate::structure::entityId::*;
-use crate::message::submessage::element::*;
+use crate::message::submessage::{element::*, submessage_flag::HeartbeatFlag};
+use enumflags2::BitFlags;
 
 pub struct Heartbeat {
     readerId: EntityId,
@@ -12,4 +13,10 @@ pub struct Heartbeat {
     lastGSN: SequenceNumber,
     writerSet: GroupDigest,
     secureWriterSet: GroupDigest,
+}
+
+impl Heartbeat {
+    pub fn deserialize_data(buffer: &Bytes, flags: BitFlags<HeartbeatFlag>) {
+        todo!();
+    }
 }

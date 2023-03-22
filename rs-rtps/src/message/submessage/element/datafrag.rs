@@ -1,5 +1,6 @@
 use crate::structure::entityId::*;
-use crate::message::submessage::element::*;
+use crate::message::submessage::{element::*, submessage_flag::DataFragFlag};
+use enumflags2::BitFlags;
 
 pub struct DataFrag {
     readerId: EntityId,
@@ -9,4 +10,10 @@ pub struct DataFrag {
     fragmentInSubmessage: u16,
     inlineQos: ParameterList,
     serializedPayload: SerializedPayload,
+}
+
+impl DataFragFlag {
+    pub fn deserialize_data(buffer: &Bytes, flags: BitFlags<DataFragFlag>) {
+        todo!();
+    }
 }

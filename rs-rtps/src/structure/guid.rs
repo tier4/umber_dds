@@ -11,7 +11,7 @@ impl GUID {
     pub const UNKNOW: Self = Self {guidPrefix: GuidPrefix::UNKNOW, entityId: EntityId::UNKNOW};
 }
 
-#[derive(Readable, Debug)]
+#[derive(Readable, Debug, Clone, Copy)]
 pub struct GuidPrefix {
     pub guid_prefix: [u8; 12],
 }

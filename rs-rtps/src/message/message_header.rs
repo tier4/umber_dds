@@ -15,7 +15,7 @@ impl ProtocolVersion {
 
 
 #[derive(Readable, Debug)]
-struct ProtocolId {
+pub struct ProtocolId {
     protocol_id: [u8; 4],
 }
 
@@ -27,8 +27,8 @@ impl ProtocolId {
 
 #[derive(Readable, Debug)]
 pub struct Header {
-    protocol: ProtocolId,
-    version: ProtocolVersion,
-    vendorId: VendorId,
-    guidPrefix: GuidPrefix,
+    pub protocol: ProtocolId,
+    pub version: ProtocolVersion,
+    pub vendorId: VendorId,
+    pub guidPrefix: GuidPrefix,
 }

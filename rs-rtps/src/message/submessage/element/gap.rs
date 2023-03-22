@@ -1,11 +1,18 @@
 use crate::structure::entityId::*;
-use crate::message::submessage::element::*;
+use crate::message::submessage::{element::*, submessage_flag::GapFlag};
+use enumflags2::BitFlags;
 
-struct Gap {
+pub struct Gap {
     readerId: EntityId,
     writerId: EntityId,
     gapStart: SequenceNumber,
     gapList: SequenceNumberSet,
     gapStartGSN: SequenceNumber,
     gapEndGSN: SequenceNumber,
+}
+
+impl Gap {
+    pub fn deserialize_data(buffer: &Bytes, flags: BitFlags<GapFlag>) {
+        todo!();
+    }
 }
