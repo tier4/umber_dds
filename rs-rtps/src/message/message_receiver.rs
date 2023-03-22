@@ -1,9 +1,11 @@
-use crate::message::{*, submessage::{*, submessage_header::*, serialize::*, element::*}};
+use crate::message::{
+    submessage::{element::*, serialize::*, submessage_header::*, *},
+    *,
+};
 use crate::net_util::*;
-use speedy::Readable;
 use crate::structure::{guid::*, vendorId::*};
 use bytes::Bytes;
-
+use speedy::Readable;
 
 pub struct MessageReceiver {
     own_guidPrefix: GuidPrefix,
@@ -25,8 +27,8 @@ impl MessageReceiver {
             sourceVendorId: VendorId::VENDORID_UNKNOW,
             sourceGuidPrefix: GuidPrefix::UNKNOW,
             destGuidPrefix: GuidPrefix::UNKNOW,
-            unicastReplyLocatorList: vec!(Locator::INVALID),
-            multicastReplyLocatorList: vec!(Locator::INVALID),
+            unicastReplyLocatorList: vec![Locator::INVALID],
+            multicastReplyLocatorList: vec![Locator::INVALID],
             haveTimestamp: false,
             timestamp: Timestamp::TIME_INVALID,
         }
@@ -70,10 +72,11 @@ impl MessageReceiver {
                 let submessage_header_buf = rtps_body_buf.split_to(4);
                 // TODO: Message Receiverが従うルール (spec 8.3.4.1)に沿った実装に変更
                 // 不正なsubmessageを受信した場合、残りのMessageは無視
-                let submessage_header = match SubMessageHeader::read_from_buffer(&submessage_header_buf) {
-                    Ok(h) => h,
-                    Err(_) => break,
-                };
+                let submessage_header =
+                    match SubMessageHeader::read_from_buffer(&submessage_header_buf) {
+                        Ok(h) => h,
+                        Err(_) => break,
+                    };
                 // RTPS spec 2.3, section 9.4.5.1.3
                 let submessage_body_len = if submessage_header.get_content_len() == 0 {
                     match submessage_header.get_submessagekind() {
@@ -91,12 +94,12 @@ impl MessageReceiver {
                     None => println!("received UNKNOWN_RTPS or VENDORSPECIFIC"),
                 }
             }
-            let rtps_message = Message::new( rtps_header, submessages );
+            let rtps_message = Message::new(rtps_header, submessages);
             self.handle_parsed_packet(rtps_message);
         }
     }
 
-    fn handle_parsed_packet(&mut self, rtps_msg: Message){
+    fn handle_parsed_packet(&mut self, rtps_msg: Message) {
         self.reset();
         self.destGuidPrefix = self.own_guidPrefix;
         self.sourceGuidPrefix = rtps_msg.header.guidPrefix;

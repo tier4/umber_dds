@@ -1,5 +1,5 @@
 use crate::message::message_header::*;
-use crate::structure::{vendorId::*, guid::*};
+use crate::structure::{guid::*, vendorId::*};
 
 pub struct InfoSource {
     protocolVersion: ProtocolVersion,

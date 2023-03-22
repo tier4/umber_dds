@@ -6,7 +6,6 @@ pub struct VendorId {
 }
 
 impl VendorId {
-
     // not assigned by OMG DDS SIG yet
     // In 2023/03/09 [0x01, 0x01] to [0x01, 0x13] is reserved
     // https://www.dds-foundation.org/dds-rtps-vendor-and-product-ids/
@@ -18,6 +17,6 @@ impl VendorId {
     pub const THIS_IMPLEMENTATION: Self = Self::TIER4;
 
     pub const VENDORID_UNKNOW: Self = Self {
-        vendor_id: [0x00; 2]
+        vendor_id: [0x00; 2],
     };
 }

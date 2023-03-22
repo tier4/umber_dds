@@ -1,9 +1,9 @@
 pub mod acknack;
-pub mod datafrag;
 pub mod data;
+pub mod datafrag;
 pub mod gap;
-pub mod heartbeatfrag;
 pub mod heartbeat;
+pub mod heartbeatfrag;
 pub mod infodst;
 pub mod inforeply;
 pub mod infosrc;
@@ -62,7 +62,11 @@ impl Locator {
     pub const KIND_UDPv6: i64 = 2;
     pub const PORT_INVALID: u64 = 0;
     pub const ADDRESS_INVALID: [u8; 16] = [0; 16];
-    pub const INVALID: Self = Self { kind: Self::KIND_INVALID, port: Self::PORT_INVALID, address: Self::ADDRESS_INVALID };
+    pub const INVALID: Self = Self {
+        kind: Self::KIND_INVALID,
+        port: Self::PORT_INVALID,
+        address: Self::ADDRESS_INVALID,
+    };
 }
 pub type LocatorList = Vec<Locator>;
 

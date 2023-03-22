@@ -1,14 +1,18 @@
+pub mod element;
 pub mod submessage_flag;
 pub mod submessage_header;
-pub mod element;
+use crate::message::submessage::submessage_header::*;
+use bytes::Bytes;
 use speedy::Readable;
 use std::{fmt, fmt::Debug};
-use bytes::Bytes;
-use crate::message::submessage::submessage_header::*;
 
-use enumflags2::BitFlags;
+use crate::message::submessage::element::{
+    acknack::AckNack, data::Data, datafrag::DataFrag, gap::Gap, heartbeat::Heartbeat,
+    heartbeatfrag::HeartbeatFrag, infodst::InfoDestination, inforeply::InfoReply,
+    infosrc::InfoSource, infots::InfoTimestamp, nackfrag::NackFrag,
+};
 use crate::message::submessage::submessage_flag::*;
-use crate::message::submessage::element::{acknack::AckNack, data::Data, datafrag::DataFrag, gap::Gap, heartbeat::Heartbeat, heartbeatfrag::HeartbeatFrag, nackfrag::NackFrag, infodst::InfoDestination, infosrc::InfoSource, inforeply::InfoReply, infots::InfoTimestamp};
+use enumflags2::BitFlags;
 
 pub struct SubMessage {
     pub header: SubMessageHeader,
@@ -16,13 +20,12 @@ pub struct SubMessage {
 }
 
 impl SubMessage {
-
     pub fn new(header: SubMessageHeader, body_buf: Bytes) -> Option<SubMessage> {
         let body = match Self::parse_body_bud(&header, body_buf) {
             Some(b) => b,
             None => return None,
         };
-        Some(SubMessage { header, body})
+        Some(SubMessage { header, body })
     }
 
     fn parse_body_bud(header: &SubMessageHeader, body_buf: Bytes) -> Option<SubMessageBody> {
@@ -41,10 +44,11 @@ impl SubMessage {
             // entity
             SubMessageKind::DATA => {
                 let f = BitFlags::<DataFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Entity(
-                    EntitySubmessage::Data(Data::deserialize_data(&body_buf, f), f)
-                )
-            },
+                SubMessageBody::Entity(EntitySubmessage::Data(
+                    Data::deserialize_data(&body_buf, f),
+                    f,
+                ))
+            }
             /*
             SubMessageKind::DATA_FRAG => (),
             SubMessageKind::HEARTBEAT => (),
@@ -89,7 +93,6 @@ pub enum SubMessageKind {
 }
 
 impl Debug for SubMessageKind {
-
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Self::PAD => fmt.write_str("PAD"),
@@ -121,7 +124,7 @@ pub enum EntitySubmessage {
     NackFrag(NackFrag, BitFlags<NackFragFlag>),
 }
 
-pub enum InterpreterSubmessage{
+pub enum InterpreterSubmessage {
     InfoSource(InfoSource, InfoSourceFlag),
     InfoDestinatio(InfoDestination, InfoDestionationFlag),
     InfoTImestamp(InfoTimestamp, InfoTimestampFlag),

@@ -1,7 +1,7 @@
-use socket2::{Socket, SockAddr, Domain, Type, Protocol};
-use std::net::{Ipv4Addr, SocketAddr};
-use std::net::UdpSocket; // RustDDS use mio::net::UdpSocket here. I dont'n know why they don't use
-                         // std::net::UdpSocket so, I use std::net::UdpSocket.
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use std::net::UdpSocket;
+use std::net::{Ipv4Addr, SocketAddr}; // RustDDS use mio::net::UdpSocket here. I dont'n know why they don't use
+                                      // std::net::UdpSocket so, I use std::net::UdpSocket.
 use std::io;
 
 struct UdpSender {
@@ -10,9 +10,7 @@ struct UdpSender {
 }
 
 impl UdpSender {
-
     fn new(sender_port: u16) -> io::Result<Self> {
-        
         let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), sender_port);
         let unicast_socket = UdpSocket::bind(addr).unwrap();
         // TODO: open multicast sockets
@@ -27,7 +25,9 @@ impl UdpSender {
         udp_socket.set_nonblocking(true).expect("Clouldn't set nonbloking");
         let mio_socket = UdpSocket::from_std(udp_socket); */
         let mut multicast_sockets: Vec<UdpSocket> = Vec::new();
-        Ok(Self {unicast_socket, multicast_sockets })
+        Ok(Self {
+            unicast_socket,
+            multicast_sockets,
+        })
     }
-
 }

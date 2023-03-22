@@ -1,5 +1,5 @@
-use crate::structure::entityId::*;
 use crate::message::submessage::{element::*, submessage_flag::AckNackFlag};
+use crate::structure::entityId::*;
 use enumflags2::BitFlags;
 
 pub struct AckNack {

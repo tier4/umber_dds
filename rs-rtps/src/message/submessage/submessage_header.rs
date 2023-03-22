@@ -1,5 +1,5 @@
-use speedy::Readable;
 use crate::message::submessage::*;
+use speedy::Readable;
 
 #[derive(Readable, Debug)]
 pub struct SubMessageHeader {
@@ -44,7 +44,4 @@ impl SubMessageHeader {
             _ => panic!("result of (flags & 0x01) isn't 0 or 1"),
         }
     }
-
 }
-
-

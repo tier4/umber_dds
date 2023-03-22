@@ -2,7 +2,7 @@ use std::net::{Ipv4Addr, UdpSocket};
 mod network;
 use network::{net_util, udp_listinig_socket};
 mod dds;
-use dds::{participant::DomainParticipant, event_loop};
+use dds::{event_loop, participant::DomainParticipant};
 mod message;
 mod structure;
 

@@ -1,5 +1,5 @@
-use crate::structure::entityId::*;
 use crate::message::submessage::{element::*, submessage_flag::NackFragFlag};
+use crate::structure::entityId::*;
 use enumflags2::BitFlags;
 
 pub struct NackFrag {
