@@ -1,5 +1,5 @@
 use crate::message::{
-    submessage::{element::*, serialize::*, submessage_header::*, *},
+    submessage::{element::*, submessage_header::*, *},
     *,
 };
 use crate::net_util::*;
