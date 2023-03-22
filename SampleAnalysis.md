@@ -67,12 +67,22 @@ DPEventLoop::new() {
 
 network/udp_sender.rs
 ```
+// 構造体UDPSender を定義している理由はおそらく、LocatorListを受け取ってそこにデータを送信するためには、複数のSocketを１つの構造体にまとめて管理しておいたほうが便利だから。
 UDPSender::new() {
     let unicast_socket = {
         let saddr: SocketAddr = SocketAddr::new("0.0.0.0".parse().unwrap(), sender_port);
         UdpSocket::bind(&saddr)?
         // UDP *:35442をオープン
     };
+    // We set multicasting loop on so that we can hear other DomainParticipant
+    // instances running on the same host.
+    // unicast_socketがunicastでのデータの送信だけに使うのであれば、multicast_loop_v4をtrueにする必要はないのでは？
+    // multicastの受信に使うの？
+    // ここではUdpSocketがmio::UdpSocketになってるのはなんで？
+    // net::UdpSocketで良くないの？
+    unicast_socket UdpSocket
+        .set_multicast_loop_v4(true)
+
     let mut multicast_sockets = Vec::with_capacity(1);
     for multicast_if_ipaddr in get_local_multicast_ip_addrs()? {
         // 69d7d3c3fefa:39541をオープン
@@ -264,6 +274,8 @@ dds/message_receiver.rs
 
 MessageReceiverは仕様書 8.3.4: The RTPS Message Receiver で説明されている、submessageの連続体を解釈するもの。submaessageの連続体をパースするためにmessage/submessageのデシリアライザーを呼ぶ。そして、Interpreter Submessageの命令を実行し、Entity Submessageのデータを適切なEntityに渡す(仕様書 8.3.7を参照)
 
+(spec 8.3.4)Submessageの解釈と意味は同じMessageに含まれるそれより前のSubmessageに依存する。したがってMessageのreceiverは同じMessageに含まれるそれ以前にdeserializeされたSubmessageの状態を管理しなければならない。RTPS receiverの状態としてmodelされた状態は、新しいmessageが処理されたときにリセットされ、それぞれのSubmessageの解釈に文脈を提供する
+
 /src/dds/message_receiver.rs
 
 ~~TODO:~~
@@ -282,7 +294,6 @@ MessageReceiver::new()で*_reply_locator_listの初期値が`vec![Locator::Inval
 6. 既知だが、無効なSubmessageは残りのMessageを無効にする。
 
 ### guid_prefix, EntityIdの調査
-TODO:
 - guid_prefix
     先頭2 octetはvenderIdの先頭2 octetと同じにする。これによってDDS Domain内で複数のRTPS実装が使われてもguidが衝突しない。残りの 10 octetは衝突しなければどんな方法で生成してもいい。(p. 144)
 
@@ -311,6 +322,8 @@ impl Timestamp {
         Self {
             seconds: (nanos_since_unix_epoch / 1_000_000_000) as u32,
             fraction: (((nanos_since_unix_epoch % 1_000_000_000) << 32) / 1_000_000_000) as u32,
+        }
+    }
 }
 ```
 8 octet(64 bit)で上位4 octetがunix epochの秒の部分、下位4 octetがunix epochの秒より細かい部分
@@ -345,6 +358,13 @@ RTPS SubmessageはInterpreter-SubmessageとEntity-Submessageの２グループ�
 
 Submessage IDごとにそれぞれ処理する
 
+## Submessage
+submessageId: 1 octet, flags: 1 octet, octetsToNexHeader: 2 octet
+
+flagsの各ビットの意味はSubmessageの種類によって変化する
+
+各Submessageの詳細はp. 45〜
+
 
 ## DomainParticipant::new(domain_id)からの実行path
 ```
@@ -362,6 +382,13 @@ submessageIdは0x00..=0x7fの範囲はRTPSプロトコルで予約されてい�
 0x80..=0xffはベンダーが自由に使うために予約されている。
 RTPS version 2.4では13種類のSubmessageKindが定義されているが、メジャーバージョン増えると増える可能性がある。
 enumだとsubmessageIdがv2.4で定義された13種類以外を受信したときにそのIDを保持できないから。
+
+### Heartbeatのflag
+RTPS 2.3のspec 8.3.7.5にはHeartbeatのflagは[Endianness, Final, Liveliness, GroupInfo]の4つがあるけど、
+RustDDSにはGroupInfoがなくて3つしかない。(WireSharkもGroupInfoがない)
+
+TODO: RTPS 2.4で削除された可能性があるので調査
+-> 2.4の仕様書が見つからない。2.3の次が2.5になってる。
 
 ## 用語集
 https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html
@@ -412,4 +439,8 @@ SO_REUSEADDRを設定するため
 https://hana-shin.hatenablog.com/entry/2022/10/18/205924
 リスニングソケットではSO_REUSEADRをtrueに設定するのが一般的
 
+- enumflags2 crate
+https://github.com/meithecatte/enumflags2
+
+bitflags crateににたAPIを提供するbitflagを扱うためのクレート
 
