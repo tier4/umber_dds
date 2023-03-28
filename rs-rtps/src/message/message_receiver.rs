@@ -1,5 +1,5 @@
 use crate::message::{
-    submessage::{element::*, submessage_header::*, *},
+    submessage::{element::*, submessage_flag::*, submessage_header::*, *},
     *,
 };
 use crate::net_util::*;
@@ -62,14 +62,10 @@ impl MessageReceiver {
                 Err(e) => panic!("{:?}", e),
             };
             let mut rtps_body_buf = packet_buf.slice(20..);
-            // ループの中で
-            // bufの4byteをSubMessageHeaderにシリアライズ
-            // bufの4からoctetsToNextHeaderをSubMessageBodyにシリアライズ
-            // Vecに突っ込む
             let mut submessages: Vec<SubMessage> = Vec::new();
             let sub_header_lenght = 4;
             while !rtps_body_buf.is_empty() {
-                let submessage_header_buf = rtps_body_buf.split_to(4);
+                let submessage_header_buf = rtps_body_buf.split_to(sub_header_lenght);
                 // TODO: Message Receiverが従うルール (spec 8.3.4.1)に沿った実装に変更
                 // 不正なsubmessageを受信した場合、残りのMessageは無視
                 let submessage_header =
@@ -120,8 +116,40 @@ impl MessageReceiver {
         println!("handle entity submsg");
         todo!();
     }
-    fn handle_interpreter_submessage(&self, i: InterpreterSubmessage) {
-        println!("handle entity submsg");
-        todo!();
+    fn handle_interpreter_submessage(&mut self, interpreter_subm: InterpreterSubmessage) {
+        println!("handle interpreter submsg");
+        match interpreter_subm {
+            InterpreterSubmessage::InfoReply(info_reply, flags) => {
+                self.unicastReplyLocatorList = info_reply.unicastLocatorList;
+                if flags.contains(InfoReplyFlag::Multicast) {
+                    self.multicastReplyLocatorList = info_reply.multicastLocatorList;
+                } else {
+                    self.multicastReplyLocatorList.clear();
+                }
+            }
+            InterpreterSubmessage::InfoTImestamp(info_ts, flags) => {
+                if !flags.contains(InfoTimestampFlag::Invalidate) {
+                    self.haveTimestamp = true;
+                    self.timestamp = info_ts.timestamp;
+                } else {
+                    self.haveTimestamp = false;
+                }
+            }
+            InterpreterSubmessage::InfoSource(info_souce, _flags) => {
+                self.sourceGuidPrefix = info_souce.guidPrefix;
+                self.sourceVersion = info_souce.protocolVersion;
+                self.sourceVendorId = info_souce.vendorId;
+                self.unicastReplyLocatorList.clear();
+                self.multicastReplyLocatorList.clear();
+                self.haveTimestamp = false;
+            }
+            InterpreterSubmessage::InfoDestinatio(info_dst, _flags) => {
+                if info_dst.guidPrefix != GuidPrefix::UNKNOW {
+                    self.destGuidPrefix = info_dst.guidPrefix;
+                } else {
+                    self.destGuidPrefix = self.own_guidPrefix;
+                }
+            }
+        }
     }
 }

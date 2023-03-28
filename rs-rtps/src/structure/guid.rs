@@ -14,7 +14,7 @@ impl GUID {
     };
 }
 
-#[derive(Readable, Debug, Clone, Copy)]
+#[derive(Readable, Debug, Clone, Copy, PartialEq)]
 pub struct GuidPrefix {
     pub guid_prefix: [u8; 12],
 }

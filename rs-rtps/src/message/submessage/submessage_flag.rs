@@ -1,4 +1,3 @@
-
 use enumflags2::bitflags;
 
 #[derive(Clone, Copy)]

@@ -125,9 +125,8 @@ pub enum EntitySubmessage {
 }
 
 pub enum InterpreterSubmessage {
-    InfoSource(InfoSource, InfoSourceFlag),
-    InfoDestinatio(InfoDestination, InfoDestionationFlag),
-    InfoTImestamp(InfoTimestamp, InfoTimestampFlag),
-    InfoReply(InfoReply, InfoReplyFlag),
-    Pad,
+    InfoSource(InfoSource, BitFlags<InfoSourceFlag>),
+    InfoDestinatio(InfoDestination, BitFlags<InfoDestionationFlag>),
+    InfoTImestamp(InfoTimestamp, BitFlags<InfoTimestampFlag>),
+    InfoReply(InfoReply, BitFlags<InfoReplyFlag>),
 }
