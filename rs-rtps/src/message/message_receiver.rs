@@ -112,9 +112,18 @@ impl MessageReceiver {
         println!("<<<<<<<<<<<<<<<<\n");
     }
 
-    fn handle_entity_submessage(&self, e: EntitySubmessage) {
+    fn handle_entity_submessage(&self, entity_subm: EntitySubmessage) {
         println!("handle entity submsg");
         todo!();
+        match entity_subm {
+            EntitySubmessage::AckNack(acknack, flags) => (),
+            EntitySubmessage::Data(data, flags) => (),
+            EntitySubmessage::DataFrag(dat_frag, flags) => (),
+            EntitySubmessage::Gap(gap, flags) => (),
+            EntitySubmessage::HeartBeat(heartbeat, flags) => (),
+            EntitySubmessage::HeartbeatFrag(heartbeatfrag, flags) => (),
+            EntitySubmessage::NackFrag(nack_frag, flags) => (),
+        }
     }
     fn handle_interpreter_submessage(&mut self, interpreter_subm: InterpreterSubmessage) {
         println!("handle interpreter submsg");
