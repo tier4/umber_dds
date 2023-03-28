@@ -11,7 +11,7 @@ pub struct Data {
 }
 
 impl Data {
-    pub fn deserialize_data(buffer: &Bytes, flags: BitFlags<DataFlag>) -> Self {
-        todo!();
+    pub fn deserialize_data(buffer: &Bytes, flags: BitFlags<DataFlag>) -> std::io::Result<Self> {
+        todo!(); // TODO:
     }
 }

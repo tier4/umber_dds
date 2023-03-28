@@ -11,6 +11,7 @@ pub mod infots;
 pub mod nackfrag;
 
 use bytes::Bytes;
+use speedy::Readable;
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
 
@@ -22,6 +23,7 @@ pub type FragmentNumber = u32;
 pub type SequenceNumberSet = NumberSet<SequenceNumber>;
 pub type FragmentNumberSet = NumberSet<FragmentNumber>;
 
+#[derive(Readable)]
 struct NumberSet<T> {
     bitmap_base: T,
     num_bits: u32,
@@ -36,6 +38,7 @@ pub struct Parameter {
 }
 pub type ParameterList = Vec<Parameter>;
 
+#[derive(Readable)]
 pub struct Timestamp {
     seconds: u32,
     fraction: u32,
@@ -49,6 +52,7 @@ impl Timestamp {
 }
 
 // spec versin 2.3 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
+#[derive(Readable)]
 pub struct Locator {
     kind: i64,
     port: u64,

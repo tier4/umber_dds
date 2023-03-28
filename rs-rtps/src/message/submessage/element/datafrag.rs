@@ -12,8 +12,8 @@ pub struct DataFrag {
     serializedPayload: SerializedPayload,
 }
 
-impl DataFragFlag {
-    pub fn deserialize_data(buffer: &Bytes, flags: BitFlags<DataFragFlag>) {
-        todo!();
+impl DataFrag {
+    pub fn deserialize(buffer: &Bytes, flags: BitFlags<DataFragFlag>) -> std::io::Result<Self> {
+        todo!(); // TODO:
     }
 }

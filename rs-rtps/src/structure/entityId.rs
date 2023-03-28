@@ -1,4 +1,7 @@
+use speedy::Readable;
+
 // spec 9.2.2
+#[derive(PartialEq, Readable)]
 pub struct EntityId {
     entityKey: [u8; 3],
     entityKind: EntityKind,
@@ -11,6 +14,7 @@ impl EntityId {
     };
 }
 
+#[derive(PartialEq, Readable)]
 struct EntityKind {
     value: u8,
 }

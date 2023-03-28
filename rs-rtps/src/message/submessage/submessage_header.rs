@@ -1,5 +1,5 @@
 use crate::message::submessage::*;
-use speedy::Readable;
+use speedy::{Endianness, Readable};
 
 #[derive(Readable, Debug)]
 pub struct SubMessageHeader {
@@ -15,6 +15,14 @@ impl SubMessageHeader {
 
     pub fn get_flags(&self) -> u8 {
         self.flags
+    }
+
+    pub fn get_endian(&self) -> Endianness {
+        if (self.flags & 0x01) == 0 {
+            Endianness::BigEndian
+        } else {
+            Endianness::LittleEndian
+        }
     }
 
     pub fn get_submessagekind(&self) -> SubMessageKind {

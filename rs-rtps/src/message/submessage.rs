@@ -20,52 +20,108 @@ pub struct SubMessage {
 }
 
 impl SubMessage {
-    pub fn new(header: SubMessageHeader, body_buf: Bytes) -> Option<SubMessage> {
-        let body = match Self::parse_body_bud(&header, body_buf) {
-            Some(b) => b,
-            None => return None,
-        };
-        Some(SubMessage { header, body })
+    pub fn new(header: SubMessageHeader, body_buf: Bytes) -> std::io::Result<SubMessage> {
+        let body = Self::parse_body_bud(&header, body_buf)?;
+        Ok(SubMessage { header, body })
     }
 
-    fn parse_body_bud(header: &SubMessageHeader, body_buf: Bytes) -> Option<SubMessageBody> {
+    fn parse_body_bud(
+        header: &SubMessageHeader,
+        body_buf: Bytes,
+    ) -> std::io::Result<SubMessageBody> {
         println!("submessage header: {:?}", header);
         print!("submessage {:?}: ", header.get_submessagekind());
         for i in body_buf.iter() {
             print!("0x{:02X} ", i);
         }
         println!();
-        // TODO: body_buf をパースする
-        // RustDDSでの該当箇所はsrc/dds/message_receiver.rs
-        // let rtps_message = match Message::read_from_buffer(msg_bytes)
-        // あたり
-        // DATAとかの構造体にdeseriarizerをもたせてるっぽい
+        // DATA, DataFragはdeseriarizeにflagがひつようだからdeserializerを自前で実装
+        // それ以外はspeedyをつかってdeserialize
+        let e = header.get_endian();
         let submessage_body = match header.get_submessagekind() {
             // entity
             SubMessageKind::DATA => {
-                let f = BitFlags::<DataFlag>::from_bits_truncate(header.get_flags());
+                let flags = BitFlags::<DataFlag>::from_bits_truncate(header.get_flags());
                 SubMessageBody::Entity(EntitySubmessage::Data(
-                    Data::deserialize_data(&body_buf, f),
-                    f,
+                    Data::deserialize_data(&body_buf, flags)?,
+                    flags,
                 ))
             }
-            /*
-            SubMessageKind::DATA_FRAG => (),
-            SubMessageKind::HEARTBEAT => (),
-            SubMessageKind::HEARTBEAT_FRAG => (),
-            SubMessageKind::GAP => (),
-            SubMessageKind::ACKNACK => (),
-            SubMessageKind::NACK_FRAG => (),
+            SubMessageKind::DATA_FRAG => {
+                let flags = BitFlags::<DataFragFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Entity(EntitySubmessage::DataFrag(
+                    DataFrag::deserialize(&body_buf, flags)?,
+                    flags,
+                ))
+            }
+            SubMessageKind::HEARTBEAT => {
+                let flags = BitFlags::<HeartbeatFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Entity(EntitySubmessage::HeartBeat(
+                    Heartbeat::read_from_buffer_with_ctx(e, &body_buf)?,
+                    flags,
+                ))
+            }
+            SubMessageKind::HEARTBEAT_FRAG => {
+                let flags = BitFlags::<HeartbeatFragFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Entity(EntitySubmessage::HeartbeatFrag(
+                    HeartbeatFrag::read_from_buffer_with_ctx(e, &body_buf)?,
+                    flags,
+                ))
+            }
+            SubMessageKind::GAP => {
+                let flags = BitFlags::<GapFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Entity(EntitySubmessage::Gap(
+                    Gap::read_from_buffer_with_ctx(e, &body_buf)?,
+                    flags,
+                ))
+            }
+            SubMessageKind::ACKNACK => {
+                let flags = BitFlags::<AckNackFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Entity(EntitySubmessage::AckNack(
+                    AckNack::read_from_buffer_with_ctx(e, &body_buf)?,
+                    flags,
+                ))
+            }
+            SubMessageKind::NACK_FRAG => {
+                let flags = BitFlags::<NackFragFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Entity(EntitySubmessage::NackFrag(
+                    NackFrag::read_from_buffer_with_ctx(e, &body_buf)?,
+                    flags,
+                ))
+            }
             // interpreter
-            SubMessageKind::INFO_SRC => (),
-            SubMessageKind::INFO_DST => (),
-            SubMessageKind::INFO_TS => (),
-            SubMessageKind::INFO_REPLY => (),
-            SubMessageKind::INFO_REPLY_IP4 => (),
-            */
-            _ => return None,
+            SubMessageKind::INFO_SRC => {
+                let flags = BitFlags::<InfoSourceFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Interpreter(InterpreterSubmessage::InfoSource(
+                    InfoSource::read_from_buffer_with_ctx(e, &body_buf)?,
+                    flags,
+                ))
+            }
+            SubMessageKind::INFO_DST => {
+                let flags =
+                    BitFlags::<InfoDestionationFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Interpreter(InterpreterSubmessage::InfoDestinatio(
+                    InfoDestination::read_from_buffer_with_ctx(e, &body_buf)?,
+                    flags,
+                ))
+            }
+            SubMessageKind::INFO_TS => {
+                let flags = BitFlags::<InfoTimestampFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Interpreter(InterpreterSubmessage::InfoTImestamp(
+                    InfoTimestamp::read_from_buffer_with_ctx(e, &body_buf)?,
+                    flags,
+                ))
+            }
+            SubMessageKind::INFO_REPLY => {
+                let flags = BitFlags::<InfoReplyFlag>::from_bits_truncate(header.get_flags());
+                SubMessageBody::Interpreter(InterpreterSubmessage::InfoReply(
+                    InfoReply::read_from_buffer_with_ctx(e, &body_buf)?,
+                    flags,
+                ))
+            }
+            _ => todo!(),
         };
-        Some(submessage_body)
+        Ok(submessage_body)
     }
 }
 

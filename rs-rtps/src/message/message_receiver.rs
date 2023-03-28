@@ -86,8 +86,8 @@ impl MessageReceiver {
                 let submessage_body_buf = rtps_body_buf.split_to(submessage_body_len);
                 let submessage = SubMessage::new(submessage_header, submessage_body_buf);
                 match submessage {
-                    Some(msg) => submessages.push(msg),
-                    None => println!("received UNKNOWN_RTPS or VENDORSPECIFIC"),
+                    Ok(msg) => submessages.push(msg),
+                    Err(_) => println!("received UNKNOWN_RTPS or VENDORSPECIFIC"),
                 }
             }
             let rtps_message = Message::new(rtps_header, submessages);
