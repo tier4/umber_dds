@@ -356,6 +356,9 @@ Message.
 endianness_flagを取得
 RTPS SubmessageはInterpreter-SubmessageとEntity-Submessageの２グループに分けられる。(p. 44)
 
+Entity-Submessageは1つの RTPS Entityに向けたもの。
+Interpreter-SubmessageはRTPS Receiverの状態を変化させ、次のEntity-Submessageの処理を助けるコンテキストを提供する。
+
 Submessage IDごとにそれぞれ処理する
 
 ## Submessage
@@ -389,6 +392,57 @@ RustDDSにはGroupInfoがなくて3つしかない。(WireSharkもGroupInfoが�
 
 TODO: RTPS 2.4で削除された可能性があるので調査
 -> 2.4の仕様書が見つからない。2.3の次が2.5になってる。
+
+## AckNack
+Writerで使われるsequence numberに関連するReaderの状態を共有するためにReaderがWriterに送るsubmessage.
+
+AckNackは２つの目的を同時に提供する。
+- 
+- 
+
+```
+// src/dds/message_receiver.rs
+    EntitySubmessage::AckNack(acknack, _) => {
+        // Note: This must not block, because the receiving end is the same thread,
+        // i.e. blocking here is an instant deadlock.
+        match self
+            .acknack_sender
+            // このacknack_senderの対になるreceiverはMessagereceiverを所有しているDPEventLoopが持っている
+            // DPEventLoopがacknack_senderからなにか受け取ると、handle_writer_acknack_action()で処理する
+            .try_send((self.source_guid_prefix, AckSubmessage::AckNack(acknack)))
+        {
+            Ok(_) => (),
+            Err(TrySendError::Full(_)) => {
+                info!("AckNack pipe full. Looks like I am very busy. Discarding submessage.");
+            }
+            Err(e) => warn!("AckNack pipe fail: {:?}", e),
+        }
+    }
+// src/dds/dp_event_loop.rs
+    fn handle_writer_acknack_action(&mut self, _event: &Event) {
+        while let Ok((acknack_sender_prefix, acknack_submessage)) = self.ack_nack_receiver.try_recv() {
+            let writer_guid = GUID::new_with_prefix_and_id(
+                self.domain_info.domain_participant_guid.prefix,
+                acknack_submessage.writer_id(),
+            );
+            if let Some(found_writer) = self.writers.get_mut(&writer_guid.entity_id) {
+                if found_writer.is_reliable() {
+                    found_writer.handle_ack_nack(acknack_sender_prefix, &acknack_submessage);
+                }
+            } else {
+                warn!(
+                    "Couldn't handle acknack/nackfrag! Did not find local RTPS writer with GUID: {:x?}",
+                    writer_guid
+                );
+                continue;
+            }
+        }
+    }
+```
+
+### Data
+extraflagsってなに？
+wiresharkでみると2 octetあって、RustDDSの実装を見ると2 octet幅でどこでも使われてない。仕様書を探しても見つからない。
 
 ## 用語集
 https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html
