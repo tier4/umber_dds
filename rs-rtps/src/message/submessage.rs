@@ -9,7 +9,7 @@ use std::{fmt, fmt::Debug};
 use crate::message::submessage::element::{
     acknack::AckNack, data::Data, datafrag::DataFrag, gap::Gap, heartbeat::Heartbeat,
     heartbeatfrag::HeartbeatFrag, infodst::InfoDestination, inforeply::InfoReply,
-    infosrc::InfoSource, infots::InfoTimestamp, nackfrag::NackFrag,
+    inforeplyIp4::InfoReplyIp4, infosrc::InfoSource, infots::InfoTimestamp, nackfrag::NackFrag,
 };
 use crate::message::submessage::submessage_flag::*;
 use enumflags2::BitFlags;
@@ -17,112 +17,6 @@ use enumflags2::BitFlags;
 pub struct SubMessage {
     pub header: SubMessageHeader,
     pub body: SubMessageBody,
-}
-
-impl SubMessage {
-    pub fn new(header: SubMessageHeader, body_buf: Bytes) -> std::io::Result<SubMessage> {
-        let body = Self::parse_body_bud(&header, body_buf)?;
-        Ok(SubMessage { header, body })
-    }
-
-    fn parse_body_bud(
-        header: &SubMessageHeader,
-        body_buf: Bytes,
-    ) -> std::io::Result<SubMessageBody> {
-        println!("submessage header: {:?}", header);
-        print!("submessage {:?}: ", header.get_submessagekind());
-        for i in body_buf.iter() {
-            print!("0x{:02X} ", i);
-        }
-        println!();
-        // DATA, DataFragはdeseriarizeにflagがひつようだからdeserializerを自前で実装
-        // それ以外はspeedyをつかってdeserialize
-        let e = header.get_endian();
-        let submessage_body = match header.get_submessagekind() {
-            // entity
-            SubMessageKind::DATA => {
-                let flags = BitFlags::<DataFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Entity(EntitySubmessage::Data(
-                    Data::deserialize_data(&body_buf, flags)?,
-                    flags,
-                ))
-            }
-            SubMessageKind::DATA_FRAG => {
-                let flags = BitFlags::<DataFragFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Entity(EntitySubmessage::DataFrag(
-                    DataFrag::deserialize(&body_buf, flags)?,
-                    flags,
-                ))
-            }
-            SubMessageKind::HEARTBEAT => {
-                let flags = BitFlags::<HeartbeatFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Entity(EntitySubmessage::HeartBeat(
-                    Heartbeat::read_from_buffer_with_ctx(e, &body_buf)?,
-                    flags,
-                ))
-            }
-            SubMessageKind::HEARTBEAT_FRAG => {
-                let flags = BitFlags::<HeartbeatFragFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Entity(EntitySubmessage::HeartbeatFrag(
-                    HeartbeatFrag::read_from_buffer_with_ctx(e, &body_buf)?,
-                    flags,
-                ))
-            }
-            SubMessageKind::GAP => {
-                let flags = BitFlags::<GapFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Entity(EntitySubmessage::Gap(
-                    Gap::read_from_buffer_with_ctx(e, &body_buf)?,
-                    flags,
-                ))
-            }
-            SubMessageKind::ACKNACK => {
-                let flags = BitFlags::<AckNackFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Entity(EntitySubmessage::AckNack(
-                    AckNack::read_from_buffer_with_ctx(e, &body_buf)?,
-                    flags,
-                ))
-            }
-            SubMessageKind::NACK_FRAG => {
-                let flags = BitFlags::<NackFragFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Entity(EntitySubmessage::NackFrag(
-                    NackFrag::read_from_buffer_with_ctx(e, &body_buf)?,
-                    flags,
-                ))
-            }
-            // interpreter
-            SubMessageKind::INFO_SRC => {
-                let flags = BitFlags::<InfoSourceFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Interpreter(InterpreterSubmessage::InfoSource(
-                    InfoSource::read_from_buffer_with_ctx(e, &body_buf)?,
-                    flags,
-                ))
-            }
-            SubMessageKind::INFO_DST => {
-                let flags =
-                    BitFlags::<InfoDestionationFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Interpreter(InterpreterSubmessage::InfoDestinatio(
-                    InfoDestination::read_from_buffer_with_ctx(e, &body_buf)?,
-                    flags,
-                ))
-            }
-            SubMessageKind::INFO_TS => {
-                let flags = BitFlags::<InfoTimestampFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Interpreter(InterpreterSubmessage::InfoTImestamp(
-                    InfoTimestamp::read_from_buffer_with_ctx(e, &body_buf)?,
-                    flags,
-                ))
-            }
-            SubMessageKind::INFO_REPLY => {
-                let flags = BitFlags::<InfoReplyFlag>::from_bits_truncate(header.get_flags());
-                SubMessageBody::Interpreter(InterpreterSubmessage::InfoReply(
-                    InfoReply::read_from_buffer_with_ctx(e, &body_buf)?,
-                    flags,
-                ))
-            }
-            _ => todo!(),
-        };
-        Ok(submessage_body)
-    }
 }
 
 pub enum SubMessageBody {
@@ -185,4 +79,5 @@ pub enum InterpreterSubmessage {
     InfoDestinatio(InfoDestination, BitFlags<InfoDestionationFlag>),
     InfoTImestamp(InfoTimestamp, BitFlags<InfoTimestampFlag>),
     InfoReply(InfoReply, BitFlags<InfoReplyFlag>),
+    InfoReplyIp4(InfoReplyIp4, BitFlags<InfoReplyIp4Flag>),
 }

@@ -3,5 +3,5 @@ use speedy::Readable;
 
 #[derive(Readable)]
 pub struct InfoTimestamp {
-    pub timestamp: Timestamp,
+    pub timestamp: Option<Timestamp>,
 }

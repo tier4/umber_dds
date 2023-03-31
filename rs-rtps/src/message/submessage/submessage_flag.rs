@@ -72,6 +72,14 @@ pub enum InfoReplyFlag {
 #[derive(Clone, Copy)]
 #[bitflags]
 #[repr(u8)]
+pub enum InfoReplyIp4Flag {
+    Endianness = 0b01,
+    Multicast = 0b10,
+}
+
+#[derive(Clone, Copy)]
+#[bitflags]
+#[repr(u8)]
 pub enum InfoSourceFlag {
     Endianness = 0b1,
 }

@@ -6,18 +6,25 @@ pub mod heartbeat;
 pub mod heartbeatfrag;
 pub mod infodst;
 pub mod inforeply;
+pub mod inforeplyIp4;
 pub mod infosrc;
 pub mod infots;
 pub mod nackfrag;
 
+use byteorder::ReadBytesExt;
 use bytes::Bytes;
 use speedy::Readable;
+use std::io;
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
 
 pub type Count = i32;
 
-pub type SequenceNumber = i64;
+#[derive(Readable)]
+pub struct SequenceNumber(i64);
+impl SequenceNumber {
+    pub const SEQUENCENUMBER_UNKNOWN: Self = Self((std::u32::MAX as i64) << 32);
+}
 pub type FragmentNumber = u32;
 
 pub type SequenceNumberSet = NumberSet<SequenceNumber>;
@@ -31,6 +38,7 @@ struct NumberSet<T> {
 }
 
 pub type ParameterId = i16;
+#[derive(Readable)]
 pub struct Parameter {
     parameterId: ParameterId,
     length: i16,
@@ -74,13 +82,73 @@ impl Locator {
 }
 pub type LocatorList = Vec<Locator>;
 
+#[derive(Readable)]
 pub struct RepresentationIdentifier {
     bytes: [u8; 2],
 }
+
+impl RepresentationIdentifier {
+    // Numeric values are from RTPS spec v2.3 Section 10.5 , Table 10.3
+    pub const CDR_BE: Self = Self {
+        bytes: [0x00, 0x00],
+    };
+    pub const CDR_LE: Self = Self {
+        bytes: [0x00, 0x01],
+    };
+    pub const PL_CDR_BE: Self = Self {
+        bytes: [0x00, 0x02],
+    };
+    pub const PL_CDR_LE: Self = Self {
+        bytes: [0x00, 0x03],
+    };
+    pub const CDR2_BE: Self = Self {
+        bytes: [0x00, 0x10],
+    };
+    pub const CDR2_LE: Self = Self {
+        bytes: [0x00, 0x11],
+    };
+    pub const PL_CDR2_BE: Self = Self {
+        bytes: [0x00, 0x12],
+    };
+    pub const PL_CDR2_LE: Self = Self {
+        bytes: [0x00, 0x13],
+    };
+    pub const D_CDR_BE: Self = Self {
+        bytes: [0x00, 0x14],
+    };
+    pub const D_CDR_LE: Self = Self {
+        bytes: [0x00, 0x15],
+    };
+    pub const XML: Self = Self {
+        bytes: [0x00, 0x04],
+    };
+}
+
 pub struct SerializedPayload {
     pub representation_identifier: RepresentationIdentifier,
     pub representation_options: [u8; 2], // Not used. Send as zero, ignore on receive.
     pub value: Bytes,
+}
+
+impl SerializedPayload {
+    pub fn from_bytes(buffer: &Bytes) -> io::Result<Self> {
+        let mut cursor = io::Cursor::new(&buffer);
+        let representation_identifier = RepresentationIdentifier {
+            bytes: [cursor.read_u8()?, cursor.read_u8()?],
+        };
+        let representation_options = [cursor.read_u8()?, cursor.read_u8()?];
+        const HEADER_LEN: usize = 4;
+        let value = if buffer.len() > HEADER_LEN {
+            buffer.slice(HEADER_LEN..)
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "Data is too small"));
+        };
+        Ok(Self {
+            representation_identifier,
+            representation_options,
+            value,
+        })
+    }
 }
 
 pub type GroupDigest = [u8; 4];

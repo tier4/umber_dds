@@ -6,6 +6,7 @@ use crate::net_util::*;
 use crate::structure::{guid::*, vendorId::*};
 use bytes::Bytes;
 use speedy::Readable;
+use text_colorizer::*;
 
 pub struct MessageReceiver {
     own_guidPrefix: GuidPrefix,
@@ -45,52 +46,24 @@ impl MessageReceiver {
         self.timestamp = Timestamp::TIME_INVALID;
     }
 
-    pub fn handle_packet(&mut self, packets: Vec<UdpMessage>) {
-        for packet in packets {
+    pub fn handle_packet(&mut self, messages: Vec<UdpMessage>) {
+        for message in messages {
             // Is DDSPING
-            let msg = packet.message;
+            let msg = message.message;
             if msg.len() < 20 {
                 if msg.len() >= 16 && msg[0..4] == b"RTPS"[..] && msg[9..16] == b"DDSPING"[..] {
                     println!("Received DDSPING");
                     return;
                 }
             }
-            let packet_buf = msg.freeze();
-            let rtps_header_buf = packet_buf.slice(..20);
-            let rtps_header = match Header::read_from_buffer(&rtps_header_buf) {
-                Ok(h) => h,
-                Err(e) => panic!("{:?}", e),
-            };
-            let mut rtps_body_buf = packet_buf.slice(20..);
-            let mut submessages: Vec<SubMessage> = Vec::new();
-            let sub_header_lenght = 4;
-            while !rtps_body_buf.is_empty() {
-                let submessage_header_buf = rtps_body_buf.split_to(sub_header_lenght);
-                // TODO: Message Receiverが従うルール (spec 8.3.4.1)に沿った実装に変更
-                // 不正なsubmessageを受信した場合、残りのMessageは無視
-                let submessage_header =
-                    match SubMessageHeader::read_from_buffer(&submessage_header_buf) {
-                        Ok(h) => h,
-                        Err(_) => break,
-                    };
-                // RTPS spec 2.3, section 9.4.5.1.3
-                let submessage_body_len = if submessage_header.get_content_len() == 0 {
-                    match submessage_header.get_submessagekind() {
-                        SubMessageKind::PAD | SubMessageKind::INFO_TS => 0,
-                        _ => rtps_body_buf.len(),
-                    }
-                } else {
-                    submessage_header.get_content_len() as usize
-                };
-
-                let submessage_body_buf = rtps_body_buf.split_to(submessage_body_len);
-                let submessage = SubMessage::new(submessage_header, submessage_body_buf);
-                match submessage {
-                    Ok(msg) => submessages.push(msg),
-                    Err(_) => println!("received UNKNOWN_RTPS or VENDORSPECIFIC"),
+            let msg_buf = msg.freeze();
+            let rtps_message = match Message::new(msg_buf) {
+                Ok(m) => m,
+                Err(e) => {
+                    println!("{}: couldn't deserialize : {}", "error".red(), e);
+                    return;
                 }
-            }
-            let rtps_message = Message::new(rtps_header, submessages);
+            };
             self.handle_parsed_packet(rtps_message);
         }
     }
@@ -131,7 +104,18 @@ impl MessageReceiver {
             InterpreterSubmessage::InfoReply(info_reply, flags) => {
                 self.unicastReplyLocatorList = info_reply.unicastLocatorList;
                 if flags.contains(InfoReplyFlag::Multicast) {
-                    self.multicastReplyLocatorList = info_reply.multicastLocatorList;
+                    self.multicastReplyLocatorList =
+                        info_reply.multicastLocatorList.expect("invalid InfoReply");
+                } else {
+                    self.multicastReplyLocatorList.clear();
+                }
+            }
+            InterpreterSubmessage::InfoReplyIp4(info_reply_ip4, flags) => {
+                self.unicastReplyLocatorList = info_reply_ip4.unicastLocatorList;
+                if flags.contains(InfoReplyIp4Flag::Multicast) {
+                    self.multicastReplyLocatorList = info_reply_ip4
+                        .multicastLocatorList
+                        .expect("invalid InfoReplyIp4");
                 } else {
                     self.multicastReplyLocatorList.clear();
                 }
@@ -139,7 +123,7 @@ impl MessageReceiver {
             InterpreterSubmessage::InfoTImestamp(info_ts, flags) => {
                 if !flags.contains(InfoTimestampFlag::Invalidate) {
                     self.haveTimestamp = true;
-                    self.timestamp = info_ts.timestamp;
+                    self.timestamp = info_ts.timestamp.expect("invalid InfoTS");
                 } else {
                     self.haveTimestamp = false;
                 }
