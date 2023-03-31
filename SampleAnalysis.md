@@ -290,8 +290,8 @@ MessageReceiver::new()で*_reply_locator_listの初期値が`vec![Locator::Inval
 3. 未知のSubmessageIDをもつSubmessageは無視されなければならず、次のSubmessageに継続してパースされなければならない。具体的にRTPS 2.4の実装ではversion 2.4で定義されているSubmessageKind以外のIDをもつSubmessageは無視される。
 未知のvenderId由来のvender-specificの範囲のSubmessageIdも無視されなければならず、次のSubmessageに継続してパースされなければならない。
 4. Submessage flags.Submessageのreceiverは未知のflagを無視されるべきである。RTPS2.4の実装では"X"(unused)とプロトコルにマークされたすべてのフラッグは飛ばされるべきである。
-5. 正しいsubmessageLengthフィールドは既知のIDをもつSubmessageであっても、常に次のSubmessageを探すのに使われなくてはならない。
-6. 既知だが、無効なSubmessageは残りのMessageを無効にする。
+5. 正しいsubmessageLengthフィールドは既知のIDをもつSubmessageであっても、常に次のSubmessageを探すのに使われなくてはならない。(おそらく、既知の種類のSubmessageで長さがわかっている場合でも、versionが上がって新しくElementが追加されている可能性があるから)
+6. 既知だが、無効なSubmessageは残りのMessage(the rest of the Message)を無効にする。 // "the rest of the Message"が何を指すのか仕様書から読み取れないが、RustDDSの実装は、無効なSubmessageが含まれるMessageを無効なものとして破棄している
 
 ### guid_prefix, EntityIdの調査
 - guid_prefix
@@ -408,6 +408,7 @@ AckNackは２つの目的を同時に提供する。
         match self
             .acknack_sender
             // このacknack_senderの対になるreceiverはMessagereceiverを所有しているDPEventLoopが持っている
+            // TODO: この辺のRTPSとDDSの関係性を調査して実装
             // DPEventLoopがacknack_senderからなにか受け取ると、handle_writer_acknack_action()で処理する
             .try_send((self.source_guid_prefix, AckSubmessage::AckNack(acknack)))
         {
@@ -428,6 +429,7 @@ AckNackは２つの目的を同時に提供する。
             if let Some(found_writer) = self.writers.get_mut(&writer_guid.entity_id) {
                 if found_writer.is_reliable() {
                     found_writer.handle_ack_nack(acknack_sender_prefix, &acknack_submessage);
+                    // DPEventLoopがもってるwriterに処理を投げる
                 }
             } else {
                 warn!(
@@ -442,7 +444,13 @@ AckNackは２つの目的を同時に提供する。
 
 ### Data
 extraflagsってなに？
-wiresharkでみると2 octetあって、RustDDSの実装を見ると2 octet幅でどこでも使われてない。仕様書を探しても見つからない。
+wiresharkでみると2 octetあって、RustDDSの実装を見ると2 octet幅でどこでも使われてない。~~仕様書を探しても見つからない。~~RTPSのバージョンが上がって、flagが8bitで足りなくなったときのために予約してるやつ。(spec 9.4.5.3.1 p. 159)
+octesToInlineQosがあるのも、writerSNとinlineQosの間になにか追加したときのため。
+Data Submessageは将来拡張された場合に、後方互換性を持たせるような設計になっている。
+
+RTPS ReaderにRTPS Writerに所属するdata-objectの変更を知らせるSubmessage.
+
+octetsToInlineQosはこのフィールドの直後からinlineQos Elementの最初までのoctet数。もし、inlineQos flagがセットされておらずinlineQosが含まれない場合はこのフィールドの直後からinlineQos Elementの次のElementの最初までのoctet数。
 
 ## 用語集
 https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html
