@@ -23,21 +23,14 @@ pub struct Message {
 impl Message {
     pub fn new(rtps_msg_buf: Bytes) -> std::io::Result<Message> {
         let rtps_header_buf = rtps_msg_buf.slice(..20);
-        let rtps_header = match Header::read_from_buffer(&rtps_header_buf) {
-            Ok(h) => h,
-            Err(e) => panic!("{:?}", e), // TODO:
-        };
+        let rtps_header = Header::read_from_buffer(&rtps_header_buf)?;
         let mut rtps_body_buf = rtps_msg_buf.slice(20..);
         let mut submessages: Vec<SubMessage> = Vec::new();
         let sub_header_lenght = 4;
         while !rtps_body_buf.is_empty() {
             let submessage_header_buf = rtps_body_buf.split_to(sub_header_lenght);
             // TODO: Message Receiverが従うルール (spec 8.3.4.1)に沿った実装に変更
-            let submessage_header = match SubMessageHeader::read_from_buffer(&submessage_header_buf)
-            {
-                Ok(h) => h,
-                Err(_) => break,
-            };
+            let submessage_header = SubMessageHeader::read_from_buffer(&submessage_header_buf)?;
             // RTPS spec 2.3, section 9.4.5.1.3
             let submessage_body_len = if submessage_header.get_content_len() == 0 {
                 match submessage_header.get_submessagekind() {
