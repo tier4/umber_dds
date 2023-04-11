@@ -78,7 +78,9 @@ impl Data {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::message::submessage::submessage_flag::DataFlag;
     use bytes::Bytes;
+    use enumflags2::BitFlags;
 
     #[test]
     fn test_sezialize() {
@@ -90,10 +92,10 @@ mod test {
             0x44, 0x01, 0x3E, 0x4D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xC1, 0x71, 0x00,
             0x04, 0x00, 0x00, 0x00, 0x00, 0x03, 0x01, 0x00, 0x00, 0x00,
         ];
+        let test_data_flags: BitFlags<DataFlag, u8> =
+            BitFlags::<DataFlag>::from_bits_truncate(0x03);
         let data = Bytes::from_static(&TEST_DATA);
-        let mut cursor = std::io::Cursor::new(&data);
-        let endiannes = Endianness::LittleEndian;
-        match ParameterList::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor) {
+        match Data::deserialize_data(&data, test_data_flags) {
             Ok(_) => (),
             Err(e) => panic!("{:?}", e),
         }
