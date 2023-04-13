@@ -1,6 +1,32 @@
 # SampleAnalysis
 RustDDSを参考実装としてRTPSの解析を行う
 
+## RustDDSのShapdemoからDDSのAPIを確認
+Writerの実装を追おうとしたけど、実装を個別に追うのは厳しそうだから、DDSがどんなAPI担っているかを確認して、Writer, DomainParticipant等の関係性を掴む
+そのために、examples/shapes_demo/main.rsを読んで見る。
+1. domain_idを渡して、DomainParticipantを生成
+2. QOSを生成
+3. domain_participantの.create_topic()にQOSを渡してtopicを生成。(生成したtopicはmain.rsが持つ)
+4. domain_participantからPublisher/Subscriber(以下p/s)を生成。
+domain_participantの.create_p/s()にQOSを渡してp/sを生成。(生成したp/sはmain.rsが持つ)
+5. p/sからtopicを渡してDaraReader/DataWriter(以下dr/dw)を生成。
+その後dr/dwはmainが持つが、p/sはdropされる????
+(READER/WRITER)_STATUS_READYをpollに登録
+Subscriberの場合readerをpollに登録
+6. loop{
+    pollに登録したイベントが発生するまで待機
+    イベントが発生したら処理して、
+    writerを叩いてshape_sampleを送信
+}
+FastDDSのドキュメント(https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html#the-dcps-conceptual-model)の
+DDS Domainの図と一致しているが、p/sがdropされるのが理解できない。
+
+## DDSとRTPSの関係性
+https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html#the-dcps-conceptual-model
+
+## RTPS Entity
+(spec) 8.2.4 The RTPS Entityとsrc/structure/entity.rsが対応
+
 ## Subscriberの解析
 RustDDSに付属のShapeDemoをSubscriberとして動作させてRTPSのSubscriber側の解析をおこなう
 
@@ -459,6 +485,11 @@ Data Submessageは将来拡張された場合に、後方互換性を持たせ�
 RTPS ReaderにRTPS Writerに所属するdata-objectの変更を知らせるSubmessage.
 
 octetsToInlineQosはこのフィールドの直後からinlineQos Elementの最初までのoctet数。もし、inlineQos flagがセットされておらずinlineQosが含まれない場合はこのフィールドの直後からinlineQos Elementの次のElementの最初までのoctet数。
+
+## Writer
+RustDDSではsrc/dds/writer.rsで定義されている。
+コード読んでみても何もわからない。
+spec 8.4.2.2 Required RTPS Writer BehaviorにWriterの挙動について書いてある。
 
 ## 用語集
 https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html
