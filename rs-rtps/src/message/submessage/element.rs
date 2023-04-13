@@ -11,9 +11,10 @@ pub mod infosrc;
 pub mod infots;
 pub mod nackfrag;
 
+use crate::structure::parameterId::ParameterId;
 use byteorder::ReadBytesExt;
 use bytes::Bytes;
-use speedy::Readable;
+use speedy::{Context, Readable};
 use std::io;
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
@@ -37,14 +38,37 @@ struct NumberSet<T> {
     bitmap: Vec<u32>,
 }
 
-pub type ParameterId = i16;
-#[derive(Readable)]
 pub struct Parameter {
     parameterId: ParameterId,
-    length: i16,
+    // length: i16,
+    // RTPS 2.3 spec 9.4.2.11 ParameterList show Parameter contains length,
+    // but it need only deseriarize time
     value: Vec<u8>,
 }
-pub type ParameterList = Vec<Parameter>;
+
+#[derive(Default)]
+pub struct ParameterList {
+    parameters: Vec<Parameter>,
+}
+
+impl<'a, C: Context> Readable<'a, C> for ParameterList {
+    fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+        let mut parameter_list = ParameterList::default();
+        loop {
+            let parameterId = ParameterId::read_from(reader)?;
+            match parameterId {
+                ParameterId::PID_SENTINEL => return Ok(parameter_list),
+                _ => {
+                    let length = u16::read_from(reader)?;
+                    let value = reader.read_vec(length as usize)?;
+                    parameter_list
+                        .parameters
+                        .push(Parameter { parameterId, value })
+                }
+            }
+        }
+    }
+}
 
 #[derive(Readable)]
 pub struct Timestamp {
