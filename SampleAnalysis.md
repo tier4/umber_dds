@@ -21,8 +21,30 @@ Subscriberの場合readerをpollに登録
 FastDDSのドキュメント(https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html#the-dcps-conceptual-model)の
 DDS Domainの図と一致しているが、p/sがdropされるのが理解できない。
 
+## fastDDSのHelloWorldSubscriberからDDSのAPIを確認
+class HelloWorldSubscriberを定義
+メンバーはDomainParticipant, Subscriber, DataReader, Topic, TypeSuppoert, DataReaderListener.
+HelloWorldSubscriberのイニシャライザ
+1. QOSを生成
+2. QOSを元にparticipantを生成
+3. participantにQOSを渡してtopicを生成
+4. participantにQOSを渡してsubscriberを生成
+5. subscriberにtopic, QOS, DataReaderListenerを渡してreaderを生成
+
+## Topic
+RustDDSでは、src/dds/topic.rsで定義されている。
+~~spec探しても情報が見つからん。~~RTPSじゃなくてDDSのsepcに情報があった。コードのコメントにも"DDS spec 2.3.3"って書いてあるのにRTPSのspecみてた。(https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386)
+
+## struct Hoge {inner: Arc<InnerHoge>,} のデザインパターン
+複数ヶ所から参照される場合につかう
+同一Topicが各DR/DWから参照されるから。
+もし、Arcを使わずに、Topicに直接各メンバーをもたせ、
+それを各DR/DWから参照しようとすると、ライフタイムを指定してTopic参照を持たせるか、cloneして直接Topicを持たせることになる。
+
 ## DDSとRTPSの関係性
-https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html#the-dcps-conceptual-model
+FastDDSのドキュメント(https://fast-dds.docs.eprosima.com/en/latest/fastdds/rtps_layer/rtps_layer.html#relation-to-the-dds-layer)
+によると、DataReaderとRTPS Readerはわずかな違いだけで一対一対応するとあるが、RustDDSのsrc/dds/reader.rsとsrc/dds/with_key/datareader.rs
+の関係性がわからない。
 
 ## RTPS Entity
 (spec) 8.2.4 The RTPS Entityとsrc/structure/entity.rsが対応
@@ -429,11 +451,14 @@ TODO: RTPS 2.4で削除された可能性があるので調査
 
 ## AckNack
 Writerで使われるsequence numberに関連するReaderの状態を共有するためにReaderがWriterに送るsubmessage.
+このSubmessageはReaderが受信したシーケンス番号とまだ喪失しているシーケンス番号をWriterに伝えることを可能にする。
+このSubmessageはACKとNACKの両方に使える。
 
 AckNackは２つの目的を同時に提供する。
-- 
-- 
-
+- The Submessage acknowledges all sequence numbers up to and including the one just before the lowest sequence number in the SequenceNumberSet (that is readerSNState.base -1).
+- AckNackは、SequenceNumberSet内の最も小さいシーケンス番号（つまりreaderSNState.base -1）の直前までのすべてのシーケンス番号を伝える。
+- The Submessage negatively-acknowledges (requests) the sequence numbers that appear explicitly in the set.
+- AckNackは、セットに明示的に含まれるシーケンス番号を要求(negatively-acknowledges)する。
 ```
 // src/dds/message_receiver.rs
     EntitySubmessage::AckNack(acknack, _) => {
