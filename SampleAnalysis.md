@@ -33,7 +33,7 @@ HelloWorldSubscriberのイニシャライザ
 
 ## Topic
 RustDDSでは、src/dds/topic.rsで定義されている。
-~~spec探しても情報が見つからん。~~RTPSじゃなくてDDSのsepcに情報があった。コードのコメントにも"DDS spec 2.3.3"って書いてあるのにRTPSのspecみてた。(https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386)
+~~spec探しても情報が見つからん。~~ RTPSじゃなくてDDSのsepcに情報があった。コードのコメントにも"DDS spec 2.3.3"って書いてあるのにRTPSのspecみてた。(https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386)
 
 ## struct Hoge {inner: Arc<InnerHoge>,} のデザインパターン
 複数ヶ所から参照される場合につかう
@@ -234,6 +234,42 @@ TODO: このパケットを送信してるコードを見つけ出す
 -> 多分writer.process_writer_command()とか、ev_wrapper.message_receiver.handle_received_packet(&packet);の中で送信されてる
 
 名前からsend_to_udp_socketでパケットを送信してると思われるから、これにbreakポイント貼って調査
+
+一番最初にsend_to_udp_socketに到達したときのバックトレース
+```
+#0  rustdds::network::udp_sender::UDPSender::send_to_udp_socket (self=0x7f2020004120, buffer=..., socket=0x7f2020002fe0,
+    addr=0x7f2025197880) at src/network/udp_sender.rs:108
+#1  0x000055bff628974c in rustdds::network::udp_sender::UDPSender::send_to_locator::{{closure}} (socket_address=...)
+    at src/network/udp_sender.rs:129
+#2  0x000055bff652b41f in rustdds::network::udp_sender::UDPSender::send_to_locator (self=0x7f2020004120, buffer=...,
+    locator=0x7f202000a6e0) at src/network/udp_sender.rs:137
+#3  0x000055bff6573f2a in rustdds::dds::writer::Writer::send_message_to_readers (self=0x7f20200088c0,
+    preferred_mode=rustdds::dds::writer::DeliveryMode::Multicast, message=0x7f2025198410, readers=...)
+    at src/dds/writer.rs:1066
+#4  0x000055bff656fe3c in rustdds::dds::writer::Writer::handle_heartbeat_tick (self=0x7f20200088c0, is_manual_assertion=false)
+    at src/dds/writer.rs:662
+#5  0x000055bff656d501 in rustdds::dds::writer::Writer::handle_timed_event (self=0x7f20200088c0) at src/dds/writer.rs:319
+#6  0x000055bff65432f8 in rustdds::dds::dp_event_loop::DPEventLoop::handle_writer_timed_event (self=0x7f2025198b80,
+    entity_id=...) at src/dds/dp_event_loop.rs:476
+#7  0x000055bff65418a2 in rustdds::dds::dp_event_loop::DPEventLoop::event_loop (self=...) at src/dds/dp_event_loop.rs:349
+```
+![bt when first reach send_to_udp_socket](https://user-images.githubusercontent.com/58660268/233024270-103cfc1a-ab35-438c-b893-41102d23ada6.png)
+
+## 最初の4つのINFO_TS, HEARTBEATが送られる理由
+RTPS spec 8.4.2.2 Required RTPS Writer Behavior
+
+8.4.2.2.3 Writers must send periodic HEARTBEAT Messages (reliable only) 
+(https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A198%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C172%2C0%5D)
+これだと思ったけど、each matching reliable Readerに対して HEARTBEATを送るとあるから、multicastしてるのはおかしくない？
+handle_heartbeat_tick()のコメントにこれは周期的に呼ばれるって書いてある。
+コードからreliable only要素が読み取れない。
+
+厳密な信頼性のある通信のために、Writerは、Readerが利用可能なすべてのサンプルの受信をacknowledgeするか、またはReaderが消失するまで、Readerに対してHEARTBEATメッセージを送り続けなければならない。それ以外のケースでは、送信されるHEARTBEATメッセージの数は実装固有であり、有限である。
+
+TODO: 以下を調査
+どうしてINFO_TSがセットなのか？
+specにはreliable onlyとあるのに、コードからreliable only要素が読み取れないのはなぜか？
+どうして、multicastで送られるのか？
 
 ## DomainParticipantの構造
 ```
