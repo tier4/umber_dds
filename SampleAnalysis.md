@@ -230,7 +230,12 @@ thread 2 "RustDDS Partici"の
 
 4回目229行目に到達した時点で4つめをキャプチャ
 
-TODO: このパケットを送信してるコードを見つけ出す
+DATA, HEARTBEATはspecのFigure 8.14 – Example Behaviorの7番だと思われる。
+https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A193%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C489%2C0%5D
+DDSCacheのadd_changeにブレークポイントを貼ってみた結果、DATA, HEARTBEATが送信されるのはadd_changeからreturn後だと確認。
+
+~~TODO: このパケットを送信してるコードを見つけ出す~~
+
 -> 多分writer.process_writer_command()とか、ev_wrapper.message_receiver.handle_received_packet(&packet);の中で送信されてる
 
 名前からsend_to_udp_socketでパケットを送信してると思われるから、これにbreakポイント貼って調査
@@ -255,6 +260,59 @@ TODO: このパケットを送信してるコードを見つけ出す
 ```
 ![bt when first reach send_to_udp_socket](https://user-images.githubusercontent.com/58660268/233024270-103cfc1a-ab35-438c-b893-41102d23ada6.png)
 
+
+## DATA, HEARTBEATのパケットが送信されるまでの流れ
+Thread 1: mainが実行されるスレッド
+Thread 2: ev_loop_handle, DomainParticipantInnerがこのhandleを持ってる
+Thread 3: discovery_handle, DomainParticipantがこのhandleを持ってる
+
+1. DomainParticipant::new(): Thread 1
+
+2. Discovery::new(): Thread 3
+
+    datawriterを生成。このときに、thread 2に対してadd_writer_senderを通じてwriterの生成するように送る
+    create_datawriterはThread 3で実行
+```
+#0  rustdds::dds::pubsub::InnerPublisher::create_datawriter (self=0x7fb93c000ea8, outer=0x7fb949227298, entity_id_opt=...,
+    topic=0x7fb9492273d0, optional_qos=...) at src/dds/pubsub.rs:482
+#1  0x0000555875018adf in rustdds::dds::pubsub::Publisher::create_datawriter_with_entityid (self=0x7fb949227298, entity_id=...,
+    topic=0x7fb9492273d0, qos=...) at src/dds/pubsub.rs:194
+#2  0x0000555874c90f8e in rustdds::discovery::discovery::Discovery::new (domain_participant=..., discovery_db=...,
+    discovery_started_sender=..., discovery_updated_sender=..., discovery_command_receiver=..., spdp_liveness_receiver=...,
+    self_locators=...) at src/discovery/discovery.rs:264
+#3  0x0000555874c0f33a in rustdds::dds::participant::DomainParticipant::new::{{closure}} () at src/dds/participant.rs:111
+```
+3. 2でおくられたシグナルをdp_event_loopで受け取ってhandle_writer_actionがWriter::new()を呼びだす。
+```
+#0  rustdds::dds::writer::Writer::new (i=..., dds_cache=..., udp_sender=..., timed_event_timer=...) at src/dds/writer.rs:207
+#1  0x0000559e1fb30069 in rustdds::dds::dp_event_loop::DPEventLoop::handle_writer_action (self=0x7f8c7269fb80,
+    event=0x7f8c7269ff50) at src/dds/dp_event_loop.rs:434
+#2  0x0000559e1fb2dde3 in rustdds::dds::dp_event_loop::DPEventLoop::event_loop (self=...) at src/dds/dp_event_loop.rs:259
+#3  0x0000559e1f772703 in rustdds::dds::participant::DomainParticipantInner::new::{{closure}} () at src/dds/participant.rs:767
+```
+4. dp_event_loopでpollがTokenDecode::Entity(eid)のイベントを受け取ったとり、process_writer_commandが呼ばれる。
+// TODO: このイベントがどこ由来か調査
+
+5. process_writer_commandからDDSCache::add_change()が呼ばれる。
+
+    add_changeはThread 2で実行
+    一番最初にadd_changeに到達したときのバックトレース
+    ![bt when first reach add_change](https://user-images.githubusercontent.com/58660268/233294379-4d8c40c1-6db7-4413-aba1-db92d57017ea.png)
+
+6. add_change()からreturnした後にrustdds::dds::writer::Writer::process_writer_commandまでもどってsend_to_udp_socketが呼ばれる。
+
+    send_to_udp_socketはThread 2で実行
+
+
+RustDDSのsrc/dds/reader.rs, writer.rsはそれぞれRTPS Reader, RTPS Writerの実装。
+
+
+## 解析の感想
+20スレッドが非同期で動いて、各オブジェクトの状態が把握しづらいから辛い。
+どのタイミングで何が呼ばれているのかが把握し辛い。
+関数の呼び出しを追っていって深くなってくると、自分の頭の中のスタックがオーバーフローしてる感じがする。
+非同期で動いているからデバッガでブレークするとパケット送信の順番が変わるっぽい。
+
 ## 最初の4つのINFO_TS, HEARTBEATが送られる理由
 RTPS spec 8.4.2.2 Required RTPS Writer Behavior
 
@@ -266,10 +324,13 @@ handle_heartbeat_tick()のコメントにこれは周期的に呼ばれるって
 
 厳密な信頼性のある通信のために、Writerは、Readerが利用可能なすべてのサンプルの受信をacknowledgeするか、またはReaderが消失するまで、Readerに対してHEARTBEATメッセージを送り続けなければならない。それ以外のケースでは、送信されるHEARTBEATメッセージの数は実装固有であり、有限である。
 
-TODO: 以下を調査
+~~TODO: 以下を調査~~
 どうしてINFO_TSがセットなのか？
-specにはreliable onlyとあるのに、コードからreliable only要素が読み取れないのはなぜか？
+-> spec読んだけど見つからない
+specにはreliable onlyの場合とあるのに、コードからreliable only要素が読み取れないのはなぜか？
+-> WriterのQOSが常にreliableになるのかと思ったけど、Writer::new()のheartbeat_periodをprintしてみたら、Noneになったから、違う。
 どうして、multicastで送られるのか？
+-> FastDDSを使ったShapeDemo一番最初に送られるのはINFO_TS, DATA, Unknowで、INFO_TS, HEARTBEATは送られてない。RustDDSの実装が仕様に従ってないだけの可能性が高い。
 
 ## DomainParticipantの構造
 ```
