@@ -230,10 +230,6 @@ thread 2 "RustDDS Partici"の
 
 4回目229行目に到達した時点で4つめをキャプチャ
 
-DATA, HEARTBEATはspecのFigure 8.14 – Example Behaviorの7番だと思われる。
-https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A193%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C489%2C0%5D
-DDSCacheのadd_changeにブレークポイントを貼ってみた結果、DATA, HEARTBEATが送信されるのはadd_changeからreturn後だと確認。
-
 ~~TODO: このパケットを送信してるコードを見つけ出す~~
 
 -> 多分writer.process_writer_command()とか、ev_wrapper.message_receiver.handle_received_packet(&packet);の中で送信されてる
@@ -260,8 +256,33 @@ DDSCacheのadd_changeにブレークポイントを貼ってみた結果、DATA,
 ```
 ![bt when first reach send_to_udp_socket](https://user-images.githubusercontent.com/58660268/233024270-103cfc1a-ab35-438c-b893-41102d23ada6.png)
 
+## Example Behavior (日本語訳)
+specのFigure 8.14 – Example Behavior
+
+https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A193%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C489%2C0%5D
+
+1. DDSユーザーがDDS DataWriterのwriteオペレーションを呼び出してデータを書き込む。
+2. DDS DataWriterが新しいCacheChangeを作るために、RTPS Writerのnew_changeオペレーションを呼び出しす。
+3. new_change オペレーションがrutenする。
+4. DDS DataWriterがRTPS WriterのHistoryCacheにCacheChangeを保存するためにadd_changeを使う。
+5. add_changeオペレーションがrutenする。
+6. writeオペレーションがreturnする。
+7. RTPS WriterがCacheChangeの変更内容をRTPS ReaderにData Submessageを使って送信し、Heartbeat Submessageを送信してacknowledgemntを要求する。
+8. RTPS ReaderがData messageを受信し、リソースの制限が許すと仮定し、add_changeオペレーションを使ってreaderのHistoryCacheにCacheChangeを配置する。
+9. add_changeオペレーションがruturnする。CacheChangeはDDS DataReaderとDDSユーザーから見える。この条件はRTPS ReaderのreliabilityLevelアトリビュートに依存する。
+
+    a.  RELIABLE DDS DataReaderには、 RTPS ReaderのHistoryCacheにあるchangeはすべてのそれより前のchange(i.e., より小さいsequence numberをもつchange)が見える場合のみ、ユーザーアプリケーションから見えるようになる。
+
+    b. BEST_EFFORT DDS DataReaderには、RTPS ReaderのHistoryCacheにあるchangeは未来のchangeがまだ見えるようになっていない(i.e., RTPS ReceiverのHistoryCacheにより大きいsequence numberをもつchangeがない)場合のみ、ユーザーから見えるようになる。
+
+〜〜続く〜〜
+
+// TODO
 
 ## DATA, HEARTBEATのパケットが送信されるまでの流れ
+Example Behaviorの1はユーザーがデータを送信で始まってるけど、このケースではメッセージが送信されるトリガーはユーザーの書き込みではない。
+Discoveryがdata_writeを生成し、それに付随して送信されたものと思われるが、流れを追うのが難しく確信が持てない。
+
 Thread 1: mainが実行されるスレッド
 Thread 2: ev_loop_handle, DomainParticipantInnerがこのhandleを持ってる
 Thread 3: discovery_handle, DomainParticipantがこのhandleを持ってる
@@ -270,7 +291,7 @@ Thread 3: discovery_handle, DomainParticipantがこのhandleを持ってる
 
 2. Discovery::new(): Thread 3
 
-    datawriterを生成。このときに、thread 2に対してadd_writer_senderを通じてwriterの生成するように送る
+    datawriterを生成。このときに、thread 2のdp_event_loopが持っているadd_writer_receiverに対してadd_writer_senderを通じてwriterの生成するように送る
     create_datawriterはThread 3で実行
 ```
 #0  rustdds::dds::pubsub::InnerPublisher::create_datawriter (self=0x7fb93c000ea8, outer=0x7fb949227298, entity_id_opt=...,
@@ -290,16 +311,19 @@ Thread 3: discovery_handle, DomainParticipantがこのhandleを持ってる
 #2  0x0000559e1fb2dde3 in rustdds::dds::dp_event_loop::DPEventLoop::event_loop (self=...) at src/dds/dp_event_loop.rs:259
 #3  0x0000559e1f772703 in rustdds::dds::participant::DomainParticipantInner::new::{{closure}} () at src/dds/participant.rs:767
 ```
-4. dp_event_loopでpollがTokenDecode::Entity(eid)のイベントを受け取ったとり、process_writer_commandが呼ばれる。
-// TODO: このイベントがどこ由来か調査
-
-5. process_writer_commandからDDSCache::add_change()が呼ばれる。
+4. handle_writer_actionでWriterを生成し、pollにいろいろ登録
+5. dp_event_loopでpollがTokenDecode::Entity(eid)のイベントを受け取り、process_writer_commandが呼ばれる。\
+このイベントの発生源は4. でpollに登録したやつっぽい。\
+TODO: なんのためのそれらのイベントがpollに登録されたのか調査 -> Discoveryのための可能性大, specのDiscoveryを読む
+TokenDecode::Entity(eid)のイベントを受け取ったreceiverはdp_event_loop.rs:386のやつで、これと対になるsenderは2.のkkkkkkk/create_datawriterが生成したDataWriterが持ってる。
+こいつに書き込まれるのはsrc/discovery.rsのdiscovery_event_loop()の中のwrite_writers_info()nだと思われる。
+6. process_writer_commandからDDSCache::add_change()が呼ばれる。
 
     add_changeはThread 2で実行
     一番最初にadd_changeに到達したときのバックトレース
     ![bt when first reach add_change](https://user-images.githubusercontent.com/58660268/233294379-4d8c40c1-6db7-4413-aba1-db92d57017ea.png)
 
-6. add_change()からreturnした後にrustdds::dds::writer::Writer::process_writer_commandまでもどってsend_to_udp_socketが呼ばれる。
+7. add_change()からreturnした後にrustdds::dds::writer::Writer::process_writer_commandまでもどってsend_to_udp_socketが呼ばれる。
 
     send_to_udp_socketはThread 2で実行
 
