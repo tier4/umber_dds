@@ -1,6 +1,17 @@
 # SampleAnalysis
 RustDDSを参考実装としてRTPSの解析を行う
 
+## TODO
+- [ ] QOSを実装
+- [ ] Topicを実装
+- [ ] Publisher/Subscriberを実装
+- [ ] DataWriter/DataReaderのwith_key/no_keyについて調査
+- [ ] DataWriter/DataReaderを実装
+- [ ] RTPSWriter/RTPSReaderを実装
+- [ ] UDP senderの実装
+- [ ] Discovery Moduleを実装
+どれもDiscoveryに必要そうなものを最低限実装
+
 ## RustDDSのShapdemoからDDSのAPIを確認
 Writerの実装を追おうとしたけど、実装を個別に追うのは厳しそうだから、DDSがどんなAPI担っているかを確認して、Writer, DomainParticipant等の関係性を掴む
 そのために、examples/shapes_demo/main.rsを読んで見る。
@@ -66,6 +77,12 @@ shapes_de 160 root   10u  IPv4 457163      0t0  UDP *:35442
 shapes_de 160 root   11u  IPv4 457165      0t0  UDP 69d7d3c3fefa:39541 // このポートは毎回変わる
                                                                         // このポート番号を以下rpとする
 ```
+各ポートの意味(domainId = 0, participantId = 0)
+- 7400: spdp_multicast_port
+- 7410: spdp_unicast_port
+- 7401: usertraffic_multicast_port
+- 7411: usertraffic_unicast_port
+
 開かれるportはp. 165にある。RustDDSのポートを決める実装はsrc/network/constant.rsにあり、仕様書のdefault通りに実装されている。
 上4つは受信用, 下2つは送信用。
 受信用はsubscribeのため、送信用はdiscoveryのため。
@@ -147,6 +164,7 @@ UDPSender::new() {
 このとき20個のスレッドが起動されているから、パケットがどのスレッドから送信されたか注意
 
 rpポートからマルチキャスト:7400にRTPSパケットを5つ送信
+ポート7400はdomainId=0のときのデフォルトのspdp_multicast_port
 ```
 RTPS Submessage (p. 44)
     The Entity Submessage
@@ -315,8 +333,16 @@ Thread 3: discovery_handle, DomainParticipantがこのhandleを持ってる
 5. dp_event_loopでpollがTokenDecode::Entity(eid)のイベントを受け取り、process_writer_commandが呼ばれる。\
 このイベントの発生源は4. でpollに登録したやつっぽい。\
 TODO: なんのためのそれらのイベントがpollに登録されたのか調査 -> Discoveryのための可能性大, specのDiscoveryを読む
-TokenDecode::Entity(eid)のイベントを受け取ったreceiverはdp_event_loop.rs:386のやつで、これと対になるsenderは2.のkkkkkkk/create_datawriterが生成したDataWriterが持ってる。
-こいつに書き込まれるのはsrc/discovery.rsのdiscovery_event_loop()の中のwrite_writers_info()nだと思われる。
+TokenDecode::Entity(eid)のイベントを受け取ったreceiverはdp_event_loop.rs:386のやつで、これと対になるsenderは2.
+のcreate_datawriterが生成したDataWriterが持ってる。\
+こいつに書き込まれるのはsrc/discovery.rsのdiscovery_event_loop()の中のwrite_writers_info()。
+self.dcps_publication_writer.write() (selfはDiscovery)だから https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A305%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C553%2C0%5D の"DCPSPublication"が関係してる。
+詳しくはDDSのspecを確認。
+```
+There are four pre-defined built-in Topics: “DCPSParticipant,” “DCPSSubscription,” “DCPSPublication,” and
+“DCPSTopic.” The DataTypes associated with these Topics are also specified by the DDS specification and mainly
+contain Entity QoS values.
+```
 6. process_writer_commandからDDSCache::add_change()が呼ばれる。
 
     add_changeはThread 2で実行
@@ -329,6 +355,45 @@ TokenDecode::Entity(eid)のイベントを受け取ったreceiverはdp_event_loo
 
 
 RustDDSのsrc/dds/reader.rs, writer.rsはそれぞれRTPS Reader, RTPS Writerの実装。
+
+この最初に送られるData SubmessageのserializedDataを見たら https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A309%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C489%2C0%5D と概ね一致していた。
+
+## The Simple Participant Discovery Protocol
+spec 8.5.3 \
+プログラムを起動して一番最初に送られるパケットはこのDiscovery Endpointのためのものだから、このプロトコルについて調査する。
+
+Chat GPT-4によるThe Simple Participant Discovery Protocoの要約(間違いは修正)
+
+
+>     1. パーティシパントの生成: パーティシパントがドメインに参加すると、それぞれのParticipantを区別するためのParticipantIdが割り当てられます。
+>
+>     2. マルチキャスト送信: 新しいパーティシパントは、その存在を周知させるために、所定のマルチキャストアドレスにParticipantDataメッセージを送信します。このメッセージには、プロトコルバージョン、ベンダーID、リスナーアドレス、およびその他のメタデータが含まれます。
+>
+>     3. メッセージ受信: 既存のパーティシパントは、マルチキャストアドレスからParticipantDataメッセージを受信し、新しいパーティシパントの情報をディスカバリデータベースに追加します。
+>
+>     4. 応答: 既存のパーティシパントは、新しいパーティシパントに対して独自のParticipantDataメッセージを送信し、自身の情報を通知します。これにより、新しいパーティシパントも既存のパーティシパントの情報をディスカバリデータベースに追加できます。
+>
+>     5. 定期的なアナウンス: パーティシパントは定期的に、自身の存在とデータをマルチキャストアドレスに送信します。これにより、新たに参加したパーティシパントや情報が失われたパーティシパントが、他のパーティシパントの情報をディスカバリデータベースに追加できます。
+>
+> このような流れで、SPDPはドメイン内のパーティシパント同士のディスカバリを行い、RTPSにおいてリアルタイム通信の基盤を提供します。
+
+僕 「2.の手順についてマルチキャストアドレスにParticipantDataを送信するのはどのWriterですか？」\
+Chat GPT 「マルチキャストアドレスにParticipantDataメッセージを送信するのは、特別なビルトインデータライターであるSPDPdiscoveredParticipantDataWriterです。このビルトインデータライターは、各パーティシパントによって自動的に生成され、パーティシパントのディスカバリプロセスをサポートします。
+
+SPDPdiscoveredParticipantDataWriterは、新しいパーティシパントがドメインに参加したときや定期的なアナウンスの際に、ParticipantDataメッセージを所定のマルチキャストアドレスに送信します。これにより、他のパーティシパントが新しいパーティシパントの存在を検出し、相互に通信できるようになります。」
+
+### RTPS StatelessWriter
+spec 8.4.7.2 \
+Statelessなリファレンス実装で使用される特別なRTPS Writer。
+
+### RTPS StatefulWriter
+spec 8.4.7.4 \
+Statefulなリファレンス実装で使用される特別なRTPS Writer。
+
+### RTPS StatefulReader
+spec 8.4.10.2 \
+特別なRTPS Reader。
+
 
 
 ## 解析の感想
@@ -666,7 +731,7 @@ RTPSParticipantの中にwriter, readerがある。
 
 dataを送信, 受信できる要素
 
-- Endpoint
+- Endpoint (https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A107%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C383%2C0%5D)
 
     例: RTPSWriter, RTPSReader
 
