@@ -45,6 +45,13 @@ HelloWorldSubscriberのイニシャライザ
 ## Topic
 RustDDSでは、src/dds/topic.rsで定義されている。
 ~~spec探しても情報が見つからん。~~ RTPSじゃなくてDDSのsepcに情報があった。コードのコメントにも"DDS spec 2.3.3"って書いてあるのにRTPSのspecみてた。(https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386)
+僕 「Topicって何？」
+Chat GPT4 「Topicは、名前（文字列）とデータ型を持ちます。」
+RustDDSの実装を確認するとTopicにもたせてるのは名前, DomainParticipant, Qos, Kind(WITH_KEY or NO_KEY)で、データ型は含まれてない。
+データ型とTopicを結びつけてるのは、publisher.create_datawriter_cdr::<Shape>(&topic, None)だと思われる。
+// TODO: FastDDSがどうやってTopicとデータを結びつけてるのか調べる。
+DDSHelloWorldのパケットキャプチャを解析した結果、RTPSを通じてやり取りされるのはTpicの名前のみらしい。具体的なデータ型はソースコードレベルで共有しておいて、
+それに紐付いた名前のみをTopicに持たせるっぽい。
 
 ## struct Hoge {inner: Arc<InnerHoge>,} のデザインパターン
 複数ヶ所から参照される場合につかう
@@ -420,6 +427,9 @@ specにはreliable onlyの場合とあるのに、コードからreliable only�
 -> WriterのQOSが常にreliableになるのかと思ったけど、Writer::new()のheartbeat_periodをprintしてみたら、Noneになったから、違う。
 どうして、multicastで送られるのか？
 -> FastDDSを使ったShapeDemo一番最初に送られるのはINFO_TS, DATA, Unknowで、INFO_TS, HEARTBEATは送られてない。RustDDSの実装が仕様に従ってないだけの可能性が高い。
+
+## QOS
+https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386
 
 ## DomainParticipantの構造
 ```
