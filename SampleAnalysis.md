@@ -2,7 +2,7 @@
 RustDDSを参考実装としてRTPSの解析を行う
 
 ## TODO
-- [ ] QOSを実装
+- [x] QosPoliciesを実装
 - [ ] Topicを実装
 - [ ] Publisher/Subscriberを実装
 - [ ] DataWriter/DataReaderのwith_key/no_keyについて調査
@@ -52,6 +52,18 @@ RustDDSの実装を確認するとTopicにもたせてるのは名前, DomainPar
 // TODO: FastDDSがどうやってTopicとデータを結びつけてるのか調べる。
 DDSHelloWorldのパケットキャプチャを解析した結果、RTPSを通じてやり取りされるのはTpicの名前のみらしい。具体的なデータ型はソースコードレベルで共有しておいて、
 それに紐付いた名前のみをTopicに持たせるっぽい。
+
+(https://fast-dds.docs.eprosima.com/en/latest/fastdds/dds_layer/topic/instances.html)
+Topicは1つのデータタイプと紐付けられる。そのため、Topicと関係するデータサンプルはデータ型で示される情報のupdateとして理解される。しかし、論理的に分離して、同じトピック内に、同じデータ型を参照する複数のインスタンスを持つことも可能である。したがって、受信したデータサンプルは、そのTopicの特定のインスタンスに対する更新となる。
+
+## DataReader/DataWriter
+RustDDSのREADME.md
+### Data serialization and keying
+いくつかの既存のDDS実装はそれぞれのペイロードタイプのDataReader/DataWriterの実装のためにコード生成を使用している。
+> DataReader/DataWriterはそれぞれのデータタイプごとに実装されるものらしい
+
+私達はコード生成に頼らない。そのかわり、Rust generic programmingを使う。
+Serdeライブラリがペイロードのデータのシリアライズ/デシリアライズに使われる。
 
 ## struct Hoge {inner: Arc<InnerHoge>,} のデザインパターン
 複数ヶ所から参照される場合につかう
@@ -255,8 +267,6 @@ thread 2 "RustDDS Partici"の
 
 4回目229行目に到達した時点で4つめをキャプチャ
 
-~~TODO: このパケットを送信してるコードを見つけ出す~~
-
 -> 多分writer.process_writer_command()とか、ev_wrapper.message_receiver.handle_received_packet(&packet);の中で送信されてる
 
 名前からsend_to_udp_socketでパケットを送信してると思われるから、これにbreakポイント貼って調査
@@ -420,7 +430,6 @@ handle_heartbeat_tick()のコメントにこれは周期的に呼ばれるって
 
 厳密な信頼性のある通信のために、Writerは、Readerが利用可能なすべてのサンプルの受信をacknowledgeするか、またはReaderが消失するまで、Readerに対してHEARTBEATメッセージを送り続けなければならない。それ以外のケースでは、送信されるHEARTBEATメッセージの数は実装固有であり、有限である。
 
-~~TODO: 以下を調査~~
 どうしてINFO_TSがセットなのか？
 -> spec読んだけど見つからない
 specにはreliable onlyの場合とあるのに、コードからreliable only要素が読み取れないのはなぜか？
@@ -496,7 +505,6 @@ socket::receive()で受け取れるのが、b'RTPS'から始まるパケット1�
 socket::receive()して、4byteにアラインメントされてるか確認(必要？)
 アラインメントされてなければ0xCCを追加(0xCCの根拠はない-> アクセスされないから)
 送信時にアラインメントされないの？
-TODO: なんかよくわかんない処理が行われているから必要かどうか調査する。
 
 ### ByteMutの取扱
 buf = BytesMut::with_capacity(CAP)を実行するとスタックフレーム上に[*buf, CAP, len(=0)]が作られる。ことのき、ヒープ上のbufは最大でCAP byte確保できるが、現在確保されているサイズはlen byte。
@@ -522,7 +530,6 @@ MessageReceiverは仕様書 8.3.4: The RTPS Message Receiver で説明されて�
 
 /src/dds/message_receiver.rs
 
-~~TODO:~~
 MessageReceiver::new()で*_reply_locator_listの初期値が`vec![Locator::Invalid]`になっている。しかし、仕様書のp. 38にはLocatorの初期値には受信したメッセージにしたがって値をセットすると書いてあるから、RustDDSが初期値をInvalidに設定している理由を調査。
 
 -> "The list is initialized to contain a single Locator_t with the LocatorKind,"と書いてあるから要素を1つ含むVecとして初期化しないといけない。
