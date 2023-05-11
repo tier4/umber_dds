@@ -1,4 +1,5 @@
-pub struct QsPolicies {
+#[derive(Clone, Copy)]
+pub struct QosPolicies {
     durability: Option<policy::Durability>,
     presentation: Option<policy::Presentation>,
     deadline: Option<policy::Deadline>,
@@ -95,8 +96,8 @@ impl QosBuilder {
         self
     }
 
-    fn build(self) -> QsPolicies {
-        QsPolicies {
+    fn build(self) -> QosPolicies {
+        QosPolicies {
             durability: self.durability,
             presentation: self.presentation,
             deadline: self.deadline,
@@ -116,6 +117,7 @@ impl QosBuilder {
 mod policy {
     use crate::structure::duration::Duration;
 
+    #[derive(Clone, Copy)]
     pub enum Durability {
         Volatile,
         TransientLocal,
@@ -123,73 +125,88 @@ mod policy {
         Persistent,
     }
 
+    #[derive(Clone, Copy)]
     pub struct Presentation {
         pub access_scope: PresentationQosAccessScopeKind,
         pub coherent_access: bool,
         pub oerered_access: bool,
     }
 
+    #[derive(Clone, Copy)]
     pub enum PresentationQosAccessScopeKind {
         Instance,
         Topic,
         Group,
     }
 
+    #[derive(Clone, Copy)]
     pub struct Deadline {
         pub period: Duration,
     }
 
+    #[derive(Clone, Copy)]
     pub struct LatencyBudget(pub Duration);
 
+    #[derive(Clone, Copy)]
     pub enum Ownership {
         Shared,
         Exclusive { strength: i64 },
     }
+    #[derive(Clone, Copy)]
     pub struct Liveliness {
         pub lease_duration: Duration,
         pub kind: LivelinessQosKind,
     }
 
+    #[derive(Clone, Copy)]
     pub enum LivelinessQosKind {
         Automatic,
         ManualByParticipant,
         ManualByTopic,
     }
 
+    #[derive(Clone, Copy)]
     pub struct TimeBasedFilter {
         pub minimun_separation: Duration,
     }
 
+    #[derive(Clone, Copy)]
     pub struct Reliability {
         pub kind: ReliabilityQosKind,
         pub max_bloking_time: Duration,
     }
 
+    #[derive(Clone, Copy)]
     pub enum ReliabilityQosKind {
         Reliable,
         BestEffort,
     }
 
+    #[derive(Clone, Copy)]
     pub enum DestinationOrder {
         ByReceptionTimestamp,
         BySourceTimestamp,
     }
 
+    #[derive(Clone, Copy)]
     pub struct History {
         pub kind: HistoryQosKind,
         pub depth: i64,
     }
 
+    #[derive(Clone, Copy)]
     pub enum HistoryQosKind {
         KeepLast,
         LeepAll,
     }
 
+    #[derive(Clone, Copy)]
     pub struct ResourceLimits {
         pub max_samples: i64,
         pub max_instance: i64,
         pub max_samples_per_instanse: i64,
     }
 
+    #[derive(Clone, Copy)]
     pub struct Lifespan(pub Duration);
 }

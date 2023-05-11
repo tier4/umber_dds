@@ -1,18 +1,42 @@
 use crate::network::net_util::*;
-use crate::{dds::event_loop::EventLoop, network::udp_listinig_socket::*, structure::guid::*};
+use crate::{
+    dds::{event_loop::EventLoop, publisher::Publisher, qos::QosPolicies, subscriber::Subscriber},
+    network::udp_listinig_socket::*,
+    structure::guid::*,
+};
 use mio::net::UdpSocket;
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
+use std::sync::Arc;
 use std::thread;
 
+#[derive(Clone)]
 pub struct DomainParticipant {
+    inner: Arc<DomainParticipantInner>,
+}
+
+impl DomainParticipant {
+    pub fn new(domain_id: u16) -> Self {
+        Self {
+            inner: Arc::new(DomainParticipantInner::new(domain_id)),
+        }
+    }
+    fn create_publisher(&self, qos: QosPolicies) -> Publisher {
+        self.inner.create_publisher(self.clone(), qos)
+    }
+    fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
+        self.inner.create_subscriber(qos)
+    }
+}
+
+pub struct DomainParticipantInner {
     domain_id: u16,
     participant_id: u16,
     thread: thread::JoinHandle<()>,
 }
 
-impl DomainParticipant {
-    pub fn new(domain_id: u16) -> DomainParticipant {
+impl DomainParticipantInner {
+    pub fn new(domain_id: u16) -> DomainParticipantInner {
         let mut socket_list: HashMap<mio::Token, UdpSocket> = HashMap::new();
         let spdp_multi_socket = new_multicast(
             "0.0.0.0",
@@ -29,10 +53,17 @@ impl DomainParticipant {
             ev_loop.event_loop();
         });
 
-        DomainParticipant {
+        Self {
             domain_id,
             participant_id: 0,
             thread: new_thread,
         }
+    }
+
+    fn create_publisher(&self, dp: DomainParticipant, qos: QosPolicies) -> Publisher {
+        Publisher::new(qos.clone(), qos.clone(), dp)
+    }
+    fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
+        Subscriber::new(qos)
     }
 }
