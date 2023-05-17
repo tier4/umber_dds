@@ -3,6 +3,7 @@ RustDDSを参考実装としてRTPSの解析を行う
 
 ## TODO
 - [x] QosPoliciesを実装
+- [ ] Publisher/Subscriber, DataWriter/DataReader, RTPSWriter/RTPSReaderの役割を把握(DDSがデータを書き込むときに、どこでSubmessageを生成して、どのエンティティーのどのメソッドが呼ばれるのか？)
 - [ ] Topicを実装
 - [ ] Publisher/Subscriberを実装
 - [ ] DataWriter/DataReaderのwith_key/no_keyについて調査
@@ -32,6 +33,14 @@ Subscriberの場合readerをpollに登録
 FastDDSのドキュメント(https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html#the-dcps-conceptual-model)の
 DDS Domainの図と一致しているが、p/sがdropされるのが理解できない。
 
+## RustDDSのchennel
+add_writer:
+    sender: Publisher
+    receiver: DPEventLoop
+witer_command:
+    receiver: DPEventLoop
+    sender(cc_upload): DataWriter
+
 ## fastDDSのHelloWorldSubscriberからDDSのAPIを確認
 class HelloWorldSubscriberを定義
 メンバーはDomainParticipant, Subscriber, DataReader, Topic, TypeSuppoert, DataReaderListener.
@@ -41,6 +50,42 @@ HelloWorldSubscriberのイニシャライザ
 3. participantにQOSを渡してtopicを生成
 4. participantにQOSを渡してsubscriberを生成
 5. subscriberにtopic, QOS, DataReaderListenerを渡してreaderを生成
+
+## 各DDS, RTPSエンティティーの役割
+### Publisher/Subscriber (DDS)
+DDS spec 2.2.2.4.1 Publisher Class
+> A Publisher is the object responsible for the actual dissemination of publications.
+
+RustDDSのsrc/dds/pubsub.rsのDDS Publisherのdocコメント
+> The Publisher and Subscriber structures are collections of DataWriters
+> and, respectively, DataReaders. They can contain DataWriters or DataReaders
+> of different types, and attacehd to different Topics.
+
+DataWriter/DataReaderを生成するためのもの
+### DataWriter/DataReader (DDS)
+#### DataWriter
+DDS spec 2.2.2.4.2 DataWriter Class
+> DataWriter allows the application to set the value of the data to be published under a given Topic
+
+data: Dを受け取って、シリアライズしてSerializedPayloadを作成。作成したSerializedPayloadとオプションをチャネル:witer_commandを通じてRTPSWriterに渡す。
+送信したい内容をRTPSWriterに渡す
+
+### RTPSWriter/RTPSReader
+### RTPSWriter
+RustDDSのsrc/dds/writer.rsのprocess_writer_commandのコメントの要約
+1. DataWriterから受け取ったものをHistoryCacheに追加。
+2. データを送信\
+    データをpublishしたときはDATA submessageとHEARTBEAT submessageを送信\
+    データをpublishしなかったときはHEARTBEAT submessageをだけを送信。このとき、Readerが興味を持っていればDATAとACKNACKを要求してくるはず
+
+## 独り言
+エンティティーを生成するときに、データの依存関係があって
+あるデータを持ってるのは〜で、あるデータを生成するのが〜で
+ってなってて正しい順番、正しいデータの流れじゃないとエンティティーの生成に必要な情報が揃わない。
+データの依存関係とデータの流れがスパゲッティみたいに絡み合ってて解析するの辛い。
+GUIDとか、がなんのためのものかとかの各プロパティの役割を理解すると解析が楽になりそう。
+もうちょっとマクロな視点でDDS, RTPSを理解するといいかもって思った。
+けど、specから読み解くのは難しいし、RustDDSの実装から理解するのが難しくて詰まってるんだから実装から読み解くのは難しい
 
 ## Topic
 RustDDSでは、src/dds/topic.rsで定義されている。
@@ -55,6 +100,26 @@ DDSHelloWorldのパケットキャプチャを解析した結果、RTPSを通じ
 
 (https://fast-dds.docs.eprosima.com/en/latest/fastdds/dds_layer/topic/instances.html)
 Topicは1つのデータタイプと紐付けられる。そのため、Topicと関係するデータサンプルはデータ型で示される情報のupdateとして理解される。しかし、論理的に分離して、同じトピック内に、同じデータ型を参照する複数のインスタンスを持つことも可能である。したがって、受信したデータサンプルは、そのTopicの特定のインスタンスに対する更新となる。
+
+## Publisher
+RustDDSのPublisherがもってるdefault_dw_qosについて、(https://fast-dds.docs.eprosima.com/en/latest/fastdds/dds_layer/publisher/publisher/publisher.html#default-publisherqos)を参照
+DDSのspecの(https://www.omg.org/spec/DDS/1.4/PDF#G5.1030755)に詳細
+
+CDRはCommaon Data Representationの略だと思われる
+http://www.omg.org/cgi-bin/doc?formal/02-06-51
+にCDRについて書いてある。
+
+## with_key/no_keyについて
+keyがなんのkeyなのかはわからなかったが、no_keyはwith_keyをwrapしてるので
+with_keyを実装して必要になればno_keyを実装する。
+fastddsgenで生成したコード読んでたら`bool HelloWorld::isKeyDefined()`
+というメソッドがあったからKeyの概念自体はDDS共通のものだと思われる。
+DDS specの2.2.2.4.2.9 get_key_valuにinstance keyというフレーズがある。
+https://fast-dds.docs.eprosima.com/en/latest/fastdds/dds_layer/topic/instances.html
+と照らし合わせると同じトピック内に、同じデータ型を参照する複数のインスタンスを識別するためのものだと思われる。Instanceってなんのこと？
+TopicがClassだとするとそれから生成されるObjectということになる。
+すると、TopicをPublisherとかに持たせるときは参照にしてむやみにInstanceを生やさないのが正しいかもしれない。datawriterを新たに生成してtopicを保持するときはInstanceを持っていいけど、topicを取得するときは参照を返す。
+dispoedはRustのDropに対応するものだと思う。RustDDSもDataWriterにDropトレイトを実装してた。
 
 ## DataReader/DataWriter
 RustDDSのREADME.md
