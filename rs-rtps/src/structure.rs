@@ -1,4 +1,5 @@
 pub mod duration;
+pub mod entity;
 pub mod entityId;
 pub mod guid;
 pub mod parameterId;

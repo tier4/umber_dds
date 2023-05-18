@@ -1,4 +1,5 @@
 use crate::network::net_util::*;
+use crate::structure::entity::RTPSEntity;
 use crate::{
     dds::{event_loop::EventLoop, publisher::Publisher, qos::QosPolicies, subscriber::Subscriber},
     network::udp_listinig_socket::*,
@@ -13,6 +14,12 @@ use std::thread;
 #[derive(Clone)]
 pub struct DomainParticipant {
     inner: Arc<DomainParticipantInner>,
+}
+
+impl RTPSEntity for DomainParticipant {
+    fn guid(&self) -> GUID {
+        self.inner.my_guid
+    }
 }
 
 impl DomainParticipant {
@@ -32,6 +39,7 @@ impl DomainParticipant {
 pub struct DomainParticipantInner {
     domain_id: u16,
     participant_id: u16,
+    pub my_guid: GUID,
     thread: thread::JoinHandle<()>,
 }
 
@@ -53,9 +61,12 @@ impl DomainParticipantInner {
             ev_loop.event_loop();
         });
 
+        let my_guid = GUID::new_participant_guid();
+
         Self {
             domain_id,
             participant_id: 0,
+            my_guid,
             thread: new_thread,
         }
     }
@@ -65,5 +76,11 @@ impl DomainParticipantInner {
     }
     fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
         Subscriber::new(qos)
+    }
+}
+
+impl RTPSEntity for DomainParticipant {
+    fn guid(&self) -> GUID {
+        self.my_guid
     }
 }

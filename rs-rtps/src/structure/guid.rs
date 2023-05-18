@@ -3,8 +3,8 @@ use rand;
 use speedy::Readable;
 
 pub struct GUID {
-    guidPrefix: GuidPrefix,
-    entityId: EntityId,
+    pub guidPrefix: GuidPrefix,
+    pub entityId: EntityId,
 }
 
 impl GUID {
@@ -12,6 +12,20 @@ impl GUID {
         guidPrefix: GuidPrefix::UNKNOW,
         entityId: EntityId::UNKNOW,
     };
+
+    pub fn new(guidPrefix: GuidPrefix, entityId: EntityId) -> Self {
+        Self {
+            guidPrefix,
+            entityId,
+        }
+    }
+
+    pub fn new_participant_guid() -> Self {
+        Self {
+            guidPrefix: GuidPrefix::new(),
+            entityId: EntityId::PARTICIPANT_BUILT_IN,
+        }
+    }
 }
 
 #[derive(Readable, Debug, Clone, Copy, PartialEq)]
