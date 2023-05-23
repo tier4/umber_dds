@@ -51,6 +51,31 @@ HelloWorldSubscriberのイニシャライザ
 4. participantにQOSを渡してsubscriberを生成
 5. subscriberにtopic, QOS, DataReaderListenerを渡してreaderを生成
 
+# RustDDSのスレッド
+## Tread 1 (main)
+DomainParticipantを所有
+pollに{DataWriter, DataReader}を登録してloopでイベントを処理DomainParticipantはadd_writer_senderを所有(Publisherに配布するため)
+DomainParticipantのcreate_{publisher/subscriver}で{publisher/subscriver}を作成
+{Publisher/Subscriber}のcreate_data{writer/reader}でdata{writer/reader}を作成。
+このとき、{reader/writer}_command_{sender/reveiver}を作成し、senderはdata{writer/reader}にもたせる。
+create_data{writer/reader}で{writer/reader}の作成命令を{Publisher/}の持つadd_{writer/reader}_senderに送る。ことのきに{reader/writer}_command_{sender/reveiver}も送る。
+
+
+## Tread 2 (DPEventLoop)
+handler: thread 1のDomainParticipantが所有
+
+pollにいろいろ登録してloopでイベント処理
+pollに登録されているもの
+- 全UDPソケット
+- {add/remove}_{reader/writer}_receiver
+- stop_poll_receiver
+- acknack_receiver
+- discovery_update_notification_receiver
+add_writer_receiverでThread1のcreate_datawriterから受信
+
+![IMG_3649](https://github.com/tomiy-0x62/Settings/assets/58660268/eecfa405-b93f-48f3-b490-62606c38443b)
+
+
 ## 各DDS, RTPSエンティティーの役割
 ### Publisher/Subscriber (DDS)
 DDS spec 2.2.2.4.1 Publisher Class
@@ -86,6 +111,30 @@ RustDDSのsrc/dds/writer.rsのprocess_writer_commandのコメントの要約
 GUIDとか、がなんのためのものかとかの各プロパティの役割を理解すると解析が楽になりそう。
 もうちょっとマクロな視点でDDS, RTPSを理解するといいかもって思った。
 けど、specから読み解くのは難しいし、RustDDSの実装から理解するのが難しくて詰まってるんだから実装から読み解くのは難しい
+
+## メモ
+DataWriterはGUIDを持ってる
+PublisherはEntityIdを持ってる
+RTPSWriterはGUIDを持ってる
+RustDDSのsrc/dds/pubsub.rsを読んでると
+publisherのcreate_data_writerはDataWriter作ると同時にRTPSWriterを作るように
+participantに送信してる。
+このときにDataWriterとRTPSWriterをチャネルでつなげてる。
+
+## Channel
+mio_extraにはsync_channelとchannelがある。
+それぞれの違いをメモ
+mio_extraには有益な情報がなかったが、
+mio_extraのchannelはstd::sync::mpsc::channelをwrapしてるだけ
+だからそっちのドキュメントを参照。
+### chnnel
+Senderから送信されたすべてのデータは、送信された順番でReceiverで利用可能になる。sendを呼び出したthreadはブルックされない。(このチャネルは無限大のバッファを持っている。)
+Senderが1つでも生きている間、messageが受信可能になるまでrecvはブロックされる。
+### sync_channel
+SyncSenderから送信されたすべてのデータは、送信された順番でReceiverで利用可能になる。channelと同じでReceiverはメッセージが利用可能になるまでブロックされる。
+バッファのリミットに到達するとsendの呼び出しをブロックする。
+sync_channelはsenderのsemanticsが大きく異なる。
+buffer sizeを0にするのは許容され、その場合対になっているrecvが実行されるまでsendはブロックされる。
 
 ## Topic
 RustDDSでは、src/dds/topic.rsで定義されている。
