@@ -1,7 +1,10 @@
+use crate::dds::tokens::*;
+use crate::rtps::writer::WriterIngredients;
 use crate::structure::guid::*;
 use bytes::BytesMut;
 use mio::net::UdpSocket;
 use mio::{Events, Interest, Poll, Token};
+use mio_extras::channel as mio_chennel;
 use std::collections::HashMap;
 
 use crate::message::message_receiver::*;
@@ -20,6 +23,7 @@ impl EventLoop {
     pub fn new(
         mut sockets: HashMap<Token, UdpSocket>,
         participant_guidprefix: GuidPrefix,
+        mut add_writer_receiver: mio_chennel::SyncSender<WriterIngredients>,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
@@ -27,6 +31,13 @@ impl EventLoop {
                 .register(lister, *token, Interest::READABLE)
                 .unwrap();
         }
+        poll.registry()
+            .register(
+                &mut add_writer_receiver,
+                ADD_WRITER_TOKEN,
+                Interest::READABLE,
+            )
+            .unwrap();
         let message_receiver = MessageReceiver::new(participant_guidprefix);
         EventLoop {
             poll,

@@ -666,9 +666,17 @@ The interpretation and meaning of a Submessage within a Message may depend on th
 within that same Message. "
 つまり、Message内に1つでも無効なSubmessageが含まれている場合、そのMessageを処理する意義は失われるため、RustDDSでは破棄していると思われる。
 
-### guid_prefix, EntityIdの調査
+### GUID
 - guid_prefix
     先頭2 octetはvenderIdの先頭2 octetと同じにする。これによってDDS Domain内で複数のRTPS実装が使われてもguidが衝突しない。残りの 10 octetは衝突しなければどんな方法で生成してもいい。(p. 144)
+
+    RTPS spec 8.2.4.3 The GUIDs of the RTPS Endpoints within a Participant
+    > The GUIDs of all the Endpoints within a Participant have the same prefix.
+
+    あるParticipantに含まれるすべてのEndpointのGUIDは同じprefixを持つ。
+    > The GUID of any endpoint can be deduced from the GUID of the Participant to which it belongs and its entityId.
+
+    すべてのEndpintのGUIDは所属しているParticipantのGUIDとそのEndpointのentityIdから決定される。
 
 ### MessageReceiver::handle_received_packet()の調査
 MessageReceiver::handle_received_packet()
