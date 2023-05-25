@@ -1,0 +1,29 @@
+# 目的
+domain_participantを生成
+domain_participantからpublisherを生成
+publisherからdatawriterを生成と同時にrtpswriter生成の流れを解析
+
+# domain_participantを生成
+domain_participantのメンバー
+```
+add_writer_sender
+my_guid
+```
+add_writer_*を生成
+add_writer_receiverはdp_event_loopに渡す
+domain_participantがadd_writer_senderを保持するのはpublisherに配布するため
+
+# domain_participantからpublisherを生成
+add_writer_senderとparticipant自身をPublisher::new()に渡す
+Publisherはdomain_participantとadd_writer_senderを保持
+
+# publisherからdatawriterを生成と同時にrtpswriter生成
+publisherのcreate_datawriterでwriter_command送信用のチャネルを生成。
+このチャネルはdata_writerがwriterにデータを送るためのもの
+自身の保持してるadd_data_writerにwriterを生成するように送信
+このときwriter_command送信用のチャネルのreceiverをwriterに渡す。
+data_writerを生成
+このときwriter_command送信用のチャネルのsenderをwriterに渡す。
+
+
+# どのスレッドで何が走ってるのか把握
