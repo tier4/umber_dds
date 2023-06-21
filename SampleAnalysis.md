@@ -33,6 +33,29 @@ Subscriberの場合readerをpollに登録
 FastDDSのドキュメント(https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html#the-dcps-conceptual-model)の
 DDS Domainの図と一致しているが、p/sがdropされるのが理解できない。
 
+## mio::poll
+### v0.8.6 (本実装で使用)
+poll.registry().register()
+第一引数の監視対象: source: &mut S (S: Source + ?Sized)
+
+### v0.6.23 (RustDDSで使用)
+poll.register()
+第一引数の監視対象: handle: &E (E: Evented + ?Sized)
+
+## mio_extra ( https://github.com/dimbleby/mio-extras )
+mioとは別の開発者が開発
+mioのv0.6にしか対応していない
+
+## mio_channel ( https://github.com/oh-jinsu/mio-channel )
+これもmioとは別の開発者が開発
+mioのv0.8に対応しているが、SyncSenderに非対応
+
+## mioでchannelを使うには
+- mio_channelをSyncSenderに対応させるpull reqを送って、mio_channelを使う
+- mio_channelをforkしてSyncSenderに対応させたクレートを公開して使用
+- 自前でmio_chennelのようなmpscのmio wrapperを実装
+- mio本体にmpscのwrapperを追加するpull reqを送る
+
 ## RustDDSのchennel
 add_writer:
     sender: Publisher
@@ -666,9 +689,17 @@ The interpretation and meaning of a Submessage within a Message may depend on th
 within that same Message. "
 つまり、Message内に1つでも無効なSubmessageが含まれている場合、そのMessageを処理する意義は失われるため、RustDDSでは破棄していると思われる。
 
-### guid_prefix, EntityIdの調査
+### GUID
 - guid_prefix
     先頭2 octetはvenderIdの先頭2 octetと同じにする。これによってDDS Domain内で複数のRTPS実装が使われてもguidが衝突しない。残りの 10 octetは衝突しなければどんな方法で生成してもいい。(p. 144)
+
+    RTPS spec 8.2.4.3 The GUIDs of the RTPS Endpoints within a Participant
+    > The GUIDs of all the Endpoints within a Participant have the same prefix.
+
+    あるParticipantに含まれるすべてのEndpointのGUIDは同じprefixを持つ。
+    > The GUID of any endpoint can be deduced from the GUID of the Participant to which it belongs and its entityId.
+
+    すべてのEndpintのGUIDは所属しているParticipantのGUIDとそのEndpointのentityIdから決定される。
 
 ### MessageReceiver::handle_received_packet()の調査
 MessageReceiver::handle_received_packet()
