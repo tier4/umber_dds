@@ -78,9 +78,3 @@ impl DomainParticipantInner {
         Subscriber::new(qos)
     }
 }
-
-impl RTPSEntity for DomainParticipant {
-    fn guid(&self) -> GUID {
-        self.my_guid
-    }
-}
