@@ -512,6 +512,29 @@ RustDDSのsrc/dds/reader.rs, writer.rsはそれぞれRTPS Reader, RTPS Writerの
 
 この最初に送られるData SubmessageのserializedDataを見たら https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A309%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C489%2C0%5D と概ね一致していた。
 
+## domain_participantの生成からdatawriter, rtpswriter生成までの流れ
+### domain_participantを生成
+domain_participantのメンバー
+```
+add_writer_sender
+my_guid
+```
+add_writer_*を生成
+add_writer_receiverはdp_event_loopに渡す
+domain_participantがadd_writer_senderを保持するのはpublisherに配布するため
+
+### domain_participantからpublisherを生成
+add_writer_senderとparticipant自身をPublisher::new()に渡す
+Publisherはdomain_participantとadd_writer_senderを保持
+
+### publisherからdatawriterを生成と同時にrtpswriter生成
+publisherのcreate_datawriterでwriter_command送信用のチャネルを生成。
+このチャネルはdata_writerがwriterにデータを送るためのもの
+自身の保持してるadd_data_writerにwriterを生成するように送信
+このときwriter_command送信用のチャネルのreceiverをwriterに渡す。
+data_writerを生成
+このときwriter_command送信用のチャネルのsenderをwriterに渡す。
+
 ## The Simple Participant Discovery Protocol
 spec 8.5.3 \
 プログラムを起動して一番最初に送られるパケットはこのDiscovery Endpointのためのものだから、このプロトコルについて調査する。
