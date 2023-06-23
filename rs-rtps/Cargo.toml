@@ -4,13 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
+# hoge
 [dependencies]
 byteorder = "1.4.3"
 bytes = "1.4.0"
 enumflags2 = {version = "0.7.5", features = ["serde"]}
 mio = { version = "0.8.6", features = ["os-poll", "net"]}
+mio-extras = "2.0.6"
 rand = "0.8.5"
+serde = "1.0.163"
 socket2 = "0.4.7"
 speedy = "0.8.5"
 text-colorizer = "1.0.0"
