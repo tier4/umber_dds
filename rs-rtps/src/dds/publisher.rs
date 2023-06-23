@@ -80,9 +80,11 @@ impl InnerPublisher {
         topic: Topic,
         outter: Publisher,
     ) -> DataWriter<D> {
-        let entity_id = EntityId::WRITER_WITH_KEY_USER_DEFIND;
+        todo!();
+        /*
+        let entity_id = EntityId::/*TODO*/;
         let guid = self.dp.guid().new_from_id(entity_id);
-        DataWriter::<D>::new(self.add_writer_sender, qos, topic, outter)
+        DataWriter::<D>::new(self.add_writer_sender, qos, topic, outter) */
     }
     pub fn get_participant(&self) -> DomainParticipant {
         self.dp.clone()

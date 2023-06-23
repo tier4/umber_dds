@@ -1,6 +1,6 @@
 use crate::dds::{publisher::Publisher, qos::QosPolicies, topic::Topic};
 use crate::rtps::writer::*;
-use crate::structure::{entity::RTPSEntity, guid::GUID};
+use crate::structure::{entity::RTPSEntity, entityId::EntityId, guid::GUID};
 use mio_extras::channel as mio_channel;
 use serde::Serialize;
 use std::marker::PhantomData;
@@ -26,7 +26,11 @@ impl<D: Serialize> DataWriter<D> {
         let new_writer = WriterIngredients {
             writer_command_receiver,
         };
-        let my_guid = publisher.domain_participant().guid().new_from_id();
+        todo!();
+        /*let my_guid = publisher
+            .domain_participant()
+            .guid()
+             .new_from_id(/* TODO */);
         add_writer_sender.try_send(new_writer);
         Self {
             data_phantom: PhantomData::<D>,
@@ -35,7 +39,7 @@ impl<D: Serialize> DataWriter<D> {
             publisher,
             my_guid,
             add_writer_sender,
-        }
+        }*/
     }
     pub fn get_qos() {}
     pub fn set_qos() {}
