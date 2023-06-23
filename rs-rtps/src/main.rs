@@ -5,7 +5,6 @@ mod dds;
 mod rtps;
 use dds::{event_loop, participant::DomainParticipant};
 mod message;
-mod rtps;
 mod structure;
 
 fn main() {
