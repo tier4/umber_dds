@@ -12,6 +12,66 @@ impl EntityId {
         entityKey: [0x00; 3],
         entityKind: EntityKind::UNKNOW_USER_DEFIND,
     };
+
+    pub const MAX: Self = Self {
+        entityKey: [0xFF; 3],
+        entityKind: EntityKind::MAX,
+    };
+
+    pub const PARTICIPANT: Self = Self {
+        entityKey: [0x00, 0x00, 0x01],
+        entityKind: EntityKind::PARTICIPANT_BUILT_IN,
+    };
+
+    pub const SED_PBUILTIN_TOPICS_ANNOUNCER: Self = Self {
+        entityKey: [0x00, 0x00, 0x02],
+        entityKind: EntityKind::WRITER_WITH_KEY_BUILT_IN,
+    };
+
+    pub const SED_PBUILTIN_TOPICS_DETECTOR: Self = Self {
+        entityKey: [0x00, 0x00, 0x02],
+        entityKind: EntityKind::READER_NO_KEY_BUILT_IN,
+    };
+
+    pub const SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER: Self = Self {
+        entityKey: [0x00, 0x00, 0x03],
+        entityKind: EntityKind::READER_NO_KEY_BUILT_IN,
+    };
+
+    pub const SEDP_BUILTIN_PUBLICATIONS_DETECTOR: Self = Self {
+        entityKey: [0x00, 0x00, 0x03],
+        entityKind: EntityKind::READER_NO_KEY_BUILT_IN,
+    };
+
+    pub const SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER: Self = Self {
+        entityKey: [0x00, 0x00, 0x04],
+        entityKind: EntityKind::WRITER_WITH_KEY_BUILT_IN,
+    };
+
+    pub const SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR: Self = Self {
+        entityKey: [0x00, 0x00, 0x04],
+        entityKind: EntityKind::READER_NO_KEY_BUILT_IN,
+    };
+
+    pub const SPDP_BUILTIN_PARTICIPANT_ANNOUNCER: Self = Self {
+        entityKey: [0x00, 0x01, 0x00],
+        entityKind: EntityKind::WRITER_WITH_KEY_BUILT_IN,
+    };
+
+    pub const SPDP_BUILTIN_PARTICIPANT_DETECTOR: Self = Self {
+        entityKey: [0x00, 0x01, 0x00],
+        entityKind: EntityKind::READER_NO_KEY_BUILT_IN,
+    };
+
+    pub const P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER: Self = Self {
+        entityKey: [0x00, 0x02, 0x00],
+        entityKind: EntityKind::WRITER_WITH_KEY_BUILT_IN,
+    };
+
+    pub const P2P_BUILTIN_PARTICIPANT_MESSAGE_READER: Self = Self {
+        entityKey: [0x00, 0x02, 0x00],
+        entityKind: EntityKind::READER_NO_KEY_BUILT_IN,
+    };
 }
 
 #[derive(PartialEq, Readable)]
@@ -37,4 +97,5 @@ impl EntityKind {
     pub const READER_NO_KEY_BUILT_IN: Self = Self { value: 0xc7 };
     pub const WRITER_GROUP_BUILT_IN: Self = Self { value: 0xc8 };
     pub const READER_GROUP_BUILT_IN: Self = Self { value: 0xc9 };
+    pub const MAX: Self = Self { value: 0xFF };
 }

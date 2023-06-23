@@ -30,7 +30,7 @@ impl GUID {
     pub fn new_participant_guid() -> Self {
         Self {
             guidPrefix: GuidPrefix::new(),
-            entityId: EntityId::PARTICIPANT_BUILT_IN,
+            entityId: EntityId::PARTICIPANT,
         }
     }
 }
