@@ -42,7 +42,7 @@ impl Publisher {
         qos: QosPolicies,
         topic: Topic,
     ) -> DataWriter<D> {
-        self.inner.create_datawriter(qos, topic, self.clone())
+        self.inner.create_datawriter(qos, topic, *self.clone())
     }
 
     pub fn domain_participant(&self) -> DomainParticipant {

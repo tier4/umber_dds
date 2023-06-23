@@ -23,7 +23,7 @@ impl EventLoop {
     pub fn new(
         mut sockets: HashMap<Token, UdpSocket>,
         participant_guidprefix: GuidPrefix,
-        mut add_writer_receiver: mio_chennel::SyncSender<WriterIngredients>,
+        mut add_writer_receiver: mio_chennel::Receiver<WriterIngredients>,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
