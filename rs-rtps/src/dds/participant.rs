@@ -7,7 +7,7 @@ use crate::{
     structure::guid::*,
 };
 use mio::net::UdpSocket;
-use mio_extras::channel as mio_channel;
+use mio_channel;
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::sync::Arc;

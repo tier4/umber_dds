@@ -1,4 +1,4 @@
-use mio_extras::channel as mio_channel;
+use mio_channel;
 
 pub struct Writer {
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,

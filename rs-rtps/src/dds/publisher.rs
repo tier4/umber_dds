@@ -3,7 +3,7 @@ use crate::dds::{
 };
 use crate::rtps::writer::*;
 use crate::structure::entityId::EntityId;
-use mio_extras::channel as mio_channel;
+use mio_channel;
 use std::sync::Arc;
 
 pub struct Publisher {

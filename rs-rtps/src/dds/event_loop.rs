@@ -4,7 +4,7 @@ use crate::structure::guid::*;
 use bytes::BytesMut;
 use mio::net::UdpSocket;
 use mio::{Events, Interest, Poll, Token};
-use mio_extras::channel as mio_chennel;
+use mio_channel;
 use std::collections::HashMap;
 
 use crate::message::message_receiver::*;
@@ -23,7 +23,7 @@ impl EventLoop {
     pub fn new(
         mut sockets: HashMap<Token, UdpSocket>,
         participant_guidprefix: GuidPrefix,
-        mut add_writer_receiver: mio_chennel::Receiver<WriterIngredients>,
+        mut add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
