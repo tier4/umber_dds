@@ -9,7 +9,7 @@ use std::{fmt, fmt::Debug};
 use crate::message::submessage::element::{
     acknack::AckNack, data::Data, datafrag::DataFrag, gap::Gap, heartbeat::Heartbeat,
     heartbeatfrag::HeartbeatFrag, infodst::InfoDestination, inforeply::InfoReply,
-    inforeplyIp4::InfoReplyIp4, infosrc::InfoSource, infots::InfoTimestamp, nackfrag::NackFrag,
+    inforeply_ip4::InfoReplyIp4, infosrc::InfoSource, infots::InfoTimestamp, nackfrag::NackFrag,
 };
 use crate::message::submessage::submessage_flag::*;
 use enumflags2::BitFlags;
@@ -24,6 +24,7 @@ pub enum SubMessageBody {
     Interpreter(InterpreterSubmessage),
 }
 
+#[allow(non_camel_case_types)]
 pub enum SubMessageKind {
     PAD = 0x01,
     ACKNACK = 0x06,

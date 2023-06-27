@@ -2,7 +2,7 @@ use crate::dds::{
     datawriter::DataWriter, participant::DomainParticipant, qos::QosPolicies, topic::Topic,
 };
 use crate::rtps::writer::*;
-use crate::structure::entityId::EntityId;
+use crate::structure::entity_id::EntityId;
 use mio_channel;
 use std::sync::Arc;
 

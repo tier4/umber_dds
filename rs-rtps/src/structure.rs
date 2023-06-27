@@ -1,7 +1,7 @@
 pub mod duration;
 pub mod entity;
-pub mod entityId;
+pub mod entity_id;
 pub mod guid;
-pub mod parameterId;
+pub mod parameter_id;
 pub mod topic_kind;
-pub mod vendorId;
+pub mod vendor_id;

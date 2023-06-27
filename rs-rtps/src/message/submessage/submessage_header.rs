@@ -3,14 +3,14 @@ use speedy::{Endianness, Readable};
 
 #[derive(Readable, Debug)]
 pub struct SubMessageHeader {
-    submessageId: u8,
+    submessage_id: u8,
     flags: u8,
-    submessageLength: u16,
+    submessage_length: u16,
 }
 
 impl SubMessageHeader {
     pub fn get_content_len(&self) -> u16 {
-        self.submessageLength
+        self.submessage_length
     }
 
     pub fn get_flags(&self) -> u8 {
@@ -26,7 +26,7 @@ impl SubMessageHeader {
     }
 
     pub fn get_submessagekind(&self) -> SubMessageKind {
-        match self.submessageId {
+        match self.submessage_id {
             0x01 => SubMessageKind::PAD,
             0x06 => SubMessageKind::ACKNACK,
             0x07 => SubMessageKind::HEARTBEAT,

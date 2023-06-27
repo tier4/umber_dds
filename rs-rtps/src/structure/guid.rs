@@ -1,37 +1,37 @@
-use crate::structure::entityId::*;
+use crate::structure::entity_id::*;
 use rand;
 use speedy::Readable;
 
 #[derive(Clone, Copy)]
 pub struct GUID {
-    pub guidPrefix: GuidPrefix,
-    pub entityId: EntityId,
+    pub guid_prefix: GuidPrefix,
+    pub entity_id: EntityId,
 }
 
 impl GUID {
     pub const UNKNOW: Self = Self {
-        guidPrefix: GuidPrefix::UNKNOW,
-        entityId: EntityId::UNKNOW,
+        guid_prefix: GuidPrefix::UNKNOW,
+        entity_id: EntityId::UNKNOW,
     };
 
-    pub fn new(guidPrefix: GuidPrefix, entityId: EntityId) -> Self {
+    pub fn new(guid_prefix: GuidPrefix, entity_id: EntityId) -> Self {
         Self {
-            guidPrefix,
-            entityId,
+            guid_prefix,
+            entity_id,
         }
     }
 
-    pub fn new_from_id(&self, entityId: EntityId) -> Self {
+    pub fn new_from_id(&self, entity_id: EntityId) -> Self {
         Self {
-            guidPrefix: self.guidPrefix,
-            entityId,
+            guid_prefix: self.guid_prefix,
+            entity_id,
         }
     }
 
     pub fn new_participant_guid() -> Self {
         Self {
-            guidPrefix: GuidPrefix::new(),
-            entityId: EntityId::PARTICIPANT,
+            guid_prefix: GuidPrefix::new(),
+            entity_id: EntityId::PARTICIPANT,
         }
     }
 }
@@ -46,15 +46,15 @@ impl GuidPrefix {
     };
 
     // sprc 9.3.1.5
-    // guidPrefix[0] = venderId[0]
-    // guidPrefix[1] = venderId[1]
+    // guid_prefix[0] = venderId[0]
+    // guid_prefix[1] = venderId[1]
     pub fn new() -> Self {
         let mut bytes: [u8; 12] = rand::random();
         // spec 8.2.4.2 The GUIDs of RTPS Participants
         // The implementation is free to chose the prefix,
         // as long as every Participant in the Domain has a unique GUID.
-        bytes[0] = crate::structure::vendorId::VendorId::THIS_IMPLEMENTATION.vendor_id[0];
-        bytes[1] = crate::structure::vendorId::VendorId::THIS_IMPLEMENTATION.vendor_id[1];
+        bytes[0] = crate::structure::vendor_id::VendorId::THIS_IMPLEMENTATION.vendor_id[0];
+        bytes[1] = crate::structure::vendor_id::VendorId::THIS_IMPLEMENTATION.vendor_id[1];
         Self { guid_prefix: bytes }
     }
 }
