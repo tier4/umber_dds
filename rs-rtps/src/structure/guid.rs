@@ -2,6 +2,7 @@ use crate::structure::entityId::*;
 use rand;
 use speedy::Readable;
 
+#[derive(Clone, Copy)]
 pub struct GUID {
     pub guidPrefix: GuidPrefix,
     pub entityId: EntityId,
