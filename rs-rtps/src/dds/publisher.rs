@@ -6,6 +6,7 @@ use crate::structure::entityId::EntityId;
 use mio_channel;
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct Publisher {
     inner: Arc<InnerPublisher>,
 }
@@ -42,11 +43,11 @@ impl Publisher {
         qos: QosPolicies,
         topic: Topic,
     ) -> DataWriter<D> {
-        self.inner.create_datawriter(qos, topic, *self.clone())
+        self.inner.create_datawriter(qos, topic, self.clone())
     }
 
     pub fn domain_participant(&self) -> DomainParticipant {
-        self.inner.dp
+        self.inner.dp.clone()
     }
 }
 
