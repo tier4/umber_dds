@@ -21,13 +21,6 @@ impl GUID {
         }
     }
 
-    pub fn new_from_id(&self, entity_id: EntityId) -> Self {
-        Self {
-            guid_prefix: self.guid_prefix,
-            entity_id,
-        }
-    }
-
     pub fn new_participant_guid() -> Self {
         Self {
             guid_prefix: GuidPrefix::new(),

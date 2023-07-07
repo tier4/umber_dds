@@ -2,7 +2,7 @@ use crate::dds::{
     datawriter::DataWriter, participant::DomainParticipant, qos::QosPolicies, topic::Topic,
 };
 use crate::rtps::writer::*;
-use crate::structure::entity_id::EntityId;
+use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::GUID};
 use mio_channel;
 use std::sync::Arc;
 
@@ -27,14 +27,12 @@ impl Publisher {
         add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
     ) -> Self {
         Self {
-            inner: Arc::new(InnerPublisher {
-                id: EntityId::MAX,
-                // EntityId mut uniq, but we do not show it to anyone.
+            inner: Arc::new(InnerPublisher::new(
                 qos,
                 default_dw_qos,
                 dp,
                 add_writer_sender,
-            }),
+            )),
         }
     }
 
@@ -81,11 +79,7 @@ impl InnerPublisher {
         topic: Topic,
         outter: Publisher,
     ) -> DataWriter<D> {
-        todo!();
-        /*
-        let entity_id = EntityId::/*TODO*/;
-        let guid = self.dp.guid().new_from_id(entity_id);
-        DataWriter::<D>::new(self.add_writer_sender, qos, topic, outter) */
+        DataWriter::<D>::new(self.add_writer_sender.clone(), qos, topic, outter)
     }
     pub fn get_participant(&self) -> DomainParticipant {
         self.dp.clone()
