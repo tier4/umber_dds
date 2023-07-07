@@ -6,12 +6,12 @@ pub mod heartbeat;
 pub mod heartbeatfrag;
 pub mod infodst;
 pub mod inforeply;
-pub mod inforeplyIp4;
+pub mod inforeply_ip4;
 pub mod infosrc;
 pub mod infots;
 pub mod nackfrag;
 
-use crate::structure::parameterId::ParameterId;
+use crate::structure::parameter_id::ParameterId;
 use byteorder::ReadBytesExt;
 use bytes::Bytes;
 use speedy::{Context, Readable};
@@ -39,7 +39,7 @@ struct NumberSet<T> {
 }
 
 pub struct Parameter {
-    parameterId: ParameterId,
+    parameter_id: ParameterId,
     // length: i16,
     // RTPS 2.3 spec 9.4.2.11 ParameterList show Parameter contains length,
     // but it need only deseriarize time
@@ -55,15 +55,16 @@ impl<'a, C: Context> Readable<'a, C> for ParameterList {
     fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
         let mut parameter_list = ParameterList::default();
         loop {
-            let parameterId = ParameterId::read_from(reader)?;
-            match parameterId {
+            let parameter_id = ParameterId::read_from(reader)?;
+            match parameter_id {
                 ParameterId::PID_SENTINEL => return Ok(parameter_list),
                 _ => {
                     let length = u16::read_from(reader)?;
                     let value = reader.read_vec(length as usize)?;
-                    parameter_list
-                        .parameters
-                        .push(Parameter { parameterId, value })
+                    parameter_list.parameters.push(Parameter {
+                        parameter_id,
+                        value,
+                    })
                 }
             }
         }

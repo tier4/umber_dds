@@ -3,5 +3,5 @@ use speedy::Readable;
 
 #[derive(Readable)]
 pub struct InfoDestination {
-    pub guidPrefix: GuidPrefix,
+    pub guid_prefix: GuidPrefix,
 }

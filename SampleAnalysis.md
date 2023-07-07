@@ -1,6 +1,18 @@
 # SampleAnalysis
 RustDDSを参考実装としてRTPSの解析を行う
 
+## TODO
+- [x] QosPoliciesを実装
+- [ ] Publisher/Subscriber, DataWriter/DataReader, RTPSWriter/RTPSReaderの役割を把握(DDSがデータを書き込むときに、どこでSubmessageを生成して、どのエンティティーのどのメソッドが呼ばれるのか？)
+- [ ] Topicを実装
+- [ ] Publisher/Subscriberを実装
+- [ ] DataWriter/DataReaderのwith_key/no_keyについて調査
+- [ ] DataWriter/DataReaderを実装
+- [ ] RTPSWriter/RTPSReaderを実装
+- [ ] UDP senderの実装
+- [ ] Discovery Moduleを実装
+どれもDiscoveryに必要そうなものを最低限実装
+
 ## RustDDSのShapdemoからDDSのAPIを確認
 Writerの実装を追おうとしたけど、実装を個別に追うのは厳しそうだから、DDSがどんなAPI担っているかを確認して、Writer, DomainParticipant等の関係性を掴む
 そのために、examples/shapes_demo/main.rsを読んで見る。
@@ -21,6 +33,37 @@ Subscriberの場合readerをpollに登録
 FastDDSのドキュメント(https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html#the-dcps-conceptual-model)の
 DDS Domainの図と一致しているが、p/sがdropされるのが理解できない。
 
+## mio::poll
+### v0.8.6 (本実装で使用)
+poll.registry().register()
+第一引数の監視対象: source: &mut S (S: Source + ?Sized)
+
+### v0.6.23 (RustDDSで使用)
+poll.register()
+第一引数の監視対象: handle: &E (E: Evented + ?Sized)
+
+## mio_extra ( https://github.com/dimbleby/mio-extras )
+mioとは別の開発者が開発
+mioのv0.6にしか対応していない
+
+## mio_channel ( https://github.com/oh-jinsu/mio-channel )
+これもmioとは別の開発者が開発
+mioのv0.8に対応しているが、SyncSenderに非対応
+
+## mioでchannelを使うには
+- mio_channelをSyncSenderに対応させるpull reqを送って、mio_channelを使う
+- mio_channelをforkしてSyncSenderに対応させたクレートを公開して使用
+- 自前でmio_chennelのようなmpscのmio wrapperを実装
+- mio本体にmpscのwrapperを追加するpull reqを送る
+
+## RustDDSのchennel
+add_writer:
+    sender: Publisher
+    receiver: DPEventLoop
+witer_command:
+    receiver: DPEventLoop
+    sender(cc_upload): DataWriter
+
 ## fastDDSのHelloWorldSubscriberからDDSのAPIを確認
 class HelloWorldSubscriberを定義
 メンバーはDomainParticipant, Subscriber, DataReader, Topic, TypeSuppoert, DataReaderListener.
@@ -31,9 +74,133 @@ HelloWorldSubscriberのイニシャライザ
 4. participantにQOSを渡してsubscriberを生成
 5. subscriberにtopic, QOS, DataReaderListenerを渡してreaderを生成
 
+# RustDDSのスレッド
+## Tread 1 (main)
+DomainParticipantを所有
+pollに{DataWriter, DataReader}を登録してloopでイベントを処理DomainParticipantはadd_writer_senderを所有(Publisherに配布するため)
+DomainParticipantのcreate_{publisher/subscriver}で{publisher/subscriver}を作成
+{Publisher/Subscriber}のcreate_data{writer/reader}でdata{writer/reader}を作成。
+このとき、{reader/writer}_command_{sender/reveiver}を作成し、senderはdata{writer/reader}にもたせる。
+create_data{writer/reader}で{writer/reader}の作成命令を{Publisher/}の持つadd_{writer/reader}_senderに送る。ことのきに{reader/writer}_command_{sender/reveiver}も送る。
+
+
+## Tread 2 (DPEventLoop)
+handler: thread 1のDomainParticipantが所有
+
+pollにいろいろ登録してloopでイベント処理
+pollに登録されているもの
+- 全UDPソケット
+- {add/remove}_{reader/writer}_receiver
+- stop_poll_receiver
+- acknack_receiver
+- discovery_update_notification_receiver
+add_writer_receiverでThread1のcreate_datawriterから受信
+
+![IMG_3649](https://github.com/tomiy-0x62/Settings/assets/58660268/eecfa405-b93f-48f3-b490-62606c38443b)
+
+
+## 各DDS, RTPSエンティティーの役割
+### Publisher/Subscriber (DDS)
+DDS spec 2.2.2.4.1 Publisher Class
+> A Publisher is the object responsible for the actual dissemination of publications.
+
+RustDDSのsrc/dds/pubsub.rsのDDS Publisherのdocコメント
+> The Publisher and Subscriber structures are collections of DataWriters
+> and, respectively, DataReaders. They can contain DataWriters or DataReaders
+> of different types, and attacehd to different Topics.
+
+DataWriter/DataReaderを生成するためのもの
+### DataWriter/DataReader (DDS)
+#### DataWriter
+DDS spec 2.2.2.4.2 DataWriter Class
+> DataWriter allows the application to set the value of the data to be published under a given Topic
+
+data: Dを受け取って、シリアライズしてSerializedPayloadを作成。作成したSerializedPayloadとオプションをチャネル:witer_commandを通じてRTPSWriterに渡す。
+送信したい内容をRTPSWriterに渡す
+
+### RTPSWriter/RTPSReader
+### RTPSWriter
+RustDDSのsrc/dds/writer.rsのprocess_writer_commandのコメントの要約
+1. DataWriterから受け取ったものをHistoryCacheに追加。
+2. データを送信\
+    データをpublishしたときはDATA submessageとHEARTBEAT submessageを送信\
+    データをpublishしなかったときはHEARTBEAT submessageをだけを送信。このとき、Readerが興味を持っていればDATAとACKNACKを要求してくるはず
+
+## 独り言
+エンティティーを生成するときに、データの依存関係があって
+あるデータを持ってるのは〜で、あるデータを生成するのが〜で
+ってなってて正しい順番、正しいデータの流れじゃないとエンティティーの生成に必要な情報が揃わない。
+データの依存関係とデータの流れがスパゲッティみたいに絡み合ってて解析するの辛い。
+GUIDとか、がなんのためのものかとかの各プロパティの役割を理解すると解析が楽になりそう。
+もうちょっとマクロな視点でDDS, RTPSを理解するといいかもって思った。
+けど、specから読み解くのは難しいし、RustDDSの実装から理解するのが難しくて詰まってるんだから実装から読み解くのは難しい
+
+## メモ
+DataWriterはGUIDを持ってる
+PublisherはEntityIdを持ってる
+RTPSWriterはGUIDを持ってる
+RustDDSのsrc/dds/pubsub.rsを読んでると
+publisherのcreate_data_writerはDataWriter作ると同時にRTPSWriterを作るように
+participantに送信してる。
+このときにDataWriterとRTPSWriterをチャネルでつなげてる。
+
+## Channel
+mio_extraにはsync_channelとchannelがある。
+それぞれの違いをメモ
+mio_extraには有益な情報がなかったが、
+mio_extraのchannelはstd::sync::mpsc::channelをwrapしてるだけ
+だからそっちのドキュメントを参照。
+### chnnel
+Senderから送信されたすべてのデータは、送信された順番でReceiverで利用可能になる。sendを呼び出したthreadはブルックされない。(このチャネルは無限大のバッファを持っている。)
+Senderが1つでも生きている間、messageが受信可能になるまでrecvはブロックされる。
+### sync_channel
+SyncSenderから送信されたすべてのデータは、送信された順番でReceiverで利用可能になる。channelと同じでReceiverはメッセージが利用可能になるまでブロックされる。
+バッファのリミットに到達するとsendの呼び出しをブロックする。
+sync_channelはsenderのsemanticsが大きく異なる。
+buffer sizeを0にするのは許容され、その場合対になっているrecvが実行されるまでsendはブロックされる。
+
 ## Topic
 RustDDSでは、src/dds/topic.rsで定義されている。
 ~~spec探しても情報が見つからん。~~ RTPSじゃなくてDDSのsepcに情報があった。コードのコメントにも"DDS spec 2.3.3"って書いてあるのにRTPSのspecみてた。(https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386)
+僕 「Topicって何？」
+Chat GPT4 「Topicは、名前（文字列）とデータ型を持ちます。」
+RustDDSの実装を確認するとTopicにもたせてるのは名前, DomainParticipant, Qos, Kind(WITH_KEY or NO_KEY)で、データ型は含まれてない。
+データ型とTopicを結びつけてるのは、publisher.create_datawriter_cdr::<Shape>(&topic, None)だと思われる。
+// TODO: FastDDSがどうやってTopicとデータを結びつけてるのか調べる。
+DDSHelloWorldのパケットキャプチャを解析した結果、RTPSを通じてやり取りされるのはTpicの名前のみらしい。具体的なデータ型はソースコードレベルで共有しておいて、
+それに紐付いた名前のみをTopicに持たせるっぽい。
+
+(https://fast-dds.docs.eprosima.com/en/latest/fastdds/dds_layer/topic/instances.html)
+Topicは1つのデータタイプと紐付けられる。そのため、Topicと関係するデータサンプルはデータ型で示される情報のupdateとして理解される。しかし、論理的に分離して、同じトピック内に、同じデータ型を参照する複数のインスタンスを持つことも可能である。したがって、受信したデータサンプルは、そのTopicの特定のインスタンスに対する更新となる。
+
+## Publisher
+RustDDSのPublisherがもってるdefault_dw_qosについて、(https://fast-dds.docs.eprosima.com/en/latest/fastdds/dds_layer/publisher/publisher/publisher.html#default-publisherqos)を参照
+DDSのspecの(https://www.omg.org/spec/DDS/1.4/PDF#G5.1030755)に詳細
+
+CDRはCommaon Data Representationの略だと思われる
+http://www.omg.org/cgi-bin/doc?formal/02-06-51
+にCDRについて書いてある。
+
+## with_key/no_keyについて
+keyがなんのkeyなのかはわからなかったが、no_keyはwith_keyをwrapしてるので
+with_keyを実装して必要になればno_keyを実装する。
+fastddsgenで生成したコード読んでたら`bool HelloWorld::isKeyDefined()`
+というメソッドがあったからKeyの概念自体はDDS共通のものだと思われる。
+DDS specの2.2.2.4.2.9 get_key_valuにinstance keyというフレーズがある。
+https://fast-dds.docs.eprosima.com/en/latest/fastdds/dds_layer/topic/instances.html
+と照らし合わせると同じトピック内に、同じデータ型を参照する複数のインスタンスを識別するためのものだと思われる。Instanceってなんのこと？
+TopicがClassだとするとそれから生成されるObjectということになる。
+すると、TopicをPublisherとかに持たせるときは参照にしてむやみにInstanceを生やさないのが正しいかもしれない。datawriterを新たに生成してtopicを保持するときはInstanceを持っていいけど、topicを取得するときは参照を返す。
+dispoedはRustのDropに対応するものだと思う。RustDDSもDataWriterにDropトレイトを実装してた。
+
+## DataReader/DataWriter
+RustDDSのREADME.md
+### Data serialization and keying
+いくつかの既存のDDS実装はそれぞれのペイロードタイプのDataReader/DataWriterの実装のためにコード生成を使用している。
+> DataReader/DataWriterはそれぞれのデータタイプごとに実装されるものらしい
+
+私達はコード生成に頼らない。そのかわり、Rust generic programmingを使う。
+Serdeライブラリがペイロードのデータのシリアライズ/デシリアライズに使われる。
 
 ## struct Hoge {inner: Arc<InnerHoge>,} のデザインパターン
 複数ヶ所から参照される場合につかう
@@ -66,6 +233,12 @@ shapes_de 160 root   10u  IPv4 457163      0t0  UDP *:35442
 shapes_de 160 root   11u  IPv4 457165      0t0  UDP 69d7d3c3fefa:39541 // このポートは毎回変わる
                                                                         // このポート番号を以下rpとする
 ```
+各ポートの意味(domainId = 0, participantId = 0)
+- 7400: spdp_multicast_port
+- 7410: spdp_unicast_port
+- 7401: usertraffic_multicast_port
+- 7411: usertraffic_unicast_port
+
 開かれるportはp. 165にある。RustDDSのポートを決める実装はsrc/network/constant.rsにあり、仕様書のdefault通りに実装されている。
 上4つは受信用, 下2つは送信用。
 受信用はsubscribeのため、送信用はdiscoveryのため。
@@ -147,6 +320,7 @@ UDPSender::new() {
 このとき20個のスレッドが起動されているから、パケットがどのスレッドから送信されたか注意
 
 rpポートからマルチキャスト:7400にRTPSパケットを5つ送信
+ポート7400はdomainId=0のときのデフォルトのspdp_multicast_port
 ```
 RTPS Submessage (p. 44)
     The Entity Submessage
@@ -229,8 +403,6 @@ thread 2 "RustDDS Partici"の
 3回目229行目に到達した時点で3つめをキャプチャ
 
 4回目229行目に到達した時点で4つめをキャプチャ
-
-~~TODO: このパケットを送信してるコードを見つけ出す~~
 
 -> 多分writer.process_writer_command()とか、ev_wrapper.message_receiver.handle_received_packet(&packet);の中で送信されてる
 
@@ -315,8 +487,16 @@ Thread 3: discovery_handle, DomainParticipantがこのhandleを持ってる
 5. dp_event_loopでpollがTokenDecode::Entity(eid)のイベントを受け取り、process_writer_commandが呼ばれる。\
 このイベントの発生源は4. でpollに登録したやつっぽい。\
 TODO: なんのためのそれらのイベントがpollに登録されたのか調査 -> Discoveryのための可能性大, specのDiscoveryを読む
-TokenDecode::Entity(eid)のイベントを受け取ったreceiverはdp_event_loop.rs:386のやつで、これと対になるsenderは2.のkkkkkkk/create_datawriterが生成したDataWriterが持ってる。
-こいつに書き込まれるのはsrc/discovery.rsのdiscovery_event_loop()の中のwrite_writers_info()nだと思われる。
+TokenDecode::Entity(eid)のイベントを受け取ったreceiverはdp_event_loop.rs:386のやつで、これと対になるsenderは2.
+のcreate_datawriterが生成したDataWriterが持ってる。\
+こいつに書き込まれるのはsrc/discovery.rsのdiscovery_event_loop()の中のwrite_writers_info()。
+self.dcps_publication_writer.write() (selfはDiscovery)だから https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A305%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C553%2C0%5D の"DCPSPublication"が関係してる。
+詳しくはDDSのspecを確認。
+```
+There are four pre-defined built-in Topics: “DCPSParticipant,” “DCPSSubscription,” “DCPSPublication,” and
+“DCPSTopic.” The DataTypes associated with these Topics are also specified by the DDS specification and mainly
+contain Entity QoS values.
+```
 6. process_writer_commandからDDSCache::add_change()が呼ばれる。
 
     add_changeはThread 2で実行
@@ -329,6 +509,68 @@ TokenDecode::Entity(eid)のイベントを受け取ったreceiverはdp_event_loo
 
 
 RustDDSのsrc/dds/reader.rs, writer.rsはそれぞれRTPS Reader, RTPS Writerの実装。
+
+この最初に送られるData SubmessageのserializedDataを見たら https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A309%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C489%2C0%5D と概ね一致していた。
+
+## domain_participantの生成からdatawriter, rtpswriter生成までの流れ
+### domain_participantを生成
+domain_participantのメンバー
+```
+add_writer_sender
+my_guid
+```
+add_writer_*を生成
+add_writer_receiverはdp_event_loopに渡す
+domain_participantがadd_writer_senderを保持するのはpublisherに配布するため
+
+### domain_participantからpublisherを生成
+add_writer_senderとparticipant自身をPublisher::new()に渡す
+Publisherはdomain_participantとadd_writer_senderを保持
+
+### publisherからdatawriterを生成と同時にrtpswriter生成
+publisherのcreate_datawriterでwriter_command送信用のチャネルを生成。
+このチャネルはdata_writerがwriterにデータを送るためのもの
+自身の保持してるadd_data_writerにwriterを生成するように送信
+このときwriter_command送信用のチャネルのreceiverをwriterに渡す。
+data_writerを生成
+このときwriter_command送信用のチャネルのsenderをwriterに渡す。
+
+## The Simple Participant Discovery Protocol
+spec 8.5.3 \
+プログラムを起動して一番最初に送られるパケットはこのDiscovery Endpointのためのものだから、このプロトコルについて調査する。
+
+Chat GPT-4によるThe Simple Participant Discovery Protocoの要約(間違いは修正)
+
+
+>     1. パーティシパントの生成: パーティシパントがドメインに参加すると、それぞれのParticipantを区別するためのParticipantIdが割り当てられます。
+>
+>     2. マルチキャスト送信: 新しいパーティシパントは、その存在を周知させるために、所定のマルチキャストアドレスにParticipantDataメッセージを送信します。このメッセージには、プロトコルバージョン、ベンダーID、リスナーアドレス、およびその他のメタデータが含まれます。
+>
+>     3. メッセージ受信: 既存のパーティシパントは、マルチキャストアドレスからParticipantDataメッセージを受信し、新しいパーティシパントの情報をディスカバリデータベースに追加します。
+>
+>     4. 応答: 既存のパーティシパントは、新しいパーティシパントに対して独自のParticipantDataメッセージを送信し、自身の情報を通知します。これにより、新しいパーティシパントも既存のパーティシパントの情報をディスカバリデータベースに追加できます。
+>
+>     5. 定期的なアナウンス: パーティシパントは定期的に、自身の存在とデータをマルチキャストアドレスに送信します。これにより、新たに参加したパーティシパントや情報が失われたパーティシパントが、他のパーティシパントの情報をディスカバリデータベースに追加できます。
+>
+> このような流れで、SPDPはドメイン内のパーティシパント同士のディスカバリを行い、RTPSにおいてリアルタイム通信の基盤を提供します。
+
+僕 「2.の手順についてマルチキャストアドレスにParticipantDataを送信するのはどのWriterですか？」\
+Chat GPT 「マルチキャストアドレスにParticipantDataメッセージを送信するのは、特別なビルトインデータライターであるSPDPdiscoveredParticipantDataWriterです。このビルトインデータライターは、各パーティシパントによって自動的に生成され、パーティシパントのディスカバリプロセスをサポートします。
+
+SPDPdiscoveredParticipantDataWriterは、新しいパーティシパントがドメインに参加したときや定期的なアナウンスの際に、ParticipantDataメッセージを所定のマルチキャストアドレスに送信します。これにより、他のパーティシパントが新しいパーティシパントの存在を検出し、相互に通信できるようになります。」
+
+### RTPS StatelessWriter
+spec 8.4.7.2 \
+Statelessなリファレンス実装で使用される特別なRTPS Writer。
+
+### RTPS StatefulWriter
+spec 8.4.7.4 \
+Statefulなリファレンス実装で使用される特別なRTPS Writer。
+
+### RTPS StatefulReader
+spec 8.4.10.2 \
+特別なRTPS Reader。
+
 
 
 ## 解析の感想
@@ -348,13 +590,15 @@ handle_heartbeat_tick()のコメントにこれは周期的に呼ばれるって
 
 厳密な信頼性のある通信のために、Writerは、Readerが利用可能なすべてのサンプルの受信をacknowledgeするか、またはReaderが消失するまで、Readerに対してHEARTBEATメッセージを送り続けなければならない。それ以外のケースでは、送信されるHEARTBEATメッセージの数は実装固有であり、有限である。
 
-~~TODO: 以下を調査~~
 どうしてINFO_TSがセットなのか？
 -> spec読んだけど見つからない
 specにはreliable onlyの場合とあるのに、コードからreliable only要素が読み取れないのはなぜか？
 -> WriterのQOSが常にreliableになるのかと思ったけど、Writer::new()のheartbeat_periodをprintしてみたら、Noneになったから、違う。
 どうして、multicastで送られるのか？
 -> FastDDSを使ったShapeDemo一番最初に送られるのはINFO_TS, DATA, Unknowで、INFO_TS, HEARTBEATは送られてない。RustDDSの実装が仕様に従ってないだけの可能性が高い。
+
+## QOS
+https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386
 
 ## DomainParticipantの構造
 ```
@@ -421,7 +665,6 @@ socket::receive()で受け取れるのが、b'RTPS'から始まるパケット1�
 socket::receive()して、4byteにアラインメントされてるか確認(必要？)
 アラインメントされてなければ0xCCを追加(0xCCの根拠はない-> アクセスされないから)
 送信時にアラインメントされないの？
-TODO: なんかよくわかんない処理が行われているから必要かどうか調査する。
 
 ### ByteMutの取扱
 buf = BytesMut::with_capacity(CAP)を実行するとスタックフレーム上に[*buf, CAP, len(=0)]が作られる。ことのき、ヒープ上のbufは最大でCAP byte確保できるが、現在確保されているサイズはlen byte。
@@ -447,7 +690,6 @@ MessageReceiverは仕様書 8.3.4: The RTPS Message Receiver で説明されて�
 
 /src/dds/message_receiver.rs
 
-~~TODO:~~
 MessageReceiver::new()で*_reply_locator_listの初期値が`vec![Locator::Invalid]`になっている。しかし、仕様書のp. 38にはLocatorの初期値には受信したメッセージにしたがって値をセットすると書いてあるから、RustDDSが初期値をInvalidに設定している理由を調査。
 
 -> "The list is initialized to contain a single Locator_t with the LocatorKind,"と書いてあるから要素を1つ含むVecとして初期化しないといけない。
@@ -470,9 +712,17 @@ The interpretation and meaning of a Submessage within a Message may depend on th
 within that same Message. "
 つまり、Message内に1つでも無効なSubmessageが含まれている場合、そのMessageを処理する意義は失われるため、RustDDSでは破棄していると思われる。
 
-### guid_prefix, EntityIdの調査
+### GUID
 - guid_prefix
     先頭2 octetはvenderIdの先頭2 octetと同じにする。これによってDDS Domain内で複数のRTPS実装が使われてもguidが衝突しない。残りの 10 octetは衝突しなければどんな方法で生成してもいい。(p. 144)
+
+    RTPS spec 8.2.4.3 The GUIDs of the RTPS Endpoints within a Participant
+    > The GUIDs of all the Endpoints within a Participant have the same prefix.
+
+    あるParticipantに含まれるすべてのEndpointのGUIDは同じprefixを持つ。
+    > The GUID of any endpoint can be deduced from the GUID of the Participant to which it belongs and its entityId.
+
+    すべてのEndpintのGUIDは所属しているParticipantのGUIDとそのEndpointのentityIdから決定される。
 
 ### MessageReceiver::handle_received_packet()の調査
 MessageReceiver::handle_received_packet()
@@ -666,7 +916,7 @@ RTPSParticipantの中にwriter, readerがある。
 
 dataを送信, 受信できる要素
 
-- Endpoint
+- Endpoint (https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A107%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C383%2C0%5D)
 
     例: RTPSWriter, RTPSReader
 

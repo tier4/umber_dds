@@ -3,6 +3,6 @@ use speedy::Readable;
 
 #[derive(Readable)]
 pub struct InfoReplyIp4 {
-    pub unicastLocatorList: LocatorList,
-    pub multicastLocatorList: Option<LocatorList>,
+    pub unicast_locator_list: LocatorList,
+    pub multicast_locator_list: Option<LocatorList>,
 }

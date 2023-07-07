@@ -3,46 +3,46 @@ use crate::message::{
     *,
 };
 use crate::net_util::*;
-use crate::structure::{guid::*, vendorId::*};
+use crate::structure::{guid::*, vendor_id::*};
 use bytes::Bytes;
 use speedy::Readable;
 use text_colorizer::*;
 
 pub struct MessageReceiver {
-    own_guidPrefix: GuidPrefix,
-    sourceVersion: ProtocolVersion,
-    sourceVendorId: VendorId,
-    sourceGuidPrefix: GuidPrefix,
-    destGuidPrefix: GuidPrefix,
-    unicastReplyLocatorList: Vec<Locator>,
-    multicastReplyLocatorList: Vec<Locator>,
-    haveTimestamp: bool,
+    own_guid_prefix: GuidPrefix,
+    source_version: ProtocolVersion,
+    source_vendor_id: VendorId,
+    source_guid_prefix: GuidPrefix,
+    dest_guid_prefix: GuidPrefix,
+    unicast_reply_locator_list: Vec<Locator>,
+    multicast_reply_locator_list: Vec<Locator>,
+    have_timestamp: bool,
     timestamp: Timestamp,
 }
 
 impl MessageReceiver {
     pub fn new(participant_guidprefix: GuidPrefix) -> MessageReceiver {
         Self {
-            own_guidPrefix: participant_guidprefix,
-            sourceVersion: ProtocolVersion::PROTOCOLVERSION,
-            sourceVendorId: VendorId::VENDORID_UNKNOW,
-            sourceGuidPrefix: GuidPrefix::UNKNOW,
-            destGuidPrefix: GuidPrefix::UNKNOW,
-            unicastReplyLocatorList: vec![Locator::INVALID],
-            multicastReplyLocatorList: vec![Locator::INVALID],
-            haveTimestamp: false,
+            own_guid_prefix: participant_guidprefix,
+            source_version: ProtocolVersion::PROTOCOLVERSION,
+            source_vendor_id: VendorId::VENDORID_UNKNOW,
+            source_guid_prefix: GuidPrefix::UNKNOW,
+            dest_guid_prefix: GuidPrefix::UNKNOW,
+            unicast_reply_locator_list: vec![Locator::INVALID],
+            multicast_reply_locator_list: vec![Locator::INVALID],
+            have_timestamp: false,
             timestamp: Timestamp::TIME_INVALID,
         }
     }
 
     fn reset(&mut self) {
-        self.sourceVersion = ProtocolVersion::PROTOCOLVERSION;
-        self.sourceVendorId = VendorId::VENDORID_UNKNOW;
-        self.sourceGuidPrefix = GuidPrefix::UNKNOW;
-        self.destGuidPrefix = GuidPrefix::UNKNOW;
-        self.unicastReplyLocatorList.clear();
-        self.multicastReplyLocatorList.clear();
-        self.haveTimestamp = false;
+        self.source_version = ProtocolVersion::PROTOCOLVERSION;
+        self.source_vendor_id = VendorId::VENDORID_UNKNOW;
+        self.source_guid_prefix = GuidPrefix::UNKNOW;
+        self.dest_guid_prefix = GuidPrefix::UNKNOW;
+        self.unicast_reply_locator_list.clear();
+        self.multicast_reply_locator_list.clear();
+        self.have_timestamp = false;
         self.timestamp = Timestamp::TIME_INVALID;
     }
 
@@ -70,8 +70,8 @@ impl MessageReceiver {
 
     fn handle_parsed_packet(&mut self, rtps_msg: Message) {
         self.reset();
-        self.destGuidPrefix = self.own_guidPrefix;
-        self.sourceGuidPrefix = rtps_msg.header.guidPrefix;
+        self.dest_guid_prefix = self.own_guid_prefix;
+        self.source_guid_prefix = rtps_msg.header.guid_prefix;
         println!(">>>>>>>>>>>>>>>>");
         println!("header: {:?}", rtps_msg.header);
         for submsg in rtps_msg.submessages {
@@ -102,45 +102,46 @@ impl MessageReceiver {
         println!("handle interpreter submsg");
         match interpreter_subm {
             InterpreterSubmessage::InfoReply(info_reply, flags) => {
-                self.unicastReplyLocatorList = info_reply.unicastLocatorList;
+                self.unicast_reply_locator_list = info_reply.unicast_locator_list;
                 if flags.contains(InfoReplyFlag::Multicast) {
-                    self.multicastReplyLocatorList =
-                        info_reply.multicastLocatorList.expect("invalid InfoReply");
+                    self.multicast_reply_locator_list = info_reply
+                        .multicast_locator_list
+                        .expect("invalid InfoReply");
                 } else {
-                    self.multicastReplyLocatorList.clear();
+                    self.multicast_reply_locator_list.clear();
                 }
             }
             InterpreterSubmessage::InfoReplyIp4(info_reply_ip4, flags) => {
-                self.unicastReplyLocatorList = info_reply_ip4.unicastLocatorList;
+                self.unicast_reply_locator_list = info_reply_ip4.unicast_locator_list;
                 if flags.contains(InfoReplyIp4Flag::Multicast) {
-                    self.multicastReplyLocatorList = info_reply_ip4
-                        .multicastLocatorList
+                    self.multicast_reply_locator_list = info_reply_ip4
+                        .multicast_locator_list
                         .expect("invalid InfoReplyIp4");
                 } else {
-                    self.multicastReplyLocatorList.clear();
+                    self.multicast_reply_locator_list.clear();
                 }
             }
             InterpreterSubmessage::InfoTImestamp(info_ts, flags) => {
                 if !flags.contains(InfoTimestampFlag::Invalidate) {
-                    self.haveTimestamp = true;
+                    self.have_timestamp = true;
                     self.timestamp = info_ts.timestamp.expect("invalid InfoTS");
                 } else {
-                    self.haveTimestamp = false;
+                    self.have_timestamp = false;
                 }
             }
             InterpreterSubmessage::InfoSource(info_souce, _flags) => {
-                self.sourceGuidPrefix = info_souce.guidPrefix;
-                self.sourceVersion = info_souce.protocolVersion;
-                self.sourceVendorId = info_souce.vendorId;
-                self.unicastReplyLocatorList.clear();
-                self.multicastReplyLocatorList.clear();
-                self.haveTimestamp = false;
+                self.source_guid_prefix = info_souce.guid_prefix;
+                self.source_version = info_souce.protocol_version;
+                self.source_vendor_id = info_souce.vendor_id;
+                self.unicast_reply_locator_list.clear();
+                self.multicast_reply_locator_list.clear();
+                self.have_timestamp = false;
             }
             InterpreterSubmessage::InfoDestinatio(info_dst, _flags) => {
-                if info_dst.guidPrefix != GuidPrefix::UNKNOW {
-                    self.destGuidPrefix = info_dst.guidPrefix;
+                if info_dst.guid_prefix != GuidPrefix::UNKNOW {
+                    self.dest_guid_prefix = info_dst.guid_prefix;
                 } else {
-                    self.destGuidPrefix = self.own_guidPrefix;
+                    self.dest_guid_prefix = self.own_guid_prefix;
                 }
             }
         }

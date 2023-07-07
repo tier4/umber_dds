@@ -1,4 +1,4 @@
-use crate::structure::{guid::*, vendorId::*};
+use crate::structure::{guid::*, vendor_id::*};
 use speedy::Readable;
 
 #[derive(Readable, Debug)]
@@ -26,6 +26,6 @@ impl ProtocolId {
 pub struct Header {
     pub protocol: ProtocolId,
     pub version: ProtocolVersion,
-    pub vendorId: VendorId,
-    pub guidPrefix: GuidPrefix,
+    pub vendor_id: VendorId,
+    pub guid_prefix: GuidPrefix,
 }

@@ -1,13 +1,13 @@
 use crate::message::submessage::{element::*, submessage_flag::HeartbeatFragFlag};
-use crate::structure::entityId::*;
+use crate::structure::entity_id::*;
 use enumflags2::BitFlags;
 use speedy::Readable;
 
 #[derive(Readable)]
 pub struct HeartbeatFrag {
-    readerId: EntityId,
-    writerId: EntityId,
-    writerSN: SequenceNumber,
-    lastFragmentNum: FragmentNumber,
+    reader_id: EntityId,
+    writer_id: EntityId,
+    writer_sn: SequenceNumber,
+    last_fragment_num: FragmentNumber,
     count: Count,
 }

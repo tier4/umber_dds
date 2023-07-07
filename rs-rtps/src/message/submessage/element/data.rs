@@ -1,15 +1,15 @@
 use crate::message::submessage::{element::*, submessage_flag::DataFlag};
-use crate::structure::entityId::*;
+use crate::structure::entity_id::*;
 use enumflags2::BitFlags;
 use speedy::{Context, Endianness, Error, Readable};
 use std::io;
 
 pub struct Data {
-    readerId: EntityId,
-    writerId: EntityId,
-    writerSN: SequenceNumber,
-    inlineQos: Option<ParameterList>,
-    serializedPayload: Option<SerializedPayload>,
+    reader_id: EntityId,
+    writer_id: EntityId,
+    writer_sn: SequenceNumber,
+    inline_qos: Option<ParameterList>,
+    serialized_payload: Option<SerializedPayload>,
 }
 
 impl Data {
@@ -27,23 +27,23 @@ impl Data {
         let octets_to_inline_qos =
             u16::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
                 .map_err(map_speedy_err)?;
-        let readerId = EntityId::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
+        let reader_id = EntityId::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
             .map_err(map_speedy_err)?;
-        let writerId = EntityId::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
+        let writer_id = EntityId::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
             .map_err(map_speedy_err)?;
-        let writerSN = SequenceNumber::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
+        let writer_sn = SequenceNumber::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
             .map_err(map_speedy_err)?;
         let is_exist_inline_qos = flags.contains(DataFlag::InlineQos);
         let is_exist_serialized_data =
             flags.contains(DataFlag::Datqa) || flags.contains(DataFlag::Key);
 
-        // between octets_to_inline_qos and inlineQos in rtps n2.3, there are
-        // readerId (4), writerId (4), writerSN (8) = 16 octets
+        // between octets_to_inline_qos and inline_qos in rtps n2.3, there are
+        // reader_id (4), writer_id (4), writer_sn (8) = 16 octets
         let rtps_v23_data_header_size: u16 = 16;
         let extra_octes = octets_to_inline_qos - rtps_v23_data_header_size;
         cursor.set_position(cursor.position() + u64::from(extra_octes));
 
-        let inlineQos = if is_exist_inline_qos {
+        let inline_qos = if is_exist_inline_qos {
             Some(
                 ParameterList::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
                     .map_err(map_speedy_err)?,
@@ -52,7 +52,7 @@ impl Data {
             None
         };
 
-        let serializedPayload = if is_exist_serialized_data {
+        let serialized_payload = if is_exist_serialized_data {
             Some(SerializedPayload::from_bytes(
                 &buffer.clone().split_off(cursor.position() as usize),
             )?)
@@ -60,11 +60,11 @@ impl Data {
             None
         };
         Ok(Self {
-            readerId,
-            writerId,
-            writerSN,
-            inlineQos,
-            serializedPayload,
+            reader_id,
+            writer_id,
+            writer_sn,
+            inline_qos,
+            serialized_payload,
         })
     }
 }
