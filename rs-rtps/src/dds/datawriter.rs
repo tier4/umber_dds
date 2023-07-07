@@ -10,7 +10,8 @@ pub struct DataWriter<D: Serialize> {
     qos: QosPolicies,
     topic: Topic,
     publisher: Publisher,
-    my_guid: GUID,
+    // my_guid: GUID, // In RustDDS, DataWriter has guid to drop corresponding RTPSWriter
+    // I implement guid for DataWriter when need.
     add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
 }
 
@@ -26,28 +27,16 @@ impl<D: Serialize> DataWriter<D> {
         let new_writer = WriterIngredients {
             writer_command_receiver,
         };
-        todo!();
-        /*let my_guid = publisher
-            .domain_participant()
-            .guid()
-             .new_from_id(/* TODO */);
-        add_writer_sender.try_send(new_writer);
+        add_writer_sender.send(new_writer);
         Self {
             data_phantom: PhantomData::<D>,
             qos,
             topic,
             publisher,
-            my_guid,
             add_writer_sender,
-        }*/
+        }
     }
     pub fn get_qos() {}
     pub fn set_qos() {}
     pub fn write(&self, data: D) {}
-}
-
-impl<D: Serialize> RTPSEntity for DataWriter<D> {
-    fn guid(&self) -> GUID {
-        self.my_guid
-    }
 }
