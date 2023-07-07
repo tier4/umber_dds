@@ -96,7 +96,7 @@ pollに登録されているもの
 - discovery_update_notification_receiver
 add_writer_receiverでThread1のcreate_datawriterから受信
 
-![IMG_3649](https://github.com/tomiy-0x62/Settings/assets/58660268/eecfa405-b93f-48f3-b490-62606c38443b)
+![IMG_3698](https://github.com/tier4/T4RustDDS/assets/58660268/03b4b425-8156-4de5-9ce4-07e7b8dfbb5c)
 
 
 ## 各DDS, RTPSエンティティーの役割
