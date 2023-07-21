@@ -1,5 +1,5 @@
 use crate::dds::tokens::*;
-use crate::rtps::writer::WriterIngredients;
+use crate::rtps::writer::{Writer, WriterCmd, WriterIngredients};
 use crate::structure::guid::*;
 use bytes::BytesMut;
 use mio::net::UdpSocket;
@@ -17,6 +17,8 @@ pub struct EventLoop {
     poll: Poll,
     sockets: HashMap<Token, UdpSocket>,
     message_receiver: MessageReceiver,
+    add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
+    writers: Vec<Writer>,
 }
 
 impl EventLoop {
@@ -43,6 +45,8 @@ impl EventLoop {
             poll,
             sockets,
             message_receiver,
+            add_writer_receiver,
+            writers: Vec::new(),
         }
     }
 
@@ -56,6 +60,11 @@ impl EventLoop {
                         let udp_sock = self.sockets.get_mut(&event.token()).unwrap();
                         let packets = EventLoop::receiv_packet(udp_sock);
                         self.message_receiver.handle_packet(packets);
+                    }
+                    ADD_WRITER_TOKEN => {
+                        let writer_ing = self.add_writer_receiver.try_recv().unwrap();
+                        let writer = Writer::new(writer_ing);
+                        self.writers.push(writer);
                     }
                     _ => println!("undefined event"),
                 }

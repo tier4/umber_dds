@@ -10,7 +10,7 @@ pub struct Topic {
 }
 
 impl Topic {
-    fn new(
+    pub fn new(
         name: String,
         type_desc: TypeDesc,
         my_domain_participant: DomainParticipant,
@@ -29,7 +29,7 @@ impl Topic {
     }
 }
 
-pub struct InnerTopic {
+struct InnerTopic {
     name: String,
     type_desc: TypeDesc,
     my_domain_participant: DomainParticipant,

@@ -32,71 +32,71 @@ pub struct QosBuilder {
 }
 
 impl QosBuilder {
-    fn new() -> Self {
+    pub fn new() -> Self {
         QosBuilder::default()
     }
 
-    fn durability(mut self, durability: policy::Durability) -> Self {
+    pub fn durability(mut self, durability: policy::Durability) -> Self {
         self.durability = Some(durability);
         self
     }
 
-    fn presentation(mut self, presentation: policy::Presentation) -> Self {
+    pub fn presentation(mut self, presentation: policy::Presentation) -> Self {
         self.presentation = Some(presentation);
         self
     }
 
-    fn deadline(mut self, deadline: policy::Deadline) -> Self {
+    pub fn deadline(mut self, deadline: policy::Deadline) -> Self {
         self.deadline = Some(deadline);
         self
     }
 
-    fn latency_budget(mut self, latency_budget: policy::LatencyBudget) -> Self {
+    pub fn latency_budget(mut self, latency_budget: policy::LatencyBudget) -> Self {
         self.latency_budget = Some(latency_budget);
         self
     }
 
-    fn ownership(mut self, ownership: policy::Ownership) -> Self {
+    pub fn ownership(mut self, ownership: policy::Ownership) -> Self {
         self.ownership = Some(ownership);
         self
     }
 
-    fn liveliness(mut self, liveliness: policy::Liveliness) -> Self {
+    pub fn liveliness(mut self, liveliness: policy::Liveliness) -> Self {
         self.liveliness = Some(liveliness);
         self
     }
 
-    fn time_based_filter(mut self, time_based_filter: policy::TimeBasedFilter) -> Self {
+    pub fn time_based_filter(mut self, time_based_filter: policy::TimeBasedFilter) -> Self {
         self.time_based_filter = Some(time_based_filter);
         self
     }
 
-    fn reliability(mut self, reliability: policy::Reliability) -> Self {
+    pub fn reliability(mut self, reliability: policy::Reliability) -> Self {
         self.reliability = Some(reliability);
         self
     }
 
-    fn destination_order(mut self, destination_order: policy::DestinationOrder) -> Self {
+    pub fn destination_order(mut self, destination_order: policy::DestinationOrder) -> Self {
         self.destination_order = Some(destination_order);
         self
     }
 
-    fn history(mut self, history: policy::History) -> Self {
+    pub fn history(mut self, history: policy::History) -> Self {
         self.history = Some(history);
         self
     }
 
-    fn resource_limits(mut self, resource_limits: policy::ResourceLimits) -> Self {
+    pub fn resource_limits(mut self, resource_limits: policy::ResourceLimits) -> Self {
         self.resource_limits = Some(resource_limits);
         self
     }
 
-    fn lifespan(mut self, lifespan: policy::Lifespan) -> Self {
+    pub fn lifespan(mut self, lifespan: policy::Lifespan) -> Self {
         self.lifespan = Some(lifespan);
         self
     }
 
-    fn build(self) -> QosPolicies {
+    pub fn build(self) -> QosPolicies {
         QosPolicies {
             durability: self.durability,
             presentation: self.presentation,

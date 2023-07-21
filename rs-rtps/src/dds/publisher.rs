@@ -1,7 +1,7 @@
 use crate::dds::{
     datawriter::DataWriter, participant::DomainParticipant, qos::QosPolicies, topic::Topic,
 };
-use crate::rtps::writer::*;
+use crate::rtps::writer::{Writer, WriterCmd, WriterIngredients};
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::GUID};
 use mio_channel;
 use std::sync::Arc;
@@ -11,8 +11,12 @@ pub struct Publisher {
     inner: Arc<InnerPublisher>,
 }
 
-pub struct InnerPublisher {
-    id: EntityId,
+struct InnerPublisher {
+    guid: GUID,
+    // rtps 2.3 spec 8.2.4.4
+    // The DDS Specification defines Publisher and Subscriber entities.
+    // These two entities have GUIDs that are defined exactly
+    // as described for Endpoints in clause 8.2.4.3 above.
     qos: QosPolicies,
     default_dw_qos: QosPolicies,
     dp: DomainParticipant,
@@ -21,6 +25,7 @@ pub struct InnerPublisher {
 
 impl Publisher {
     pub fn new(
+        guid: GUID,
         qos: QosPolicies,
         default_dw_qos: QosPolicies,
         dp: DomainParticipant,
@@ -28,6 +33,7 @@ impl Publisher {
     ) -> Self {
         Self {
             inner: Arc::new(InnerPublisher::new(
+                guid,
                 qos,
                 default_dw_qos,
                 dp,
@@ -51,14 +57,14 @@ impl Publisher {
 
 impl InnerPublisher {
     pub fn new(
+        guid: GUID,
         qos: QosPolicies,
         default_dw_qos: QosPolicies,
         dp: DomainParticipant,
         add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
     ) -> Self {
         Self {
-            id: EntityId::MAX,
-            // EntityId mut uniq, but we do not show it to anyone.
+            guid,
             qos,
             default_dw_qos,
             dp,
@@ -79,7 +85,16 @@ impl InnerPublisher {
         topic: Topic,
         outter: Publisher,
     ) -> DataWriter<D> {
-        DataWriter::<D>::new(self.add_writer_sender.clone(), qos, topic, outter)
+        let (writer_command_sender, writer_command_receiver) =
+            mio_channel::sync_channel::<WriterCmd>(4);
+        self.add_writer_sender.send(WriterIngredients {
+            guid: GUID::new(
+                self.dp.guid_prefix(),
+                EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER, // TODO: IDこれでいいの?
+            ),
+            writer_command_receiver,
+        });
+        DataWriter::<D>::new(writer_command_sender, qos, topic, outter)
     }
     pub fn get_participant(&self) -> DomainParticipant {
         self.dp.clone()

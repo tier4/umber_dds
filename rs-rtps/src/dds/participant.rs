@@ -4,7 +4,7 @@ use crate::structure::entity::RTPSEntity;
 use crate::{
     dds::{event_loop::EventLoop, publisher::Publisher, qos::QosPolicies, subscriber::Subscriber},
     network::udp_listinig_socket::*,
-    structure::guid::*,
+    structure::{entity_id::EntityId, guid::*},
 };
 use mio::net::UdpSocket;
 use mio_channel;
@@ -30,15 +30,15 @@ impl DomainParticipant {
             inner: Arc::new(DomainParticipantInner::new(domain_id)),
         }
     }
-    fn create_publisher(&self, qos: QosPolicies) -> Publisher {
+    pub fn create_publisher(&self, qos: QosPolicies) -> Publisher {
         self.inner.create_publisher(self.clone(), qos)
     }
-    fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
+    pub fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
         self.inner.create_subscriber(qos)
     }
 }
 
-pub struct DomainParticipantInner {
+struct DomainParticipantInner {
     domain_id: u16,
     participant_id: u16,
     pub my_guid: GUID,
@@ -80,9 +80,18 @@ impl DomainParticipantInner {
 
     fn create_publisher(&self, dp: DomainParticipant, qos: QosPolicies) -> Publisher {
         // add_writer用のチャネルを生やして、senderはpubにreceiverは自分
-        Publisher::new(qos.clone(), qos.clone(), dp, self.add_writer_sender.clone())
+        let guid = GUID::new(self.my_guid.guid_prefix, EntityId::publisher());
+        Publisher::new(
+            guid,
+            qos.clone(),
+            qos.clone(),
+            dp,
+            self.add_writer_sender.clone(),
+        )
     }
+
     fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
-        Subscriber::new(qos)
+        let guid = GUID::new(self.my_guid.guid_prefix, EntityId::subscriber());
+        Subscriber::new(guid, qos)
     }
 }

@@ -3,11 +3,11 @@ pub struct TypeDesc {
 }
 
 impl TypeDesc {
-    fn new(name: String) -> Self {
+    pub fn new(name: String) -> Self {
         Self { name }
     }
 
-    fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.name
     }
 }

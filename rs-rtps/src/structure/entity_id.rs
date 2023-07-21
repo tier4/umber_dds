@@ -8,14 +8,25 @@ pub struct EntityId {
 }
 
 impl EntityId {
+    pub fn publisher() -> Self {
+        let key: [u8; 3] = rand::random();
+        Self {
+            entity_key: key,
+            entity_kind: EntityKind::PUBLISHER,
+        }
+    }
+
+    pub fn subscriber() -> Self {
+        let key: [u8; 3] = rand::random();
+        Self {
+            entity_key: key,
+            entity_kind: EntityKind::SUBSCRIBER,
+        }
+    }
+
     pub const UNKNOW: Self = Self {
         entity_key: [0x00; 3],
         entity_kind: EntityKind::UNKNOW_USER_DEFIND,
-    };
-
-    pub const MAX: Self = Self {
-        entity_key: [0xFF; 3],
-        entity_kind: EntityKind::MAX,
     };
 
     pub const PARTICIPANT: Self = Self {
@@ -97,5 +108,8 @@ impl EntityKind {
     pub const READER_NO_KEY_BUILT_IN: Self = Self { value: 0xc7 };
     pub const WRITER_GROUP_BUILT_IN: Self = Self { value: 0xc8 };
     pub const READER_GROUP_BUILT_IN: Self = Self { value: 0xc9 };
-    pub const MAX: Self = Self { value: 0xFF };
+
+    // self difined
+    pub const PUBLISHER: Self = Self { value: 0x40 };
+    pub const SUBSCRIBER: Self = Self { value: 0x41 };
 }
