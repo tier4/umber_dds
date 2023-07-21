@@ -63,6 +63,7 @@ impl EventLoop {
                     }
                     ADD_WRITER_TOKEN => {
                         let writer_ing = self.add_writer_receiver.try_recv().unwrap();
+                        // TODO: writer_cmd_receiver とwriterの紐づけ&pollに登録
                         let writer = Writer::new(writer_ing);
                         self.writers.push(writer);
                     }

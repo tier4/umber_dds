@@ -12,7 +12,7 @@ enumflags2 = {version = "0.7.7", features = ["serde"]}
 mio = { version = "0.8.6", features = ["os-poll", "net"]}
 mio_channel = { git = "https://github.com/oh-jinsu/mio-channel", rev = "044d00d833d4c363c550ac5612ac8184b40c8602"}
 rand = "0.8.5"
-serde = "1.0.163"
+serde = { version = "1.0.163", features = ["derive"] }
 socket2 = "0.4.7"
 speedy = "0.8.5"
 text-colorizer = "1.0.0"
