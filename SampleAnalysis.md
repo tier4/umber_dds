@@ -1,17 +1,6 @@
 # SampleAnalysis
 RustDDSを参考実装としてRTPSの解析を行う
-
-## TODO
-- [x] QosPoliciesを実装
-- [ ] Publisher/Subscriber, DataWriter/DataReader, RTPSWriter/RTPSReaderの役割を把握(DDSがデータを書き込むときに、どこでSubmessageを生成して、どのエンティティーのどのメソッドが呼ばれるのか？)
-- [ ] Topicを実装
-- [ ] Publisher/Subscriberを実装
-- [ ] DataWriter/DataReaderのwith_key/no_keyについて調査
-- [ ] DataWriter/DataReaderを実装
-- [ ] RTPSWriter/RTPSReaderを実装
-- [ ] UDP senderの実装
-- [ ] Discovery Moduleを実装
-どれもDiscoveryに必要そうなものを最低限実装
+たまにFastDDSも読む
 
 ## RustDDSのShapdemoからDDSのAPIを確認
 Writerの実装を追おうとしたけど、実装を個別に追うのは厳しそうだから、DDSがどんなAPI担っているかを確認して、Writer, DomainParticipant等の関係性を掴む
@@ -49,19 +38,20 @@ mioのv0.6にしか対応していない
 ## mio_channel ( https://github.com/oh-jinsu/mio-channel )
 これもmioとは別の開発者が開発
 mioのv0.8に対応しているが、SyncSenderに非対応
+自分で対応させてPR送った
 
 ## mioでchannelを使うには
 - mio_channelをSyncSenderに対応させるpull reqを送って、mio_channelを使う
-- mio_channelをforkしてSyncSenderに対応させたクレートを公開して使用
-- 自前でmio_chennelのようなmpscのmio wrapperを実装
-- mio本体にmpscのwrapperを追加するpull reqを送る
+- ~~mio_channelをforkしてSyncSenderに対応させたクレートを公開して使用~~
+- ~~自前でmio_chennelのようなmpscのmio wrapperを実装~~
+- ~~mio本体にmpscのwrapperを追加するpull reqを送る~~
 
 ## RustDDSのchennel
-add_writer:
-    sender: Publisher
++ add_writer:\
+    sender: Publisher\
     receiver: DPEventLoop
-witer_command:
-    receiver: DPEventLoop
++ witer_command:\
+    receiver: RTPS Writer (DpeventLoopでpoll)\
     sender(cc_upload): DataWriter
 
 ## fastDDSのHelloWorldSubscriberからDDSのAPIを確認
@@ -98,34 +88,6 @@ add_writer_receiverでThread1のcreate_datawriterから受信
 
 ![IMG_3698](https://github.com/tier4/T4RustDDS/assets/58660268/03b4b425-8156-4de5-9ce4-07e7b8dfbb5c)
 
-
-## 各DDS, RTPSエンティティーの役割
-### Publisher/Subscriber (DDS)
-DDS spec 2.2.2.4.1 Publisher Class
-> A Publisher is the object responsible for the actual dissemination of publications.
-
-RustDDSのsrc/dds/pubsub.rsのDDS Publisherのdocコメント
-> The Publisher and Subscriber structures are collections of DataWriters
-> and, respectively, DataReaders. They can contain DataWriters or DataReaders
-> of different types, and attacehd to different Topics.
-
-DataWriter/DataReaderを生成するためのもの
-### DataWriter/DataReader (DDS)
-#### DataWriter
-DDS spec 2.2.2.4.2 DataWriter Class
-> DataWriter allows the application to set the value of the data to be published under a given Topic
-
-data: Dを受け取って、シリアライズしてSerializedPayloadを作成。作成したSerializedPayloadとオプションをチャネル:witer_commandを通じてRTPSWriterに渡す。
-送信したい内容をRTPSWriterに渡す
-
-### RTPSWriter/RTPSReader
-### RTPSWriter
-RustDDSのsrc/dds/writer.rsのprocess_writer_commandのコメントの要約
-1. DataWriterから受け取ったものをHistoryCacheに追加。
-2. データを送信\
-    データをpublishしたときはDATA submessageとHEARTBEAT submessageを送信\
-    データをpublishしなかったときはHEARTBEAT submessageをだけを送信。このとき、Readerが興味を持っていればDATAとACKNACKを要求してくるはず
-
 ## 独り言
 エンティティーを生成するときに、データの依存関係があって
 あるデータを持ってるのは〜で、あるデータを生成するのが〜で
@@ -136,9 +98,6 @@ GUIDとか、がなんのためのものかとかの各プロパティの役割�
 けど、specから読み解くのは難しいし、RustDDSの実装から理解するのが難しくて詰まってるんだから実装から読み解くのは難しい
 
 ## メモ
-DataWriterはGUIDを持ってる
-PublisherはEntityIdを持ってる
-RTPSWriterはGUIDを持ってる
 RustDDSのsrc/dds/pubsub.rsを読んでると
 publisherのcreate_data_writerはDataWriter作ると同時にRTPSWriterを作るように
 participantに送信してる。
@@ -158,20 +117,6 @@ SyncSenderから送信されたすべてのデータは、送信された順番�
 バッファのリミットに到達するとsendの呼び出しをブロックする。
 sync_channelはsenderのsemanticsが大きく異なる。
 buffer sizeを0にするのは許容され、その場合対になっているrecvが実行されるまでsendはブロックされる。
-
-## Topic
-RustDDSでは、src/dds/topic.rsで定義されている。
-~~spec探しても情報が見つからん。~~ RTPSじゃなくてDDSのsepcに情報があった。コードのコメントにも"DDS spec 2.3.3"って書いてあるのにRTPSのspecみてた。(https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386)
-僕 「Topicって何？」
-Chat GPT4 「Topicは、名前（文字列）とデータ型を持ちます。」
-RustDDSの実装を確認するとTopicにもたせてるのは名前, DomainParticipant, Qos, Kind(WITH_KEY or NO_KEY)で、データ型は含まれてない。
-データ型とTopicを結びつけてるのは、publisher.create_datawriter_cdr::<Shape>(&topic, None)だと思われる。
-// TODO: FastDDSがどうやってTopicとデータを結びつけてるのか調べる。
-DDSHelloWorldのパケットキャプチャを解析した結果、RTPSを通じてやり取りされるのはTpicの名前のみらしい。具体的なデータ型はソースコードレベルで共有しておいて、
-それに紐付いた名前のみをTopicに持たせるっぽい。
-
-(https://fast-dds.docs.eprosima.com/en/latest/fastdds/dds_layer/topic/instances.html)
-Topicは1つのデータタイプと紐付けられる。そのため、Topicと関係するデータサンプルはデータ型で示される情報のupdateとして理解される。しかし、論理的に分離して、同じトピック内に、同じデータ型を参照する複数のインスタンスを持つことも可能である。したがって、受信したデータサンプルは、そのTopicの特定のインスタンスに対する更新となる。
 
 ## Publisher
 RustDDSのPublisherがもってるdefault_dw_qosについて、(https://fast-dds.docs.eprosima.com/en/latest/fastdds/dds_layer/publisher/publisher/publisher.html#default-publisherqos)を参照
@@ -194,7 +139,7 @@ TopicがClassだとするとそれから生成されるObjectということに�
 dispoedはRustのDropに対応するものだと思う。RustDDSもDataWriterにDropトレイトを実装してた。
 
 ## DataReader/DataWriter
-RustDDSのREADME.md
+RustDDSのREADME.mdより
 ### Data serialization and keying
 いくつかの既存のDDS実装はそれぞれのペイロードタイプのDataReader/DataWriterの実装のためにコード生成を使用している。
 > DataReader/DataWriterはそれぞれのデータタイプごとに実装されるものらしい
@@ -428,28 +373,7 @@ thread 2 "RustDDS Partici"の
 ```
 ![bt when first reach send_to_udp_socket](https://user-images.githubusercontent.com/58660268/233024270-103cfc1a-ab35-438c-b893-41102d23ada6.png)
 
-## Example Behavior (日本語訳)
-specのFigure 8.14 – Example Behavior
 
-https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A193%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C489%2C0%5D
-
-1. DDSユーザーがDDS DataWriterのwriteオペレーションを呼び出してデータを書き込む。
-2. DDS DataWriterが新しいCacheChangeを作るために、RTPS Writerのnew_changeオペレーションを呼び出しす。
-3. new_change オペレーションがrutenする。
-4. DDS DataWriterがRTPS WriterのHistoryCacheにCacheChangeを保存するためにadd_changeを使う。
-5. add_changeオペレーションがrutenする。
-6. writeオペレーションがreturnする。
-7. RTPS WriterがCacheChangeの変更内容をRTPS ReaderにData Submessageを使って送信し、Heartbeat Submessageを送信してacknowledgemntを要求する。
-8. RTPS ReaderがData messageを受信し、リソースの制限が許すと仮定し、add_changeオペレーションを使ってreaderのHistoryCacheにCacheChangeを配置する。
-9. add_changeオペレーションがruturnする。CacheChangeはDDS DataReaderとDDSユーザーから見える。この条件はRTPS ReaderのreliabilityLevelアトリビュートに依存する。
-
-    a.  RELIABLE DDS DataReaderには、 RTPS ReaderのHistoryCacheにあるchangeはすべてのそれより前のchange(i.e., より小さいsequence numberをもつchange)が見える場合のみ、ユーザーアプリケーションから見えるようになる。
-
-    b. BEST_EFFORT DDS DataReaderには、RTPS ReaderのHistoryCacheにあるchangeは未来のchangeがまだ見えるようになっていない(i.e., RTPS ReceiverのHistoryCacheにより大きいsequence numberをもつchangeがない)場合のみ、ユーザーから見えるようになる。
-
-〜〜続く〜〜
-
-// TODO
 
 ## DATA, HEARTBEATのパケットが送信されるまでの流れ
 Example Behaviorの1はユーザーがデータを送信で始まってるけど、このケースではメッセージが送信されるトリガーはユーザーの書き込みではない。
@@ -559,20 +483,6 @@ Chat GPT 「マルチキャストアドレスにParticipantDataメッセージ�
 
 SPDPdiscoveredParticipantDataWriterは、新しいパーティシパントがドメインに参加したときや定期的なアナウンスの際に、ParticipantDataメッセージを所定のマルチキャストアドレスに送信します。これにより、他のパーティシパントが新しいパーティシパントの存在を検出し、相互に通信できるようになります。」
 
-### RTPS StatelessWriter
-spec 8.4.7.2 \
-Statelessなリファレンス実装で使用される特別なRTPS Writer。
-
-### RTPS StatefulWriter
-spec 8.4.7.4 \
-Statefulなリファレンス実装で使用される特別なRTPS Writer。
-
-### RTPS StatefulReader
-spec 8.4.10.2 \
-特別なRTPS Reader。
-
-
-
 ## 解析の感想
 20スレッドが非同期で動いて、各オブジェクトの状態が把握しづらいから辛い。
 どのタイミングで何が呼ばれているのかが把握し辛い。
@@ -597,8 +507,7 @@ specにはreliable onlyの場合とあるのに、コードからreliable only�
 どうして、multicastで送られるのか？
 -> FastDDSを使ったShapeDemo一番最初に送られるのはINFO_TS, DATA, Unknowで、INFO_TS, HEARTBEATは送られてない。RustDDSの実装が仕様に従ってないだけの可能性が高い。
 
-## QOS
-https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386
+
 
 ## DomainParticipantの構造
 ```
@@ -695,34 +604,6 @@ MessageReceiver::new()で*_reply_locator_listの初期値が`vec![Locator::Inval
 -> "The list is initialized to contain a single Locator_t with the LocatorKind,"と書いてあるから要素を1つ含むVecとして初期化しないといけない。
 しかし、コンストラクターを実行するのは受信前だからアドレスもポートも設定できないからINVALID一つを要素として初期化している。
 
-### Message Receiverが従うルール (spec 8.3.4.1)
-1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
-2. submessageLengthフィールドは次のsubmessageがどこから始まるかを定義する、もしくは、Section 8.3.3.2.3(p. 34)で示されるようにMessageの終わりを拡張するSubmessageを指し示す。もしこのフィールドが無効なら、残りのMessageは無効である。
-3. 未知のSubmessageIDをもつSubmessageは無視されなければならず、次のSubmessageに継続してパースされなければならない。具体的にRTPS 2.4の実装ではversion 2.4で定義されているSubmessageKind以外のIDをもつSubmessageは無視される。
-未知のvenderId由来のvender-specificの範囲のSubmessageIdも無視されなければならず、次のSubmessageに継続してパースされなければならない。
-4. Submessage flags.Submessageのreceiverは未知のflagを無視されるべきである。RTPS2.4の実装では"X"(unused)とプロトコルにマークされたすべてのフラッグは飛ばされるべきである。
-5. 正しいsubmessageLengthフィールドは既知のIDをもつSubmessageであっても、常に次のSubmessageを探すのに使われなくてはならない。(おそらく、既知の種類のSubmessageで長さがわかっている場合でも、versionが上がって新しくElementが追加されている可能性があるから)
-6. 既知だが、無効なSubmessageは残りのMessage(the rest of the Message)を無効にする。
-// "the rest of the Message"が何を指すのか仕様書から読み取れないが、RustDDSの実装は、無効なSubmessageが含まれるMessageを無効なものとして破棄している
-tomiy(tomiy-tomiylab)とytakano(ytakano)の解釈はそれまでに処理したSubmessageは使用し、無効なSubmessageとそれより後のSubmessageを破棄する。
-ただし、無効なSubmessageを受け取ると、それ以降のSubmessageを無効とするとしか仕様書には書いておらず、Submessageを無効とする具体的な操作は定義されていない。
-同一Message内に複数のSubmessageが含まれている場合、前のSubmessageは後ろのSubmessageを処理するのに必要な情報である。
-"8.3.4 The RTPS Message Receiver
-The interpretation and meaning of a Submessage within a Message may depend on the previous Submessages contained
-within that same Message. "
-つまり、Message内に1つでも無効なSubmessageが含まれている場合、そのMessageを処理する意義は失われるため、RustDDSでは破棄していると思われる。
-
-### GUID
-- guid_prefix
-    先頭2 octetはvenderIdの先頭2 octetと同じにする。これによってDDS Domain内で複数のRTPS実装が使われてもguidが衝突しない。残りの 10 octetは衝突しなければどんな方法で生成してもいい。(p. 144)
-
-    RTPS spec 8.2.4.3 The GUIDs of the RTPS Endpoints within a Participant
-    > The GUIDs of all the Endpoints within a Participant have the same prefix.
-
-    あるParticipantに含まれるすべてのEndpointのGUIDは同じprefixを持つ。
-    > The GUID of any endpoint can be deduced from the GUID of the Participant to which it belongs and its entityId.
-
-    すべてのEndpintのGUIDは所属しているParticipantのGUIDとそのEndpointのentityIdから決定される。
 
 ### MessageReceiver::handle_received_packet()の調査
 MessageReceiver::handle_received_packet()
@@ -882,13 +763,9 @@ RTPS ReaderにRTPS Writerに所属するdata-objectの変更を知らせるSubme
 
 octetsToInlineQosはこのフィールドの直後からinlineQos Elementの最初までのoctet数。もし、inlineQos flagがセットされておらずinlineQosが含まれない場合はこのフィールドの直後からinlineQos Elementの次のElementの最初までのoctet数。
 
-## Writer
-RustDDSではsrc/dds/writer.rsで定義されている。
-コード読んでみても何もわからない。
-spec 8.4.2.2 Required RTPS Writer BehaviorにWriterの挙動について書いてある。
-
 ## 用語集
 https://fast-dds.docs.eprosima.com/en/latest/fastdds/getting_started/definitions.html
+
 ### DDS
 DDS domainの中にDomainParticipantとtopicがある。
 DomainParticipantの中にPublisher, Subscriberがある。
