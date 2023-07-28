@@ -93,7 +93,8 @@ TODO:
 RTPS spec 8.2.4.4 The GUIDs of Endpoint Groups within a Participant
 https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A103%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C406%2C0%5D
 にPublisher, SubscriberはGUIDを持つと書いてある。
-TODO: Publisher, SubscriberにGUIDを実装
+
+~~TODO: Publisher, SubscriberにGUIDを実装~~
 
 RustDDSの実装で、DataWriterとRTPSWriterのGUIDが同じになるようになってるように見える
 RTPSのspec 8.2を読んだ感じDDSWriter, DDSReaderはGUIDを持つ必要なさそう。
@@ -102,8 +103,10 @@ RustDDSの実装でDDSWriterがRTPSWriterと同じguidを持ってる理由は
 2. write_with_optionsの戻り値(writeから呼び出されるが戻り値は参照されてないので必要ない)
 DDSWriterに対してはdropするときに必要になればGUIDを実装すればいいと思う。
 
-RTPSWriterと(DDS)DataWriterはRustDDSの実装を読む限り、１体１対応している。
-(TODO: RTPSのspecを確認)
+RTPS 2.3 spec 8.2.1 Overview
+> Each RTPS Entity is in a one-to-one correspondence with a DDS Entity.
+
+RTPSWriterと(DDS)DataWriterは、１体１対応している。
 
 ### Message Receiverが従うルール (spec 8.3.4.1)
 1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える

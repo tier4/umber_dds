@@ -1,7 +1,9 @@
 # rs-rtps
 RustでRTPS/DDSを実装
 
-まずはbesteffortでほかのノードをDiscoveryしてPub/Subできるところまで実装
+- [ ] DataWriter.write()でData submessageが乗ったパケットを送信できるようにする
+- [ ] DataReader.read()でData submessageが乗ったパケットを受信して受け取れるようにする
+- [ ] besteffortでほかのノードをDiscoveryしてPub/Subできるところまで実装
 
 ## TODO
 - [x] QosPoliciesを実装
