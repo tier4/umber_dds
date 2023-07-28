@@ -4,13 +4,19 @@ use crate::structure::entity::RTPSEntity;
 use crate::{
     dds::{event_loop::EventLoop, publisher::Publisher, qos::QosPolicies, subscriber::Subscriber},
     network::udp_listinig_socket::*,
-    structure::{entity_id::EntityId, guid::*},
+    structure::{
+        entity_id::{EntityId, EntityKind},
+        guid::*,
+    },
 };
 use mio::net::UdpSocket;
 use mio_channel;
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
 use std::thread;
 
 #[derive(Clone)]
@@ -34,7 +40,10 @@ impl DomainParticipant {
         self.inner.create_publisher(self.clone(), qos)
     }
     pub fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
-        self.inner.create_subscriber(qos)
+        self.inner.create_subscriber(self.clone(), qos)
+    }
+    pub fn gen_entity_key(&self) -> [u8; 3] {
+        self.inner.gen_entity_key()
     }
 }
 
@@ -44,6 +53,7 @@ struct DomainParticipantInner {
     pub my_guid: GUID,
     add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
     thread: thread::JoinHandle<()>,
+    entity_key_generator: AtomicU32,
 }
 
 impl DomainParticipantInner {
@@ -75,12 +85,16 @@ impl DomainParticipantInner {
             my_guid,
             add_writer_sender,
             thread: new_thread,
+            entity_key_generator: AtomicU32::new(0x0300),
         }
     }
 
     fn create_publisher(&self, dp: DomainParticipant, qos: QosPolicies) -> Publisher {
         // add_writer用のチャネルを生やして、senderはpubにreceiverは自分
-        let guid = GUID::new(self.my_guid.guid_prefix, EntityId::publisher());
+        let guid = GUID::new(
+            self.my_guid.guid_prefix,
+            EntityId::new_with_entity_kind(&dp, EntityKind::PUBLISHER),
+        );
         Publisher::new(
             guid,
             qos.clone(),
@@ -90,8 +104,20 @@ impl DomainParticipantInner {
         )
     }
 
-    fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
-        let guid = GUID::new(self.my_guid.guid_prefix, EntityId::subscriber());
+    fn create_subscriber(&self, dp: DomainParticipant, qos: QosPolicies) -> Subscriber {
+        let guid = GUID::new(
+            self.my_guid.guid_prefix,
+            EntityId::new_with_entity_kind(&dp, EntityKind::SUBSCRIBER),
+        );
         Subscriber::new(guid, qos)
+    }
+
+    pub fn gen_entity_key(&self) -> [u8; 3] {
+        // entity_keyはGUID Prefixを共有するentityの中で一意であればよい
+        let [_, a, b, c] = self
+            .entity_key_generator
+            .fetch_add(1, Ordering::Relaxed)
+            .to_be_bytes();
+        [a, b, c]
     }
 }

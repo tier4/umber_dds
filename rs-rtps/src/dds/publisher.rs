@@ -2,7 +2,11 @@ use crate::dds::{
     datawriter::DataWriter, participant::DomainParticipant, qos::QosPolicies, topic::Topic,
 };
 use crate::rtps::writer::{Writer, WriterCmd, WriterIngredients};
-use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::GUID};
+use crate::structure::{
+    entity::RTPSEntity,
+    entity_id::{EntityId, EntityKind},
+    guid::GUID,
+};
 use mio_channel;
 use std::sync::Arc;
 
@@ -87,10 +91,10 @@ impl InnerPublisher {
     ) -> DataWriter<D> {
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
-        self.add_writer_sender.send(WriterIngredients {
+        let _ = self.add_writer_sender.send(WriterIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
-                EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER, // TODO: IDこれでいいの?
+                EntityId::new_with_entity_kind(&self.dp, EntityKind::WRITER_WITH_KEY_USER_DEFIND),
             ),
             writer_command_receiver,
         });
