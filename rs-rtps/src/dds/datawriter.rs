@@ -32,5 +32,12 @@ impl<D: Serialize> DataWriter<D> {
     }
     pub fn get_qos() {}
     pub fn set_qos() {}
-    pub fn write(&self, data: D) {}
+    pub fn write(&self, data: D) {
+        // TODO: serialize data to Bytes
+        // RTPS spec: 10 Serialized Payload Representation
+        // https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A559%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C756%2C0%5D
+        let serialized_data = bytes::Bytes::from("dummy data");
+        let writer_cmd = WriterCmd { serialized_data };
+        self.writer_command_sender.send(writer_cmd).unwrap();
+    }
 }

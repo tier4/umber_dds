@@ -1,9 +1,12 @@
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::GUID};
+use bytes::Bytes;
+use mio::Token;
 use mio_channel;
+use serde::Serialize;
 
 pub struct Writer {
     guid: GUID,
-    writer_command_receiver: mio_channel::Receiver<WriterCmd>,
+    pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
 }
 
 impl Writer {
@@ -12,6 +15,10 @@ impl Writer {
             guid: wi.guid,
             writer_command_receiver: wi.writer_command_receiver,
         }
+    }
+
+    pub fn entity_token(&self) -> Token {
+        self.entity_id().as_token()
     }
 }
 
@@ -25,4 +32,6 @@ pub struct WriterIngredients {
     pub guid: GUID,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
 }
-pub struct WriterCmd {}
+pub struct WriterCmd {
+    pub serialized_data: Bytes,
+}

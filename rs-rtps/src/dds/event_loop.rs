@@ -1,6 +1,6 @@
 use crate::dds::tokens::*;
 use crate::rtps::writer::{Writer, WriterCmd, WriterIngredients};
-use crate::structure::guid::*;
+use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
 use bytes::BytesMut;
 use mio::net::UdpSocket;
 use mio::{Events, Interest, Poll, Token};
@@ -18,7 +18,7 @@ pub struct EventLoop {
     sockets: HashMap<Token, UdpSocket>,
     message_receiver: MessageReceiver,
     add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
-    writers: Vec<Writer>,
+    writers: HashMap<EntityId, Writer>,
 }
 
 impl EventLoop {
@@ -46,7 +46,7 @@ impl EventLoop {
             sockets,
             message_receiver,
             add_writer_receiver,
-            writers: Vec::new(),
+            writers: HashMap::new(),
         }
     }
 
@@ -64,8 +64,17 @@ impl EventLoop {
                     ADD_WRITER_TOKEN => {
                         let writer_ing = self.add_writer_receiver.try_recv().unwrap();
                         // TODO: writer_cmd_receiver とwriterの紐づけ&pollに登録
-                        let writer = Writer::new(writer_ing);
-                        self.writers.push(writer);
+                        let mut writer = Writer::new(writer_ing);
+                        let token = writer.entity_token();
+                        self.poll
+                            .registry()
+                            .register(
+                                &mut writer.writer_command_receiver,
+                                token,
+                                Interest::READABLE,
+                            )
+                            .unwrap();
+                        self.writers.insert(writer.entity_id(), writer);
                     }
                     _ => println!("undefined event"),
                 }

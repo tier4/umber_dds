@@ -1,8 +1,9 @@
 use crate::dds::participant::DomainParticipant;
+use mio::Token;
 use speedy::Readable;
 
 // spec 9.2.2
-#[derive(PartialEq, Readable, Clone, Copy)]
+#[derive(PartialEq, Readable, Clone, Copy, Eq, Hash)]
 pub struct EntityId {
     entity_key: [u8; 3],
     entity_kind: EntityKind,
@@ -14,6 +15,11 @@ impl EntityId {
             entity_key: dp.gen_entity_key(),
             entity_kind,
         }
+    }
+
+    pub fn as_token(&self) -> Token {
+        let u = self.as_usize();
+        Token(u)
     }
 
     pub const UNKNOW: Self = Self {
@@ -75,9 +81,17 @@ impl EntityId {
         entity_key: [0x00, 0x02, 0x00],
         entity_kind: EntityKind::READER_NO_KEY_BUILT_IN,
     };
+
+    fn as_usize(&self) -> usize {
+        let u0 = self.entity_key[0] as u32;
+        let u1 = self.entity_key[1] as u32;
+        let u2 = self.entity_key[2] as u32;
+        let u3 = self.entity_kind.value as u32;
+        (u3 << 24 | u2 << 16 | u1 << 8 | u0) as usize
+    }
 }
 
-#[derive(PartialEq, Readable, Clone, Copy)]
+#[derive(PartialEq, Readable, Clone, Copy, Eq, Hash)]
 pub struct EntityKind {
     value: u8,
 }
