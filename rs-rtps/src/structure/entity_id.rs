@@ -3,7 +3,7 @@ use mio::Token;
 use speedy::Readable;
 
 // spec 9.2.2
-#[derive(PartialEq, Readable, Clone, Copy, Eq, Hash)]
+#[derive(Debug, PartialEq, Readable, Clone, Copy, Eq, Hash)]
 pub struct EntityId {
     entity_key: [u8; 3],
     entity_kind: EntityKind,
@@ -91,7 +91,7 @@ impl EntityId {
     }
 }
 
-#[derive(PartialEq, Readable, Clone, Copy, Eq, Hash)]
+#[derive(Debug, PartialEq, Readable, Clone, Copy, Eq, Hash)]
 pub struct EntityKind {
     value: u8,
 }
