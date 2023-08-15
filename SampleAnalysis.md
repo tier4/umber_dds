@@ -147,6 +147,10 @@ RustDDSのREADME.mdより
 私達はコード生成に頼らない。そのかわり、Rust generic programmingを使う。
 Serdeライブラリがペイロードのデータのシリアライズ/デシリアライズに使われる。
 
+## Writer
+dp_event_loopが所有
+entity_idをtokenに変換して、writer_cmd_receiverをpollに登録するときのTokenにする。
+
 ## struct Hoge {inner: Arc<InnerHoge>,} のデザインパターン
 複数ヶ所から参照される場合につかう
 同一Topicが各DR/DWから参照されるから。
@@ -169,13 +173,13 @@ RustDDSに付属のShapeDemoをSubscriberとして動作させてRTPSのSubscrib
 新しく20個のスレッドが生成されることを確認。
 このタイミングでUDPマルチキャストのグループに加入したことを知らせるIGMPv3のパケットをキャプチャ
 ```
-$ lsof
+$ lsof -i -n -p
 shapes_de 160 root    3u  IPv4 450292      0t0  UDP *:7400
 shapes_de 160 root    4u  IPv4 450294      0t0  UDP *:7410
 shapes_de 160 root    5u  IPv4 450295      0t0  UDP *:7401
 shapes_de 160 root    6u  IPv4 450297      0t0  UDP *:7411
 shapes_de 160 root   10u  IPv4 457163      0t0  UDP *:35442
-shapes_de 160 root   11u  IPv4 457165      0t0  UDP 69d7d3c3fefa:39541 // このポートは毎回変わる
+shapes_de 160 root   11u  IPv4 457165      0t0  UDP 192.168.208.3:53923 // このポートは毎回変わる
                                                                         // このポート番号を以下rpとする
 ```
 各ポートの意味(domainId = 0, participantId = 0)
@@ -186,7 +190,49 @@ shapes_de 160 root   11u  IPv4 457165      0t0  UDP 69d7d3c3fefa:39541 // この
 
 開かれるportはp. 165にある。RustDDSのポートを決める実装はsrc/network/constant.rsにあり、仕様書のdefault通りに実装されている。
 上4つは受信用, 下2つは送信用。
+下２つの送信用のうち、上側はmulticast,下側はunicast
 受信用はsubscribeのため、送信用はdiscoveryのため。
+
+RustDDSの実装ではUDPSenderのSocketに対してset_multicast_loop_v4(true)
+がセットされてる。コメントに
+> We set multicasting loop on so that we can hear other DomainParticipant
+> instances running on the same host.
+
+と書いてあるが、どこにもsenderで受信してる処理はない。
+-> "other DomainParticipant instances running on the same host"がこのSenderが送信したpacketを受信できるようにするため。 なぜここで"we"が主語なのかは不明。
+
+## UDP socketにセットするオプション
+### UDP Listener
++ reuse_address: true
+
+同一ホスト上のほかのインスタンスが同一のmultcast addressとportを使用できるようにするため。
+socketにaddressをbindする前にセット
++ nonblocking: true
+
+### UDP Sender
++ multicast_if_v4 (multi cast only)
++ multicast_loop_v4: true
+同一ホスト上のほかのインスタンスがこのSenderが送信したpacketを受信できるようにするため。
+
+## Socket APIでUDP Multicastを送受信する手順
+### sender
++ UDP socketを生成
++ multicast_if_v4でmulticastの送信先インターフェースのアドレスを指定
++ 送信元のaddressとportをsocketにbind
++ 同一ホスト上のほかのインスタンスがmulticastのdatagramを受信する必要がある場合、multicast_loop_v4にtrueをセット
++ socket.send_to(data, "{multicast_address}:{dest_port}")でmulticast_addressのmulticast groupにペケットを送信
+### receiver
++ UDP socketを生成
++ 同一ホストで同一のmultcast addressとportを使用する場合、reuse_addressにtrueをセット
++ addressとportをbind(addressは"0.0.0.0"で良い)
++ 非同期で受け取る場合、nonblockingにtrueをセット
++ join_multicast_v4({multicast_group}, {interface_addres})でmulticastグループに加入させ、そのインターフェースでmulticastのパケットを受信できるようにする。
++ recev_from(buf)で受信
+
+## UDP multicastの受信に関して
+同一ホストの別インスタンスがUDP multicastのdatagramを受信できるように、multicast_loop_v4にtrueを設定しているため、
+自分自身が送信したdatagramを受信してしまうが、DUPソケットがdatagramに対して同一インスタンスから送信されたものかを判別できないため、これは仕様。
+RTPSのレイヤーでGUID_Prefixを確認すれば送信元のインスタンスを区別できるため、そこでうまく処理する。
 
 line 65 `DomainParticipant::new(domain_id)`(src/dds/participant.rs)を実行
 dds/participant.rsの大まかな構造

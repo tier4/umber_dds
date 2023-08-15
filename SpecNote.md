@@ -88,7 +88,13 @@ DDSReader: 持ってる, RTPSEntity実装
     すべてのEndpintのGUIDは所属しているParticipantのGUIDとそのEndpointのentityIdから決定される。
 
 ### EntityId, EntityKindの決め方
-TODO:
+TODO: EntityKindのそれぞれどう使えばいいのか調べる
+GUIDはglobalにユニークなIDでGUID_Prefix, EntityKey, EntitiyKindで構成される。
+GUID_Prefixはdomain_participantを表すものである。
+したがって、同一participant内でEntityKey, EntitiyKindの組が一意であれば良い。
+EntityKindのEntityのよって決定されるため、EntityKeyが同一participant内で一意になっていれば、
+GUIDはglobalにユニークになる。
+つまり、EntityKeyはparticipant内で一意になればどのように決めてもいい。
 
 RTPS spec 8.2.4.4 The GUIDs of Endpoint Groups within a Participant
 https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A103%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C406%2C0%5D

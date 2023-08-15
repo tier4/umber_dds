@@ -14,7 +14,7 @@ RustでRTPS/DDSを実装
 - [ ] DataWriter/DataReaderを実装
     - [ ] RTPSWriterへのコマンドの送信を実装
 - [ ] RTPSWriter/RTPSReaderを実装
-    - [ ] writer_cmd_receiverをevent_loopのpollに登録
+    - [x] writer_cmd_receiverをevent_loopのpollに登録
 - [ ] UDP senderの実装
 - [ ] Discovery Moduleを実装
 - [ ] HistoryCacheを実装
