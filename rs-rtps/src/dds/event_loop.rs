@@ -2,13 +2,14 @@ use crate::dds::tokens::*;
 use crate::rtps::writer::{Writer, WriterCmd, WriterIngredients};
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
 use bytes::BytesMut;
-use mio::net::UdpSocket;
-use mio::{Events, Interest, Poll, Token};
-use mio_channel;
+use mio_extras::channel as mio_channel;
+use mio_v06::net::UdpSocket;
+use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::message::message_receiver::*;
-use crate::network::net_util::*;
+use crate::network::{net_util::*, udp_sender::UdpSender};
 
 const MAX_MESSAGE_SIZE: usize = 64 * 1024; // This is max we can get from UDP.
 const MESSAGE_BUFFER_ALLOCATION_CHUNK: usize = 256 * 1024;
@@ -19,6 +20,7 @@ pub struct EventLoop {
     message_receiver: MessageReceiver,
     add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
     writers: HashMap<EntityId, Writer>,
+    sender: Rc<UdpSender>,
 }
 
 impl EventLoop {
@@ -29,24 +31,25 @@ impl EventLoop {
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
-            poll.registry()
-                .register(lister, *token, Interest::READABLE)
+            poll.register(lister, *token, Ready::readable(), PollOpt::edge())
                 .unwrap();
         }
-        poll.registry()
-            .register(
-                &mut add_writer_receiver,
-                ADD_WRITER_TOKEN,
-                Interest::READABLE,
-            )
-            .unwrap();
+        poll.register(
+            &mut add_writer_receiver,
+            ADD_WRITER_TOKEN,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
         let message_receiver = MessageReceiver::new(participant_guidprefix);
+        let sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
             poll,
             sockets,
             message_receiver,
             add_writer_receiver,
             writers: HashMap::new(),
+            sender,
         }
     }
 
@@ -55,28 +58,43 @@ impl EventLoop {
         loop {
             self.poll.poll(&mut events, None).unwrap();
             for event in events.iter() {
-                match event.token() {
-                    DISCOVERY_MUTI_TOKEN | DISCOVERY_UNI_TOKEN => {
-                        let udp_sock = self.sockets.get_mut(&event.token()).unwrap();
-                        let packets = EventLoop::receiv_packet(udp_sock);
-                        self.message_receiver.handle_packet(packets);
+                match TokenDec::decode(event.token()) {
+                    TokenDec::ReservedToken(token) => match token {
+                        DISCOVERY_MULTI_TOKEN | DISCOVERY_UNI_TOKEN => {
+                            let udp_sock = self.sockets.get_mut(&event.token()).unwrap();
+                            let packets = EventLoop::receiv_packet(udp_sock);
+                            self.message_receiver.handle_packet(packets);
+                        }
+                        ADD_WRITER_TOKEN => {
+                            let writer_ing = self.add_writer_receiver.try_recv().unwrap();
+                            println!("in ev_loop: entity_id: {:?}", writer_ing.guid);
+                            let mut writer = Writer::new(writer_ing, self.sender.clone());
+                            let token = writer.entity_token();
+                            self.poll
+                                .register(
+                                    &mut writer.writer_command_receiver,
+                                    token,
+                                    Ready::readable(),
+                                    PollOpt::edge(),
+                                )
+                                .unwrap();
+                            self.writers.insert(writer.entity_id(), writer);
+                        }
+                        _ => println!("undefined Token or unimplemented event"),
+                    },
+                    TokenDec::Entity(eid) => {
+                        if eid.is_writer() {
+                            let writer = match self.writers.get_mut(&eid) {
+                                Some(w) => w,
+                                None => panic!("Unregisterd writer."),
+                            };
+                            writer.handle_writer_cmd();
+                        } else if eid.is_reader() {
+                            unimplemented!();
+                        } else {
+                            panic!("receive message from unknown entity: {:?}", eid);
+                        }
                     }
-                    ADD_WRITER_TOKEN => {
-                        let writer_ing = self.add_writer_receiver.try_recv().unwrap();
-                        // TODO: writer_cmd_receiver とwriterの紐づけ&pollに登録
-                        let mut writer = Writer::new(writer_ing);
-                        let token = writer.entity_token();
-                        self.poll
-                            .registry()
-                            .register(
-                                &mut writer.writer_command_receiver,
-                                token,
-                                Interest::READABLE,
-                            )
-                            .unwrap();
-                        self.writers.insert(writer.entity_id(), writer);
-                    }
-                    _ => println!("undefined event"),
                 }
             }
         }

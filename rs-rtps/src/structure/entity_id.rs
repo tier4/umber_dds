@@ -1,5 +1,5 @@
 use crate::dds::participant::DomainParticipant;
-use mio::Token;
+use mio_v06::Token;
 use speedy::Readable;
 
 // spec 9.2.2
@@ -20,6 +20,26 @@ impl EntityId {
     pub fn as_token(&self) -> Token {
         let u = self.as_usize();
         Token(u)
+    }
+
+    pub fn is_reader(&self) -> bool {
+        match self.entity_kind {
+            EntityKind::READER_WITH_KEY_BUILT_IN
+            | EntityKind::READER_NO_KEY_BUILT_IN
+            | EntityKind::READER_NO_KEY_USER_DEFIND
+            | EntityKind::READER_WITH_KEY_USER_DEFIND => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_writer(&self) -> bool {
+        match self.entity_kind {
+            EntityKind::WRITER_WITH_KEY_BUILT_IN
+            | EntityKind::WRITER_NO_KEY_BUILT_IN
+            | EntityKind::WRITER_NO_KEY_USER_DEFIND
+            | EntityKind::WRITER_WITH_KEY_USER_DEFIND => true,
+            _ => false,
+        }
     }
 
     pub const UNKNOW: Self = Self {
@@ -87,7 +107,18 @@ impl EntityId {
         let u1 = self.entity_key[1] as u32;
         let u2 = self.entity_key[2] as u32;
         let u3 = self.entity_kind.value as u32;
-        (u3 << 24 | u2 << 16 | u1 << 8 | u0) as usize
+        (u0 << 24 | u1 << 16 | u2 << 8 | u3) as usize
+    }
+
+    pub fn from_usize(n: usize) -> Self {
+        let ek = n & 0xff;
+        let e2 = (n & 0xff00) >> 8;
+        let e1 = (n & 0xff0000) >> 16;
+        let e0 = (n & 0xff000000) >> 24;
+        Self {
+            entity_key: [e0 as u8, e1 as u8, e2 as u8],
+            entity_kind: EntityKind { value: ek as u8 },
+        }
     }
 }
 

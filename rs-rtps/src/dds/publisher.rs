@@ -7,7 +7,7 @@ use crate::structure::{
     entity_id::{EntityId, EntityKind},
     guid::GUID,
 };
-use mio_channel;
+use mio_extras::channel as mio_channel;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -91,13 +91,14 @@ impl InnerPublisher {
     ) -> DataWriter<D> {
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
-        let _ = self.add_writer_sender.send(WriterIngredients {
+        let writer_ing = WriterIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
                 EntityId::new_with_entity_kind(&self.dp, EntityKind::WRITER_WITH_KEY_USER_DEFIND),
             ),
             writer_command_receiver,
-        });
+        };
+        self.add_writer_sender.send(writer_ing).unwrap();
         DataWriter::<D>::new(writer_command_sender, qos, topic, outter)
     }
     pub fn get_participant(&self) -> DomainParticipant {

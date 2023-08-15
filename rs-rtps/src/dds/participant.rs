@@ -2,15 +2,18 @@ use crate::network::net_util::*;
 use crate::rtps::writer::*;
 use crate::structure::entity::RTPSEntity;
 use crate::{
-    dds::{event_loop::EventLoop, publisher::Publisher, qos::QosPolicies, subscriber::Subscriber},
+    dds::{
+        event_loop::EventLoop, publisher::Publisher, qos::QosPolicies, subscriber::Subscriber,
+        tokens::*,
+    },
     network::udp_listinig_socket::*,
     structure::{
         entity_id::{EntityId, EntityKind},
         guid::*,
     },
 };
-use mio::net::UdpSocket;
-use mio_channel;
+use mio_extras::channel as mio_channel;
+use mio_v06::net::UdpSocket;
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::sync::{
@@ -58,7 +61,7 @@ struct DomainParticipantInner {
 
 impl DomainParticipantInner {
     pub fn new(domain_id: u16) -> DomainParticipantInner {
-        let mut socket_list: HashMap<mio::Token, UdpSocket> = HashMap::new();
+        let mut socket_list: HashMap<mio_v06::Token, UdpSocket> = HashMap::new();
         let spdp_multi_socket = new_multicast(
             "0.0.0.0",
             spdp_multicast_port(domain_id),
@@ -66,12 +69,12 @@ impl DomainParticipantInner {
         );
         let spdp_uni_socket = new_unicast("0.0.0.0", spdp_unicast_port(domain_id, 0));
         socket_list.insert(DISCOVERY_UNI_TOKEN, spdp_uni_socket);
-        socket_list.insert(DISCOVERY_MUTI_TOKEN, spdp_multi_socket);
+        socket_list.insert(DISCOVERY_MULTI_TOKEN, spdp_multi_socket);
 
         let (add_writer_sender, add_writer_receiver) =
             mio_channel::sync_channel::<WriterIngredients>(10);
 
-        let new_thread = thread::spawn(|| {
+        let new_thread = thread::spawn(move || {
             let guid_prefix = GuidPrefix::new();
             let ev_loop = EventLoop::new(socket_list, guid_prefix, add_writer_receiver);
             ev_loop.event_loop();
