@@ -1,4 +1,5 @@
 use crate::dds::{publisher::Publisher, qos::QosPolicies, topic::Topic};
+use crate::message::submessage::element::SerializedPayload;
 use crate::rtps::writer::*;
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::GUID};
 use mio_extras::channel as mio_channel;
@@ -33,11 +34,8 @@ impl<D: Serialize> DataWriter<D> {
     pub fn get_qos() {}
     pub fn set_qos() {}
     pub fn write(&self, data: D) {
-        // TODO: serialize data to Bytes
-        // RTPS spec: 10 Serialized Payload Representation
-        // https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A559%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C756%2C0%5D
-        let serialized_data = bytes::Bytes::from("dummy data");
-        let writer_cmd = WriterCmd { serialized_data };
+        let serialized_payload = SerializedPayload::new_from_cdr_data(data);
+        let writer_cmd = WriterCmd { serialized_payload };
         self.writer_command_sender.send(writer_cmd).unwrap();
     }
 }

@@ -14,6 +14,8 @@ pub mod nackfrag;
 use crate::structure::parameter_id::ParameterId;
 use byteorder::ReadBytesExt;
 use bytes::Bytes;
+use cdr::{CdrLe, Infinite};
+use serde::Serialize;
 use speedy::{Context, Readable};
 use std::io;
 
@@ -173,6 +175,18 @@ impl SerializedPayload {
             representation_options,
             value,
         })
+    }
+
+    pub fn new_from_cdr_data<D: Serialize>(data: D) -> Self {
+        let representation_identifier = RepresentationIdentifier::CDR_LE;
+        let representation_options = [0; 2];
+        let serialized_data = cdr::serialize::<_, _, CdrLe>(&data, Infinite).unwrap();
+        let value = Bytes::from(serialized_data);
+        Self {
+            representation_identifier,
+            representation_options,
+            value,
+        }
     }
 }
 
