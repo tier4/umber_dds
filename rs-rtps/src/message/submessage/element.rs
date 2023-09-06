@@ -154,6 +154,9 @@ impl RepresentationIdentifier {
 pub struct SerializedPayload {
     pub representation_identifier: RepresentationIdentifier,
     pub representation_options: [u8; 2], // Not used. Send as zero, ignore on receive.
+    //representation_identifier and representation_options is
+    //prescribed by CDR, so cdr crate generate them
+    //automaticly
     pub value: Bytes,
 }
 
@@ -177,17 +180,41 @@ impl SerializedPayload {
         })
     }
 
-    pub fn new_from_cdr_data<D: Serialize>(data: D) -> Self {
-        let representation_identifier = RepresentationIdentifier::CDR_LE;
-        let representation_options = [0; 2];
+    pub fn new_from_cdr_data<D: Serialize>(data: D) -> Bytes {
         let serialized_data = cdr::serialize::<_, _, CdrLe>(&data, Infinite).unwrap();
-        let value = Bytes::from(serialized_data);
-        Self {
-            representation_identifier,
-            representation_options,
-            value,
-        }
+        Bytes::from(serialized_data)
     }
 }
 
 pub type GroupDigest = [u8; 4];
+
+#[cfg(test)]
+mod test {
+    use cdr::{CdrLe, Infinite};
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize, Clone)]
+    struct Shape {
+        color: String,
+        x: i32,
+        y: i32,
+        shapesize: i32,
+    }
+
+    #[test]
+    fn test_serialize_cdr() {
+        let test_shape = Shape {
+            color: "BLUE".to_string(),
+            x: 42,
+            y: 51,
+            shapesize: 12,
+        };
+        let test_serialized = cdr::serialize::<_, _, CdrLe>(&test_shape, Infinite).unwrap();
+        const SERIALIZED: [u8; 28] = [
+            0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x42, 0x4C, 0x55, 0x45, 0x00, 0x00,
+            0x00, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00,
+        ];
+        let ser = Vec::from(SERIALIZED);
+        assert_eq!(test_serialized, ser);
+    }
+}

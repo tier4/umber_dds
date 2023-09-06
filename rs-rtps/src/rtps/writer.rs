@@ -42,7 +42,7 @@ impl Writer {
                     let message_header = Header::new(self.guid_prefix());
                     let mut submessages: Vec<SubMessage> = Vec::new();
                     self.sender.send_to_multicast(
-                        &c.serialized_payload.value,
+                        &c.serialized_payload,
                         Ipv4Addr::new(239, 255, 0, 1),
                         7400,
                     );
@@ -65,5 +65,5 @@ pub struct WriterIngredients {
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
 }
 pub struct WriterCmd {
-    pub serialized_payload: SerializedPayload,
+    pub serialized_payload: Bytes,
 }
