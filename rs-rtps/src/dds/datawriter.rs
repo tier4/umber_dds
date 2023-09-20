@@ -35,7 +35,9 @@ impl<D: Serialize> DataWriter<D> {
     pub fn set_qos() {}
     pub fn write(&self, data: D) {
         let serialized_payload = SerializedPayload::new_from_cdr_data(data);
-        let writer_cmd = WriterCmd { serialized_payload };
+        let writer_cmd = WriterCmd {
+            serialized_payload: Some(serialized_payload),
+        };
         self.writer_command_sender.send(writer_cmd).unwrap();
     }
 }

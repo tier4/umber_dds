@@ -5,10 +5,21 @@ use speedy::{Endianness, Readable};
 pub struct SubMessageHeader {
     submessage_id: u8,
     flags: u8,
-    submessage_length: u16,
+    submessage_length: u16, // Indicates the length of the Submessage. Given an RTPS Message
+                            // consists of a concatenation of Submessages, the Submessage length
+                            // can be used to skip to the next Submessage.
+                            // (not including the Submessage header)
 }
 
 impl SubMessageHeader {
+    pub fn new(id: u8, flags: u8, length: u16) -> Self {
+        Self {
+            submessage_id: id,
+            flags,
+            submessage_length: length,
+        }
+    }
+
     pub fn get_content_len(&self) -> u16 {
         self.submessage_length
     }

@@ -1,4 +1,19 @@
-use enumflags2::bitflags;
+use enumflags2::{bitflags, BitFlags};
+use speedy::Endianness;
+
+macro_rules! from_enndianness {
+    ($flag_type: ident) => {
+        impl $flag_type {
+            pub fn from_enndianness(endiann: Endianness) -> BitFlags<$flag_type> {
+                if endiann == Endianness::LittleEndian {
+                    $flag_type::Endianness.into()
+                } else {
+                    BitFlags::<$flag_type>::empty()
+                }
+            }
+        }
+    };
+}
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -7,6 +22,7 @@ pub enum AckNackFlag {
     Endianness = 0b01,
     Final = 0b10,
 }
+from_enndianness!(AckNackFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -18,6 +34,7 @@ pub enum DataFlag {
     Key = 0b01000,
     NonStandardPayload = 0b10000,
 }
+from_enndianness!(DataFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -28,6 +45,7 @@ pub enum DataFragFlag {
     NonStandardPayload = 0b0100,
     Key = 0b1000,
 }
+from_enndianness!(DataFragFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -36,6 +54,7 @@ pub enum GapFlag {
     Endianness = 0b01,
     GroupInfo = 0b10,
 }
+from_enndianness!(GapFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -46,6 +65,7 @@ pub enum HeartbeatFlag {
     Liveliness = 0b0100,
     GroupInfo = 0b1000,
 }
+from_enndianness!(HeartbeatFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -53,6 +73,7 @@ pub enum HeartbeatFlag {
 pub enum HeartbeatFragFlag {
     Endianness = 0b1,
 }
+from_enndianness!(HeartbeatFragFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -60,6 +81,7 @@ pub enum HeartbeatFragFlag {
 pub enum InfoDestionationFlag {
     Endianness = 0b1,
 }
+from_enndianness!(InfoDestionationFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -68,6 +90,7 @@ pub enum InfoReplyFlag {
     Endianness = 0b01,
     Multicast = 0b10,
 }
+from_enndianness!(InfoReplyFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -76,6 +99,7 @@ pub enum InfoReplyIp4Flag {
     Endianness = 0b01,
     Multicast = 0b10,
 }
+from_enndianness!(InfoReplyIp4Flag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -83,6 +107,7 @@ pub enum InfoReplyIp4Flag {
 pub enum InfoSourceFlag {
     Endianness = 0b1,
 }
+from_enndianness!(InfoSourceFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -91,6 +116,7 @@ pub enum InfoTimestampFlag {
     Endianness = 0b01,
     Invalidate = 0b10,
 }
+from_enndianness!(InfoTimestampFlag);
 
 #[derive(Clone, Copy)]
 #[bitflags]
@@ -98,3 +124,4 @@ pub enum InfoTimestampFlag {
 pub enum NackFragFlag {
     Endianness = 0b1,
 }
+from_enndianness!(NackFragFlag);

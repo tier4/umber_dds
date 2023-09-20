@@ -29,3 +29,14 @@ pub struct Header {
     pub vendor_id: VendorId,
     pub guid_prefix: GuidPrefix,
 }
+
+impl Header {
+    pub fn new(guid_prefix: GuidPrefix) -> Self {
+        Self {
+            protocol: ProtocolId::PROTOCOLVID,
+            version: ProtocolVersion::PROTOCOLVERSION,
+            vendor_id: VendorId::THIS_IMPLEMENTATION,
+            guid_prefix,
+        }
+    }
+}

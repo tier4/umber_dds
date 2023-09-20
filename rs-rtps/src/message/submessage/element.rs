@@ -18,15 +18,29 @@ use cdr::{CdrLe, Infinite};
 use serde::Serialize;
 use speedy::{Context, Readable};
 use std::io;
+use std::ops::{Add, AddAssign};
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
 
 pub type Count = i32;
 
-#[derive(Readable)]
-pub struct SequenceNumber(i64);
+#[derive(Readable, PartialEq, PartialOrd, Clone, Copy)]
+pub struct SequenceNumber(pub i64);
 impl SequenceNumber {
     pub const SEQUENCENUMBER_UNKNOWN: Self = Self((std::u32::MAX as i64) << 32);
+    pub const MAX: Self = Self(i64::MAX);
+    pub const MIN: Self = Self(i64::MIN);
+}
+impl Add for SequenceNumber {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
+impl AddAssign for SequenceNumber {
+    fn add_assign(&mut self, other: Self) {
+        *self = *self + other;
+    }
 }
 pub type FragmentNumber = u32;
 
@@ -34,12 +48,13 @@ pub type SequenceNumberSet = NumberSet<SequenceNumber>;
 pub type FragmentNumberSet = NumberSet<FragmentNumber>;
 
 #[derive(Readable)]
-struct NumberSet<T> {
+pub struct NumberSet<T> {
     bitmap_base: T,
     num_bits: u32,
     bitmap: Vec<u32>,
 }
 
+#[derive(PartialEq)]
 pub struct Parameter {
     parameter_id: ParameterId,
     // length: i16,
@@ -48,7 +63,7 @@ pub struct Parameter {
     value: Vec<u8>,
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 pub struct ParameterList {
     parameters: Vec<Parameter>,
 }
@@ -97,8 +112,8 @@ pub struct Locator {
 impl Locator {
     pub const KIND_INVALID: i64 = -1;
     pub const KIND_RESERVED: i64 = 0;
-    pub const KIND_UDPv4: i64 = 1;
-    pub const KIND_UDPv6: i64 = 2;
+    pub const KIND_UDPV4: i64 = 1;
+    pub const KIND_UDPV6: i64 = 2;
     pub const PORT_INVALID: u64 = 0;
     pub const ADDRESS_INVALID: [u8; 16] = [0; 16];
     pub const INVALID: Self = Self {
@@ -180,9 +195,20 @@ impl SerializedPayload {
         })
     }
 
-    pub fn new_from_cdr_data<D: Serialize>(data: D) -> Bytes {
-        let serialized_data = cdr::serialize::<_, _, CdrLe>(&data, Infinite).unwrap();
-        Bytes::from(serialized_data)
+    pub fn new_from_cdr_data<D: Serialize>(data: D) -> Self {
+        let mut serialized_data = cdr::serialize::<_, _, CdrLe>(&data, Infinite).unwrap();
+        let representation_identifier = RepresentationIdentifier::CDR_LE;
+        let rep_id: Vec<_> = serialized_data.drain(0..=1).collect();
+        assert_eq!(rep_id, Vec::from(RepresentationIdentifier::CDR_LE.bytes));
+        let representation_options = [0; 2];
+        let rep_opt: Vec<_> = serialized_data.drain(0..=1).collect();
+        assert_eq!(rep_opt, Vec::from(representation_options));
+        let value = Bytes::from(serialized_data);
+        Self {
+            representation_identifier,
+            representation_options,
+            value,
+        }
     }
 }
 

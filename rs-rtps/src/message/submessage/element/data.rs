@@ -13,6 +13,22 @@ pub struct Data {
 }
 
 impl Data {
+    pub fn new(
+        reader_id: EntityId,
+        writer_id: EntityId,
+        writer_sn: SequenceNumber,
+        inline_qos: Option<ParameterList>,
+        serialized_payload: Option<SerializedPayload>,
+    ) -> Self {
+        Self {
+            reader_id,
+            writer_id,
+            writer_sn,
+            inline_qos,
+            serialized_payload,
+        }
+    }
+
     pub fn deserialize_data(buffer: &Bytes, flags: BitFlags<DataFlag>) -> std::io::Result<Self> {
         let mut cursor = io::Cursor::new(&buffer);
         let endiannes = if flags.contains(DataFlag::Endianness) {
@@ -31,8 +47,9 @@ impl Data {
             .map_err(map_speedy_err)?;
         let writer_id = EntityId::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
             .map_err(map_speedy_err)?;
-        let writer_sn = SequenceNumber::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
+        let writer_sn =
+            SequenceNumber::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
+                .map_err(map_speedy_err)?;
         let is_exist_inline_qos = flags.contains(DataFlag::InlineQos);
         let is_exist_serialized_data =
             flags.contains(DataFlag::Datqa) || flags.contains(DataFlag::Key);
