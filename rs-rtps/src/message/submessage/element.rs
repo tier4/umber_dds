@@ -25,7 +25,15 @@ use std::ops::{Add, AddAssign};
 pub type Count = i32;
 
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
-pub struct SequenceNumber(pub i64);
+pub struct SequenceNumber(pub i64); // The precise definition of SequenceNumber is:
+                                    // struct SequenceNumber {high: i32, low: u32}.
+                                    // Therefore, when serialized in LittleEndian, SequenceNumber(0) is represented as:
+                                    // [0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00].
+                                    // However, this accurate representation has lower performance
+                                    // for addition and subtraction operations. Hence, we use a faster implementation
+                                    // for these operations and, during serialization or deserialization,
+                                    // we convert to the correct format. This is the reason we
+                                    // implement the serializer and deserializer manually.
 impl SequenceNumber {
     pub const SEQUENCENUMBER_UNKNOWN: Self = Self((std::u32::MAX as i64) << 32);
     pub const MAX: Self = Self(i64::MAX);
