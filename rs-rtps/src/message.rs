@@ -14,7 +14,7 @@ use crate::message::{
 };
 use bytes::Bytes;
 use enumflags2::BitFlags;
-use speedy::Readable;
+use speedy::{Context, Endianness, Readable, Writable, Writer};
 
 pub struct Message {
     pub header: Header,
@@ -128,7 +128,7 @@ impl Message {
                     let flags = BitFlags::<InfoDestionationFlag>::from_bits_truncate(
                         submessage_header.get_flags(),
                     );
-                    SubMessageBody::Interpreter(InterpreterSubmessage::InfoDestinatio(
+                    SubMessageBody::Interpreter(InterpreterSubmessage::InfoDestination(
                         InfoDestination::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
                         flags,
                     ))
@@ -145,7 +145,7 @@ impl Message {
                             &submessage_body_buf,
                         )?)
                     };
-                    SubMessageBody::Interpreter(InterpreterSubmessage::InfoTImestamp(
+                    SubMessageBody::Interpreter(InterpreterSubmessage::InfoTimestamp(
                         InfoTimestamp { timestamp: ts },
                         flags,
                     ))
@@ -181,5 +181,15 @@ impl Message {
             header: rtps_header,
             submessages,
         })
+    }
+}
+
+impl<C: Context> Writable<C> for Message {
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        writer.write_value(&self.header)?;
+        for x in &self.submessages {
+            writer.write_value(&x)?;
+        }
+        Ok(())
     }
 }

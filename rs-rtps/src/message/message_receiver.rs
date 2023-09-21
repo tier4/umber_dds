@@ -121,7 +121,7 @@ impl MessageReceiver {
                     self.multicast_reply_locator_list.clear();
                 }
             }
-            InterpreterSubmessage::InfoTImestamp(info_ts, flags) => {
+            InterpreterSubmessage::InfoTimestamp(info_ts, flags) => {
                 if !flags.contains(InfoTimestampFlag::Invalidate) {
                     self.have_timestamp = true;
                     self.timestamp = info_ts.timestamp.expect("invalid InfoTS");
@@ -137,7 +137,7 @@ impl MessageReceiver {
                 self.multicast_reply_locator_list.clear();
                 self.have_timestamp = false;
             }
-            InterpreterSubmessage::InfoDestinatio(info_dst, _flags) => {
+            InterpreterSubmessage::InfoDestination(info_dst, _flags) => {
                 if info_dst.guid_prefix != GuidPrefix::UNKNOW {
                     self.dest_guid_prefix = info_dst.guid_prefix;
                 } else {

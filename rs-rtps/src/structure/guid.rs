@@ -1,6 +1,6 @@
 use crate::structure::entity_id::*;
 use rand;
-use speedy::Readable;
+use speedy::{Readable, Writable};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GUID {
@@ -29,7 +29,7 @@ impl GUID {
     }
 }
 
-#[derive(Readable, Debug, Clone, Copy, PartialEq)]
+#[derive(Readable, Writable, Debug, Clone, Copy, PartialEq)]
 pub struct GuidPrefix {
     pub guid_prefix: [u8; 12],
 }

@@ -29,7 +29,7 @@ impl MessageBuilder {
         let info_ts = todo!();
         let ts_flag = InfoTimestampFlag::from_enndianness(endiannes);
         let ts_body =
-            SubMessageBody::Interpreter(InterpreterSubmessage::InfoTImestamp(info_ts, ts_flag));
+            SubMessageBody::Interpreter(InterpreterSubmessage::InfoTimestamp(info_ts, ts_flag));
         let ts_header =
             SubMessageHeader::new(SubMessageKind::INFO_TS as u8, ts_flag.bits(), todo!());
         let ts_msg = SubMessage {
@@ -77,7 +77,8 @@ impl MessageBuilder {
             serialized_payload,
         );
         let data_body = SubMessageBody::Entity(EntitySubmessage::Data(data, data_flag));
-        let data_body_length = 4 + 4 + 8 + inline_qos_len + payload_length; // reader_id, writer_id: 4 octet, writer_sn: 8 octet
+        // extra_flags(2), octets_to_inlineQos(2), reader_id(4), writer_id(4), writer_sn(8) octet
+        let data_body_length = 2 + 2 + 4 + 4 + 8 + inline_qos_len + payload_length;
         let data_header = SubMessageHeader::new(
             SubMessageKind::DATA as u8,
             data_flag.bits(),

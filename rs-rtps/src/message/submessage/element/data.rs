@@ -1,7 +1,7 @@
 use crate::message::submessage::{element::*, submessage_flag::DataFlag};
 use crate::structure::entity_id::*;
 use enumflags2::BitFlags;
-use speedy::{Context, Endianness, Error, Readable};
+use speedy::{Context, Endianness, Error, Readable, Writer};
 use std::io;
 
 pub struct Data {
@@ -83,6 +83,34 @@ impl Data {
             inline_qos,
             serialized_payload,
         })
+    }
+}
+impl<C: Context> Writable<C> for Data {
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        writer.write_u16(0)?; // extraFlags
+                              // In RTPS 2.3, it is set all 0.
+
+        writer.write_u16(16)?; // octetsToInlineQos
+                               // octetsToInlineQos is the number of octets starting from the
+                               // first octet immediately following this field until the first octet of the
+                               // inlineQos SubmessageElement. If the inlineQos SubmessageElement is not
+                               // present (i.e., the InlineQosFlag is not set), then octetsToInlineQos contains
+                               // the offset to the next field after the inlineQos.
+                               // In RTPS 2.3, reader_id(4) + writer_id(4) + writer_sn(8) = 16
+                               // This filed is for compatibility with future version of RTPS.
+
+        writer.write_value(&self.reader_id)?;
+        writer.write_value(&self.writer_id)?;
+        writer.write_value(&self.writer_sn)?;
+        if let Some(inline_qos) = self.inline_qos.as_ref() {
+            writer.write_value(inline_qos)?;
+        }
+
+        if let Some(serialized_payload) = self.serialized_payload.as_ref() {
+            writer.write_value(serialized_payload)?
+        }
+
+        Ok(())
     }
 }
 

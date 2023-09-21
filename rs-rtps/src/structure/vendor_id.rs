@@ -1,6 +1,6 @@
-use speedy::Readable;
+use speedy::{Readable, Writable};
 
-#[derive(Readable, Debug)]
+#[derive(Readable, Writable, Debug)]
 pub struct VendorId {
     pub vendor_id: [u8; 2],
 }

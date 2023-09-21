@@ -1,7 +1,7 @@
 use crate::structure::guid::*;
-use speedy::Readable;
+use speedy::{Readable, Writable};
 
-#[derive(Readable)]
+#[derive(Readable, Writable)]
 pub struct InfoDestination {
     pub guid_prefix: GuidPrefix,
 }

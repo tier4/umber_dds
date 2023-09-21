@@ -1,6 +1,8 @@
 # rs-rtps
 RustでRTPS/DDSを実装
 
+最初はStatelessでbesteffortな実装のみに絞って実装する
+
 - [ ] DataWriter.write()でData submessageが乗ったパケットを送信できるようにする
 - [ ] DataReader.read()でData submessageが乗ったパケットを受信して受け取れるようにする
 - [ ] besteffortでほかのノードをDiscoveryしてPub/Subできるところまで実装
@@ -12,13 +14,15 @@ RustでRTPS/DDSを実装
 - [ ] Publisher/Subscriberを実装
 - [ ] DataWriter/DataReaderのwith_key/no_keyについて調査
 - [ ] DataWriter/DataReaderを実装
-    - [ ] RTPSWriterへのコマンドの送信を実装
+    - [x] RTPSWriterへのコマンドの送信を実装
 - [ ] RTPSWriter/RTPSReaderを実装
     - [x] writer_cmd_receiverをevent_loopのpollに登録
-- [ ] UDP senderの実装
+    - [x] DataWriterから受け取ったdataのserializerを実装
+    - [x] RTPS Messageのビルダーを実装
+- [x] UDP senderの実装
 - [ ] Discovery Moduleを実装
 - [ ] HistoryCacheを実装
-    - [ ] DataWriterにHistoryCacheを実装
+    - [x] DataWriterにHistoryCacheを実装
     - [ ] DataReaderにHistoryCacheを実装
 どれもDiscoveryに必要そうなものを最低限実装
 
@@ -30,3 +34,5 @@ RustでRTPS/DDSを実装
 
 + 各モジュールを実装中\
 受信したパケットをRTPSプロトコルにしたがって処理するには、RTPS Writer, RTPS Reader, domain participant等のモジュールの実装が必要だから
+
++ history cache, message builder, message serializerを実装し、datawriter.write(hoge)でhogeをdata submessageにのせて送信可能になった。(HeartBeatは未実装なのでdata submessageだけのmessageしか送れない)

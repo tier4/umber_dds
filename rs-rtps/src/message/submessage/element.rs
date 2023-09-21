@@ -16,7 +16,7 @@ use byteorder::ReadBytesExt;
 use bytes::Bytes;
 use cdr::{CdrLe, Infinite};
 use serde::Serialize;
-use speedy::{Context, Readable};
+use speedy::{Context, Readable, Reader, Writable, Writer};
 use std::io;
 use std::ops::{Add, AddAssign};
 
@@ -24,7 +24,7 @@ use std::ops::{Add, AddAssign};
 
 pub type Count = i32;
 
-#[derive(Readable, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub struct SequenceNumber(pub i64);
 impl SequenceNumber {
     pub const SEQUENCENUMBER_UNKNOWN: Self = Self((std::u32::MAX as i64) << 32);
@@ -42,12 +42,32 @@ impl AddAssign for SequenceNumber {
         *self = *self + other;
     }
 }
+
+impl<'a, C: Context> Readable<'a, C> for SequenceNumber {
+    #[inline]
+    fn read_from<R: Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+        let high: i32 = reader.read_value()?;
+        let low: u32 = reader.read_value()?;
+
+        Ok(SequenceNumber(((i64::from(high)) << 32) + i64::from(low)))
+    }
+}
+
+impl<C: Context> Writable<C> for SequenceNumber {
+    #[inline]
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        writer.write_i32((self.0 >> 32) as i32)?;
+        writer.write_u32(self.0 as u32)?;
+        Ok(())
+    }
+}
+
 pub type FragmentNumber = u32;
 
 pub type SequenceNumberSet = NumberSet<SequenceNumber>;
 pub type FragmentNumberSet = NumberSet<FragmentNumber>;
 
-#[derive(Readable)]
+#[derive(Readable, Writable)]
 pub struct NumberSet<T> {
     bitmap_base: T,
     num_bits: u32,
@@ -61,6 +81,26 @@ pub struct Parameter {
     // RTPS 2.3 spec 9.4.2.11 ParameterList show Parameter contains length,
     // but it need only deseriarize time
     value: Vec<u8>,
+}
+impl<C: Context> Writable<C> for Parameter {
+    #[inline]
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        writer.write_value(&self.parameter_id)?;
+
+        let length = self.value.len();
+        let alignment = length % 4;
+        writer.write_u16((length + alignment) as u16)?;
+
+        for byte in &self.value {
+            writer.write_u8(*byte)?;
+        }
+
+        for _ in 0..alignment {
+            writer.write_u8(0x00)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Default, PartialEq)]
@@ -88,7 +128,21 @@ impl<'a, C: Context> Readable<'a, C> for ParameterList {
     }
 }
 
-#[derive(Readable)]
+const SENTINEL: u32 = 0x00000001;
+impl<C: Context> Writable<C> for ParameterList {
+    #[inline]
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        for param in self.parameters.iter() {
+            writer.write_value(param)?;
+        }
+
+        writer.write_u32(SENTINEL)?;
+
+        Ok(())
+    }
+}
+
+#[derive(Readable, Writable)]
 pub struct Timestamp {
     seconds: u32,
     fraction: u32,
@@ -102,7 +156,7 @@ impl Timestamp {
 }
 
 // spec versin 2.3 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
-#[derive(Readable)]
+#[derive(Readable, Writable)]
 pub struct Locator {
     kind: i64,
     port: u64,
@@ -124,7 +178,7 @@ impl Locator {
 }
 pub type LocatorList = Vec<Locator>;
 
-#[derive(Readable)]
+#[derive(Readable, Writable)]
 pub struct RepresentationIdentifier {
     bytes: [u8; 2],
 }
@@ -213,6 +267,17 @@ impl SerializedPayload {
 }
 
 pub type GroupDigest = [u8; 4];
+
+impl<C: Context> Writable<C> for SerializedPayload {
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        writer.write_u8(self.representation_identifier.bytes[0])?;
+        writer.write_u8(self.representation_identifier.bytes[1])?;
+        writer.write_u8(self.representation_options[0])?;
+        writer.write_u8(self.representation_options[1])?;
+        writer.write_bytes(&self.value)?;
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod test {

@@ -9,8 +9,8 @@ pub struct DataFrag {
     reader_id: EntityId,
     writer_id: EntityId,
     writer_sn: SequenceNumber,
-    fragment_staring_num: FragmentNumber,
-    fragment_in_submessage: u16,
+    fragment_starting_num: FragmentNumber,
+    fragments_in_submessage: u16,
     data_size: u64,
     fragment_size: u16,
     inline_qos: Option<ParameterList>,
@@ -20,7 +20,7 @@ pub struct DataFrag {
     /// SerializedPayload. The headers at the beginning of SerializedPayload
     /// appear only at the first fragment. The fragmentation mechanism here
     /// should treat serialized_payload as an opaque stream of bytes."
-    serialized_payload: Bytes,
+    serialized_payload: SerializedPayload,
 }
 
 impl DataFrag {
@@ -43,11 +43,12 @@ impl DataFrag {
             .map_err(map_speedy_err)?;
         let writer_sn = SequenceNumber::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
             .map_err(map_speedy_err)?;
-        let fragment_staring_num =
+        let fragment_starting_num =
             FragmentNumber::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
                 .map_err(map_speedy_err)?;
-        let fragment_in_submessage = u16::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
+        let fragments_in_submessage =
+            u16::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
+                .map_err(map_speedy_err)?;
         let data_size = u64::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
             .map_err(map_speedy_err)?;
         let fragment_size = u16::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
@@ -71,18 +72,46 @@ impl DataFrag {
         };
         // TODO: Validity checks
         //
-        let serialized_payload = buffer.clone().split_off(cursor.position() as usize);
+        let serialized_payload =
+            SerializedPayload::from_bytes(&buffer.clone().split_off(cursor.position() as usize))
+                .unwrap();
 
         Ok(Self {
             reader_id,
             writer_id,
             writer_sn,
-            fragment_staring_num,
-            fragment_in_submessage,
+            fragment_starting_num,
+            fragments_in_submessage,
             data_size,
             fragment_size,
             inline_qos,
             serialized_payload,
         })
+    }
+}
+
+impl<C: Context> Writable<C> for DataFrag {
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        writer.write_u16(0)?;
+        if self.inline_qos.is_some() && !self.inline_qos.as_ref().unwrap().parameters.is_empty() {
+            todo!()
+        } else if self.inline_qos.is_some()
+            && self.inline_qos.as_ref().unwrap().parameters.is_empty()
+            || self.inline_qos.is_none()
+        {
+            writer.write_u16(24)?;
+        }
+        writer.write_value(&self.reader_id)?;
+        writer.write_value(&self.writer_id)?;
+        writer.write_value(&self.writer_sn)?;
+        writer.write_value(&self.fragment_starting_num)?;
+        writer.write_value(&self.fragments_in_submessage)?;
+        writer.write_value(&self.fragment_size)?;
+        writer.write_value(&self.data_size)?;
+        if self.inline_qos.is_some() && !self.inline_qos.as_ref().unwrap().parameters.is_empty() {
+            writer.write_value(&self.inline_qos)?;
+        }
+        writer.write_value(&self.serialized_payload)?;
+        Ok(())
     }
 }

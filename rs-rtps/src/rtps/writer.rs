@@ -14,7 +14,7 @@ use bytes::Bytes;
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use serde::Serialize;
-use speedy::Endianness;
+use speedy::{Endianness, Writable};
 use std::net::Ipv4Addr;
 use std::rc::Rc;
 
@@ -71,9 +71,12 @@ impl Writer {
                         c.serialized_payload,
                     );
                     let message = message_builder.build(self.guid_prefix());
-                    let message_buf = todo!(); // TODO: impl Message for serializer
-                    self.sender
-                        .send_to_multicast(message_buf, Ipv4Addr::new(239, 255, 0, 1), 7400);
+                    let message_buf = message.write_to_vec_with_ctx(self.endianness).unwrap();
+                    self.sender.send_to_multicast(
+                        &message_buf,
+                        Ipv4Addr::new(239, 255, 0, 1),
+                        7400,
+                    );
                 }
                 Err(_) => break,
             };

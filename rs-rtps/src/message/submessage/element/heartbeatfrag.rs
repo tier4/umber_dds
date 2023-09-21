@@ -1,9 +1,9 @@
 use crate::message::submessage::{element::*, submessage_flag::HeartbeatFragFlag};
 use crate::structure::entity_id::*;
 use enumflags2::BitFlags;
-use speedy::Readable;
+use speedy::{Readable, Writable};
 
-#[derive(Readable)]
+#[derive(Readable, Writable)]
 pub struct HeartbeatFrag {
     reader_id: EntityId,
     writer_id: EntityId,

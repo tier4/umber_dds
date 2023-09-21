@@ -1,7 +1,7 @@
 use crate::structure::{guid::*, vendor_id::*};
-use speedy::Readable;
+use speedy::{Readable, Writable};
 
-#[derive(Readable, Debug)]
+#[derive(Readable, Writable, Debug)]
 pub struct ProtocolVersion {
     major: u8,
     minor: u8,
@@ -11,7 +11,7 @@ impl ProtocolVersion {
     pub const PROTOCOLVERSION: Self = Self { major: 2, minor: 4 };
 }
 
-#[derive(Readable, Debug)]
+#[derive(Readable, Writable, Debug)]
 pub struct ProtocolId {
     protocol_id: [u8; 4],
 }
@@ -22,7 +22,7 @@ impl ProtocolId {
     };
 }
 
-#[derive(Readable, Debug)]
+#[derive(Readable, Writable, Debug)]
 pub struct Header {
     pub protocol: ProtocolId,
     pub version: ProtocolVersion,

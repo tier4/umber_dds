@@ -1,7 +1,7 @@
 use crate::message::submessage::*;
-use speedy::{Endianness, Readable};
+use speedy::{Endianness, Readable, Writable};
 
-#[derive(Readable, Debug)]
+#[derive(Readable, Writable, Debug)]
 pub struct SubMessageHeader {
     submessage_id: u8,
     flags: u8,

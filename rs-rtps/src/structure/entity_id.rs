@@ -1,9 +1,9 @@
 use crate::dds::participant::DomainParticipant;
 use mio_v06::Token;
-use speedy::Readable;
+use speedy::{Readable, Writable};
 
 // spec 9.2.2
-#[derive(Debug, PartialEq, Readable, Clone, Copy, Eq, Hash)]
+#[derive(Debug, PartialEq, Readable, Writable, Clone, Copy, Eq, Hash)]
 pub struct EntityId {
     entity_key: [u8; 3],
     entity_kind: EntityKind,
@@ -122,7 +122,7 @@ impl EntityId {
     }
 }
 
-#[derive(Debug, PartialEq, Readable, Clone, Copy, Eq, Hash)]
+#[derive(Debug, PartialEq, Readable, Writable, Clone, Copy, Eq, Hash)]
 pub struct EntityKind {
     value: u8,
 }

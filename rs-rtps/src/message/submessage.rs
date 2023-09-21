@@ -3,7 +3,7 @@ pub mod submessage_flag;
 pub mod submessage_header;
 use crate::message::submessage::submessage_header::*;
 use bytes::Bytes;
-use speedy::Readable;
+use speedy::{Context, Readable, Writable, Writer};
 use std::{fmt, fmt::Debug};
 
 use crate::message::submessage::element::{
@@ -17,6 +17,16 @@ use enumflags2::BitFlags;
 pub struct SubMessage {
     pub header: SubMessageHeader,
     pub body: SubMessageBody,
+}
+
+impl<C: Context> Writable<C> for SubMessage {
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        writer.write_value(&self.header)?;
+        match &self.body {
+            SubMessageBody::Entity(e) => writer.write_value(&e),
+            SubMessageBody::Interpreter(i) => writer.write_value(&i),
+        }
+    }
 }
 
 pub enum SubMessageBody {
@@ -75,10 +85,39 @@ pub enum EntitySubmessage {
     NackFrag(NackFrag, BitFlags<NackFragFlag>),
 }
 
+impl<C: Context> Writable<C> for EntitySubmessage {
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        match self {
+            EntitySubmessage::AckNack(s, _f) => writer.write_value(s),
+            EntitySubmessage::Data(s, _f) => writer.write_value(s),
+            EntitySubmessage::DataFrag(s, _f) => writer.write_value(s),
+            EntitySubmessage::Gap(s, _f) => writer.write_value(s),
+            EntitySubmessage::HeartBeat(s, _f) => writer.write_value(s),
+            EntitySubmessage::HeartbeatFrag(s, _f) => writer.write_value(s),
+            EntitySubmessage::NackFrag(s, _f) => writer.write_value(s),
+        }
+    }
+}
 pub enum InterpreterSubmessage {
     InfoSource(InfoSource, BitFlags<InfoSourceFlag>),
-    InfoDestinatio(InfoDestination, BitFlags<InfoDestionationFlag>),
-    InfoTImestamp(InfoTimestamp, BitFlags<InfoTimestampFlag>),
+    InfoDestination(InfoDestination, BitFlags<InfoDestionationFlag>),
+    InfoTimestamp(InfoTimestamp, BitFlags<InfoTimestampFlag>),
     InfoReply(InfoReply, BitFlags<InfoReplyFlag>),
     InfoReplyIp4(InfoReplyIp4, BitFlags<InfoReplyIp4Flag>),
+}
+impl<C: Context> Writable<C> for InterpreterSubmessage {
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        match self {
+            InterpreterSubmessage::InfoSource(s, _f) => writer.write_value(s),
+            InterpreterSubmessage::InfoDestination(s, _f) => writer.write_value(s),
+            InterpreterSubmessage::InfoReply(s, _f) => writer.write_value(s),
+            InterpreterSubmessage::InfoReplyIp4(s, _f) => writer.write_value(s),
+            InterpreterSubmessage::InfoTimestamp(s, _f) => match s {
+                InfoTimestamp { timestamp: None } => Ok(()), // serialization is empty string
+                InfoTimestamp {
+                    timestamp: Some(ts),
+                } => writer.write_value(ts),
+            },
+        }
+    }
 }
