@@ -153,3 +153,56 @@ https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A193%2C%22gen%
 〜〜続く〜〜
 
 // TODO
+
+## 8.5 Discovery Module (日本語訳, 要約)
+Discovery Moduleはconfigがどのように行われるのか仮定を行わず、Endpoint間でどのようにデータが交換されるかのみ定義される。Endpointの設定をするために、実装は存在するremote Endpointの情報とそのpropertieをてに入れないといけない。この情報をどのように獲得するかがDiscovery Moduleのテーマである。
+
+Discovery ModuleはRTPS discovery moduleを定義する。discovery protocolの目的はRTPS Participantが関係する他のParticipantとEndpointを発見すること。一度、remote Endpointが発見されれば、実装はlocal Endpointをコミュニケーションを樹立するための設定ができる。
+
+DDSの仕様は一致するDataWriterとDataReader間のコミュニケーションの樹立はdiscovery mechanismに頼っている。DDS実装はremote entityの存在をnetworkに参加したときと離れたときの両方を自動で発見しなければならない。discovery情報はDDS built-in topicを使うことでアクセス可能になる。
+
+Discovery Moduleで定義されるRTPS discovery protocolはDDSが必要とするdiscovery mechanismを提供する。
+
+### Overview
+discovery protocolは独立した２つのプロトコル、Participant Discovery Protocol(PDP), Endpoint Discovery Protocol(EDP)によって構成される。PDPはnetwork上でどのようにParticipantがお互いを発見するかを決めている。一度2つのParticipantがお互いを発見すると、それらはParticipantが保持しているEndpointが持つ情報をEDPを使って交換する。この因果関係を除けば、両プロトコルは独立したものとみなすことができる。
+
+実装によっては、ベンダー固有の可能性も考慮して、複数のPDPおよびEDPをサポートすることを選択できます。一般的に、2つのParticipantは少なくとも1つのPDPとEDPを持つから、それらは必要なdiscovery informationを交換することができる。interoperabilityのために、すべてのRTPS実装は少なくともSimple Participant Discovery Protocol(SPDP)とSimple Endpoint Discovery Protocl(SEDP)を提供しなければならない。
+
+両方の基本的なdiscovery protocolは小規模から中規模のnetworkにおいて十分足りる。大規模なnetworkのためのadditional PDPs and EDPsは将来のversionの仕様で追加されるかもしれない。
+
+discovery protocolの役割は発見されたremote Endpointに情報を提供することである。Participantがその情報を自身が持つEndpointを設定するためにどのように使われるかは、実際のRTPS protocolの実装に依存し、discovery protocolの仕様の一部ではない。例えば、8.4.7で紹介されているrefarence実装では、remote Endpointで獲得した情報は以下を設定することを可能にする。
++ The RTPS ReaderLocator objects that are associated with each RTPS StatelessWriter.
++ The RTPS ReaderProxy objects associated with each RTPS StatefulWriter
++ The RTPS WriterProxy objects associated with each RTPS StatefulReader
+
+Discovery Moduleの構成
++ SPDPとSEDPはdiscovery informationを交換するために事前に提示されたRTPS built-in WriterとReaderを使用するので、8.5.2でそれらのRTPS built-in Endpointを紹介する。
++ The SPDP is discussed in 8.5.3.
++ The SEDP is discussed in 8.5.4.
+
+### 8.5.2 RTPS Built-in Discovery Endpoints
+“DCPSParticipant”, “DCPSSubscription”, “DCPSPublication”, “DCPSTopic”の4つの事前に定義されたbuilt-in Topicがある。これらのTopicに関係するDataTypeはDDSで決められており、主にEntity QoS valueが格納される。
+
+それぞれのbuilt-in Topicについて、それぞれに一致するDDS built-in DataWriterとDataReaderが存在する。buiilt-in DataWriterは存在と、local DDS ParticipantのQoSとそれが持っているDataReader, DataWriter, Topicなどを残りのnetworkに伝えるために使われる。さらに、built-in DataReaderはこの情報を一致するremote EntityのDDS実装を特定するためにremote Participantから集める。built-in DataReaderは通常のDDS DataReaderと同じように振る舞い、DDS APIを通じてuserがアクセスすることができる。
+
+RTPS Simple Discovery Protocol(SPDP and SEDP)がとっているアプローチはbilt-in Entityコンセプトと似ている。RTPSはそれぞれのbuilt-in DDS DataWriterとDataReaderに関連するbuilt-in RTPS Endpointを割り当てている。それらのbuilt-in Endpointは通常のWriter, Reader Enddpointのように振る舞い、Behavior Moduleで定義される通常のRTPS protocolを使用してParticipant間で必要なdiscovery informationを交換する方法を提供する。
+
+### 8.5.3 The Simple Participant Discovery Protocol
+PDPの目的はnetwork上の他のParticipantを発見し、そのpropertyを取得すること。Participantは複数のPDPをサポートしているかもしれないが、interoperabilityのためにすべての実装は少なくともSPDPをサポートしなければならない。
+
+### 8.5.3.1 General Approach
+SPDPはdomainに含まれるParticipantの存在を知らせたり、検知するのにシンプルなアプローチを使用する。
+
+それぞれのParticipantでSPDPは2つのRTPS built-in Endpoints、SPDPbuiltinParticipantWriterとSPDPbuiltinParticipantReaderを作成する。
+
+SPDPbuiltinParticipantWriteはRTPS Best-Effort StatelessWriter。SPDPbuiltinParticipantWriterのHistoryCacheはa single data-object of type SPDPdiscoveredParticipantDataを含む。このdata-objectの値はParticipantのatributeからセットされる。もし、atributeが変更されればdata-objectは交換される。
+
+SPDPbuiltinParticipantWriterは定期的にdata-objectを事前に設定されたlocatorのリストにParticipantの存在を知らせるためにnetworkに送信する。これはStatelessWriterのHistoryCacheに存在するすべてのchangesをすべてのlocatorに送信するStatelessWriter::unsent_changes_resetを定期的に呼び出すことで達成される。SPDPbuiltinParticipantWriterがSPDPdiscoveredParticipantDataを送信する周期のdefaultはPSMで決定されている。その周期はSPDPdiscoveredParticipantDataで決められるleaseDurationよりも小さくするべきである。(see also
+8.5.3.3.2)
+
+事前に設定されたlocatorのリストはunicastとmulticastの両方のlocatorを含んでいる可能性がある。port番号はそれぞれの
+PSMで定義される。これらのlocatorは単にnetwork上にいるかもしれないremote Participantを表しており、Participantが実際に存在する必要はない。SPDPdiscoveredParticipantDataを定期的に送信することにより、Participantはnetworkにどの順番でも参加できる。
+
+SPDPbuiltinParticipantReaderはremote ParticipantからSPDPdiscoveredParticipantData announcementを受信する。そのテータにはremote ParticipantがどのEndpoint Discovery Protocolをサポートしているかの情報が含まれている。適切なEndpoint Discovery Protocolはremote Particpnat同士がEndpointの情報を交換するために使用される。
+
+実装は未知であったParticipantから受信したSPDPdiscoveredParticipantData data-objectに対する返事で追加のSPDPdiscoveredParticipantDataを送信することでany start-up delaysを最小化することができる。しかし、この振る舞いは任意である。実装はユーザーにpre-configured locatorのリストを新たに発見されたParticipantを追加して拡大するかどうかを選択できるようにできるかもしれない。これはa-symmetricなlocatort listを可能にする。これらの最後の2つの機能は任意でinteroperabilityのためには必要ではない。
