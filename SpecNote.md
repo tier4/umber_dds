@@ -114,6 +114,26 @@ RTPS 2.3 spec 8.2.1 Overview
 
 RTPSWriterと(DDS)DataWriterは、１体１対応している。
 
+### Endiannessのについて
+rtps 2.3 spec 9.4.5.1.1.1 Submessage Ranges Reserved by other Specifications
+> Sub clause 8.3.3.2 in the PIM defines the EndiannessFlag as a flag present in all Submessages that indicates the
+> endianness used to encode the Submessage.
+EndiannessはSubMessageのエンコードに使われたエンディアンでCPUのエンディアンではない。
+
+## 8.2.2 The RTPS HistoryCache
+DDSとRTPSの間のインターフェースで、readerとwriterで異なる役割を果たす。
+writer 側では、一致するDDS Writerで作られたdata-objectに対するcahngesを保存する。これは、既存の、もしくは将来matchするRTPS Readerにサービスを提供するために必要である。どのhistoryが必要かはDDS QoSと、macheしたRTPS Readerとのコミュニケーションの状態に依存する。
+
+reader側では、すべての一致するRTPS writerで作られたdata-objectsに対するchangesが積み重なった一部を保存する。
+
+これまでにつくられたすべてのchangesのすべての履歴を保持する必要はない。
+
+むしろ必要なのは、RTPSプロトコルの動作ニーズと関連するDDSエンティティのQoSニーズを満たすために必要な履歴のサブセットである。このサブセットを定義するルールはRTPSプロトコルによって定義され、通信プロトコルの状態と関連するDDSエンティティのQoSの両方に依存する。
+
+HistoryCacheはDDSとRTPSのインターフェースだから、RTPSとそれに関連するDDSのエンティティーはどちらも、紐付けられたHistoryCacheの操作できる。
+
+sample bihaviorの図をみると誰がHistoryCacheを持っているのかわからないけど、rtps spec 2.4の8.4.7.1 を見ると、RTPS Writerがwriter cache を持っていることがわかる。
+
 ### Message Receiverが従うルール (spec 8.3.4.1)
 1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
 2. submessageLengthフィールドは次のsubmessageがどこから始まるかを定義する、もしくは、Section 8.3.3.2.3(p. 34)で示されるようにMessageの終わりを拡張するSubmessageを指し示す。もしこのフィールドが無効なら、残りのMessageは無効である。
@@ -206,3 +226,78 @@ PSMで定義される。これらのlocatorは単にnetwork上にいるかもし
 SPDPbuiltinParticipantReaderはremote ParticipantからSPDPdiscoveredParticipantData announcementを受信する。そのテータにはremote ParticipantがどのEndpoint Discovery Protocolをサポートしているかの情報が含まれている。適切なEndpoint Discovery Protocolはremote Particpnat同士がEndpointの情報を交換するために使用される。
 
 実装は未知であったParticipantから受信したSPDPdiscoveredParticipantData data-objectに対する返事で追加のSPDPdiscoveredParticipantDataを送信することでany start-up delaysを最小化することができる。しかし、この振る舞いは任意である。実装はユーザーにpre-configured locatorのリストを新たに発見されたParticipantを追加して拡大するかどうかを選択できるようにできるかもしれない。これはa-symmetricなlocatort listを可能にする。これらの最後の2つの機能は任意でinteroperabilityのためには必要ではない。
+
+### 8.5.3.4 Logical ports used by the Simple Participant Discovery Protocol
+上で言及したように、それぞれのSPDPbuiltinParticipantWriterはParticipantの存在をネットワークに伝えるため、事前に設定されたlocatorのリストを使う。
+
+plug-and-play interoperabilityの実現のため、事前に設定されたlocatorのリストは以下のwell-known logical portを使用しなければならない。
+
+SPDP_WELL_KNOWN_UNICAST_PORT
+    entries in SPDPbuiltinParticipantReader.unicastLocatorList,
+    unicast entries in SPDPbuiltinParticipantWriter.readerLocators
+
+SPDP_WELL_KNOWN_MULTICAST_PORT
+    entries in SPDPbuiltinParticipantReader.multicastLocatorList,
+    multicast entries in SPDPbuiltinParticipantWriter.readerLocators
+
+実際のlogical portの値はPSMで定義される。
+> 9.6.1.1 Discovery traffic を参照
+
+## 8.5.4 The Simple Endpoint Discovery Protocol
+Endpoint Discovery Protocol はお互いのWriterとReader Endpointを発見するために2つのParticipant間で交換する必要のある情報を定義している。
+
+Participantは複数のEDPをサポートしているかもしれない。しかし、interoperabilityのためにすべての実装は少なくともSEDPをサポートしなければならない。
+
+## 8.5.4.1 General Approach
+SPDPと同じように、SEDPは事前に定義されたbuilt-in Endpointを使用する。
+
+事前に定義されたbuilt-in Endpointを使用することは、一度Participantが他のParticipantの存在を知れば、remote participantによって利用可能なbuilt-in Endpointの存在を推定できるようになり、locally-matching built-in Endpointをつなげることを意味する。
+
+built-in Endopint間で情報をやり取りするために使われるプロトコルはapplicationによって定義されたEndpointに使用されるものと変わらない。
+したがって、 そのメッセージがbuilt-in Reader Endpointによって読まれることによって、 プロトコルvirtual machineはその存在や、どこかのremote Participantsに所属しているDDS EntityのQoSを発見することができる。built-in Writer Endpointが書き込むことによって、同様にParticipantは他のParticipantに存在とlocal DDS EntityのQoSを知らせることができる。
+
+したがって、SEDPで組み込みtopicを使用すると、全体的なdiscovery protocolの範囲が、システム内にどのParticipantが存在するか、およびこれらのParticipantの組み込みEndpointsに対応するReaderProxyオブジェクトとWriterProxyオブジェクトの属性値を決定することに縮小される。
+それがわかれば、あとはすべて、RTPSプロトコルを内蔵のRTPS readerとwriter間の通信に適用することで結果が得られる。
+
+
+## 8.5.4.2 The built-in Endpoints used by the Simple Endpoint Discovery Protocol
+SEDP DDS built-in Entityは“DCPSSubscription,” “DCPSPublication,” と“DCPSTopic” Topicsを対応付ける。
+DDS specificationによると、それらのbulit-in Entityのreliablility QoSは'reliable'にセットされる。
+したがって、SEDPはbuilt-in DDS DataWriter, DataReaderと一致するreliable RTPS Writer, Reader Endpointを結びつける。
+
+たとえば、図 8.29せ説明されているように、 the DDS built-in DataWriters for the “DCPSSubscription,” “DCPSPublication,”
+and “DCPSTopic” Topics can be mapped to reliable RTPS StatefulWriters and the corresponding DDS built-in
+DataReaders to reliable RTPS StatefulReaders. 実際の実装ではstatefull refarence 実装を使う必要はない。
+interoperabilityのため、実装はbuilt-in Endpointが必要とするものと、8.4.2に挙げられているgeneral requirementsを満たす
+reliable communicationを提供すれば十分である。
+
+## 8.5.4.3 Built-in Endpoints required by the Simple Endpoint Discovery Protocol
+実装はすべてのbuilt-in Endpoint を提供する必要はない。
+
+DDS specificationで触れられているように、Topic propagationは任意である。
+したがって、SEDPbuiltinTopicsReader, SEDPbuiltinTopicsWriter built-in Endpointsを実装する必要はなく、
+interoperabilityのため実装はremote Participantのそれらの存在に頼るべきではない。
+
+残りのbuilt-in Endpointに関しては、Participantはlocal Endpointとremote Endpointのマッチングに必要なbuilt-in Endpointのみを提供する必要があります。
+たとえば、DDS ParticipantがDataWriterしか保持していなければ、必要なRTPS built-in EndpointはSEDPbuiltinPublicationsWriterとSEDPbuiltinSubscriptionsReaderのみである。
+このケースにおいて、SEDPbuiltinPublicationsReaderとSEDPbuiltinSubscriptionsWriter built-inEndpointsは何の目的も果たさない。
+
+SPDPはどのようにParticipantが他のParticipantに利用可能なbuilt-in Endpoint知らせるかを規定する。
+これは8.5.3.2で議論されている。
+
+## 8.5.4.4 Data Types associated with built-in Endpoints used by the Simple Endpoint Discovery Protocol
+それぞれのRTPS EndpointはEndpointに関係づけられたdata-objectの変更を保存するHistoryCacheを持っている。
+これは、RTPS built-in Endpointにも適用される。したがって、それぞれのRTPS built-in Endpointは、
+HistoryCacheに書き込まれたデータの論理的な内容を表す DataType に依存する。
+
+図8.30は“DCPSPublication,” “DCPSSubscription,” and “DCPSTopic” TopicsのためのRTPS built-in Endpointに紐付けられたDiscoveredWriterData, DiscoveredReaderData, DiscoveredTopicData DataTypesを定義する。"DCPSParticipant"に紐付けられたDataTypeは8.5.3.2で定義される。
+
+それぞれのRTPS built-in Endpointと関係するDataTypeはDDSによって特定された一致するbuilt-in DDS Entityの情報をすべて保持する。
+この理由により、DiscoveredReaderDataはDDS::SubscriptionBuiltinTopicDataを拡張し、DiscoveredWriterDataはDDS::PublicationBuiltinTopicDataを拡張し、
+DiscoveredTopicDataはDDS::TopicBuiltinTopicDataを拡張する。
+
+さらに、関連するbuilt-in DDS Entityによって必要とされるデータ、the “Discovered” DataTypesもまた、TPS Endpointを設定するために、プロトコルの実装によって必要とされるすべての情報を含んでいる。この情報は RTPS ReaderProxy, WriterProxyに保存される。
+
+プロトコルの実装はDataTypesに含まれるすべての情報を送信する必要はない。もし一つも情報が存在しなければ、実装はPSMで定義されるデフォルトの値を仮定することができる。
+
+SEDPによって使用されるbuilt-in Endpointとそれらに関連付けられたDataTypesは図 8.31に示される。
