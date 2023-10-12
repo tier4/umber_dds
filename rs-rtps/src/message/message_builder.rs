@@ -63,7 +63,7 @@ impl MessageBuilder {
         let mut data_flag = DataFlag::from_enndianness(endiannes);
         let payload_length;
         if let Some(payload) = &serialized_payload {
-            data_flag |= DataFlag::Datqa;
+            data_flag |= DataFlag::Data;
             payload_length = 4 + payload.value.len();
         } else {
             payload_length = 0;

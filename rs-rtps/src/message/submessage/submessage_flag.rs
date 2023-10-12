@@ -30,7 +30,7 @@ from_enndianness!(AckNackFlag);
 pub enum DataFlag {
     Endianness = 0b00001,
     InlineQos = 0b00010,
-    Datqa = 0b00100,
+    Data = 0b00100,
     Key = 0b01000,
     NonStandardPayload = 0b10000,
 }

@@ -52,7 +52,7 @@ impl Data {
                 .map_err(map_speedy_err)?;
         let is_exist_inline_qos = flags.contains(DataFlag::InlineQos);
         let is_exist_serialized_data =
-            flags.contains(DataFlag::Datqa) || flags.contains(DataFlag::Key);
+            flags.contains(DataFlag::Data) || flags.contains(DataFlag::Key);
 
         // between octets_to_inline_qos and inline_qos in rtps n2.3, there are
         // reader_id (4), writer_id (4), writer_sn (8) = 16 octets
