@@ -67,9 +67,27 @@ impl DomainParticipantInner {
             spdp_multicast_port(domain_id),
             Ipv4Addr::new(239, 255, 0, 1),
         );
-        let spdp_uni_socket = new_unicast("0.0.0.0", spdp_unicast_port(domain_id, 0));
-        socket_list.insert(DISCOVERY_UNI_TOKEN, spdp_uni_socket);
-        socket_list.insert(DISCOVERY_MULTI_TOKEN, spdp_multi_socket);
+        let discovery_multi = match spdp_multi_socket {
+            Ok(s) => s,
+            Err(e) => panic!("{:?}", e),
+        };
+
+        let mut participant_id = 0;
+        let mut discovery_uni: Option<UdpSocket> = None;
+        while discovery_uni.is_none() && participant_id < 120 {
+            match new_unicast("0.0.0.0", spdp_unicast_port(domain_id, participant_id)) {
+                Ok(s) => discovery_uni = Some(s),
+                Err(_e) => participant_id += 1,
+            }
+        }
+
+        let discovery_uni = match discovery_uni {
+            Some(s) => s,
+            None => panic!("the max number of participant on same host on same domin is 127."),
+        };
+
+        socket_list.insert(DISCOVERY_UNI_TOKEN, discovery_multi);
+        socket_list.insert(DISCOVERY_MULTI_TOKEN, discovery_uni);
 
         let (add_writer_sender, add_writer_receiver) =
             mio_channel::sync_channel::<WriterIngredients>(10);
