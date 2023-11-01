@@ -5,9 +5,9 @@ use speedy::{Readable, Writable};
 
 #[derive(Readable, Writable)]
 pub struct NackFrag {
-    reader_id: EntityId,
-    writer_id: EntityId,
-    writer_sn: SequenceNumber,
-    fragment_number_state: FragmentNumberSet,
-    count: Count,
+    pub reader_id: EntityId,
+    pub writer_id: EntityId,
+    pub writer_sn: SequenceNumber,
+    pub fragment_number_state: FragmentNumberSet,
+    pub count: Count,
 }

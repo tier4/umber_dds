@@ -5,11 +5,11 @@ use speedy::{Context, Endianness, Error, Readable, Writer};
 use std::io;
 
 pub struct Data {
-    reader_id: EntityId,
-    writer_id: EntityId,
-    writer_sn: SequenceNumber,
-    inline_qos: Option<ParameterList>,
-    serialized_payload: Option<SerializedPayload>,
+    pub reader_id: EntityId,
+    pub writer_id: EntityId,
+    pub writer_sn: SequenceNumber,
+    pub inline_qos: Option<ParameterList>,
+    pub serialized_payload: Option<SerializedPayload>,
 }
 
 impl Data {

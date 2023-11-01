@@ -5,9 +5,9 @@ use speedy::{Readable, Writable};
 
 #[derive(Readable, Writable)]
 pub struct HeartbeatFrag {
-    reader_id: EntityId,
-    writer_id: EntityId,
-    writer_sn: SequenceNumber,
-    last_fragment_num: FragmentNumber,
-    count: Count,
+    pub reader_id: EntityId,
+    pub writer_id: EntityId,
+    pub writer_sn: SequenceNumber,
+    pub last_fragment_num: FragmentNumber,
+    pub count: Count,
 }

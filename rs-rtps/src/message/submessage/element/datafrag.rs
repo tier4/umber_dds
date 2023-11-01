@@ -6,21 +6,21 @@ use speedy::{Endianness, Error, Readable};
 use std::io;
 
 pub struct DataFrag {
-    reader_id: EntityId,
-    writer_id: EntityId,
-    writer_sn: SequenceNumber,
-    fragment_starting_num: FragmentNumber,
-    fragments_in_submessage: u16,
-    data_size: u64,
-    fragment_size: u16,
-    inline_qos: Option<ParameterList>,
+    pub reader_id: EntityId,
+    pub writer_id: EntityId,
+    pub writer_sn: SequenceNumber,
+    pub fragment_starting_num: FragmentNumber,
+    pub fragments_in_submessage: u16,
+    pub data_size: u64,
+    pub fragment_size: u16,
+    pub inline_qos: Option<ParameterList>,
     /// Note: RustDDS says
     /// "RTPS spec says the serialized_payload is of type SerializedPayload
     /// but that is technically incorrect. It is a fragment of
     /// SerializedPayload. The headers at the beginning of SerializedPayload
     /// appear only at the first fragment. The fragmentation mechanism here
     /// should treat serialized_payload as an opaque stream of bytes."
-    serialized_payload: SerializedPayload,
+    pub serialized_payload: SerializedPayload,
 }
 
 impl DataFrag {

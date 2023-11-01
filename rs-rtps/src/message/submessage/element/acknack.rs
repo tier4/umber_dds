@@ -5,16 +5,10 @@ use speedy::{Readable, Writable};
 
 #[derive(Readable, Writable)]
 pub struct AckNack {
-    reader_id: EntityId,
-    writer_id: EntityId,
-    reader_sn_state: SequenceNumberSet,
-    count: Count,
-}
-
-impl AckNack {
-    pub fn reader_sn_state(&self) -> &SequenceNumberSet {
-        &self.reader_sn_state
-    }
+    pub reader_id: EntityId,
+    pub writer_id: EntityId,
+    pub reader_sn_state: SequenceNumberSet,
+    pub count: Count,
 }
 
 #[cfg(test)]

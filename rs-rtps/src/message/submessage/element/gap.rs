@@ -5,10 +5,10 @@ use speedy::{Readable, Writable};
 
 #[derive(Readable, Writable)]
 pub struct Gap {
-    reader_id: EntityId,
-    writer_id: EntityId,
-    gap_start: SequenceNumber,
-    gap_list: SequenceNumberSet,
-    gap_start_gsn: SequenceNumber,
-    gap_end_gsn: SequenceNumber,
+    pub reader_id: EntityId,
+    pub writer_id: EntityId,
+    pub gap_start: SequenceNumber,
+    pub gap_list: SequenceNumberSet,
+    pub gap_start_gsn: SequenceNumber,
+    pub gap_end_gsn: SequenceNumber,
 }
