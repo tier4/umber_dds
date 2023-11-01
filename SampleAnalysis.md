@@ -151,6 +151,22 @@ Serdeライブラリがペイロードのデータのシリアライズ/デシ�
 dp_event_loopが所有
 entity_idをtokenに変換して、writer_cmd_receiverをpollに登録するときのTokenにする。
 
+## Reader
+message_receiverが所有
+DataWriterが持っているchacheにどうやって受け取ったデータを書き込んでるかは要調査(TODO)
+
+## Data submessage
+これまでユーザーがpublishしたデータを載せるためのものだと思ってたけど、そうじゃないみたい。
+パケットキャプチャを見てたらユーザーがpublishしたデータ以外がserializedpayloadにあった。
+Wireshark上でData(p)にはprotocol_versionとかVenderIDとかが含まれてて、Data(w)にはTopic名とかunicast_locatorとかが含まれてるから、
+ディスカバリーのためにプロトコルの情報とか、Writerの情報を送ってるっぽい。
+RTPS spec 2.4には"Contains information regarding the value of an application Date-object."
+「アプリケーションデータオブジェクトの値に関する情報を含む」としか書いてない。
+
+## HistoryCache
+structure/cache_change.rsに実装がある。
+writer chaceはDataWriterがreader cacheはDataReaderが持っている。
+
 ## struct Hoge {inner: Arc<InnerHoge>,} のデザインパターン
 複数ヶ所から参照される場合につかう
 同一Topicが各DR/DWから参照されるから。
@@ -249,8 +265,20 @@ DomainParticipantInner::new() {
     // Discovery trafficのためのunicast, multicastのソケットをopen
     UDPListener::new_multicast()
     // "0.0.0.0:spdp_well_known_multicast_port(domain_id)"を開いて"239.255.0.1"のマルチキャストグループに加入
-    UDPListener::new_unicast()
+    let mut participant_id = 0;
+    let mut discovery_listener = None;
+    while discovery_listener.is_none() && participant_id < 120 {
+        discovery_listener = UDPListener::new_unicast(
+            "0.0.0.0",
+            spdp_well_known_unicast_port(domain_id, participant_id),
+        ).ok();
+        if discovery_listener.is_none() {
+            participant_id += 1;
+        }
+    }
     // "0.0.0.0:spdp_well_known_unicast_port(domain_id, , participant_id)"を開く
+    // participantIdはポートの衝突を避けるため、同一domain、同一nodeで一意である必要がある。
+    // socketが開けるか確認して、開けなければparticipantIdを1増やす
 
     // User trafficのためのunicast, multicastのソケットをopen
     UDPListener::new_multicast()

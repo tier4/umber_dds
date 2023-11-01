@@ -1,6 +1,9 @@
 # SpecNote
 RTPS 2.3 and DDS 1.4のSpecificationを読んだメモ+参考実装を読んだメモ
 
+## WARNING 注意
+RTPS 2.3 specに登場する'long'は4 byte = 4 octet = 32bitであることに注意！
+
 ## 各DDS, RTPSエンティティーの役割
 ### Publisher/Subscriber (DDS)
 DDS spec 2.2.2.4.1 Publisher Class
@@ -66,6 +69,17 @@ Topicは1つのデータタイプと紐付けられる。そのため、Topicと
 https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386
 
 ## GUID
+```
+struct GUID {
+    guid_prefix: GuidPrefix,
+    entity_id: EntityId,h
+}
+
+struct EntityId {
+    entity_key: [u8; 3],
+    entity_kind: EntityKind,
+}
+```
 RTPSEntity トレイトを実装してるやつは持ってる
 Participant: 持ってる, RTPSEntity実装
 Publisher: EntityIdだけ持ってる
@@ -113,6 +127,39 @@ RTPS 2.3 spec 8.2.1 Overview
 > Each RTPS Entity is in a one-to-one correspondence with a DDS Entity.
 
 RTPSWriterと(DDS)DataWriterは、１体１対応している。
+
+### domainId/participantId
+rtps 2.3 spec 9.6.1.1 Discovery traffic
+> The domainId and participantId identifiers are used to avoid port conflicts among Participants on the same node.
+> Each Participant on the same node and in the same domain must use a unique participantId. In the case of multicast, all
+> Participants in the same domain share the same port number, so the participantId identifier is not used in the port number
+> expression.
+domainId, participantIdは同一ノード上のParticipantのport番号がかぶるのを防ぐためのもの。
+participantIdは同一ノード上の同一ドメインのParticipantの中で一意でないといけない。
+
+### Participant数の制限
+rtps 2.3 spec 9.6.1.1 Discovery traffic
+> PB = 7400
+> DG = 250
+> 省略
+> Given UDP port numbers are limited to 64K, the above defaults enables the use of about 230 domains with up to 120
+> Participants per node per domain.
+UDPポート番号に使えるのは最大で64K(16bit: 0-65535)である。
+デフォルトのUnicast User trafficのポート番号が、domainIdが227, participantIdが120のとき65470になる。
+OpenSpliceのparticipant数制限の由来はおそらくこれ。
+
+### SequenceNumberSet
+```
+typedef sequence<long, 8> LongSeq8;
+struct SequenceNumberSet {
+    SequenceNumber_t bitmapBase; // bitmapのLSBと対応するSequenceNumber
+    LongSeq8 bitmap; // 4 octet * 8で256bitのbitmap
+};
+```
+The structure offers a compact representation encoding a set of up to 256 sequence numbers.
+base から base + 256の範囲で含まれるSequenceNumberを表すのに、
+含まれるSequenceNumberをリストアップすると、N*sizeof(SequenceNumber)だけ必要になり、可変長のメモリが必要になる。
+この方式だと、256bit + sizeof(SequenceNumber)の固定長だけで済む。
 
 ### Endiannessのについて
 rtps 2.3 spec 9.4.5.1.1.1 Submessage Ranges Reserved by other Specifications
