@@ -63,7 +63,8 @@ impl EventLoop {
                         DISCOVERY_MULTI_TOKEN | DISCOVERY_UNI_TOKEN => {
                             let udp_sock = self.sockets.get_mut(&event.token()).unwrap();
                             let packets = EventLoop::receiv_packet(udp_sock);
-                            self.message_receiver.handle_packet(packets);
+                            self.message_receiver
+                                .handle_packet(packets, &mut self.writers);
                         }
                         ADD_WRITER_TOKEN => {
                             let writer_ing = self.add_writer_receiver.try_recv().unwrap();

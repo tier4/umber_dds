@@ -83,6 +83,10 @@ impl Writer {
             // println!("writer received : {:?}", cmd.serialized_data);
         }
     }
+
+    pub fn handle_acknack(&mut self) {
+        todo!(); // TODO
+    }
 }
 
 impl RTPSEntity for Writer {

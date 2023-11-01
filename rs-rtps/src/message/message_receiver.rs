@@ -1,11 +1,15 @@
+use crate::event_loop::EventLoop;
 use crate::message::{
-    submessage::{element::*, submessage_flag::*, submessage_header::*, *},
+    submessage::{element::*, submessage_flag::*, submessage_header::*, submessage_header::*, *},
     *,
 };
 use crate::net_util::*;
+use crate::rtps::writer::Writer;
+use crate::structure::entity_id::EntityId;
 use crate::structure::{guid::*, vendor_id::*};
 use bytes::Bytes;
 use speedy::Readable;
+use std::collections::HashMap;
 use text_colorizer::*;
 
 pub struct MessageReceiver {
@@ -46,7 +50,11 @@ impl MessageReceiver {
         self.timestamp = Timestamp::TIME_INVALID;
     }
 
-    pub fn handle_packet(&mut self, messages: Vec<UdpMessage>) {
+    pub fn handle_packet(
+        &mut self,
+        messages: Vec<UdpMessage>,
+        mut writers: &mut HashMap<EntityId, Writer>,
+    ) {
         for message in messages {
             // Is DDSPING
             let msg = message.message;
@@ -64,11 +72,15 @@ impl MessageReceiver {
                     return;
                 }
             };
-            self.handle_parsed_packet(rtps_message);
+            self.handle_parsed_packet(rtps_message, &mut writers);
         }
     }
 
-    fn handle_parsed_packet(&mut self, rtps_msg: Message) {
+    fn handle_parsed_packet(
+        &mut self,
+        rtps_msg: Message,
+        mut writers: &mut HashMap<EntityId, Writer>,
+    ) {
         self.reset();
         self.dest_guid_prefix = self.own_guid_prefix;
         self.source_guid_prefix = rtps_msg.header.guid_prefix;
@@ -78,19 +90,24 @@ impl MessageReceiver {
             println!("submessage header: {:?}", submsg.header);
             println!("submessage kind: {:?}", submsg.header.get_submessagekind());
             match submsg.body {
-                SubMessageBody::Entity(e) => self.handle_entity_submessage(e),
+                SubMessageBody::Entity(e) => self.handle_entity_submessage(e, &mut writers),
                 SubMessageBody::Interpreter(i) => self.handle_interpreter_submessage(i),
             }
         }
         println!("<<<<<<<<<<<<<<<<\n");
     }
 
-    fn handle_entity_submessage(&self, entity_subm: EntitySubmessage) {
+    fn handle_entity_submessage(
+        &self,
+        entity_subm: EntitySubmessage,
+        mut writers: &mut HashMap<EntityId, Writer>,
+    ) {
         println!("handle entity submsg");
-        todo!();
         match entity_subm {
-            EntitySubmessage::AckNack(acknack, flags) => (),
-            EntitySubmessage::Data(data, flags) => (),
+            EntitySubmessage::AckNack(acknack, flags) => {
+                self.handle_acknack_submsg(acknack, flags, &mut writers)
+            }
+            EntitySubmessage::Data(data, flags) => Self::handle_data_submsg(data, flags),
             EntitySubmessage::DataFrag(dat_frag, flags) => (),
             EntitySubmessage::Gap(gap, flags) => (),
             EntitySubmessage::HeartBeat(heartbeat, flags) => (),
@@ -146,4 +163,56 @@ impl MessageReceiver {
             }
         }
     }
+
+    fn handle_acknack_submsg(
+        &self,
+        ackanck: AckNack,
+        flag: BitFlags<AckNackFlag>,
+        writers: &mut HashMap<EntityId, Writer>,
+    ) {
+        // validation
+        if !ackanck.reader_sn_state.validate() {
+            panic!("Invalid AckNack Submessage received");
+        }
+        let writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);
+        let reader_guid = GUID::new(self.source_guid_prefix, ackanck.reader_id);
+        // TODO: writer.handle_acknackに適切な引数を渡す。
+        match writers.get_mut(&ackanck.writer_id) {
+            Some(w) => w.handle_acknack(),
+            None => (),
+        }
+    }
+    fn handle_data_submsg(data: Data, flag: BitFlags<DataFlag>) {
+        // validation
+        if data.writer_sn < SequenceNumber(0)
+            || data.writer_sn == SequenceNumber::SEQUENCENUMBER_UNKNOWN
+        {
+            panic!("Invalid Data Submessage received");
+        }
+        // TODO: check inlineQos is valid
+        if flag.contains(DataFlag::Data) && !flag.contains(DataFlag::Key) {
+            // he serializedPayload element is interpreted as the value of the dtat-object
+        }
+        if flag.contains(DataFlag::Key) && !flag.contains(DataFlag::Data) {
+            // the serializedPayload element is interpreted as the value of the key that identifies the registered instance of the data-object.
+        }
+        if flag.contains(DataFlag::InlineQos) {
+            // the inlineQos element contains QoS values that override those of the RTPS Writer and should
+            // be used to process the update. For a complete list of possible in-line QoS parameters, see Table 8.80.
+        }
+        if flag.contains(DataFlag::NonStandardPayload) {
+            // the serializedPayload element is not formatted according to Section 10.
+            // This flag is informational. It indicates that the SerializedPayload has been transformed as described in another specification
+            // For example, this flag should be set when the SerializedPayload is transformed as described in the DDS-Security specification
+        }
+    }
+    fn handle_datafrag_submsg(data_frag: DataFrag, flag: BitFlags<DataFragFlag>) {}
+    fn handle_gap_submsg(gap: Gap, flag: BitFlags<GapFlag>) {}
+    fn handle_heartbeat_submsg(heartbeat: Heartbeat, flag: BitFlags<HeartbeatFlag>) {}
+    fn handle_heartbeatfrag_submsg(
+        heartbeat_frag: HeartbeatFrag,
+        flag: BitFlags<HeartbeatFragFlag>,
+    ) {
+    }
+    fn handle_nackfrag_submsg(nack_frag: NackFrag, flag: BitFlags<NackFragFlag>) {}
 }
