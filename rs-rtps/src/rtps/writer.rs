@@ -11,6 +11,7 @@ use crate::network::udp_sender::UdpSender;
 use crate::rtps::cache::{CacheChange, CacheData, ChangeKind, HistoryCache, InstantHandle};
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::GUID};
 use bytes::Bytes;
+use chrono::{DateTime, Local};
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use serde::Serialize;
@@ -63,6 +64,8 @@ impl Writer {
                     // TODO: register a_change to writer HistoryCache
                     // build RTPS Message
                     let mut message_builder = MessageBuilder::new();
+                    let now = Local::now().timestamp_nanos();
+                    message_builder.info_ts(Endianness::LittleEndian, Some(now));
                     message_builder.data(
                         Endianness::LittleEndian,
                         EntityId::UNKNOW,

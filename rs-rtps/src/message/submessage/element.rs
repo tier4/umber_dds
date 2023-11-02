@@ -169,14 +169,22 @@ impl<C: Context> Writable<C> for ParameterList {
 
 #[derive(Readable, Writable)]
 pub struct Timestamp {
-    seconds: u32,
-    fraction: u32,
+    pub seconds: u32,
+    pub fraction: u32,
 }
 
 impl Timestamp {
     pub const TIME_INVALID: Self = Self {
+        seconds: 0xFFFFFFFF,
+        fraction: 0xFFFFFFFF,
+    };
+    pub const TIME_ZERO: Self = Self {
         seconds: 0x00,
         fraction: 0x00,
+    };
+    pub const TIME_INFINITE: Self = Self {
+        seconds: 0xFFFFFFFF,
+        fraction: 0xFFFFFFFE,
     };
 }
 

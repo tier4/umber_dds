@@ -25,13 +25,27 @@ impl MessageBuilder {
         }
     }
 
-    pub fn info_ts(&self, endiannes: Endianness) {
-        let info_ts = todo!();
-        let ts_flag = InfoTimestampFlag::from_enndianness(endiannes);
+    pub fn info_ts(&mut self, endiannes: Endianness, timestamp_nanos: Option<i64>) {
+        let mut timestamp: Option<Timestamp> = None;
+        let mut ts_flag = InfoTimestampFlag::from_enndianness(endiannes);
+        let mut infots_body_length = 0;
+        match timestamp_nanos {
+            Some(t) => {
+                let seconds = (t / 1_000_000_000) as u32;
+                let fraction = (((t % 1_000_000_000) << 32) / 1_000_000_000) as u32;
+                timestamp = Some(Timestamp { seconds, fraction });
+                infots_body_length += 8;
+            }
+            None => ts_flag |= InfoTimestampFlag::Invalidate,
+        }
+        let info_ts = InfoTimestamp { timestamp };
         let ts_body =
             SubMessageBody::Interpreter(InterpreterSubmessage::InfoTimestamp(info_ts, ts_flag));
-        let ts_header =
-            SubMessageHeader::new(SubMessageKind::INFO_TS as u8, ts_flag.bits(), todo!());
+        let ts_header = SubMessageHeader::new(
+            SubMessageKind::INFO_TS as u8,
+            ts_flag.bits(),
+            infots_body_length,
+        );
         let ts_msg = SubMessage {
             header: ts_header,
             body: ts_body,
