@@ -1,3 +1,4 @@
+use crate::discovery::discovery::Discovery;
 use crate::network::net_util::*;
 use crate::rtps::writer::*;
 use crate::structure::entity::RTPSEntity;
@@ -61,6 +62,7 @@ struct DomainParticipantInner {
 
 impl DomainParticipantInner {
     pub fn new(domain_id: u16) -> DomainParticipantInner {
+        let discovery = Discovery {};
         let mut socket_list: HashMap<mio_v06::Token, UdpSocket> = HashMap::new();
         let spdp_multi_socket = new_multicast(
             "0.0.0.0",

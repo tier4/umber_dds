@@ -9,6 +9,7 @@ use dds::{
 };
 use serde::{Deserialize, Serialize};
 use structure::topic_kind::TopicKind;
+mod discovery;
 mod message;
 mod structure;
 
