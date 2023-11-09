@@ -1,4 +1,5 @@
 use crate::dds::tokens::*;
+use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterCmd, WriterIngredients};
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
 use bytes::BytesMut;
@@ -19,7 +20,9 @@ pub struct EventLoop {
     sockets: HashMap<Token, UdpSocket>,
     message_receiver: MessageReceiver,
     add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
+    add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
     writers: HashMap<EntityId, Writer>,
+    readers: HashMap<EntityId, Reader>,
     sender: Rc<UdpSender>,
 }
 
@@ -28,6 +31,7 @@ impl EventLoop {
         mut sockets: HashMap<Token, UdpSocket>,
         participant_guidprefix: GuidPrefix,
         mut add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
+        mut add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
@@ -41,6 +45,13 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .unwrap();
+        poll.register(
+            &mut add_reader_receiver,
+            ADD_READER_TOKEN,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
         let message_receiver = MessageReceiver::new(participant_guidprefix);
         let sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
@@ -48,7 +59,9 @@ impl EventLoop {
             sockets,
             message_receiver,
             add_writer_receiver,
+            add_reader_receiver,
             writers: HashMap::new(),
+            readers: HashMap::new(),
             sender,
         }
     }
@@ -63,8 +76,11 @@ impl EventLoop {
                         DISCOVERY_MULTI_TOKEN | DISCOVERY_UNI_TOKEN => {
                             let udp_sock = self.sockets.get_mut(&event.token()).unwrap();
                             let packets = EventLoop::receiv_packet(udp_sock);
-                            self.message_receiver
-                                .handle_packet(packets, &mut self.writers);
+                            self.message_receiver.handle_packet(
+                                packets,
+                                &mut self.writers,
+                                &mut self.readers,
+                            );
                         }
                         ADD_WRITER_TOKEN => {
                             let writer_ing = self.add_writer_receiver.try_recv().unwrap();
@@ -80,6 +96,12 @@ impl EventLoop {
                                 )
                                 .unwrap();
                             self.writers.insert(writer.entity_id(), writer);
+                        }
+                        ADD_READER_TOKEN => {
+                            let reader_ing = self.add_reader_receiver.try_recv().unwrap();
+                            println!("in event_loop received add reader");
+                            let reader = Reader::new(reader_ing);
+                            self.readers.insert(reader.entity_id(), reader);
                         }
                         _ => println!("undefined Token or unimplemented event"),
                     },

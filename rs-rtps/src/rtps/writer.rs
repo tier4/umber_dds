@@ -58,7 +58,7 @@ impl Writer {
                         ChangeKind::Alive,
                         self.guid,
                         self.lastChangeSequenceNumber,
-                        cache_data,
+                        Some(cache_data),
                         InstantHandle {},
                     );
                     // TODO: register a_change to writer HistoryCache
@@ -90,6 +90,8 @@ impl Writer {
     pub fn handle_acknack(&mut self) {
         todo!(); // TODO
     }
+
+    pub fn unsent_changes_reset() {}
 }
 
 impl RTPSEntity for Writer {

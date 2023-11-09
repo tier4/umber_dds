@@ -4,7 +4,11 @@ use crate::message::{
     *,
 };
 use crate::net_util::*;
-use crate::rtps::writer::Writer;
+use crate::rtps::{
+    cache::{CacheChange, CacheData, ChangeKind, InstantHandle},
+    reader::Reader,
+    writer::Writer,
+};
 use crate::structure::entity_id::EntityId;
 use crate::structure::{guid::*, vendor_id::*};
 use bytes::Bytes;
@@ -54,6 +58,7 @@ impl MessageReceiver {
         &mut self,
         messages: Vec<UdpMessage>,
         mut writers: &mut HashMap<EntityId, Writer>,
+        mut readers: &mut HashMap<EntityId, Reader>,
     ) {
         for message in messages {
             // Is DDSPING
@@ -72,7 +77,7 @@ impl MessageReceiver {
                     return;
                 }
             };
-            self.handle_parsed_packet(rtps_message, &mut writers);
+            self.handle_parsed_packet(rtps_message, &mut writers, &mut readers);
         }
     }
 
@@ -80,6 +85,7 @@ impl MessageReceiver {
         &mut self,
         rtps_msg: Message,
         mut writers: &mut HashMap<EntityId, Writer>,
+        mut readers: &mut HashMap<EntityId, Reader>,
     ) {
         self.reset();
         self.dest_guid_prefix = self.own_guid_prefix;
@@ -90,7 +96,9 @@ impl MessageReceiver {
             println!("submessage header: {:?}", submsg.header);
             println!("submessage kind: {:?}", submsg.header.get_submessagekind());
             match submsg.body {
-                SubMessageBody::Entity(e) => self.handle_entity_submessage(e, &mut writers),
+                SubMessageBody::Entity(e) => {
+                    self.handle_entity_submessage(e, &mut writers, &mut readers)
+                }
                 SubMessageBody::Interpreter(i) => self.handle_interpreter_submessage(i),
             }
         }
@@ -101,13 +109,16 @@ impl MessageReceiver {
         &self,
         entity_subm: EntitySubmessage,
         mut writers: &mut HashMap<EntityId, Writer>,
+        mut readers: &mut HashMap<EntityId, Reader>,
     ) {
         println!("handle entity submsg");
         match entity_subm {
             EntitySubmessage::AckNack(acknack, flags) => {
                 self.handle_acknack_submsg(acknack, flags, &mut writers)
             }
-            EntitySubmessage::Data(data, flags) => Self::handle_data_submsg(data, flags),
+            EntitySubmessage::Data(data, flags) => {
+                self.handle_data_submsg(data, flags, &mut readers)
+            }
             EntitySubmessage::DataFrag(dat_frag, flags) => (),
             EntitySubmessage::Gap(gap, flags) => (),
             EntitySubmessage::HeartBeat(heartbeat, flags) => (),
@@ -182,7 +193,12 @@ impl MessageReceiver {
             None => (),
         }
     }
-    fn handle_data_submsg(data: Data, flag: BitFlags<DataFlag>) {
+    fn handle_data_submsg(
+        &self,
+        data: Data,
+        flag: BitFlags<DataFlag>,
+        readers: &mut HashMap<EntityId, Reader>,
+    ) {
         // validation
         if data.writer_sn < SequenceNumber(0)
             || data.writer_sn == SequenceNumber::SEQUENCENUMBER_UNKNOWN
@@ -204,6 +220,23 @@ impl MessageReceiver {
             // the serializedPayload element is not formatted according to Section 10.
             // This flag is informational. It indicates that the SerializedPayload has been transformed as described in another specification
             // For example, this flag should be set when the SerializedPayload is transformed as described in the DDS-Security specification
+        }
+        let writer_guid = GUID::new(self.dest_guid_prefix, data.writer_id);
+        let reader_guid = GUID::new(self.source_guid_prefix, data.reader_id);
+        let cache_data = match data.serialized_payload {
+            Some(s) => Some(CacheData::new(s.value)),
+            None => None,
+        };
+        let change = CacheChange::new(
+            ChangeKind::Alive,
+            writer_guid,
+            data.writer_sn,
+            cache_data,
+            InstantHandle {}, // TODO
+        );
+        match readers.get_mut(&data.reader_id) {
+            Some(r) => r.add_change(change),
+            None => (),
         }
     }
     fn handle_datafrag_submsg(data_frag: DataFrag, flag: BitFlags<DataFragFlag>) {}

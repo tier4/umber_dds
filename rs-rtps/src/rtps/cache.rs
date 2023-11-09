@@ -7,7 +7,7 @@ pub struct CacheChange {
     kind: ChangeKind,
     writer_guid: GUID,
     pub sequence_number: SequenceNumber,
-    data_value: CacheData,
+    data_value: Option<CacheData>,
     // inline_qos: ParameterList,
     instance_handle: InstantHandle, // In DDS, the value of the fields
                                     // labeled as ‘key’ within the data
@@ -20,7 +20,7 @@ impl CacheChange {
         kind: ChangeKind,
         writer_guid: GUID,
         sequence_number: SequenceNumber,
-        data_value: CacheData,
+        data_value: Option<CacheData>,
         instance_handle: InstantHandle,
     ) -> Self {
         Self {

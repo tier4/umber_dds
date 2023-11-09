@@ -1,6 +1,7 @@
 use crate::discovery::discovery::Discovery;
 use crate::network::net_util::*;
-use crate::rtps::writer::*;
+use crate::rtps::reader::{Reader, ReaderIngredients};
+use crate::rtps::writer::{Writer, WriterIngredients};
 use crate::structure::entity::RTPSEntity;
 use crate::{
     dds::{
@@ -56,6 +57,7 @@ struct DomainParticipantInner {
     participant_id: u16,
     pub my_guid: GUID,
     add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
+    add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     thread: thread::JoinHandle<()>,
     entity_key_generator: AtomicU32,
 }
@@ -93,10 +95,17 @@ impl DomainParticipantInner {
 
         let (add_writer_sender, add_writer_receiver) =
             mio_channel::sync_channel::<WriterIngredients>(10);
+        let (add_reader_sender, add_reader_receiver) =
+            mio_channel::sync_channel::<ReaderIngredients>(10);
 
         let new_thread = thread::spawn(move || {
             let guid_prefix = GuidPrefix::new();
-            let ev_loop = EventLoop::new(socket_list, guid_prefix, add_writer_receiver);
+            let ev_loop = EventLoop::new(
+                socket_list,
+                guid_prefix,
+                add_writer_receiver,
+                add_reader_receiver,
+            );
             ev_loop.event_loop();
         });
 
@@ -107,6 +116,7 @@ impl DomainParticipantInner {
             participant_id: 0,
             my_guid,
             add_writer_sender,
+            add_reader_sender,
             thread: new_thread,
             entity_key_generator: AtomicU32::new(0x0300),
         }
@@ -132,7 +142,7 @@ impl DomainParticipantInner {
             self.my_guid.guid_prefix,
             EntityId::new_with_entity_kind(&dp, EntityKind::SUBSCRIBER),
         );
-        Subscriber::new(guid, qos)
+        Subscriber::new(guid, qos, dp, self.add_reader_sender.clone())
     }
 
     pub fn gen_entity_key(&self) -> [u8; 3] {
