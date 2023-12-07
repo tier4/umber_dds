@@ -148,6 +148,10 @@ UDPポート番号に使えるのは最大で64K(16bit: 0-65535)である。
 デフォルトのUnicast User trafficのポート番号が、domainIdが227, participantIdが120のとき65470になる。
 OpenSpliceのparticipant数制限の由来はおそらくこれ。
 
+## 8 Platform Independent Model (PIM)
+PIMはプロトコルを"virtual machine"という用語を用いて説明する。
+RTPS virtual machineを紹介する唯一の目的はプロトコルを完璧で一意なやり方で説明することである。この説明は内部実装を強制する意図はない。唯一の完全な実装の基準は外部から観測される振る舞いがインターオペラビリティのための必要条件を満足することである。特に、実装は他のクラスをベースにすることもでき、RTPSプロトコルを実装するためにステートマシン以外のプログラミング構造を使用することもできる。
+
 ### SequenceNumberSet
 ```
 typedef sequence<long, 8> LongSeq8;
@@ -221,10 +225,29 @@ https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A193%2C%22gen%
 
 // TODO
 
+8.4.4でRELIABILITY QoSのような設定に依存する振る舞いを説明
+
+8.4.7-12では2つのリファレンス実装をモデル化する
+
+8.4.13
+
+## 8.4.15 Implementation Guidelines
+この章は正式なプロトコルの仕様ではない。この章の目的は高パフォーマンスなプロトコル実装のためのガイドラインを提供することである。
+
+### 8.4.15.1 Implementation of ReaderProxy and WriterProxy
+PIMはWriter’s HistoryCacheのそれぞれのCacheChangeの関係を保持するReaderProxyをモデル化している。この関係はassociation class ChangeForReaderによって媒介されるものとしてモデル化される。直接このモデルを実装すると、それぞれのReaderProxyで大量の情報が保持されることになる。実際には、ReaderProxyが必要とするものはプロトコルに使われる操作を実装できるようにすることとで、正確な関係を使う必要はない。
+
+たとえば、 unsent_changes()、 next_unsent_change()というオペレーションはhighestSeqNumSentという1つのSeqenceNumberをReaderProxyが保持していれば実装できる。highestSeqNumSentはReaderProxyに向けて送信したCacheChangeの中で最も大きいSequenceNumberを保持する。これを使えば、unsent_changes()というオペレーションはHistoryCacheのすべてのchangeを検索し、highestSeqNumSetよりも大きなsequenceNumberを持つものを選択すればいい。 next_unsent_change()の実装は、HistoryCachaを検索し、highestSeqNumSetより大きい、2番めに大きいserquenceNumber(the next-highest sequence number greater than highestSeqNumSent)をもつCacheChangeを返せば良い。これらのオペレーションはHistoryCacheがsequenceNumberをindexとして保持しているときに効率的になる。
+
+同じテクニックがrequested_changes(), requested_changes_set(), and
+next_requested_change(SequenceNumber_t lowestRequestedChange and a fixed-length bitmapで表現するのが効果的)の実装にも使える。このケースでは実装は、どの特定のsequenceNumberが現在requestされているかを保存するための1つのSequenceNumberの窓()を保持すればよい。. Requests that do not fit in the window can be ignored as they correspond to sequence numbers higher than the ones in the window and the reader can be relied on re-sending the request later if it is still missing the change.
+
+似たテクニックがacked_changes_set() and unacked_changes()の実装にも使える。
+
 ## 8.5 Discovery Module (日本語訳, 要約)
 Discovery Moduleはconfigがどのように行われるのか仮定を行わず、Endpoint間でどのようにデータが交換されるかのみ定義される。Endpointの設定をするために、実装は存在するremote Endpointの情報とそのpropertieをてに入れないといけない。この情報をどのように獲得するかがDiscovery Moduleのテーマである。
 
-Discovery ModuleはRTPS discovery moduleを定義する。discovery protocolの目的はRTPS Participantが関係する他のParticipantとEndpointを発見すること。一度、remote Endpointが発見されれば、実装はlocal Endpointをコミュニケーションを樹立するための設定ができる。
+Discovery ModuleはRTPS discovery protocolを定義する。discovery protocolの目的はRTPS Participantが関係する他のParticipantとEndpointを発見すること。一度、remote Endpointが発見されれば、実装はlocal Endpointをコミュニケーションを樹立するための設定ができる。
 
 DDSの仕様は一致するDataWriterとDataReader間のコミュニケーションの樹立はdiscovery mechanismに頼っている。DDS実装はremote entityの存在をnetworkに参加したときと離れたときの両方を自動で発見しなければならない。discovery情報はDDS built-in topicを使うことでアクセス可能になる。
 
@@ -264,8 +287,7 @@ SPDPはdomainに含まれるParticipantの存在を知らせたり、検知す�
 
 SPDPbuiltinParticipantWriteはRTPS Best-Effort StatelessWriter。SPDPbuiltinParticipantWriterのHistoryCacheはa single data-object of type SPDPdiscoveredParticipantDataを含む。このdata-objectの値はParticipantのatributeからセットされる。もし、atributeが変更されればdata-objectは交換される。
 
-SPDPbuiltinParticipantWriterは定期的にdata-objectを事前に設定されたlocatorのリストにParticipantの存在を知らせるためにnetworkに送信する。これはStatelessWriterのHistoryCacheに存在するすべてのchangesをすべてのlocatorに送信するStatelessWriter::unsent_changes_resetを定期的に呼び出すことで達成される。SPDPbuiltinParticipantWriterがSPDPdiscoveredParticipantDataを送信する周期のdefaultはPSMで決定されている。その周期はSPDPdiscoveredParticipantDataで決められるleaseDurationよりも小さくするべきである。(see also
-8.5.3.3.2)
+SPDPbuiltinParticipantWriterは定期的にdata-objectを事前に設定されたlocatorのリストにParticipantの存在を知らせるためにnetworkに送信する。これはStatelessWriterのHistoryCacheに存在するすべてのchangesをすべてのlocatorに送信するStatelessWriter::unsent_changes_resetを定期的に呼び出すことで達成される。SPDPbuiltinParticipantWriterがSPDPdiscoveredParticipantDataを送信する周期のdefaultはPSMで決定されている。その周期はSPDPdiscoveredParticipantDataで決められるleaseDurationよりも小さくするべきである。(see also 8.5.3.3.2)
 
 事前に設定されたlocatorのリストはunicastとmulticastの両方のlocatorを含んでいる可能性がある。port番号はそれぞれの
 PSMで定義される。これらのlocatorは単にnetwork上にいるかもしれないremote Participantを表しており、Participantが実際に存在する必要はない。SPDPdiscoveredParticipantDataを定期的に送信することにより、Participantはnetworkにどの順番でも参加できる。
@@ -273,6 +295,12 @@ PSMで定義される。これらのlocatorは単にnetwork上にいるかもし
 SPDPbuiltinParticipantReaderはremote ParticipantからSPDPdiscoveredParticipantData announcementを受信する。そのテータにはremote ParticipantがどのEndpoint Discovery Protocolをサポートしているかの情報が含まれている。適切なEndpoint Discovery Protocolはremote Particpnat同士がEndpointの情報を交換するために使用される。
 
 実装は未知であったParticipantから受信したSPDPdiscoveredParticipantData data-objectに対する返事で追加のSPDPdiscoveredParticipantDataを送信することでany start-up delaysを最小化することができる。しかし、この振る舞いは任意である。実装はユーザーにpre-configured locatorのリストを新たに発見されたParticipantを追加して拡大するかどうかを選択できるようにできるかもしれない。これはa-symmetricなlocatort listを可能にする。これらの最後の2つの機能は任意でinteroperabilityのためには必要ではない。
+
+
+### 8.5.3.3 The built-in Endpoints used by the Simple Participant Discovery Protocol
+SPDPbuiltinParticipantReaderのHistoryCacheには、アクティブに検出されたすべてのParticipantの情報が含まれている。各データオブジェクトを識別するために使用されるキーは、ParticipantのGUIDに対応しています。SPDPbuiltinParticipantReaderがParticipantの情報を受信するたびに、ParticipantのGUIDと一致するキーを持つエントリを探すために、SPDPはHistoryCacheを検査する。一致するキーを持つエントリが存在しない場合、ParticipantのGUIDをキーとする新しいエントリが追加される。
+
+SPDPは定期的に新鮮でないエントリー(leaseDurationで定められる期間よりも長い間更新されていないエントリー)を探すためにSPDPbuiltinParticipantReaderのHistoryCacheを検査する。新鮮でないエントリーは削除される。
 
 ### 8.5.3.4 Logical ports used by the Simple Participant Discovery Protocol
 上で言及したように、それぞれのSPDPbuiltinParticipantWriterはParticipantの存在をネットワークに伝えるため、事前に設定されたlocatorのリストを使う。
@@ -305,7 +333,6 @@ built-in Endopint間で情報をやり取りするために使われるプロト
 
 したがって、SEDPで組み込みtopicを使用すると、全体的なdiscovery protocolの範囲が、システム内にどのParticipantが存在するか、およびこれらのParticipantの組み込みEndpointsに対応するReaderProxyオブジェクトとWriterProxyオブジェクトの属性値を決定することに縮小される。
 それがわかれば、あとはすべて、RTPSプロトコルを内蔵のRTPS readerとwriter間の通信に適用することで結果が得られる。
-
 
 ## 8.5.4.2 The built-in Endpoints used by the Simple Endpoint Discovery Protocol
 SEDP DDS built-in Entityは“DCPSSubscription,” “DCPSPublication,” と“DCPSTopic” Topicsを対応付ける。
@@ -348,3 +375,80 @@ DiscoveredTopicDataはDDS::TopicBuiltinTopicDataを拡張する。
 プロトコルの実装はDataTypesに含まれるすべての情報を送信する必要はない。もし一つも情報が存在しなければ、実装はPSMで定義されるデフォルトの値を仮定することができる。
 
 SEDPによって使用されるbuilt-in Endpointとそれらに関連付けられたDataTypesは図 8.31に示される。
+
+## 8.5.5 Interaction with the RTPS virtual machine
+SPDPとSEDPについて更に付け加えると、この章ではSPDPによって提供された情報がどのようにRTPS virtual machineのSEDP built-in Endpointsを設定するのに使われるのかを説明する。
+
+## 8.5.5.1 Discovery of a new remote Participant
+Using the SPDPbuiltinParticipantReader, a local Participant ‘local_participant’ discovers the existence of another Participant described by the DiscoveredParticipantData participant_data. 
+discovereされたParticipantはSEDPを使用する.
+
+以下の疑似コードはdiscovered Participantにある一致するSEDP built-in Endpointsとコミュニケーションするためにlocal SEDP built-in Endpoints within local_participantを設定する。
+
+どのようにEndpointが設定するかはプロトコルの実装に依存する。stateful refarence 実装では、この操作は以下のようなlogical stepsで行われる。
+```
+// discoverされたparticipantのdomainIdが自分自身のdomainIdと一致するか確認
+// もし一致しなければ、local endpointsはdiscoverされたparticipantとコミュニケートするように設定されない。
+IF ( participant_data.domainId != local_participant.domainId ) THEN
+    RETURN;
+ENDIF
+// discoverされたparticipantのdomainTagが自分自身のdomainTagと一致するか確認
+// もし一致しなければ、local endpointsはdiscoverされたparticipantとコミュニケートするように設定されない。
+IF ( !STRING_EQUAL(participant_data.domainTag, local_participant.domainTag) ) THEN
+    RETURN;
+ENDIF
+
+IF ( PUBLICATIONS_DETECTOR IS_IN participant_data.availableEndpoints ) THEN
+    guid = <participant_data.guidPrefix, ENTITYID_SEDP_BUILTIN_PUBLICATIONS_DETECTOR>;
+    writer = local_participant.SEDPbuiltinPublicationsWriter;
+    proxy = new ReaderProxy( guid,
+    participant_data.metatrafficUnicastLocatorList,
+    participant_data.metatrafficMulticastLocatorList);
+    writer.matched_reader_add(proxy);
+ENDIF
+
+IF ( PUBLICATIONS_ANNOUNCER IS_IN participant_data.availableEndpoints ) THEN
+    guid = <participant_data.guidPrefix, ENTITYID_SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER>;
+    reader = local_participant.SEDPbuiltinPublicationsReader;
+    proxy = new WriterProxy( guid,
+    participant_data.metatrafficUnicastLocatorList,
+    participant_data.metatrafficMulticastLocatorList);
+    reader.matched_writer_add(proxy);
+ENDIF
+
+IF ( SUBSCRIPTIONS_DETECTOR IS_IN participant_data.availableEndpoints ) THEN
+    guid = <participant_data.guidPrefix, ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR>;
+    writer = local_participant.SEDPbuiltinSubscriptionsWriter;
+    proxy = new ReaderProxy( guid,
+    participant_data.metatrafficUnicastLocatorList,
+    participant_data.metatrafficMulticastLocatorList);
+    writer.matched_reader_add(proxy);
+ENDIF
+
+IF ( SUBSCRIPTIONS_ANNOUNCER IS_IN participant_data.availableEndpoints ) THEN
+    guid = <participant_data.guidPrefix, ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER>;
+    reader = local_participant.SEDPbuiltinSubscriptionsReader;
+    proxy = new WriterProxy( guid,
+    participant_data.metatrafficUnicastLocatorList,
+    participant_data.metatrafficMulticastLocatorList);
+    reader.matched_writer_add(proxy);
+ENDIF
+
+IF ( TOPICS_DETECTOR IS_IN participant_data.availableEndpoints ) THEN
+    guid = <participant_data.guidPrefix, ENTITYID_SEDP_BUILTIN_TOPICS_DETECTOR>;
+    writer = local_participant.SEDPbuiltinTopicsWriter;
+    proxy = new ReaderProxy( guid,
+    participant_data.metatrafficUnicastLocatorList,
+    participant_data.metatrafficMulticastLocatorList);
+    writer.matched_reader_add(proxy);
+ENDIF
+
+IF ( TOPICS_ANNOUNCER IS_IN participant_data.availableEndpoints ) THEN
+    guid = <participant_data.guidPrefix, ENTITYID_SEDP_BUILTIN_TOPICS_ANNOUNCER>;
+    reader = local_participant.SEDPbuiltinTopicsReader;
+    proxy = new WriterProxy( guid,
+    participant_data.metatrafficUnicastLocatorList,
+    participant_data.metatrafficMulticastLocatorList);
+    reader.matched_writer_add(proxy);
+ENDIF
+```

@@ -557,6 +557,27 @@ Chat GPT 「マルチキャストアドレスにParticipantDataメッセージ�
 
 SPDPdiscoveredParticipantDataWriterは、新しいパーティシパントがドメインに参加したときや定期的なアナウンスの際に、ParticipantDataメッセージを所定のマルチキャストアドレスに送信します。これにより、他のパーティシパントが新しいパーティシパントの存在を検出し、相互に通信できるようになります。」
 
+## ディスカバリーのやり取りをパケットキャプチャしたメモ
+P2: subscribe, 2, P1:publish, 3
+2つのParticipant, P1, P2のPDPについてパケットキャプチャで観察してみた。
+P1がブロードキャストでPDPメッセージを送信, BUILTIN_SDP_PARTISIPANT_WRITER
+P2がブロードキャストでPDPメッセージを送信, BUILTIN_SDP_PARTISIPANT_WRITER
+P2がP1からのブロードキャストPDPメッセージを受信, BUILTIN_SDP_PARTISIPANT_READER
+P2がP1にユニキャストPDPメッセージを送信
+P1がP2からのブロードキャストPDPメッセージを受信
+P1がP2からのユニキャストPDPメッセージを受信
+ここでPDPは完了？
+ここまではINFO_TS, DATA(p)でやりとりされる。
+ここから、
+P2がP1にINFO_DST, HERARBEATを送信、BUILTIN_PUBLICATIONS_WRITER
+P1がP2からINFO_DST, HERARBEATを受信、BUILTIN_PUBLICATIONS_READER
+P1がP2にINFO_DST, ACKNACKを送信, BUILTIN_PUBLICATIONS_WRITER
+これを、BUILTIN_SUBSCRIPTIONS_WRITER, P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITERにかんしてやり取りしてる
+HEARTBEATの中身に特に意味のあるデータはなさそう
+その後、P2からP1にユニキャストでINFO_DST, INFO_TS, DATA(r)が送信されてる, BUILTIN_SUBSCRIPTIONS_WRITER
+このDATA(r)の中身を見た感じ、Topic nameとかが入ってるからSEDPのパケットっぽい
+RTPS 2.3 specの8.5.4.2 The built-in Endpoints used by the Simple Endpoint Discovery Protocol図をみると、BUILTIN_PUBLICATIONS_WRITER, BUILTIN_SUBSCRIPTIONS_WRITERはSEDPのためのエンドポイントで間違いなさそう。
+
 ## 解析の感想
 20スレッドが非同期で動いて、各オブジェクトの状態が把握しづらいから辛い。
 どのタイミングで何が呼ばれているのかが把握し辛い。
