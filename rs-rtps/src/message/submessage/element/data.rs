@@ -133,8 +133,8 @@ mod test {
         ];
         let test_data_flags: BitFlags<DataFlag, u8> =
             BitFlags::<DataFlag>::from_bits_truncate(0x03);
-        let data = Bytes::from_static(&TEST_DATA);
-        match Data::deserialize_data(&data, test_data_flags) {
+        let test_data = Bytes::from_static(&TEST_DATA);
+        match Data::deserialize_data(&test_data, test_data_flags) {
             Ok(_) => (),
             Err(e) => panic!("{:?}", e),
         }

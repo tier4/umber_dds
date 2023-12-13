@@ -1,5 +1,5 @@
 use crate::dds::participant::DomainParticipant;
-use crate::dds::qos::{QosBuilder, QosPolicies};
+use crate::dds::qos::QosPolicies;
 use crate::dds::typedesc::TypeDesc;
 use crate::structure::topic_kind::TopicKind;
 use std::sync::Arc;

@@ -1,7 +1,7 @@
 use crate::discovery::discovery::Discovery;
 use crate::network::net_util::*;
-use crate::rtps::reader::{Reader, ReaderIngredients};
-use crate::rtps::writer::{Writer, WriterIngredients};
+use crate::rtps::reader::ReaderIngredients;
+use crate::rtps::writer::WriterIngredients;
 use crate::structure::entity::RTPSEntity;
 use crate::{
     dds::{

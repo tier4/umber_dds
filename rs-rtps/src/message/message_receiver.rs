@@ -1,6 +1,5 @@
-use crate::event_loop::EventLoop;
 use crate::message::{
-    submessage::{element::*, submessage_flag::*, submessage_header::*, submessage_header::*, *},
+    submessage::{element::*, submessage_flag::*, *},
     *,
 };
 use crate::net_util::*;
@@ -11,8 +10,6 @@ use crate::rtps::{
 };
 use crate::structure::entity_id::EntityId;
 use crate::structure::{guid::*, vendor_id::*};
-use bytes::Bytes;
-use speedy::Readable;
 use std::collections::HashMap;
 use text_colorizer::*;
 

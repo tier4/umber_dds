@@ -1,4 +1,4 @@
-use crate::message::submessage::element::{ParameterList, SequenceNumber};
+use crate::message::submessage::element::SequenceNumber;
 use crate::structure::guid::GUID;
 use bytes::Bytes;
 

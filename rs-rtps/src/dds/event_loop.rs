@@ -1,6 +1,6 @@
 use crate::dds::tokens::*;
 use crate::rtps::reader::{Reader, ReaderIngredients};
-use crate::rtps::writer::{Writer, WriterCmd, WriterIngredients};
+use crate::rtps::writer::{Writer, WriterIngredients};
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
 use bytes::BytesMut;
 use mio_extras::{channel as mio_channel, timer::Timer};

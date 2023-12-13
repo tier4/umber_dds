@@ -1,24 +1,19 @@
 use crate::message::{
     message_builder::MessageBuilder,
-    message_header::Header,
-    submessage::{
-        element::{SequenceNumber, SerializedPayload},
-        SubMessage,
-    },
-    Message,
+    submessage::element::{SequenceNumber, SerializedPayload},
 };
 use crate::network::udp_sender::UdpSender;
 use crate::rtps::cache::{CacheChange, CacheData, ChangeKind, HistoryCache, InstantHandle};
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::GUID};
 use bytes::Bytes;
-use chrono::{DateTime, Local};
+use chrono::Local;
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
-use serde::Serialize;
 use speedy::{Endianness, Writable};
 use std::net::Ipv4Addr;
 use std::rc::Rc;
 
+/// RTPS StatelessWriter
 pub struct Writer {
     endianness: Endianness,
     guid: GUID,
@@ -64,7 +59,7 @@ impl Writer {
                     // TODO: register a_change to writer HistoryCache
                     // build RTPS Message
                     let mut message_builder = MessageBuilder::new();
-                    let now = Local::now().timestamp_nanos();
+                    let now = Local::now().timestamp_nanos_opt().unwrap();
                     message_builder.info_ts(Endianness::LittleEndian, Some(now));
                     message_builder.data(
                         Endianness::LittleEndian,

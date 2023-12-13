@@ -3,6 +3,7 @@ use crate::structure::entity::RTPSEntity;
 use crate::structure::guid::GUID;
 use std::sync::{Arc, RwLock};
 
+/// RTPS StatelessReader
 pub struct Reader {
     guid: GUID,
     reader_cache: Arc<RwLock<HistoryCache>>,

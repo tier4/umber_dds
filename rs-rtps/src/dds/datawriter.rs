@@ -1,7 +1,6 @@
 use crate::dds::{publisher::Publisher, qos::QosPolicies, topic::Topic};
 use crate::message::submessage::element::SerializedPayload;
 use crate::rtps::writer::*;
-use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::GUID};
 use mio_extras::channel as mio_channel;
 use serde::Serialize;
 use std::marker::PhantomData;

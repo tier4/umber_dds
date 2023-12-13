@@ -1,7 +1,7 @@
 use crate::dds::{
     datawriter::DataWriter, participant::DomainParticipant, qos::QosPolicies, topic::Topic,
 };
-use crate::rtps::writer::{Writer, WriterCmd, WriterIngredients};
+use crate::rtps::writer::{WriterCmd, WriterIngredients};
 use crate::structure::{
     entity::RTPSEntity,
     entity_id::{EntityId, EntityKind},

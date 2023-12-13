@@ -10,8 +10,6 @@ use super::{
 };
 use crate::rtps::cache::CacheChange;
 use crate::structure::{entity_id::EntityId, guid::GuidPrefix};
-use bytes::Bytes;
-use enumflags2::{bitflags, BitFlags};
 use speedy::Endianness;
 
 pub struct MessageBuilder {

@@ -2,8 +2,7 @@ pub mod element;
 pub mod submessage_flag;
 pub mod submessage_header;
 use crate::message::submessage::submessage_header::*;
-use bytes::Bytes;
-use speedy::{Context, Readable, Writable, Writer};
+use speedy::{Context, Writable, Writer};
 use std::{fmt, fmt::Debug};
 
 use crate::message::submessage::element::{

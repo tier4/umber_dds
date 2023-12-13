@@ -14,7 +14,7 @@ use crate::message::{
 };
 use bytes::Bytes;
 use enumflags2::BitFlags;
-use speedy::{Context, Endianness, Readable, Writable, Writer};
+use speedy::{Context, Readable, Writable, Writer};
 
 pub struct Message {
     pub header: Header,
