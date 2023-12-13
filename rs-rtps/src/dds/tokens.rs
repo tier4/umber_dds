@@ -25,3 +25,4 @@ pub const ADD_READER_TOKEN: Token = Token(PTB + 3);
 pub const REMOVE_READER_TOKEN: Token = Token(PTB + 4);
 pub const DISCOVERY_UNI_TOKEN: Token = Token(PTB + 5);
 pub const DISCOVERY_MULTI_TOKEN: Token = Token(PTB + 6);
+pub const DISCOVERY_SEND_TOKEN: Token = Token(PTB + 7);

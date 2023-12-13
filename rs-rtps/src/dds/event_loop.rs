@@ -3,11 +3,12 @@ use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterCmd, WriterIngredients};
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
 use bytes::BytesMut;
-use mio_extras::channel as mio_channel;
+use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::time::Duration;
 
 use crate::message::message_receiver::*;
 use crate::network::{net_util::*, udp_sender::UdpSender};
@@ -48,6 +49,16 @@ impl EventLoop {
         poll.register(
             &mut add_reader_receiver,
             ADD_READER_TOKEN,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
+        let mut spdp_send_timer: Timer<()> = Timer::default();
+        spdp_send_timer.set_timeout(Duration::new(20, 0), ()); // TODO:
+                                                               // spdpの送信間隔をtunableにする。
+        poll.register(
+            &mut spdp_send_timer,
+            DISCOVERY_SEND_TOKEN,
             Ready::readable(),
             PollOpt::edge(),
         )
@@ -102,6 +113,9 @@ impl EventLoop {
                             println!("in event_loop received add reader");
                             let reader = Reader::new(reader_ing);
                             self.readers.insert(reader.entity_id(), reader);
+                        }
+                        DISCOVERY_SEND_TOKEN => {
+                            todo!(); // send spdp msg
                         }
                         _ => println!("undefined Token or unimplemented event"),
                     },
