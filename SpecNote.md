@@ -244,6 +244,39 @@ next_requested_change(SequenceNumber_t lowestRequestedChange and a fixed-length 
 
 似たテクニックがacked_changes_set() and unacked_changes()の実装にも使える。
 
+## SPDPまとめ
+builtinのRTPS reader, RTPS writerを作る
+このreader, writerは“DCPSParticipant”Topicのデータをやり取りする。
+readerはspdpメッセージを受け取って、discovery_db()にremote Participantの情報を入れる
+すでに、discovery_db()に登録されているremote Participantからspdpメッセージを受け取ったらdiscovery_dbのそのparticpantのエントリーの最終更新時刻をアップデート
+writerは一定間隔()でspdpメッセージを送信
+
+discovery_dbは定期的にチェックして最終更新時刻からleaseDuration経過していたらそのエントリーを削除
+
+writerはspdpメッセージを定期的に、新たにネットワークに自身の存在を伝えるためにマルチキャストで、既知のParticipantに対して自身の生存を伝えるためにユニキャストで送信する。
+
+memo: SPDPのためのData submsgはWireshark上でDATA(p)と表示される。
+
+### SEDPまとめ
+最初にSPDPメッセージを受け取ったとき、そのメッセージの送信元に対してユニキャストでSEDPメッセージを送信する。
+
+Endpointが変更されたときは、既知のParticipantに対して変更を知らせるためユニキャストでSEDPメッセージを送信する。
+
+> 8.5.4.2 The built-in Endpoints used by the Simple Endpoint Discovery Protocol
+> SEDP DDS built-in Entityは“DCPSSubscription,” “DCPSPublication,” と“DCPSTopic” Topicsを対応付ける。
+> DDS specificationによると、それらのbulit-in Entityのreliablility QoSは'reliable'にセットされる。
+
+memo: SEDPのためのData submsgはWireshark上でDATA({r|w})と表示される。(r)は送信元がreader, (w)は送信元がwriterであることを表す。
+
+### reliableとbest-effortの違い
+> 8.4.2.2 Required RTPS Writer Behavior
+> Writers must send periodic HEARTBEAT Messages (reliable only)
+
+reliableなWriterは定期的にHEARTBEAT Messageを送らなければならない。
+> Writers must eventually respond to a negative acknowledgment (reliable only)
+
+reliableなWriterはNACKに応答しなければならない。
+
 ## 8.5 Discovery Module (日本語訳, 要約)
 Discovery Moduleはconfigがどのように行われるのか仮定を行わず、Endpoint間でどのようにデータが交換されるかのみ定義される。Endpointの設定をするために、実装は存在するremote Endpointの情報とそのpropertieをてに入れないといけない。この情報をどのように獲得するかがDiscovery Moduleのテーマである。
 

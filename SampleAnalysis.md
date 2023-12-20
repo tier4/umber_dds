@@ -578,6 +578,13 @@ HEARTBEATの中身に特に意味のあるデータはなさそう
 このDATA(r)の中身を見た感じ、Topic nameとかが入ってるからSEDPのパケットっぽい
 RTPS 2.3 specの8.5.4.2 The built-in Endpoints used by the Simple Endpoint Discovery Protocol図をみると、BUILTIN_PUBLICATIONS_WRITER, BUILTIN_SUBSCRIPTIONS_WRITERはSEDPのためのエンドポイントで間違いなさそう。
 
+## SPDPとSEDP
+SPDPの情報はDiscovery Moduleのdiscovery_dbに、SEDPの情報は各Writerのreader_proxyで管理される
+(StatefullなwriterはSEDPの情報を各Writerのreader_proxyで管理するが、StatelessなWriterでは、ReaderLocatorで管理される)
+rtps spec 8.4 Befavior Moduleを参照
+
+RustDDSではStatefullな実装を採用しているらしい
+
 ## 解析の感想
 20スレッドが非同期で動いて、各オブジェクトの状態が把握しづらいから辛い。
 どのタイミングで何が呼ばれているのかが把握し辛い。
@@ -609,6 +616,13 @@ specにはreliable onlyの場合とあるのに、コードからreliable only�
 struct DomainParticipant {
     dpi: Arc<Mutex<DomainParticipantDisc>>,
 }
+// Discovery threadはDomainParticipantで生成される。そのhandlerは
+// DomainParticipantDiscのdiscovery_join_handle: mio_channel::Receiver<JoinHandle<()>>に対して送りつけられる。
+// DomainParticipantDiscがchannelからhandlerを受信するのはDomainParticipantDiscがdropされたとき。
+// DomainParticipantDiscがdropされると、handlerを受信してjoinし、スレッドを終了させる。
+// Discovery threadはDomainParticipantの参照を持つ必要があり、そのスレッドはDomainParticipantがdropされるときに一緒にdropされる必要があるため
+// DomainParticipantが持つ必要がある。この関係を満足するために、スレッドのhandlerをmio_channelに対して送信し、
+// 受信せずにバッファに保持させておくというやり方に驚いたのでメモを残しておく。
 
 struct DomainParticipantDisc {
     dpi: Arc<Mutex<DomainParticipantInner>>,
@@ -618,7 +632,6 @@ struct DomainParticipantDisc {
     // This allows deterministic generation of EntityIds for DataReader, DataWriter, etc.
     // EntitiyIdを決定するためのもの？
     entity_id_generator: atomic::AtomicU32,
-
 }
 
 pub struct DomainParticipantInner {
