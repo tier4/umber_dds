@@ -32,7 +32,7 @@ impl Subscriber {
     }
 }
 
-pub struct InnerSubscriber {
+struct InnerSubscriber {
     guid: GUID,
     // rtps 2.3 spec 8.2.4.4
     // The DDS Specification defines Publisher and Subscriber entities.
