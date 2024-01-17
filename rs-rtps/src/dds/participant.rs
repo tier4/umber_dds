@@ -126,7 +126,7 @@ impl DomainParticipantInner {
         // add_writer用のチャネルを生やして、senderはpubにreceiverは自分
         let guid = GUID::new(
             self.my_guid.guid_prefix,
-            EntityId::new_with_entity_kind(&dp, EntityKind::PUBLISHER),
+            EntityId::new_with_entity_kind(self.gen_entity_key(), EntityKind::PUBLISHER),
         );
         Publisher::new(
             guid,
@@ -140,7 +140,7 @@ impl DomainParticipantInner {
     fn create_subscriber(&self, dp: DomainParticipant, qos: QosPolicies) -> Subscriber {
         let guid = GUID::new(
             self.my_guid.guid_prefix,
-            EntityId::new_with_entity_kind(&dp, EntityKind::SUBSCRIBER),
+            EntityId::new_with_entity_kind(self.gen_entity_key(), EntityKind::SUBSCRIBER),
         );
         Subscriber::new(guid, qos, dp, self.add_reader_sender.clone())
     }

@@ -76,7 +76,10 @@ impl InnerSubscriber {
         let reader_ing = ReaderIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
-                EntityId::new_with_entity_kind(&self.dp, EntityKind::READER_WITH_KEY_USER_DEFIND),
+                EntityId::new_with_entity_kind(
+                    self.dp.gen_entity_key(),
+                    EntityKind::READER_WITH_KEY_USER_DEFIND,
+                ),
             ),
             rhc: history_cache.clone(),
         };

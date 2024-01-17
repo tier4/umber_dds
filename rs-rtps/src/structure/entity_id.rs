@@ -17,9 +17,9 @@ impl EntityId {
         }
     }
 
-    pub fn new_with_entity_kind(dp: &DomainParticipant, entity_kind: EntityKind) -> Self {
+    pub fn new_with_entity_kind(entity_key: [u8; 3], entity_kind: EntityKind) -> Self {
         Self {
-            entity_key: dp.gen_entity_key(),
+            entity_key,
             entity_kind,
         }
     }

@@ -94,7 +94,10 @@ impl InnerPublisher {
         let writer_ing = WriterIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
-                EntityId::new_with_entity_kind(&self.dp, EntityKind::WRITER_WITH_KEY_USER_DEFIND),
+                EntityId::new_with_entity_kind(
+                    self.dp.gen_entity_key(),
+                    EntityKind::WRITER_WITH_KEY_USER_DEFIND,
+                ),
             ),
             writer_command_receiver,
         };
