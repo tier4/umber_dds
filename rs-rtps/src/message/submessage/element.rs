@@ -191,17 +191,20 @@ impl Timestamp {
 // spec versin 2.3 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
 #[derive(Readable, Writable)]
 pub struct Locator {
-    kind: i64,
-    port: u64,
+    kind: i32,
+    port: u32,
+    // spec version 2.3, 9.3.2.3 Locator_t
+    // if address contains an IPv4 address. In this case, the leading 12 octets of the
+    //  address must be zero. The last 4 octets are used to store the IPv4 address.
     address: [u8; 16],
 }
 
 impl Locator {
-    pub const KIND_INVALID: i64 = -1;
-    pub const KIND_RESERVED: i64 = 0;
-    pub const KIND_UDPV4: i64 = 1;
-    pub const KIND_UDPV6: i64 = 2;
-    pub const PORT_INVALID: u64 = 0;
+    pub const KIND_INVALID: i32 = -1;
+    pub const KIND_RESERVED: i32 = 0;
+    pub const KIND_UDPV4: i32 = 1;
+    pub const KIND_UDPV6: i32 = 2;
+    pub const PORT_INVALID: u32 = 0;
     pub const ADDRESS_INVALID: [u8; 16] = [0; 16];
     pub const INVALID: Self = Self {
         kind: Self::KIND_INVALID,
