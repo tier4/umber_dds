@@ -1,10 +1,10 @@
 use crate::structure::{guid::*, vendor_id::*};
 use speedy::{Readable, Writable};
 
-#[derive(Readable, Writable, Debug)]
+#[derive(Readable, Writable, Debug, Clone)]
 pub struct ProtocolVersion {
-    major: u8,
-    minor: u8,
+    pub major: u8,
+    pub minor: u8,
 }
 
 impl ProtocolVersion {
