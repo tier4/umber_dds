@@ -1,5 +1,7 @@
-#[derive(Clone, Copy)]
+use serde::Serialize;
+
+#[derive(Clone, Copy, Serialize)]
 pub struct Duration {
-    seconds: i64,
-    fraction: u64,
+    pub seconds: i32,
+    pub fraction: u32,
 }
