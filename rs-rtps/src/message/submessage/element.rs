@@ -211,6 +211,17 @@ impl Locator {
         port: Self::PORT_INVALID,
         address: Self::ADDRESS_INVALID,
     };
+
+    pub fn new_from_ipv4(port: u32, address: [u8; 4]) -> Self {
+        let mut addr: [u8; 16] = [0; 16];
+        addr[..12].copy_from_slice(&[0; 12]);
+        addr[12..].copy_from_slice(&address);
+        Locator {
+            kind: Self::KIND_UDPV4,
+            port,
+            address: addr,
+        }
+    }
 }
 pub type LocatorList = Vec<Locator>;
 
