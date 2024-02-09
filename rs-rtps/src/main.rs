@@ -32,6 +32,23 @@ fn main() {
         qos,
         TopicKind::WithKey,
     );
+    /*
+    let subscriber = participant.create_subscriber(qos);
+    let datareader = subscriber.create_datareader::<Shape>(qos, topic);
+    */
     let publisher = participant.create_publisher(qos);
+    let datawriter = publisher.create_datawriter::<Shape>(qos, topic);
+
+    let shape = Shape {
+        color: "Red".to_string(),
+        x: 3,
+        y: 2,
+        shapesize: 42,
+    };
+
+    for _i in 0..=5 {
+        println!("@main datawriter.write");
+        datawriter.write(shape.clone());
+    }
     loop {}
 }
