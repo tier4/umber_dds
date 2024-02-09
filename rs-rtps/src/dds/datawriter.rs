@@ -1,5 +1,5 @@
 use crate::dds::{publisher::Publisher, qos::QosPolicies, topic::Topic};
-use crate::message::submessage::element::SerializedPayload;
+use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
 use crate::rtps::writer::*;
 use mio_extras::channel as mio_channel;
 use serde::Serialize;
@@ -34,9 +34,24 @@ impl<D: Serialize> DataWriter<D> {
     pub fn set_qos() {}
     pub fn write(&self, data: D) {
         let serialized_payload = SerializedPayload::new_from_cdr_data(data);
+        // SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
         let writer_cmd = WriterCmd {
             serialized_payload: Some(serialized_payload),
         };
+        println!("--- @datawriter writer_command_sender.send ---");
         self.writer_command_sender.send(writer_cmd).unwrap();
     }
+
+    /*
+    pub fn write_builtin_data(&self, data: D) {
+        let serialized_payload =
+            //SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
+            SerializedPayload::new_from_cdr_data(data);
+        let writer_cmd = WriterCmd {
+            serialized_payload: Some(serialized_payload),
+        };
+        println!("--- @datawriter writer_command_sender.send ---");
+        self.writer_command_sender.send(writer_cmd).unwrap();
+    }
+    */
 }
