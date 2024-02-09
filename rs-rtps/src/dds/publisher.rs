@@ -54,6 +54,16 @@ impl Publisher {
         self.inner.create_datawriter(qos, topic, self.clone())
     }
 
+    pub fn create_datawriter_with_entityid<D: serde::Serialize>(
+        &self,
+        qos: QosPolicies,
+        topic: Topic,
+        entity_id: EntityId,
+    ) -> DataWriter<D> {
+        self.inner
+            .create_datawriter_with_entityid(qos, topic, self.clone(), entity_id)
+    }
+
     pub fn domain_participant(&self) -> DomainParticipant {
         self.inner.dp.clone()
     }
@@ -102,6 +112,23 @@ impl InnerPublisher {
             writer_command_receiver,
         };
         self.add_writer_sender.send(writer_ing).unwrap();
+        DataWriter::<D>::new(writer_command_sender, qos, topic, outter)
+    }
+    pub fn create_datawriter_with_entityid<D: serde::Serialize>(
+        &self,
+        qos: QosPolicies,
+        topic: Topic,
+        outter: Publisher,
+        entity_id: EntityId,
+    ) -> DataWriter<D> {
+        let (writer_command_sender, writer_command_receiver) =
+            mio_channel::sync_channel::<WriterCmd>(4);
+        let writer_ing = WriterIngredients {
+            guid: GUID::new(self.dp.guid_prefix(), entity_id),
+            writer_command_receiver,
+        };
+        self.add_writer_sender.send(writer_ing).unwrap();
+        println!("<<< @publisher add_writer_sender.send() >>>");
         DataWriter::<D>::new(writer_command_sender, qos, topic, outter)
     }
     pub fn get_participant(&self) -> DomainParticipant {
