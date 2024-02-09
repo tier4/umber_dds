@@ -25,6 +25,7 @@ pub struct EventLoop {
     writers: HashMap<EntityId, Writer>,
     readers: HashMap<EntityId, Reader>,
     sender: Rc<UdpSender>,
+    spdp_send_timer: Timer<()>,
 }
 
 impl EventLoop {
@@ -74,6 +75,7 @@ impl EventLoop {
             writers: HashMap::new(),
             readers: HashMap::new(),
             sender,
+            spdp_send_timer,
         }
     }
 
@@ -94,33 +96,36 @@ impl EventLoop {
                             );
                         }
                         ADD_WRITER_TOKEN => {
-                            let writer_ing = self.add_writer_receiver.try_recv().unwrap();
-                            println!("in ev_loop: entity_id: {:?}", writer_ing.guid);
-                            let mut writer = Writer::new(writer_ing, self.sender.clone());
-                            let token = writer.entity_token();
-                            self.poll
-                                .register(
-                                    &mut writer.writer_command_receiver,
-                                    token,
-                                    Ready::readable(),
-                                    PollOpt::edge(),
-                                )
-                                .unwrap();
-                            self.writers.insert(writer.entity_id(), writer);
+                            while let Ok(writer_ing) = self.add_writer_receiver.try_recv() {
+                                eprintln!("in ev_loop: entity_id: {:?}", writer_ing.guid);
+                                let mut writer = Writer::new(writer_ing, self.sender.clone());
+                                let token = writer.entity_token();
+                                self.poll
+                                    .register(
+                                        &mut writer.writer_command_receiver,
+                                        token,
+                                        Ready::readable(),
+                                        PollOpt::edge(),
+                                    )
+                                    .unwrap();
+                                self.writers.insert(writer.entity_id(), writer);
+                            }
                         }
                         ADD_READER_TOKEN => {
-                            let reader_ing = self.add_reader_receiver.try_recv().unwrap();
-                            println!("in event_loop received add reader");
-                            let reader = Reader::new(reader_ing);
-                            self.readers.insert(reader.entity_id(), reader);
+                            while let Ok(reader_ing) = self.add_reader_receiver.try_recv() {
+                                eprintln!("in event_loop received add reader");
+                                let reader = Reader::new(reader_ing);
+                                self.readers.insert(reader.entity_id(), reader);
+                            }
                         }
                         DISCOVERY_SEND_TOKEN => {
                             todo!(); // send spdp msg
                         }
-                        _ => println!("undefined Token or unimplemented event"),
+                        _ => eprintln!("undefined Token or unimplemented event"),
                     },
                     TokenDec::Entity(eid) => {
                         if eid.is_writer() {
+                            eprintln!("=== @event_loop Discovery cmd received ===");
                             let writer = match self.writers.get_mut(&eid) {
                                 Some(w) => w,
                                 None => panic!("Unregisterd writer."),
