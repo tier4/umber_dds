@@ -1,3 +1,17 @@
+use crate::dds::{
+    datawriter::DataWriter,
+    participant::DomainParticipant,
+    publisher::Publisher,
+    qos::{QosBuilder, QosPolicies},
+    topic::Topic,
+    typedesc::TypeDesc,
+};
+use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
+use crate::structure::topic_kind::TopicKind;
+use mio_extras::channel as mio_channel;
+use mio_v06::net::UdpSocket;
+use mio_v06::{Events, Poll, PollOpt, Ready, Token};
+
 // SPDPbuiltinParticipantWriter
 // RTPS Best-Effort StatelessWriter
 // HistoryCacheには
@@ -11,4 +25,37 @@
 // RTPS Reader
 // remote ParticipantからSPDPdiscoveredParticipantData announcementを受信する。
 
-pub struct Discovery {}
+pub struct Discovery {
+    dp: DomainParticipant,
+    poll: Poll,
+    publisher: Publisher,
+    spdp_builtin_participant_writer: DataWriter<SPDPdiscoveredParticipantData>,
+}
+
+impl Discovery {
+    pub fn new(dp: DomainParticipant) -> Self {
+        let poll = Poll::new().unwrap();
+        let qos = QosBuilder::new().build();
+        let publisher = dp.create_publisher(qos);
+        let topic = Topic::new(
+            "TODO".to_string(),
+            TypeDesc::new("todo".to_string()),
+            dp.clone(),
+            qos,
+            TopicKind::WithKey,
+        );
+        let entity_id = todo!(); // TODO
+        let spdp_builtin_participant_writer =
+            publisher.create_datawriter_with_entityid(qos, topic, entity_id);
+        Self {
+            dp,
+            poll,
+            publisher,
+            spdp_builtin_participant_writer,
+        }
+    }
+
+    pub fn discovery_loop() {
+        loop {}
+    }
+}
