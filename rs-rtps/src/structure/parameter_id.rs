@@ -4,7 +4,7 @@ use speedy::{Readable, Writable};
 
 #[derive(Readable, Writable, PartialEq, Eq)]
 pub struct ParameterId {
-    value: u16,
+    pub value: u16,
 }
 
 impl ParameterId {
