@@ -4,6 +4,7 @@ use crate::message::{
 };
 use crate::network::udp_sender::UdpSender;
 use crate::rtps::cache::{CacheChange, CacheData, ChangeKind, HistoryCache, InstantHandle};
+use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::GUID};
 use bytes::Bytes;
 use chrono::Local;
@@ -20,6 +21,7 @@ pub struct Writer {
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
     writer_cache: HistoryCache,
     lastChangeSequenceNumber: SequenceNumber,
+    reader_locator: Vec<ReaderLocator>,
     sender: Rc<UdpSender>,
 }
 
@@ -31,6 +33,7 @@ impl Writer {
             writer_command_receiver: wi.writer_command_receiver,
             writer_cache: HistoryCache::new(),
             lastChangeSequenceNumber: SequenceNumber(0),
+            reader_locator: Vec::new(),
             sender,
         }
     }
