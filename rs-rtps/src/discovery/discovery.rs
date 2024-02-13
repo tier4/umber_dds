@@ -8,7 +8,13 @@ use crate::dds::{
     typedesc::TypeDesc,
 };
 use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
-use crate::structure::{entity_id::EntityId, topic_kind::TopicKind};
+use crate::message::{
+    message_header::ProtocolVersion,
+    submessage::element::{Count, Locator},
+};
+use crate::structure::{
+    entity::RTPSEntity, entity_id::EntityId, topic_kind::TopicKind, vendor_id::VendorId,
+};
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
@@ -51,7 +57,7 @@ impl Discovery {
         let spdp_builtin_participant_writer =
             publisher.create_datawriter_with_entityid(qos, topic, entity_id);
         let mut spdp_send_timer: Timer<()> = Timer::default();
-        spdp_send_timer.set_timeout(Duration::new(20, 0), ());
+        spdp_send_timer.set_timeout(Duration::new(3, 0), ());
         poll.register(
             &mut spdp_send_timer,
             SPDP_SEND_TIMER,
@@ -70,6 +76,22 @@ impl Discovery {
 
     pub fn discovery_loop(&mut self) {
         let mut events = Events::with_capacity(1024);
+        // This data is for test
+        let data = SPDPdiscoveredParticipantData::new(
+            self.dp.domain_id(),
+            String::from("todo"),
+            ProtocolVersion::PROTOCOLVERSION,
+            self.dp.guid(),
+            VendorId::THIS_IMPLEMENTATION,
+            false,
+            0x18000c3f,
+            Vec::from([Locator::new_from_ipv4(7410, [192, 168, 208, 3])]),
+            Vec::from([Locator::new_from_ipv4(7400, [192, 168, 208, 3])]),
+            Vec::from([Locator::new_from_ipv4(7411, [192, 168, 208, 3])]),
+            Vec::from([Locator::new_from_ipv4(7400, [192, 168, 208, 3])]),
+            0,
+            crate::structure::duration::Duration::new(20, 0),
+        );
         loop {
             self.poll.poll(&mut events, None).unwrap();
             for event in events.iter() {
@@ -77,7 +99,8 @@ impl Discovery {
                     TokenDec::ReservedToken(token) => match token {
                         SPDP_SEND_TIMER => {
                             eprintln!("@discovery: timer timedout");
-                            self.spdp_send_timer.set_timeout(Duration::new(20, 0), ());
+                            self.spdp_builtin_participant_writer.write(data.clone());
+                            self.spdp_send_timer.set_timeout(Duration::new(3, 0), ());
                         }
                         Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
                     },
