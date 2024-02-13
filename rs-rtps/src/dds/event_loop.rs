@@ -55,8 +55,8 @@ impl EventLoop {
         )
         .unwrap();
         let mut spdp_send_timer: Timer<()> = Timer::default();
-        spdp_send_timer.set_timeout(Duration::new(20, 0), ()); // TODO:
-                                                               // spdpの送信間隔をtunableにする。
+        // spdp_send_timer.set_timeout(Duration::new(20, 0), ()); // TODO:
+        // spdpの送信間隔をtunableにする。
         poll.register(
             &mut spdp_send_timer,
             DISCOVERY_SEND_TOKEN,

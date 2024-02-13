@@ -18,37 +18,98 @@ use mio_extras::channel as mio_channel;
 use mio_v06::net::UdpSocket;
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
+use std::sync::Mutex;
 use std::sync::{
     atomic::{AtomicU32, Ordering},
     Arc,
 };
-use std::thread;
+use std::thread::{self, Builder};
 
 #[derive(Clone)]
 pub struct DomainParticipant {
-    inner: Arc<DomainParticipantInner>,
+    inner: Arc<Mutex<DomainParticipantDisc>>,
 }
 
 impl RTPSEntity for DomainParticipant {
     fn guid(&self) -> GUID {
-        self.inner.my_guid
+        self.inner.lock().unwrap().guid()
     }
 }
 
 impl DomainParticipant {
     pub fn new(domain_id: u16) -> Self {
-        Self {
-            inner: Arc::new(DomainParticipantInner::new(domain_id)),
-        }
+        let (disc_thread_sender, disc_thread_receiver) =
+            mio_channel::channel::<thread::JoinHandle<()>>();
+        let dp = Self {
+            inner: Arc::new(Mutex::new(DomainParticipantDisc::new(
+                domain_id,
+                disc_thread_receiver,
+            ))),
+        };
+        let dp_clone = dp.clone();
+        let discovery_handler = Builder::new()
+            .name(String::from("discovery"))
+            .spawn(|| {
+                let mut discovery = Discovery::new(dp_clone);
+                discovery.discovery_loop();
+            })
+            .unwrap();
+        disc_thread_sender.send(discovery_handler).unwrap();
+        dp
     }
     pub fn create_publisher(&self, qos: QosPolicies) -> Publisher {
-        self.inner.create_publisher(self.clone(), qos)
+        self.inner
+            .lock()
+            .unwrap()
+            .create_publisher(self.clone(), qos)
     }
     pub fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
-        self.inner.create_subscriber(self.clone(), qos)
+        self.inner
+            .lock()
+            .unwrap()
+            .create_subscriber(self.clone(), qos)
+    }
+    pub fn gen_entity_key(&self) -> [u8; 3] {
+        self.inner.lock().unwrap().gen_entity_key()
+    }
+}
+
+struct DomainParticipantDisc {
+    inner: Arc<DomainParticipantInner>,
+    disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
+}
+
+impl DomainParticipantDisc {
+    fn new(
+        domain_id: u16,
+        disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
+    ) -> Self {
+        Self {
+            inner: Arc::new(DomainParticipantInner::new(domain_id)),
+            disc_thread_receiver,
+        }
+    }
+    pub fn create_publisher(&self, dp: DomainParticipant, qos: QosPolicies) -> Publisher {
+        self.inner.create_publisher(dp, qos)
+    }
+    pub fn create_subscriber(&self, dp: DomainParticipant, qos: QosPolicies) -> Subscriber {
+        self.inner.create_subscriber(dp, qos)
     }
     pub fn gen_entity_key(&self) -> [u8; 3] {
         self.inner.gen_entity_key()
+    }
+}
+impl Drop for DomainParticipantDisc {
+    fn drop(&mut self) {
+        if let Ok(djh) = self.disc_thread_receiver.try_recv() {
+            djh.join().unwrap();
+        }
+    }
+}
+
+impl RTPSEntity for DomainParticipantDisc {
+    fn guid(&self) -> GUID {
+        self.inner.my_guid
     }
 }
 
@@ -64,7 +125,6 @@ struct DomainParticipantInner {
 
 impl DomainParticipantInner {
     pub fn new(domain_id: u16) -> DomainParticipantInner {
-        let discovery = Discovery {};
         let mut socket_list: HashMap<mio_v06::Token, UdpSocket> = HashMap::new();
         let spdp_multi_socket = new_multicast(
             "0.0.0.0",

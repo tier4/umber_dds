@@ -57,7 +57,8 @@ impl Discovery {
             SPDP_SEND_TIMER,
             Ready::readable(),
             PollOpt::edge(),
-        );
+        )
+        .unwrap();
         Self {
             dp,
             poll,
@@ -67,7 +68,7 @@ impl Discovery {
         }
     }
 
-    pub fn discovery_loop(&self) {
+    pub fn discovery_loop(&mut self) {
         let mut events = Events::with_capacity(1024);
         loop {
             self.poll.poll(&mut events, None).unwrap();
