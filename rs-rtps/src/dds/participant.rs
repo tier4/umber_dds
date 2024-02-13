@@ -69,6 +69,9 @@ impl DomainParticipant {
             .unwrap()
             .create_subscriber(self.clone(), qos)
     }
+    pub fn domain_id(&self) -> u16 {
+        self.inner.lock().unwrap().domain_id()
+    }
     pub fn gen_entity_key(&self) -> [u8; 3] {
         self.inner.lock().unwrap().gen_entity_key()
     }
@@ -94,6 +97,9 @@ impl DomainParticipantDisc {
     }
     pub fn create_subscriber(&self, dp: DomainParticipant, qos: QosPolicies) -> Subscriber {
         self.inner.create_subscriber(dp, qos)
+    }
+    pub fn domain_id(&self) -> u16 {
+        self.inner.domain_id
     }
     pub fn gen_entity_key(&self) -> [u8; 3] {
         self.inner.gen_entity_key()
