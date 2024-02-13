@@ -297,7 +297,6 @@ impl SerializedPayload {
         })
     }
 
-    /*
     pub fn new_from_cdr_data<D: Serialize>(data: D, rep_id: RepresentationIdentifier) -> Self {
         let mut serialized_data = match rep_id {
             RepresentationIdentifier::CDR_LE => {
@@ -312,23 +311,16 @@ impl SerializedPayload {
             RepresentationIdentifier::PL_CDR_BE => {
                 cdr::serialize::<_, _, PlCdrBe>(&data, Infinite).unwrap()
             }
-            _ => panic!(),
+            _ => unimplemented!(),
         };
-    */
-    pub fn new_from_cdr_data<D: Serialize>(data: D) -> Self {
-        let mut serialized_data = cdr::serialize::<_, _, CdrLe>(&data, Infinite).unwrap();
-        let representation_identifier = RepresentationIdentifier::CDR_LE;
-        // let serialized_rep_id: Vec<_> = serialized_data.drain(0..=1).collect();
-        // assert_eq!(serialized_rep_id, Vec::from(rep_id.bytes));
-        let rep_id: Vec<_> = serialized_data.drain(0..=1).collect();
-        assert_eq!(rep_id, Vec::from(RepresentationIdentifier::CDR_LE.bytes));
+        let serialized_rep_id: Vec<_> = serialized_data.drain(0..=1).collect();
+        assert_eq!(serialized_rep_id, Vec::from(rep_id.bytes));
         let representation_options = [0; 2];
         let rep_opt: Vec<_> = serialized_data.drain(0..=1).collect();
         assert_eq!(rep_opt, Vec::from(representation_options));
         let value = Bytes::from(serialized_data);
         Self {
-            // representation_identifier: rep_id,
-            representation_identifier,
+            representation_identifier: rep_id,
             representation_options,
             value,
         }

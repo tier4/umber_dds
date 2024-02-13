@@ -33,8 +33,8 @@ impl<D: Serialize> DataWriter<D> {
     pub fn get_qos() {}
     pub fn set_qos() {}
     pub fn write(&self, data: D) {
-        let serialized_payload = SerializedPayload::new_from_cdr_data(data);
-        // SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
+        let serialized_payload =
+            SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
         let writer_cmd = WriterCmd {
             serialized_payload: Some(serialized_payload),
         };
@@ -42,16 +42,13 @@ impl<D: Serialize> DataWriter<D> {
         self.writer_command_sender.send(writer_cmd).unwrap();
     }
 
-    /*
     pub fn write_builtin_data(&self, data: D) {
         let serialized_payload =
-            //SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
-            SerializedPayload::new_from_cdr_data(data);
+            SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
         let writer_cmd = WriterCmd {
             serialized_payload: Some(serialized_payload),
         };
         println!("--- @datawriter writer_command_sender.send ---");
         self.writer_command_sender.send(writer_cmd).unwrap();
     }
-    */
 }

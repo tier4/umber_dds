@@ -99,7 +99,8 @@ impl Discovery {
                     TokenDec::ReservedToken(token) => match token {
                         SPDP_SEND_TIMER => {
                             eprintln!("@discovery: timer timedout");
-                            self.spdp_builtin_participant_writer.write(data.clone());
+                            self.spdp_builtin_participant_writer
+                                .write_builtin_data(data.clone());
                             self.spdp_send_timer.set_timeout(Duration::new(3, 0), ());
                         }
                         Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),

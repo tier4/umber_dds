@@ -214,7 +214,7 @@ impl Serialize for SPDPdiscoveredParticipantData {
 mod test {
     use super::*;
     use crate::message::message_header::ProtocolVersion;
-    use crate::message::submessage::element::SerializedPayload;
+    use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
 
     #[test]
     fn test_serialize() {
@@ -238,7 +238,8 @@ mod test {
                 fraction: 0,
             },
         );
-        let serialized_payload = SerializedPayload::new_from_cdr_data(data);
+        let serialized_payload =
+            SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
         let mut serialized = String::new();
         let mut count = 0;
         for b in serialized_payload.value {
