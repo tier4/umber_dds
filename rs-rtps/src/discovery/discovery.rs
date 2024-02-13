@@ -3,6 +3,7 @@ use crate::dds::{
     participant::DomainParticipant,
     publisher::Publisher,
     qos::{QosBuilder, QosPolicies},
+    tokens::*,
     topic::Topic,
     typedesc::TypeDesc,
 };
@@ -11,6 +12,7 @@ use crate::structure::{entity_id::EntityId, topic_kind::TopicKind};
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
+use std::time::Duration;
 
 // SPDPbuiltinParticipantWriter
 // RTPS Best-Effort StatelessWriter
@@ -30,6 +32,7 @@ pub struct Discovery {
     poll: Poll,
     publisher: Publisher,
     spdp_builtin_participant_writer: DataWriter<SPDPdiscoveredParticipantData>,
+    spdp_send_timer: Timer<()>,
 }
 
 impl Discovery {
@@ -47,15 +50,47 @@ impl Discovery {
         let entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER;
         let spdp_builtin_participant_writer =
             publisher.create_datawriter_with_entityid(qos, topic, entity_id);
+        let mut spdp_send_timer: Timer<()> = Timer::default();
+        spdp_send_timer.set_timeout(Duration::new(20, 0), ());
+        poll.register(
+            &mut spdp_send_timer,
+            SPDP_SEND_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        );
         Self {
             dp,
             poll,
             publisher,
             spdp_builtin_participant_writer,
+            spdp_send_timer,
         }
     }
 
-    pub fn discovery_loop() {
-        loop {}
+    pub fn discovery_loop(&self) {
+        let mut events = Events::with_capacity(1024);
+        loop {
+            self.poll.poll(&mut events, None).unwrap();
+            for event in events.iter() {
+                match TokenDec::decode(event.token()) {
+                    TokenDec::ReservedToken(token) => match token {
+                        SPDP_SEND_TIMER => {
+                            eprintln!("@discovery: timer timedout");
+                            self.spdp_send_timer.set_timeout(Duration::new(20, 0), ());
+                        }
+                        Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
+                    },
+                    TokenDec::Entity(eid) => {
+                        if eid.is_reader() {
+                            unimplemented!();
+                        } else if eid.is_reader() {
+                            unimplemented!();
+                        } else {
+                            unreachable!();
+                        }
+                    }
+                }
+            }
+        }
     }
 }
