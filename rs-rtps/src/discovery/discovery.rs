@@ -7,8 +7,8 @@ use crate::dds::{
     typedesc::TypeDesc,
 };
 use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
-use crate::structure::topic_kind::TopicKind;
-use mio_extras::channel as mio_channel;
+use crate::structure::{entity_id::EntityId, topic_kind::TopicKind};
+use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 
@@ -38,13 +38,13 @@ impl Discovery {
         let qos = QosBuilder::new().build();
         let publisher = dp.create_publisher(qos);
         let topic = Topic::new(
-            "TODO".to_string(),
-            TypeDesc::new("todo".to_string()),
+            "DCPSParticipant".to_string(),
+            TypeDesc::new("SPDPDiscoveredParticipantData".to_string()),
             dp.clone(),
             qos,
             TopicKind::WithKey,
         );
-        let entity_id = todo!(); // TODO
+        let entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER;
         let spdp_builtin_participant_writer =
             publisher.create_datawriter_with_entityid(qos, topic, entity_id);
         Self {
