@@ -1,10 +1,10 @@
 use crate::dds::participant::DomainParticipant;
-use crate::Serialize;
+use crate::{Deserialize, Serialize};
 use mio_v06::Token;
 use speedy::{Readable, Writable};
 
 // spec 9.2.2
-#[derive(Debug, PartialEq, Readable, Writable, Clone, Copy, Eq, Hash, Serialize)]
+#[derive(Debug, PartialEq, Readable, Writable, Clone, Copy, Eq, Hash, Serialize, Deserialize)]
 pub struct EntityId {
     entity_key: [u8; 3],
     entity_kind: EntityKind,
@@ -130,7 +130,7 @@ impl EntityId {
     }
 }
 
-#[derive(Debug, PartialEq, Readable, Writable, Clone, Copy, Eq, Hash, Serialize)]
+#[derive(Debug, PartialEq, Readable, Writable, Clone, Copy, Eq, Hash, Serialize, Deserialize)]
 pub struct EntityKind {
     value: u8,
 }

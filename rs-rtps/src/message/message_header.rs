@@ -1,7 +1,8 @@
 use crate::structure::{guid::*, vendor_id::*};
+use serde::Deserialize;
 use speedy::{Readable, Writable};
 
-#[derive(Readable, Writable, Debug, Clone)]
+#[derive(Readable, Writable, Debug, Clone, Deserialize)]
 pub struct ProtocolVersion {
     pub major: u8,
     pub minor: u8,

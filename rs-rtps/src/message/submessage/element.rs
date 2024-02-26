@@ -15,7 +15,7 @@ use crate::structure::parameter_id::ParameterId;
 use byteorder::ReadBytesExt;
 use bytes::Bytes;
 use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
 use std::io;
 use std::ops::{Add, AddAssign};
@@ -189,7 +189,7 @@ impl Timestamp {
 }
 
 // spec versin 2.3, 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
-#[derive(Readable, Writable, Clone, Copy, Serialize)]
+#[derive(Readable, Writable, Clone, Copy, Serialize, Deserialize)]
 pub struct Locator {
     kind: i32,
     port: u32,

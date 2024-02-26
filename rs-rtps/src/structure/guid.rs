@@ -1,9 +1,9 @@
 use crate::structure::entity_id::*;
 use rand;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct GUID {
     pub guid_prefix: GuidPrefix,
     pub entity_id: EntityId,
@@ -30,7 +30,7 @@ impl GUID {
     }
 }
 
-#[derive(Readable, Writable, Debug, Clone, Copy, PartialEq, Serialize)]
+#[derive(Readable, Writable, Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct GuidPrefix {
     pub guid_prefix: [u8; 12],
 }
