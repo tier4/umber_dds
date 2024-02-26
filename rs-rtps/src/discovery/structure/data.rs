@@ -240,65 +240,66 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                     let pid: u16 = seq
                         .next_element()?
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                    println!("pid: {:04X}", pid);
                     let parameter_id = ParameterId { value: pid };
                     let _length: u16 = seq
                         .next_element()?
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                    println!("length: {:04X}", _length);
                     match parameter_id {
                         ParameterId::PID_PROTOCOL_VERSION => {
-                            protocol_version = seq
+                            protocol_version = seq.next_element()?;
+                            println!("protocol_version: {:?}", protocol_version);
+                            let _pad: u16 = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            assert_eq!(_pad, 0);
                         }
                         ParameterId::PID_PARTICIPANT_GUID => {
-                            guid = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            guid = seq.next_element()?;
+                            println!("guid: {:?}", guid);
                         }
                         ParameterId::PID_VENDOR_ID => {
-                            vendor_id = seq
+                            vendor_id = seq.next_element()?;
+                            println!("vendor_id: {:?}", vendor_id);
+                            let _pad: u16 = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            assert_eq!(_pad, 0);
                         }
                         ParameterId::PID_EXPECTS_INLINE_QOS => {
-                            expects_inline_qos = seq
+                            expects_inline_qos = seq.next_element()?;
+                            println!("expects_inline_qos: {:?}", expects_inline_qos);
+                            let _pad: u16 = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            assert_eq!(_pad, 0);
                         }
                         ParameterId::PID_BUILTIN_ENDPOINT_SET => {
-                            available_builtin_endpoint = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            available_builtin_endpoint = seq.next_element()?;
+                            println!(
+                                "available_builtin_endpoint: {:?}",
+                                available_builtin_endpoint
+                            );
                         }
                         ParameterId::PID_METATRAFFIC_UNICAST_LOCATOR => {
-                            metarraffic_unicast_locator_list = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            metarraffic_unicast_locator_list = seq.next_element()?;
                         }
                         ParameterId::PID_METATRAFFIC_MULTICAST_LOCATOR => {
-                            metarraffic_multicast_locator_list = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            metarraffic_multicast_locator_list = seq.next_element()?;
                         }
                         ParameterId::PID_DEFAULT_UNICAST_LOCATOR => {
-                            default_unicast_locator_list = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            default_unicast_locator_list = seq.next_element()?;
                         }
                         ParameterId::PID_DEFAULT_MULTICAST_LOCATOR => {
-                            default_multicast_locator_list = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            default_multicast_locator_list = seq.next_element()?;
                         }
                         ParameterId::PID_PARTICIPANT_MANUAL_LIVELINESS_COUNT => {
-                            manual_liveliness_count = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            manual_liveliness_count = seq.next_element()?;
+                            println!("manual_liveliness_count: {:?}", manual_liveliness_count);
                         }
                         ParameterId::PID_PARTICIPANT_LEASE_DURATION => {
-                            lease_duration = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            lease_duration = seq.next_element()?;
                         }
                         ParameterId::PID_SENTINEL => {
                             break;
@@ -559,7 +560,7 @@ mod test {
                 serialized += " ";
             }
         }
-        println!("{}", serialized);
+        // println!("{}", serialized);
     }
 
     #[test]
@@ -585,7 +586,7 @@ mod test {
         let serialized = cdr::serialize::<_, _, PlCdrLe>(&data, Infinite).unwrap();
         let mut deseriarized = match deserialize::<SDPBuiltinData>(&serialized) {
             Ok(d) => d,
-            Err(_e) => panic!("neko~~~~~: failed deserialize"),
+            Err(e) => panic!("neko~~~~~: failed deserialize\n{}", e),
         };
         let new_data = deseriarized.toSPDPdiscoverdParticipantData();
         println!("domain_id: {}", new_data.domain_id);
