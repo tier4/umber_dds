@@ -212,6 +212,14 @@ impl Locator {
         address: Self::ADDRESS_INVALID,
     };
 
+    pub fn new(kind: i32, port: u32, address: [u8; 16]) -> Self {
+        Locator {
+            kind,
+            port,
+            address,
+        }
+    }
+
     pub fn new_from_ipv4(port: u32, address: [u8; 4]) -> Self {
         let mut addr: [u8; 16] = [0; 16];
         addr[..12].copy_from_slice(&[0; 12]);
