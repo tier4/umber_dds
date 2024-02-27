@@ -240,16 +240,16 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                     let pid: u16 = seq
                         .next_element()?
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                    println!("pid: {:04X}", pid);
+                    eprintln!(">>>pid: {:04X}", pid);
                     let parameter_id = ParameterId { value: pid };
                     let _length: u16 = seq
                         .next_element()?
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                    println!("length: {:04X}", _length);
+                    eprintln!(">>>length: {:04X}", _length);
                     match parameter_id {
                         ParameterId::PID_PROTOCOL_VERSION => {
                             protocol_version = seq.next_element()?;
-                            println!("protocol_version: {:?}", protocol_version);
+                            eprintln!(">>>>>>protocol_version: {:?}", protocol_version);
                             let _pad: u16 = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
@@ -257,11 +257,11 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         }
                         ParameterId::PID_PARTICIPANT_GUID => {
                             guid = seq.next_element()?;
-                            println!("guid: {:?}", guid);
+                            eprintln!(">>>>>>guid: {:?}", guid);
                         }
                         ParameterId::PID_VENDOR_ID => {
                             vendor_id = seq.next_element()?;
-                            println!("vendor_id: {:?}", vendor_id);
+                            eprintln!(">>>>>>vendor_id: {:?}", vendor_id);
                             let _pad: u16 = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
@@ -269,7 +269,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         }
                         ParameterId::PID_EXPECTS_INLINE_QOS => {
                             expects_inline_qos = seq.next_element()?;
-                            println!("expects_inline_qos: {:?}", expects_inline_qos);
+                            eprintln!(">>>>>>expects_inline_qos: {:?}", expects_inline_qos);
                             let _pad: u16 = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
@@ -277,35 +277,137 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         }
                         ParameterId::PID_BUILTIN_ENDPOINT_SET => {
                             available_builtin_endpoint = seq.next_element()?;
-                            println!(
-                                "available_builtin_endpoint: {:?}",
+                            eprintln!(
+                                ">>>>>>available_builtin_endpoint: {:?}",
                                 available_builtin_endpoint
                             );
                         }
+                        /*
+                            rtps spec 2.4
+                            9.4.2.10 LocatorListはLocatorListのCDR encodingを以下のように示している。
+                            LocatorList:
+                            0...2...........8...............16.............24.
+                            ............................................................... 31
+                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            |                     unsigned long numLocators                 |
+                            +---------------+---------------+---------------+---------------+
+                            |                        Locator_t locator_1                    |
+                            ~                               ...                             ~
+                            |                       Locator_t locator_numLocators           |
+                            +---------------+---------------+---------------+---------------+
+
+                            実際のDDS実装(CycloneDDS [RTPS 2.1], RustDDS [RTPS 2.3])において、
+                            locatorが1つしか含まれない場合のLocatorListのencodingは以下のようになっている。
+                            LocatorList:
+                            0...2...........8...............16.............24.
+                            ............................................................... 31
+                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            +---------------+---------------+---------------+---------------+
+                            |                        Locator_t locator_1                    |
+                            +---------------+---------------+---------------+---------------+
+                            この実装はLocatorListの要素数は常に1で後者のフォーマットでencodeされている
+                            と仮定している。
+                            // TODO: LocatorListの要素数が1以外のとき、実際の実装ででのようなフォーマット
+                            // でencodeされているか調査し、LocatorListの要素数が1以外の場合も対応できる
+                            // ように実装する。
+                            RustDDSのソースを調査したところ、LocatorListの要素が複数の場合以下のフォーマット
+                            でencodeするようになってた。
+                            LocatorList:
+                            0...2...........8...............16.............24.
+                            ............................................................... 31
+                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            |                        Locator_t locator_1                    |
+                            ~                               ...                             ~
+                            |                       Locator_t locator_numLocators           |
+                            +---------------+---------------+---------------+---------------+
+                            ただし、LocatorListをシリアライズしてるソースコードのコメントに
+                            "TODO: make sure this works with multiple locators"とあった。
+                        */
                         ParameterId::PID_METATRAFFIC_UNICAST_LOCATOR => {
-                            metarraffic_unicast_locator_list = seq.next_element()?;
+                            let kind: i32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let port: u32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let address: [u8; 16] = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            metarraffic_unicast_locator_list =
+                                Some(Vec::from([Locator::new(kind, port, address)]));
+                            eprintln!(
+                                ">>>>>>metarraffic_unicast_locator_list: {:?}",
+                                metarraffic_unicast_locator_list
+                            );
                         }
                         ParameterId::PID_METATRAFFIC_MULTICAST_LOCATOR => {
-                            metarraffic_multicast_locator_list = seq.next_element()?;
+                            let kind: i32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let port: u32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let address: [u8; 16] = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            metarraffic_multicast_locator_list =
+                                Some(Vec::from([Locator::new(kind, port, address)]));
+                            eprintln!(
+                                ">>>>>>metarraffic_multicast_locator_list: {:?}",
+                                metarraffic_multicast_locator_list
+                            );
                         }
                         ParameterId::PID_DEFAULT_UNICAST_LOCATOR => {
-                            default_unicast_locator_list = seq.next_element()?;
+                            let kind: i32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let port: u32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let address: [u8; 16] = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            default_unicast_locator_list =
+                                Some(Vec::from([Locator::new(kind, port, address)]));
+                            eprintln!(
+                                ">>>>>>default_unicast_locator_list: {:?}",
+                                default_unicast_locator_list
+                            );
                         }
                         ParameterId::PID_DEFAULT_MULTICAST_LOCATOR => {
-                            default_multicast_locator_list = seq.next_element()?;
+                            let kind: i32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let port: u32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let address: [u8; 16] = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            default_multicast_locator_list =
+                                Some(Vec::from([Locator::new(kind, port, address)]));
+                            eprintln!(
+                                ">>>>>>default_multicast_locator_list: {:?}",
+                                default_multicast_locator_list
+                            );
                         }
                         ParameterId::PID_PARTICIPANT_MANUAL_LIVELINESS_COUNT => {
                             manual_liveliness_count = seq.next_element()?;
-                            println!("manual_liveliness_count: {:?}", manual_liveliness_count);
+                            eprintln!(
+                                ">>>>>>manual_liveliness_count: {:?}",
+                                manual_liveliness_count
+                            );
                         }
                         ParameterId::PID_PARTICIPANT_LEASE_DURATION => {
                             lease_duration = seq.next_element()?;
+                            eprintln!(">>>>>>lease_duration: {:?}", lease_duration);
                         }
                         ParameterId::PID_SENTINEL => {
                             break;
                         }
                         _ => unimplemented!(),
                     }
+                    eprintln!();
                 }
 
                 Ok(SDPBuiltinData::from(
@@ -560,11 +662,13 @@ mod test {
                 serialized += " ";
             }
         }
-        // println!("{}", serialized);
+        eprintln!("{}", serialized);
     }
 
     #[test]
     fn test_deserialize() {
+        // 現状エラーを吐かずにデシリアライズできるかしかtestできてない。
+        // TODO: デシリアライズしたdataとシリアライズ元のdataを比較
         let data = SPDPdiscoveredParticipantData::new(
             0,
             "hoge".to_string(),
@@ -589,10 +693,36 @@ mod test {
             Err(e) => panic!("neko~~~~~: failed deserialize\n{}", e),
         };
         let new_data = deseriarized.toSPDPdiscoverdParticipantData();
-        println!("domain_id: {}", new_data.domain_id);
-        println!("domain_tag: {}", new_data.domain_tag);
-        println!("protocol_version: {:?}", new_data.protocol_version);
-        println!("guid: {:?}", new_data.protocol_version);
-        println!("vendor_id: {:?}", new_data.vendor_id);
+        eprintln!("domain_id: {}", new_data.domain_id);
+        eprintln!("domain_tag: {}", new_data.domain_tag);
+        eprintln!("protocol_version: {:?}", new_data.protocol_version);
+        eprintln!("guid: {:?}", new_data.protocol_version);
+        eprintln!("vendor_id: {:?}", new_data.vendor_id);
+        eprintln!("expects_inline_qos: {:?}", new_data.expects_inline_qos);
+        eprintln!(
+            "available_builtin_endpoint: {:?}",
+            new_data.available_builtin_endpoint
+        );
+        eprintln!(
+            "metarraffic_unicast_locator_list: {:?}",
+            new_data.metarraffic_unicast_locator_list
+        );
+        eprintln!(
+            "metarraffic_multicast_locator_list: {:?}",
+            new_data.metarraffic_multicast_locator_list
+        );
+        eprintln!(
+            "default_unicast_locator_list: {:?}",
+            new_data.default_unicast_locator_list
+        );
+        eprintln!(
+            "default_multicast_locator_list: {:?}",
+            new_data.default_multicast_locator_list
+        );
+        eprintln!(
+            "manual_liveliness_count: {:?}",
+            new_data.manual_liveliness_count
+        );
+        eprintln!("lease_duration: {:?}", new_data.lease_duration);
     }
 }
