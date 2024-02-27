@@ -141,6 +141,15 @@ impl DomainParticipantInner {
             Ok(s) => s,
             Err(e) => panic!("{:?}", e),
         };
+        let usertraffic_multi_socket = new_multicast(
+            "0.0.0.0",
+            usertraffic_multicast_port(domain_id),
+            Ipv4Addr::new(239, 255, 0, 1),
+        );
+        let usertraffic_multi = match usertraffic_multi_socket {
+            Ok(s) => s,
+            Err(e) => panic!("{:?}", e),
+        };
 
         let mut participant_id = 0;
         let mut discovery_uni: Option<UdpSocket> = None;
@@ -151,13 +160,19 @@ impl DomainParticipantInner {
             }
         }
 
-        let discovery_uni = match discovery_uni {
-            Some(s) => s,
-            None => panic!("the max number of participant on same host on same domin is 127."),
-        };
+        let discovery_uni = discovery_uni
+            .expect("the max number of participant on same host on same domin is 127.");
+
+        let usertraffic_uni = new_unicast(
+            "0.0.0.0",
+            usertraffic_unicast_port(domain_id, participant_id),
+        )
+        .expect("the max number of participant on same host on same domin is 127.");
 
         socket_list.insert(DISCOVERY_UNI_TOKEN, discovery_multi);
         socket_list.insert(DISCOVERY_MULTI_TOKEN, discovery_uni);
+        socket_list.insert(USERTRAFFIC_UNI_TOKEN, usertraffic_uni);
+        socket_list.insert(USERTRAFFIC_MULTI_TOKEN, usertraffic_multi);
 
         let (add_writer_sender, add_writer_receiver) =
             mio_channel::sync_channel::<WriterIngredients>(10);

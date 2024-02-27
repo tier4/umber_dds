@@ -27,3 +27,5 @@ pub const DISCOVERY_UNI_TOKEN: Token = Token(PTB + 5);
 pub const DISCOVERY_MULTI_TOKEN: Token = Token(PTB + 6);
 pub const DISCOVERY_SEND_TOKEN: Token = Token(PTB + 7);
 pub const SPDP_SEND_TIMER: Token = Token(PTB + 8);
+pub const USERTRAFFIC_UNI_TOKEN: Token = Token(PTB + 9);
+pub const USERTRAFFIC_MULTI_TOKEN: Token = Token(PTB + 10);

@@ -95,6 +95,15 @@ impl EventLoop {
                                 &mut self.readers,
                             );
                         }
+                        USERTRAFFIC_MULTI_TOKEN | USERTRAFFIC_UNI_TOKEN => {
+                            let udp_sock = self.sockets.get_mut(&event.token()).unwrap();
+                            let packets = EventLoop::receiv_packet(udp_sock);
+                            self.message_receiver.handle_packet(
+                                packets,
+                                &mut self.writers,
+                                &mut self.readers,
+                            );
+                        }
                         ADD_WRITER_TOKEN => {
                             while let Ok(writer_ing) = self.add_writer_receiver.try_recv() {
                                 eprintln!("in ev_loop: entity_id: {:?}", writer_ing.guid);
