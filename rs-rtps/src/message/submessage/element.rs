@@ -13,7 +13,7 @@ pub mod nackfrag;
 
 use crate::structure::parameter_id::ParameterId;
 use byteorder::ReadBytesExt;
-use bytes::Bytes;
+use bytes::{BufMut, Bytes, BytesMut};
 use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
@@ -240,6 +240,9 @@ pub struct RepresentationIdentifier {
 }
 
 impl RepresentationIdentifier {
+    pub fn bytes(&self) -> [u8; 2] {
+        self.bytes
+    }
     // Numeric values are from RTPS spec v2.3 Section 10.5 , Table 10.3
     pub const CDR_BE: Self = Self {
         bytes: [0x00, 0x00],
@@ -303,6 +306,16 @@ impl SerializedPayload {
             representation_options,
             value,
         })
+    }
+
+    pub fn to_bytes(&self) -> Bytes {
+        let mut buf = BytesMut::with_capacity(self.value.len() + 4);
+        buf.put_u8(self.representation_identifier.bytes()[0]);
+        buf.put_u8(self.representation_identifier.bytes()[1]);
+        buf.put_u8(self.representation_options[0]);
+        buf.put_u8(self.representation_options[1]);
+        buf.put(&self.value[..]);
+        buf.freeze()
     }
 
     pub fn new_from_cdr_data<D: Serialize>(data: D, rep_id: RepresentationIdentifier) -> Self {
