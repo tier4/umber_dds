@@ -1,3 +1,7 @@
+use crate::discovery::structure::{
+    cdr::deserialize,
+    data::{SDPBuiltinData, SPDPdiscoveredParticipantData},
+};
 use crate::message::{
     submessage::{element::*, submessage_flag::*, *},
     *,
@@ -220,10 +224,56 @@ impl MessageReceiver {
         }
         let writer_guid = GUID::new(self.dest_guid_prefix, data.writer_id);
         let reader_guid = GUID::new(self.source_guid_prefix, data.reader_id);
+
+        // if msg is for SPDP
+        if data.writer_id == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER {
+            let mut deserialized = match deserialize::<SDPBuiltinData>(
+                &data.serialized_payload.as_ref().unwrap().to_bytes(),
+            ) {
+                Ok(d) => d,
+                Err(e) => panic!(
+                    "neko~~~~~: failed deserialize reseived spdp data message: {}",
+                    e
+                ),
+            };
+            let new_data = deserialized.toSPDPdiscoverdParticipantData();
+            eprintln!("domain_id: {}", new_data.domain_id);
+            eprintln!("domain_tag: {}", new_data.domain_tag);
+            eprintln!("protocol_version: {:?}", new_data.protocol_version);
+            eprintln!("guid: {:?}", new_data.guid);
+            eprintln!("vendor_id: {:?}", new_data.vendor_id);
+            eprintln!("expects_inline_qos: {:?}", new_data.expects_inline_qos);
+            eprintln!(
+                "available_builtin_endpoint: {:?}",
+                new_data.available_builtin_endpoint
+            );
+            eprintln!(
+                "metarraffic_unicast_locator_list: {:?}",
+                new_data.metarraffic_unicast_locator_list
+            );
+            eprintln!(
+                "metarraffic_multicast_locator_list: {:?}",
+                new_data.metarraffic_multicast_locator_list
+            );
+            eprintln!(
+                "default_unicast_locator_list: {:?}",
+                new_data.default_unicast_locator_list
+            );
+            eprintln!(
+                "default_multicast_locator_list: {:?}",
+                new_data.default_multicast_locator_list
+            );
+            eprintln!(
+                "manual_liveliness_count: {:?}",
+                new_data.manual_liveliness_count
+            );
+            eprintln!("lease_duration: {:?}", new_data.lease_duration);
+        }
         let cache_data = match data.serialized_payload {
             Some(s) => Some(CacheData::new(s.value)),
             None => None,
         };
+
         let change = CacheChange::new(
             ChangeKind::Alive,
             writer_guid,
