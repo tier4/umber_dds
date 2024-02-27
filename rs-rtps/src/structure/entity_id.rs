@@ -50,6 +50,14 @@ impl EntityId {
         }
     }
 
+    pub fn entity_kind(&self) -> EntityKind {
+        self.entity_kind
+    }
+
+    pub fn entity_key(&self) -> [u8; 3] {
+        self.entity_key
+    }
+
     pub const UNKNOW: Self = Self {
         entity_key: [0x00; 3],
         entity_kind: EntityKind::UNKNOW_USER_DEFIND,
