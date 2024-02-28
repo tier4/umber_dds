@@ -12,6 +12,9 @@ use crate::message::{
     message_header::ProtocolVersion,
     submessage::element::{Count, Locator},
 };
+use crate::network::net_util::{
+    spdp_multicast_port, spdp_unicast_port, usertraffic_multicast_port, usertraffic_unicast_port,
+};
 use crate::structure::{
     entity::RTPSEntity, entity_id::EntityId, topic_kind::TopicKind, vendor_id::VendorId,
 };
@@ -76,6 +79,8 @@ impl Discovery {
 
     pub fn discovery_loop(&mut self) {
         let mut events = Events::with_capacity(1024);
+        let domain_id = self.dp.domain_id();
+        let participant_id = self.dp.participant_id();
         // This data is for test
         let data = SPDPdiscoveredParticipantData::new(
             self.dp.domain_id(),
@@ -85,10 +90,12 @@ impl Discovery {
             VendorId::THIS_IMPLEMENTATION,
             false,
             0x18000c3f,
-            Vec::from([Locator::new_from_ipv4(7410, [192, 168, 208, 3])]),
-            Vec::from([Locator::new_from_ipv4(7400, [192, 168, 208, 3])]),
-            Vec::from([Locator::new_from_ipv4(7411, [192, 168, 208, 3])]),
-            Vec::from([Locator::new_from_ipv4(7400, [192, 168, 208, 3])]),
+            Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
+            Locator::new_list_from_self_ipv4(spdp_multicast_port(domain_id) as u32),
+            Locator::new_list_from_self_ipv4(
+                usertraffic_unicast_port(domain_id, participant_id) as u32
+            ),
+            Locator::new_list_from_self_ipv4(usertraffic_multicast_port(domain_id) as u32),
             0,
             crate::structure::duration::Duration::new(20, 0),
         );
