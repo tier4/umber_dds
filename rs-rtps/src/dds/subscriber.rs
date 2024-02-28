@@ -30,6 +30,15 @@ impl Subscriber {
     pub fn create_datareader<D: Serialize>(&self, qos: QosPolicies, topic: Topic) -> DataReader<D> {
         self.inner.create_datareader(qos, topic, self.clone())
     }
+    pub fn create_datareader_with_entityid<D: Serialize>(
+        &self,
+        qos: QosPolicies,
+        topic: Topic,
+        entity_id: EntityId,
+    ) -> DataReader<D> {
+        self.inner
+            .create_datareader_with_entityid(qos, topic, self.clone(), entity_id)
+    }
 }
 
 struct InnerSubscriber {
@@ -81,6 +90,22 @@ impl InnerSubscriber {
                     EntityKind::READER_WITH_KEY_USER_DEFIND,
                 ),
             ),
+            rhc: history_cache.clone(),
+        };
+        self.add_reader_sender.send(reader_ing).unwrap();
+        DataReader::<D>::new(qos, topic, subscriber, history_cache)
+    }
+
+    pub fn create_datareader_with_entityid<D: Serialize>(
+        &self,
+        qos: QosPolicies,
+        topic: Topic,
+        subscriber: Subscriber,
+        entity_id: EntityId,
+    ) -> DataReader<D> {
+        let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
+        let reader_ing = ReaderIngredients {
+            guid: GUID::new(self.dp.guid_prefix(), entity_id),
             rhc: history_cache.clone(),
         };
         self.add_reader_sender.send(reader_ing).unwrap();

@@ -1,8 +1,10 @@
 use crate::dds::{
+    datareader::DataReader,
     datawriter::DataWriter,
     participant::DomainParticipant,
     publisher::Publisher,
     qos::{QosBuilder, QosPolicies},
+    subscriber::Subscriber,
     tokens::*,
     topic::Topic,
     typedesc::TypeDesc,
@@ -40,7 +42,9 @@ pub struct Discovery {
     dp: DomainParticipant,
     poll: Poll,
     publisher: Publisher,
+    subscriber: Subscriber,
     spdp_builtin_participant_writer: DataWriter<SPDPdiscoveredParticipantData>,
+    spdp_builtin_participant_reader: DataReader<SPDPdiscoveredParticipantData>,
     spdp_send_timer: Timer<()>,
 }
 
@@ -49,16 +53,26 @@ impl Discovery {
         let poll = Poll::new().unwrap();
         let qos = QosBuilder::new().build();
         let publisher = dp.create_publisher(qos);
-        let topic = Topic::new(
+        let subscriber = dp.create_subscriber(qos);
+        let spdp_topic = Topic::new(
             "DCPSParticipant".to_string(),
             TypeDesc::new("SPDPDiscoveredParticipantData".to_string()),
             dp.clone(),
             qos,
             TopicKind::WithKey,
         );
-        let entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER;
-        let spdp_builtin_participant_writer =
-            publisher.create_datawriter_with_entityid(qos, topic, entity_id);
+        let spdp_writer_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER;
+        let spdp_reader_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR;
+        let spdp_builtin_participant_writer = publisher.create_datawriter_with_entityid(
+            qos,
+            spdp_topic.clone(),
+            spdp_writer_entity_id,
+        );
+        let spdp_builtin_participant_reader = subscriber.create_datareader_with_entityid(
+            qos,
+            spdp_topic.clone(),
+            spdp_reader_entity_id,
+        );
         let mut spdp_send_timer: Timer<()> = Timer::default();
         spdp_send_timer.set_timeout(Duration::new(3, 0), ());
         poll.register(
@@ -72,7 +86,9 @@ impl Discovery {
             dp,
             poll,
             publisher,
+            subscriber,
             spdp_builtin_participant_writer,
+            spdp_builtin_participant_reader,
             spdp_send_timer,
         }
     }
