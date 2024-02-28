@@ -72,6 +72,9 @@ impl DomainParticipant {
     pub fn domain_id(&self) -> u16 {
         self.inner.lock().unwrap().domain_id()
     }
+    pub fn participant_id(&self) -> u16 {
+        self.inner.lock().unwrap().participant_id()
+    }
     pub fn gen_entity_key(&self) -> [u8; 3] {
         self.inner.lock().unwrap().gen_entity_key()
     }
@@ -100,6 +103,9 @@ impl DomainParticipantDisc {
     }
     pub fn domain_id(&self) -> u16 {
         self.inner.domain_id
+    }
+    pub fn participant_id(&self) -> u16 {
+        self.inner.participant_id
     }
     pub fn gen_entity_key(&self) -> [u8; 3] {
         self.inner.gen_entity_key()
