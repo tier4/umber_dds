@@ -179,8 +179,10 @@ impl DomainParticipantInner {
         let (add_reader_sender, add_reader_receiver) =
             mio_channel::sync_channel::<ReaderIngredients>(10);
 
+        let my_guid = GUID::new_participant_guid();
+
         let new_thread = thread::spawn(move || {
-            let guid_prefix = GuidPrefix::new();
+            let guid_prefix = my_guid.guid_prefix;
             let ev_loop = EventLoop::new(
                 socket_list,
                 guid_prefix,
@@ -189,8 +191,6 @@ impl DomainParticipantInner {
             );
             ev_loop.event_loop();
         });
-
-        let my_guid = GUID::new_participant_guid();
 
         Self {
             domain_id,
