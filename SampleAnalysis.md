@@ -578,6 +578,28 @@ HEARTBEATの中身に特に意味のあるデータはなさそう
 このDATA(r)の中身を見た感じ、Topic nameとかが入ってるからSEDPのパケットっぽい
 RTPS 2.3 specの8.5.4.2 The built-in Endpoints used by the Simple Endpoint Discovery Protocol図をみると、BUILTIN_PUBLICATIONS_WRITER, BUILTIN_SUBSCRIPTIONS_WRITERはSEDPのためのエンドポイントで間違いなさそう。
 
+## IpV4アドレスを持つインターフェースが複数ある状況でSPDPメッセージのLOCATOR
+LocatorListのCDRエンコーディングはrtpsの仕様書で以下のように示されている。
+```
+rtps spec 2.4, 9.4.2.10 LocatorList
+
+LocatorList:
+0...2...........8...............16.............24.
+............................................................... 31
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                     unsigned long numLocators                 |
++---------------+---------------+---------------+---------------+
+|                        Locator_t locator_1                    |
+~                               ...                             ~
+|                       Locator_t locator_numLocators           |
++---------------+---------------+---------------+---------------+
+```
+しかし、パケットキャプチャでLocatorのエンコード形式を確認すると、`unsigned long numLocators`の行が存在しない。
+そこで、IpV4アドレスを持つインターフェースが複数ある状況でSPDPメッセージの{METATRSAFFIC/DEFAULT}_{MULTICAST/UNICAST}_LOCATORがどうなっているかを調査した。
+RustDDSのLocatorListのシリアライザの実装(RustDDS/src/serialization/builtin_data_serializer.rs)はLocatorListの要素数が2以上の場合、以下のパケットキャプチャのよ
+以下のフォーマットでエンコードするようになっている。
+![Screenshot from 2024-02-28 14-10-52](https://github.com/tier4/T4RustDDS/assets/58660268/4967bda1-bfdd-4967-bce9-7c99b6d109e9)
+
 ## SPDPとSEDP
 SPDPの情報はDiscovery Moduleのdiscovery_dbに、SEDPの情報は各Writerのreader_proxyで管理される
 (StatefullなwriterはSEDPの情報を各Writerのreader_proxyで管理するが、StatelessなWriterでは、ReaderLocatorで管理される)

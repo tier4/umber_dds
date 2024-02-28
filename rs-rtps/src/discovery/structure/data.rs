@@ -229,10 +229,10 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                 let mut vendor_id: Option<VendorId> = None;
                 let mut expects_inline_qos: Option<bool> = None;
                 let mut available_builtin_endpoint: Option<u32> = None;
-                let mut metarraffic_unicast_locator_list: Option<Vec<Locator>> = None;
-                let mut metarraffic_multicast_locator_list: Option<Vec<Locator>> = None;
-                let mut default_unicast_locator_list: Option<Vec<Locator>> = None;
-                let mut default_multicast_locator_list: Option<Vec<Locator>> = None;
+                let mut metarraffic_unicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
+                let mut metarraffic_multicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
+                let mut default_unicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
+                let mut default_multicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
                 let mut manual_liveliness_count: Option<Count> = None;
                 let mut lease_duration: Option<Duration> = None;
 
@@ -296,7 +296,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             |                       Locator_t locator_numLocators           |
                             +---------------+---------------+---------------+---------------+
 
-                            実際のDDS実装(CycloneDDS [RTPS 2.1], RustDDS [RTPS 2.3])において、
+                            実際のDDS実装(FastDDS [RTPS 2.1], RustDDS [RTPS 2.3])において、
                             locatorが1つしか含まれない場合のLocatorListのencodingは以下のようになっている。
                             LocatorList:
                             0...2...........8...............16.............24.
@@ -305,23 +305,10 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             +---------------+---------------+---------------+---------------+
                             |                        Locator_t locator_1                    |
                             +---------------+---------------+---------------+---------------+
-                            この実装はLocatorListの要素数は常に1で後者のフォーマットでencodeされている
-                            と仮定している。
-                            // TODO: LocatorListの要素数が1以外のとき、実際の実装ででのようなフォーマット
-                            // でencodeされているか調査し、LocatorListの要素数が1以外の場合も対応できる
-                            // ように実装する。
-                            RustDDSのソースを調査したところ、LocatorListの要素が複数の場合以下のフォーマット
-                            でencodeするようになってた。
-                            LocatorList:
-                            0...2...........8...............16.............24.
-                            ............................................................... 31
-                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                            |                        Locator_t locator_1                    |
-                            ~                               ...                             ~
-                            |                       Locator_t locator_numLocators           |
-                            +---------------+---------------+---------------+---------------+
-                            ただし、LocatorListをシリアライズしてるソースコードのコメントに
-                            "TODO: make sure this works with multiple locators"とあった。
+                            また、同実装において、LocatorListにLocatorが複数含まれる場合、
+                            1つのLocatorに対し、1つのLocatorをエンコードし、SerializedPayloadに
+                            複数の*_*_LOCATORが含まれるようにエンコードされている。
+
                         */
                         ParameterId::PID_METATRAFFIC_UNICAST_LOCATOR => {
                             let kind: i32 = seq
@@ -333,8 +320,12 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             let address: [u8; 16] = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            metarraffic_unicast_locator_list =
-                                Some(Vec::from([Locator::new(kind, port, address)]));
+                            match &mut metarraffic_unicast_locator_list {
+                                Some(v) => {
+                                    v.push(Locator::new(kind, port, address));
+                                }
+                                None => unreachable!(),
+                            }
                             eprintln!(
                                 ">>>>>>metarraffic_unicast_locator_list: {:?}",
                                 metarraffic_unicast_locator_list
@@ -350,8 +341,12 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             let address: [u8; 16] = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            metarraffic_multicast_locator_list =
-                                Some(Vec::from([Locator::new(kind, port, address)]));
+                            match &mut metarraffic_multicast_locator_list {
+                                Some(v) => {
+                                    v.push(Locator::new(kind, port, address));
+                                }
+                                None => unreachable!(),
+                            }
                             eprintln!(
                                 ">>>>>>metarraffic_multicast_locator_list: {:?}",
                                 metarraffic_multicast_locator_list
@@ -367,8 +362,12 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             let address: [u8; 16] = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            default_unicast_locator_list =
-                                Some(Vec::from([Locator::new(kind, port, address)]));
+                            match &mut default_unicast_locator_list {
+                                Some(v) => {
+                                    v.push(Locator::new(kind, port, address));
+                                }
+                                None => unreachable!(),
+                            }
                             eprintln!(
                                 ">>>>>>default_unicast_locator_list: {:?}",
                                 default_unicast_locator_list
@@ -384,8 +383,12 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             let address: [u8; 16] = seq
                                 .next_element()?
                                 .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            default_multicast_locator_list =
-                                Some(Vec::from([Locator::new(kind, port, address)]));
+                            match &mut default_multicast_locator_list {
+                                Some(v) => {
+                                    v.push(Locator::new(kind, port, address));
+                                }
+                                None => unreachable!(),
+                            }
                             eprintln!(
                                 ">>>>>>default_multicast_locator_list: {:?}",
                                 default_multicast_locator_list
@@ -536,56 +539,50 @@ impl Serialize for SPDPdiscoveredParticipantData {
         s.serialize_field("guid", &self.guid)?;
 
         // metarraffic_unicast_locator_list
-        s.serialize_field(
-            "parameterId",
-            &ParameterId::PID_METATRAFFIC_UNICAST_LOCATOR.value,
-        )?;
-        s.serialize_field::<u16>("parameterLength", &24)?;
-        // TODO: LocatorListの長さが1以外の場合に対応
-        assert_eq!(self.metarraffic_unicast_locator_list.len(), 1);
-        s.serialize_field(
-            "metarraffic_unicast_locator_list",
-            &self.metarraffic_unicast_locator_list[0],
-        )?;
+        for metarraffic_unicast_locator in &self.metarraffic_unicast_locator_list {
+            s.serialize_field(
+                "parameterId",
+                &ParameterId::PID_METATRAFFIC_UNICAST_LOCATOR.value,
+            )?;
+            s.serialize_field::<u16>("parameterLength", &24)?;
+            s.serialize_field(
+                "metarraffic_unicast_locator_list",
+                metarraffic_unicast_locator,
+            )?;
+        }
 
         // metarraffic_multicast_locator_list
-        s.serialize_field(
-            "parameterId",
-            &ParameterId::PID_METATRAFFIC_MULTICAST_LOCATOR.value,
-        )?;
-        s.serialize_field::<u16>("parameterLength", &24)?;
-        // TODO: LocatorListの長さが1以外の場合に対応
-        assert_eq!(self.metarraffic_multicast_locator_list.len(), 1);
-        s.serialize_field(
-            "metarraffic_multicast_locator_list",
-            &self.metarraffic_multicast_locator_list[0],
-        )?;
+        for metarraffic_multicast_locator in &self.metarraffic_multicast_locator_list {
+            s.serialize_field(
+                "parameterId",
+                &ParameterId::PID_METATRAFFIC_MULTICAST_LOCATOR.value,
+            )?;
+            s.serialize_field::<u16>("parameterLength", &24)?;
+            s.serialize_field(
+                "metarraffic_multicast_locator_list",
+                metarraffic_multicast_locator,
+            )?;
+        }
 
         // default_unicast_locator_list
-        s.serialize_field(
-            "parameterId",
-            &ParameterId::PID_DEFAULT_UNICAST_LOCATOR.value,
-        )?;
-        s.serialize_field::<u16>("parameterLength", &24)?;
-        // TODO: LocatorListの長さが1以外の場合に対応
-        assert_eq!(self.default_unicast_locator_list.len(), 1);
-        s.serialize_field(
-            "default_unicast_locator_list",
-            &self.default_unicast_locator_list[0],
-        )?;
+        for default_unicast_locator in &self.default_unicast_locator_list {
+            s.serialize_field(
+                "parameterId",
+                &ParameterId::PID_DEFAULT_UNICAST_LOCATOR.value,
+            )?;
+            s.serialize_field::<u16>("parameterLength", &24)?;
+            s.serialize_field("default_unicast_locator_list", default_unicast_locator)?;
+        }
 
         // default_multicast_locator_list
-        s.serialize_field(
-            "parameterId",
-            &ParameterId::PID_DEFAULT_MULTICAST_LOCATOR.value,
-        )?;
-        s.serialize_field::<u16>("parameterLength", &24)?;
-        // TODO: LocatorListの長さが1以外の場合に対応
-        assert_eq!(self.default_multicast_locator_list.len(), 1);
-        s.serialize_field(
-            "default_multicast_locator_list",
-            &self.default_multicast_locator_list[0],
-        )?;
+        for default_multicast_locator in &self.default_multicast_locator_list {
+            s.serialize_field(
+                "parameterId",
+                &ParameterId::PID_DEFAULT_MULTICAST_LOCATOR.value,
+            )?;
+            s.serialize_field::<u16>("parameterLength", &24)?;
+            s.serialize_field("default_multicast_locator_list", default_multicast_locator)?;
+        }
 
         // available_builtin_endpoint
         s.serialize_field("parameterId", &ParameterId::PID_BUILTIN_ENDPOINT_SET.value)?;
