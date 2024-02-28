@@ -78,6 +78,15 @@ impl MessageReceiver {
                     return;
                 }
             };
+            if rtps_message.header.guid_prefix == self.own_guid_prefix {
+                eprintln!("*****  RTPS message form self. *****");
+                return;
+            }
+            eprintln!("self.own_guid_prefix: {:?}", self.own_guid_prefix);
+            eprintln!(
+                "*****  RTPS message form {:?}. *****",
+                rtps_message.header.guid_prefix
+            );
             self.handle_parsed_packet(rtps_message, &mut writers, &mut readers);
         }
     }
