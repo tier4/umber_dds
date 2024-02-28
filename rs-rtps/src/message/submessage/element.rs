@@ -11,6 +11,7 @@ pub mod infosrc;
 pub mod infots;
 pub mod nackfrag;
 
+use crate::network::net_util::get_local_interfaces;
 use crate::structure::parameter_id::ParameterId;
 use byteorder::ReadBytesExt;
 use bytes::{BufMut, Bytes, BytesMut};
@@ -18,6 +19,7 @@ use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
 use std::io;
+use std::net::IpAddr;
 use std::ops::{Add, AddAssign};
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
@@ -218,6 +220,32 @@ impl Locator {
             port,
             address,
         }
+    }
+
+    pub fn new_list_from_self_ipv4(port: u32) -> Vec<Self> {
+        let addrs = get_local_interfaces();
+        let mut address = [0; 4];
+        let mut locators = Vec::new();
+        for a in addrs {
+            match a {
+                IpAddr::V4(v4a) => {
+                    address = v4a.octets();
+                    println!("self ipv4: {:?}", address);
+                    assert_ne!([0; 4], address);
+
+                    let mut addr: [u8; 16] = [0; 16];
+                    addr[..12].copy_from_slice(&[0; 12]);
+                    addr[12..].copy_from_slice(&address);
+                    locators.push(Locator {
+                        kind: Self::KIND_UDPV4,
+                        port,
+                        address: addr,
+                    });
+                }
+                IpAddr::V6(_v6a) => (),
+            }
+        }
+        locators
     }
 
     pub fn new_from_ipv4(port: u32, address: [u8; 4]) -> Self {
