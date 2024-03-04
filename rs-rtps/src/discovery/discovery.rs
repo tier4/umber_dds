@@ -9,7 +9,10 @@ use crate::dds::{
     topic::Topic,
     typedesc::TypeDesc,
 };
-use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
+use crate::discovery::structure::data::{
+    BuiltinEndpoint, PublicationBuiltinTopicData, SPDPdiscoveredParticipantData,
+    SubscriptionBuiltinTopicData,
+};
 use crate::message::{
     message_header::ProtocolVersion,
     submessage::element::{Count, Locator},
@@ -20,6 +23,7 @@ use crate::network::net_util::{
 use crate::structure::{
     entity::RTPSEntity, entity_id::EntityId, topic_kind::TopicKind, vendor_id::VendorId,
 };
+use enumflags2::make_bitflags;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
@@ -105,7 +109,7 @@ impl Discovery {
             self.dp.guid(),
             VendorId::THIS_IMPLEMENTATION,
             false,
-            0x18000c3f,
+            make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER}),
             Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
             Locator::new_list_from_self_ipv4(spdp_multicast_port(domain_id) as u32),
             Locator::new_list_from_self_ipv4(
