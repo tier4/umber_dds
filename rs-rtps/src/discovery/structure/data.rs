@@ -478,6 +478,16 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
 }
 
 #[derive(Clone)]
+pub struct SubscriptionBuiltinTopicData {
+    // TODO
+}
+
+#[derive(Clone)]
+pub struct PublicationBuiltinTopicData {
+    // TODO
+}
+
+#[derive(Clone)]
 pub struct SPDPdiscoveredParticipantData {
     pub domain_id: u16,
     pub domain_tag: String,
