@@ -1,3 +1,4 @@
+use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator, Parameter};
 use crate::structure::duration::Duration;
@@ -11,62 +12,6 @@ use enumflags2::{bitflags, make_bitflags, BitFlags};
 use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::fmt;
-
-#[allow(non_camel_case_types)]
-#[derive(Clone, Copy, Debug)]
-#[bitflags]
-#[repr(u32)]
-pub enum BuiltinEndpoint {
-    DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER = 0x01 << 0,
-    DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR = 0x01 << 1,
-    DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER = 0x01 << 2,
-    DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR = 0x01 << 3,
-    DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER = 0x01 << 4,
-    DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR = 0x01 << 5,
-    /*
-     * RTPS spec 2.3
-     * 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
-     * The following have been deprecated in version 2.4 of the specification.
-     * These bits should not be used by versions of the protocol equal to or
-     * newer than the deprecated version unless they are used with the same meaning
-     * as in versions prior to the deprecated version.
-     */
-    DISC_BUILTIN_ENDPOINT_PARTICIPANT_PROXY_ANNOUNCER = 0x01 << 6,
-    DISC_BUILTIN_ENDPOINT_PARTICIPANT_PROXY_DETECTOR = 0x01 << 7,
-    DISC_BUILTIN_ENDPOINT_PARTICIPANT_STATE_ANNOUNCER = 0x01 << 8,
-    DISC_BUILTIN_ENDPOINT_PARTICIPANT_STATE_DETECTOR = 0x01 << 9,
-
-    BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER = 0x01 << 10,
-    BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER = 0x01 << 11,
-    /*
-     * Bits 12-15 have been reserved by the DDS-Xtypes 1.2 Specification
-     * and future revisions thereof.
-     */
-    TypeLookupServiceRequestDataWriter = 0x01 << 12,
-    TypeLookupServiceRequestDataReader = 0x01 << 13,
-    TypeLookupServiceReplyDataWriter = 0x01 << 14,
-    TypeLookupServiceReplyDataReader = 0x01 << 15,
-
-    /*
-     * Bits 16-27 have been reserved by the DDS-Security 1.1 Specification
-     * and future revisions thereof.
-     */
-    SEDPbuiltinPublicationsSecureWriter = 0x01 << 16,
-    SEDPbuiltinPublicationsSecureReader = 0x01 << 17,
-    SEDPbuiltinSubscriptionsSecureWriter = 0x01 << 18,
-    SEDPbuiltinSubscriptionsSecureReader = 0x01 << 19,
-    BuiltinParticipantMessageSecureWriter = 0x01 << 20,
-    BuiltinParticipantMessageSecureReader = 0x01 << 21,
-    BuiltinParticipantStatelessMessageWriter = 0x01 << 22,
-    BuiltinParticipantStatelessMessageReader = 0x01 << 23,
-    BuiltinParticipantVolatileMessageSecureWriter = 0x01 << 24,
-    BuiltinParticipantVolatileMessageSecureReader = 0x01 << 25,
-    SPDPbuiltinParticipantSecureWriter = 0x01 << 26,
-    SPDPbuiltinParticipantSecureReader = 0x01 << 27,
-
-    DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER = 0x01 << 28,
-    DISC_BUILTIN_ENDPOINT_TOPICS_DETECTOR = 0x01 << 29,
-}
 
 #[derive(Clone, Default)]
 pub struct SDPBuiltinData {
@@ -320,6 +265,33 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                 let mut multicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
                 let mut data_max_size_serialized: Option<i32> = None;
 
+                macro_rules! read_pad {
+                    ($type:ty) => {{
+                        let _pad: $type = seq
+                            .next_element()?
+                            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                        assert_eq!(_pad, 0);
+                    }};
+                }
+                macro_rules! read_locator_list {
+                    ($ll:ident) => {{
+                        let kind: i32 = seq
+                            .next_element()?
+                            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                        let port: u32 = seq
+                            .next_element()?
+                            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                        let address: [u8; 16] = seq
+                            .next_element()?
+                            .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                        match &mut $ll {
+                            Some(v) => {
+                                v.push(Locator::new(kind, port, address));
+                            }
+                            None => unreachable!(),
+                        }
+                    }};
+                }
                 loop {
                     let pid: u16 = seq
                         .next_element()?
@@ -334,10 +306,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         ParameterId::PID_DOMAIN_ID => {
                             domain_id = seq.next_element()?;
                             eprintln!(">>>>>>domain_id: {:?}", domain_id);
-                            let _pad: u16 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            assert_eq!(_pad, 0);
+                            read_pad!(u16);
                         }
                         ParameterId::PID_DOMAIN_TAG => {
                             domain_tag = seq.next_element()?;
@@ -346,10 +315,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         ParameterId::PID_PROTOCOL_VERSION => {
                             protocol_version = seq.next_element()?;
                             eprintln!(">>>>>>protocol_version: {:?}", protocol_version);
-                            let _pad: u16 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            assert_eq!(_pad, 0);
+                            read_pad!(u16);
                         }
                         ParameterId::PID_PARTICIPANT_GUID => {
                             guid = seq.next_element()?;
@@ -358,18 +324,12 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         ParameterId::PID_VENDOR_ID => {
                             vendor_id = seq.next_element()?;
                             eprintln!(">>>>>>vendor_id: {:?}", vendor_id);
-                            let _pad: u16 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            assert_eq!(_pad, 0);
+                            read_pad!(u16);
                         }
                         ParameterId::PID_EXPECTS_INLINE_QOS => {
                             expects_inline_qos = seq.next_element()?;
                             eprintln!(">>>>>>expects_inline_qos: {:?}", expects_inline_qos);
-                            let _pad: u16 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            assert_eq!(_pad, 0);
+                            read_pad!(u16);
                         }
                         ParameterId::PID_BUILTIN_ENDPOINT_SET => {
                             available_builtin_endpoint = seq.next_element()?;
@@ -407,84 +367,28 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
 
                         */
                         ParameterId::PID_METATRAFFIC_UNICAST_LOCATOR => {
-                            let kind: i32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let port: u32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let address: [u8; 16] = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            match &mut metarraffic_unicast_locator_list {
-                                Some(v) => {
-                                    v.push(Locator::new(kind, port, address));
-                                }
-                                None => unreachable!(),
-                            }
+                            read_locator_list!(metarraffic_unicast_locator_list);
                             eprintln!(
                                 ">>>>>>metarraffic_unicast_locator_list: {:?}",
                                 metarraffic_unicast_locator_list
                             );
                         }
                         ParameterId::PID_METATRAFFIC_MULTICAST_LOCATOR => {
-                            let kind: i32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let port: u32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let address: [u8; 16] = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            match &mut metarraffic_multicast_locator_list {
-                                Some(v) => {
-                                    v.push(Locator::new(kind, port, address));
-                                }
-                                None => unreachable!(),
-                            }
+                            read_locator_list!(metarraffic_multicast_locator_list);
                             eprintln!(
                                 ">>>>>>metarraffic_multicast_locator_list: {:?}",
                                 metarraffic_multicast_locator_list
                             );
                         }
                         ParameterId::PID_DEFAULT_UNICAST_LOCATOR => {
-                            let kind: i32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let port: u32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let address: [u8; 16] = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            match &mut default_unicast_locator_list {
-                                Some(v) => {
-                                    v.push(Locator::new(kind, port, address));
-                                }
-                                None => unreachable!(),
-                            }
+                            read_locator_list!(default_unicast_locator_list);
                             eprintln!(
                                 ">>>>>>default_unicast_locator_list: {:?}",
                                 default_unicast_locator_list
                             );
                         }
                         ParameterId::PID_DEFAULT_MULTICAST_LOCATOR => {
-                            let kind: i32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let port: u32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let address: [u8; 16] = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            match &mut default_multicast_locator_list {
-                                Some(v) => {
-                                    v.push(Locator::new(kind, port, address));
-                                }
-                                None => unreachable!(),
-                            }
+                            read_locator_list!(default_multicast_locator_list);
                             eprintln!(
                                 ">>>>>>default_multicast_locator_list: {:?}",
                                 default_multicast_locator_list
@@ -506,39 +410,11 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             eprintln!(">>>>>>remote_guid: {:?}", remote_guid);
                         }
                         ParameterId::PID_UNICAST_LOCATOR => {
-                            let kind: i32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let port: u32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let address: [u8; 16] = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            match &mut unicast_locator_list {
-                                Some(v) => {
-                                    v.push(Locator::new(kind, port, address));
-                                }
-                                None => unreachable!(),
-                            }
+                            read_locator_list!(unicast_locator_list);
                             eprintln!(">>>>>>unicast_locator_list: {:?}", unicast_locator_list);
                         }
                         ParameterId::PID_MULTICAST_LOCATOR => {
-                            let kind: i32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let port: u32 = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            let address: [u8; 16] = seq
-                                .next_element()?
-                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                            match &mut multicast_locator_list {
-                                Some(v) => {
-                                    v.push(Locator::new(kind, port, address));
-                                }
-                                None => unreachable!(),
-                            }
+                            read_locator_list!(multicast_locator_list);
                             eprintln!(">>>>>>multicast_locator_list: {:?}", multicast_locator_list);
                         }
                         ParameterId::PID_TYPE_MAX_SIZE_SERIALIZED => {

@@ -9,9 +9,9 @@ use crate::dds::{
     topic::Topic,
     typedesc::TypeDesc,
 };
+use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
-    BuiltinEndpoint, PublicationBuiltinTopicData, SPDPdiscoveredParticipantData,
-    SubscriptionBuiltinTopicData,
+    PublicationBuiltinTopicData, SPDPdiscoveredParticipantData, SubscriptionBuiltinTopicData,
 };
 use crate::message::{
     message_header::ProtocolVersion,
