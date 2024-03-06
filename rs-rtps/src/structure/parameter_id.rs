@@ -14,6 +14,7 @@ impl ParameterId {
     pub const PID_USER_DATA: Self = Self { value: 0x002c };
     pub const PID_TOPIC_NAME: Self = Self { value: 0x0005 };
     pub const PID_TYPE_NAME: Self = Self { value: 0x0007 };
+    pub const PID_DOMAIN_ID: Self = Self { value: 0x000f };
     pub const PID_GROUP_DATA: Self = Self { value: 0x002d };
     pub const PID_TOPIC_DATA: Self = Self { value: 0x002e };
     pub const PID_DURABILITY: Self = Self { value: 0x001d };
@@ -63,6 +64,7 @@ impl ParameterId {
     pub const PID_ENTITY_NAME: Self = Self { value: 0x0062 };
     pub const PID_KEY_HASH: Self = Self { value: 0x0070 };
     pub const PID_STATUS_INFO: Self = Self { value: 0x0071 };
+    pub const PID_DOMAIN_TAG: Self = Self { value: 0x4014 };
 
     // From Specification "Remote Procedure Calls over DDS v1.0"
     // Section 7.6.2.1.1 Extended PublicationBuiltin TopicData and

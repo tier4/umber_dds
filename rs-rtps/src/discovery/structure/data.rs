@@ -4,6 +4,7 @@ use crate::structure::duration::Duration;
 use crate::structure::{
     guid::{GuidPrefix, GUID},
     parameter_id::ParameterId,
+    proxy::{ReaderProxy, WriterProxy},
     vendor_id::VendorId,
 };
 use enumflags2::{bitflags, make_bitflags, BitFlags};
@@ -69,6 +70,7 @@ pub enum BuiltinEndpoint {
 
 #[derive(Clone, Default)]
 pub struct SDPBuiltinData {
+    // SPDPdiscoveredParticipantData
     pub domain_id: Option<u16>,
     pub domain_tag: Option<String>,
     pub protocol_version: Option<ProtocolVersion>,
@@ -82,6 +84,16 @@ pub struct SDPBuiltinData {
     pub default_unicast_locator_list: Option<Vec<Locator>>,
     pub manual_liveliness_count: Option<Count>,
     pub lease_duration: Option<Duration>,
+
+    // {Reader/Writer}Proxy
+    pub remote_guid: Option<GUID>,
+    pub unicast_locator_list: Option<Vec<Locator>>,
+    pub multicast_locator_list: Option<Vec<Locator>>,
+    // expects_inline_qos // only ReaderProxy
+    pub data_max_size_serialized: Option<i32>, // only ReaderProxy
+
+                                               // SubscriptionBuiltinTopicData
+                                               // PublicationBuiltinTopicData
 }
 
 impl SDPBuiltinData {
@@ -103,6 +115,10 @@ impl SDPBuiltinData {
         default_multicast_locator_list: Option<Vec<Locator>>,
         manual_liveliness_count: Option<Count>,
         lease_duration: Option<Duration>,
+        remote_guid: Option<GUID>,
+        unicast_locator_list: Option<Vec<Locator>>,
+        multicast_locator_list: Option<Vec<Locator>>,
+        data_max_size_serialized: Option<i32>,
     ) -> Self {
         Self {
             domain_id,
@@ -118,6 +134,10 @@ impl SDPBuiltinData {
             default_multicast_locator_list,
             manual_liveliness_count,
             lease_duration,
+            remote_guid,
+            unicast_locator_list,
+            multicast_locator_list,
+            data_max_size_serialized,
         }
     }
 
@@ -154,6 +174,37 @@ impl SDPBuiltinData {
             lease_duration,
         }
     }
+
+    fn toReaderProxy(&mut self) -> ReaderProxy {
+        let remote_guid = self.remote_guid.unwrap();
+        let expects_inline_qos = self.expects_inline_qos.unwrap();
+        let unicast_locator_list = self.unicast_locator_list.take().unwrap();
+        let multicast_locator_list = self.multicast_locator_list.take().unwrap();
+        ReaderProxy::new(
+            remote_guid,
+            expects_inline_qos,
+            unicast_locator_list,
+            multicast_locator_list,
+        )
+    }
+
+    fn toWriterProxy(&mut self) -> WriterProxy {
+        let remote_guid = self.remote_guid.unwrap();
+        let unicast_locator_list = self.unicast_locator_list.take().unwrap();
+        let multicast_locator_list = self.multicast_locator_list.take().unwrap();
+        let data_max_size_serialized = self.data_max_size_serialized.unwrap();
+        WriterProxy::new(
+            remote_guid,
+            unicast_locator_list,
+            multicast_locator_list,
+            data_max_size_serialized,
+        )
+    }
+    // rtps 2.4 spec: 8.5.4.4 Data Types associated with built-in Endpoints used by the Simple Endpoint Discovery Protocol
+    // An implementation of the protocol need not necessarily send all information contained in the DataTypes.
+    // If any information is not present, the implementation can assume the default values, as defined by the PSM.
+    // MEMO: SEDPのbuilt-in
+    // dataへの変換を実装するとき、足りないデータがあれば、デフォルト値でおぎなう。
 }
 
 impl<'de> Deserialize<'de> for SDPBuiltinData {
@@ -175,6 +226,10 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
             default_multicast_locator_list,
             manual_liveliness_count,
             lease_duration,
+            remote_guid,
+            unicast_locator_list,
+            multicast_locator_list,
+            data_max_size_serialized,
         }
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
@@ -196,8 +251,6 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         let value = 256 * v[0] as u16 + v[1] as u16;
                         let pid = ParameterId { value };
                         match pid {
-                            // ParameterId::PID_DOMAIN => Ok(Field::domain_id),
-                            // ParameterId::PID_PARTICIPANT_GUID => Ok(Field::domain_tag),
                             ParameterId::PID_PROTOCOL_VERSION => Ok(Field::protocol_version),
                             ParameterId::PID_PARTICIPANT_GUID => Ok(Field::guid),
                             ParameterId::PID_VENDOR_ID => Ok(Field::vendor_id),
@@ -212,16 +265,22 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                                 Ok(Field::metarraffic_multicast_locator_list)
                             }
                             ParameterId::PID_DEFAULT_UNICAST_LOCATOR => {
-                                Ok(Field::metarraffic_unicast_locator_list)
+                                Ok(Field::default_unicast_locator_list)
                             }
                             ParameterId::PID_DEFAULT_MULTICAST_LOCATOR => {
-                                Ok(Field::metarraffic_multicast_locator_list)
+                                Ok(Field::default_multicast_locator_list)
                             }
                             ParameterId::PID_PARTICIPANT_MANUAL_LIVELINESS_COUNT => {
                                 Ok(Field::manual_liveliness_count)
                             }
                             ParameterId::PID_PARTICIPANT_LEASE_DURATION => {
                                 Ok(Field::lease_duration)
+                            }
+                            ParameterId::PID_ENDPOINT_GUID => Ok(Field::remote_guid),
+                            ParameterId::PID_UNICAST_LOCATOR => Ok(Field::unicast_locator_list),
+                            ParameterId::PID_MULTICAST_LOCATOR => Ok(Field::multicast_locator_list),
+                            ParameterId::PID_TYPE_MAX_SIZE_SERIALIZED => {
+                                Ok(Field::data_max_size_serialized)
                             }
                             _ => Err(de::Error::unknown_field("hoge", FIELDS)),
                         }
@@ -243,8 +302,8 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
             where
                 V: SeqAccess<'de>,
             {
-                let domain_id: Option<u16> = Some(0);
-                let domain_tag: Option<String> = Some(String::from("hoge"));
+                let mut domain_id: Option<u16> = Some(0);
+                let mut domain_tag: Option<String> = Some(String::from("hoge"));
                 let mut protocol_version: Option<ProtocolVersion> = None;
                 let mut guid: Option<GUID> = None;
                 let mut vendor_id: Option<VendorId> = None;
@@ -256,6 +315,10 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                 let mut default_multicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
                 let mut manual_liveliness_count: Option<Count> = None;
                 let mut lease_duration: Option<Duration> = None;
+                let mut remote_guid: Option<GUID> = None;
+                let mut unicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
+                let mut multicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
+                let mut data_max_size_serialized: Option<i32> = None;
 
                 loop {
                     let pid: u16 = seq
@@ -268,6 +331,18 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                     eprintln!(">>>length: {:04X}", _length);
                     match parameter_id {
+                        ParameterId::PID_DOMAIN_ID => {
+                            domain_id = seq.next_element()?;
+                            eprintln!(">>>>>>domain_id: {:?}", domain_id);
+                            let _pad: u16 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            assert_eq!(_pad, 0);
+                        }
+                        ParameterId::PID_DOMAIN_TAG => {
+                            domain_tag = seq.next_element()?;
+                            eprintln!(">>>>>>domain_tag: {:?}", domain_tag);
+                        }
                         ParameterId::PID_PROTOCOL_VERSION => {
                             protocol_version = seq.next_element()?;
                             eprintln!(">>>>>>protocol_version: {:?}", protocol_version);
@@ -426,6 +501,53 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             lease_duration = seq.next_element()?;
                             eprintln!(">>>>>>lease_duration: {:?}", lease_duration);
                         }
+                        ParameterId::PID_ENDPOINT_GUID => {
+                            remote_guid = seq.next_element()?;
+                            eprintln!(">>>>>>remote_guid: {:?}", remote_guid);
+                        }
+                        ParameterId::PID_UNICAST_LOCATOR => {
+                            let kind: i32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let port: u32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let address: [u8; 16] = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            match &mut unicast_locator_list {
+                                Some(v) => {
+                                    v.push(Locator::new(kind, port, address));
+                                }
+                                None => unreachable!(),
+                            }
+                            eprintln!(">>>>>>unicast_locator_list: {:?}", unicast_locator_list);
+                        }
+                        ParameterId::PID_MULTICAST_LOCATOR => {
+                            let kind: i32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let port: u32 = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            let address: [u8; 16] = seq
+                                .next_element()?
+                                .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            match &mut multicast_locator_list {
+                                Some(v) => {
+                                    v.push(Locator::new(kind, port, address));
+                                }
+                                None => unreachable!(),
+                            }
+                            eprintln!(">>>>>>multicast_locator_list: {:?}", multicast_locator_list);
+                        }
+                        ParameterId::PID_TYPE_MAX_SIZE_SERIALIZED => {
+                            data_max_size_serialized = seq.next_element()?;
+                            eprintln!(
+                                ">>>>>>data_max_size_serialized: {:?}",
+                                data_max_size_serialized
+                            );
+                        }
                         ParameterId::PID_SENTINEL => {
                             break;
                         }
@@ -448,6 +570,10 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                     default_multicast_locator_list,
                     manual_liveliness_count,
                     lease_duration,
+                    remote_guid,
+                    unicast_locator_list,
+                    multicast_locator_list,
+                    data_max_size_serialized,
                 ))
             }
 
