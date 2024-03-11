@@ -14,8 +14,8 @@ use crate::rtps::{
 };
 use crate::structure::entity_id::EntityId;
 use crate::structure::{guid::*, vendor_id::*};
+use colored::*;
 use std::collections::HashMap;
-use text_colorizer::*;
 
 pub struct MessageReceiver {
     own_guid_prefix: GuidPrefix,
