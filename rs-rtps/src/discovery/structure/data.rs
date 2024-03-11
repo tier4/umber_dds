@@ -1,3 +1,4 @@
+use crate::dds::qos::policy::*;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator, Parameter};
@@ -37,8 +38,29 @@ pub struct SDPBuiltinData {
     // expects_inline_qos // only ReaderProxy
     pub data_max_size_serialized: Option<i32>, // only ReaderProxy
 
-                                               // SubscriptionBuiltinTopicData
-                                               // PublicationBuiltinTopicData
+    // {Subscription/Publication}BuiltinTopicData
+    pub type_name: Option<String>,
+    pub topic_name: Option<String>,
+    pub key: Option<()>,
+    pub publication_key: Option<()>,
+
+    pub durability: Option<Durability>,
+    pub deadline: Option<Deadline>,
+    pub latency_budget: Option<LatencyBudget>,
+    pub liveliness: Option<Liveliness>,
+    pub reliability: Option<Reliability>,
+    pub user_data: Option<UserData>,
+    pub ownership: Option<Ownership>,
+    pub destination_order: Option<DestinationOrder>,
+    pub time_based_filter: Option<TimeBasedFilter>,
+    pub presentation: Option<Presentation>,
+    pub partition: Option<Partition>,
+    pub topic_data: Option<TopicData>,
+    pub group_data: Option<GroupData>,
+    pub durability_service: Option<DurabilityService>,
+    pub lifespan: Option<Lifespan>,
+    // PublicationBuiltinTopicData
+    pub ownership_strength: Option<OwnershipStrength>,
 }
 
 impl SDPBuiltinData {
@@ -64,6 +86,26 @@ impl SDPBuiltinData {
         unicast_locator_list: Option<Vec<Locator>>,
         multicast_locator_list: Option<Vec<Locator>>,
         data_max_size_serialized: Option<i32>,
+        type_name: Option<String>,
+        topic_name: Option<String>,
+        key: Option<()>,
+        publication_key: Option<()>,
+        durability: Option<Durability>,
+        deadline: Option<Deadline>,
+        latency_budget: Option<LatencyBudget>,
+        liveliness: Option<Liveliness>,
+        reliability: Option<Reliability>,
+        user_data: Option<UserData>,
+        ownership: Option<Ownership>,
+        destination_order: Option<DestinationOrder>,
+        time_based_filter: Option<TimeBasedFilter>,
+        presentation: Option<Presentation>,
+        partition: Option<Partition>,
+        topic_data: Option<TopicData>,
+        group_data: Option<GroupData>,
+        durability_service: Option<DurabilityService>,
+        lifespan: Option<Lifespan>,
+        ownership_strength: Option<OwnershipStrength>,
     ) -> Self {
         Self {
             domain_id,
@@ -83,16 +125,37 @@ impl SDPBuiltinData {
             unicast_locator_list,
             multicast_locator_list,
             data_max_size_serialized,
+            type_name,
+            topic_name,
+            key,
+            publication_key,
+            durability,
+            deadline,
+            latency_budget,
+            liveliness,
+            reliability,
+            user_data,
+            ownership,
+            destination_order,
+            time_based_filter,
+            presentation,
+            partition,
+            topic_data,
+            group_data,
+            durability_service,
+            lifespan,
+            ownership_strength,
         }
     }
 
     pub fn toSPDPdiscoverdParticipantData(&mut self) -> SPDPdiscoveredParticipantData {
-        let domain_id = self.domain_id.unwrap();
-        let domain_tag = self.domain_tag.take().unwrap();
+        let domain_id = self.domain_id.unwrap(); // set this participant's domain_id is domain_id
+                                                 // is none
+        let domain_tag = self.domain_tag.take().unwrap_or(String::from(""));
         let protocol_version = self.protocol_version.take().unwrap();
         let guid = self.guid.unwrap();
         let vendor_id = self.vendor_id.unwrap();
-        let expects_inline_qos = self.expects_inline_qos.unwrap();
+        let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
         let available_builtin_endpoint = self.available_builtin_endpoint.unwrap();
         let metarraffic_unicast_locator_list =
             self.metarraffic_unicast_locator_list.take().unwrap();
@@ -101,7 +164,10 @@ impl SDPBuiltinData {
         let default_unicast_locator_list = self.default_unicast_locator_list.take().unwrap();
         let default_multicast_locator_list = self.default_multicast_locator_list.take().unwrap();
         let manual_liveliness_count = self.manual_liveliness_count.unwrap();
-        let lease_duration = self.lease_duration.unwrap();
+        let lease_duration = self.lease_duration.unwrap_or(Duration {
+            seconds: 100,
+            fraction: 0,
+        });
 
         SPDPdiscoveredParticipantData {
             domain_id,
@@ -122,7 +188,7 @@ impl SDPBuiltinData {
 
     fn toReaderProxy(&mut self) -> ReaderProxy {
         let remote_guid = self.remote_guid.unwrap();
-        let expects_inline_qos = self.expects_inline_qos.unwrap();
+        let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
         let unicast_locator_list = self.unicast_locator_list.take().unwrap();
         let multicast_locator_list = self.multicast_locator_list.take().unwrap();
         ReaderProxy::new(
@@ -150,6 +216,7 @@ impl SDPBuiltinData {
     // If any information is not present, the implementation can assume the default values, as defined by the PSM.
     // MEMO: SEDPのbuilt-in
     // dataへの変換を実装するとき、足りないデータがあれば、デフォルト値でおぎなう。
+    // デフォルト値はrtps 2.3 spec "Table 9.14 - ParameterId mapping and default values"にある。
 }
 
 impl<'de> Deserialize<'de> for SDPBuiltinData {
@@ -175,6 +242,26 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
             unicast_locator_list,
             multicast_locator_list,
             data_max_size_serialized,
+            type_name,
+            topic_name,
+            key,
+            publication_key,
+            durability,
+            deadline,
+            latency_budget,
+            liveliness,
+            reliability,
+            user_data,
+            ownership,
+            destination_order,
+            time_based_filter,
+            presentation,
+            partition,
+            topic_data,
+            group_data,
+            durability_service,
+            lifespan,
+            ownership_strength,
         }
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
@@ -196,6 +283,8 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         let value = 256 * v[0] as u16 + v[1] as u16;
                         let pid = ParameterId { value };
                         match pid {
+                            ParameterId::PID_DOMAIN_ID => Ok(Field::domain_id),
+                            ParameterId::PID_DOMAIN_TAG => Ok(Field::domain_tag),
                             ParameterId::PID_PROTOCOL_VERSION => Ok(Field::protocol_version),
                             ParameterId::PID_PARTICIPANT_GUID => Ok(Field::guid),
                             ParameterId::PID_VENDOR_ID => Ok(Field::vendor_id),
@@ -227,7 +316,28 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             ParameterId::PID_TYPE_MAX_SIZE_SERIALIZED => {
                                 Ok(Field::data_max_size_serialized)
                             }
-                            _ => Err(de::Error::unknown_field("hoge", FIELDS)),
+                            ParameterId::PID_TYPE_NAME => Ok(Field::type_name),
+                            ParameterId::PID_TOPIC_NAME => Ok(Field::topic_name),
+                            ParameterId::PID_DURABILITY => Ok(Field::durability),
+                            ParameterId::PID_DEADLINE => Ok(Field::deadline),
+                            ParameterId::PID_LATENCY_BUDGET => Ok(Field::latency_budget),
+                            ParameterId::PID_LIVELINESS => Ok(Field::liveliness),
+                            ParameterId::PID_RELIABILITY => Ok(Field::reliability),
+                            ParameterId::PID_USER_DATA => Ok(Field::user_data),
+                            ParameterId::PID_OWNERSHIP => Ok(Field::ownership),
+                            ParameterId::PID_DESTINATION_ORDER => Ok(Field::destination_order),
+                            ParameterId::PID_TIME_BASED_FILTER => Ok(Field::time_based_filter),
+                            ParameterId::PID_PRESENTATION => Ok(Field::presentation),
+                            ParameterId::PID_PARTITION => Ok(Field::partition),
+                            ParameterId::PID_TOPIC_DATA => Ok(Field::topic_data),
+                            ParameterId::PID_GROUP_DATA => Ok(Field::group_data),
+                            ParameterId::PID_DURABILITY_SERVICE => Ok(Field::durability_service),
+                            ParameterId::PID_LIFESPAN => Ok(Field::lifespan),
+                            ParameterId::PID_OWNERSHIP_STRENGTH => Ok(Field::ownership_strength),
+                            pid => Err(de::Error::unknown_field(
+                                &format!("pid: {:?}", pid.value),
+                                FIELDS,
+                            )),
                         }
                     }
                 }
@@ -248,7 +358,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                 V: SeqAccess<'de>,
             {
                 let mut domain_id: Option<u16> = Some(0);
-                let mut domain_tag: Option<String> = Some(String::from("hoge"));
+                let mut domain_tag: Option<String> = None;
                 let mut protocol_version: Option<ProtocolVersion> = None;
                 let mut guid: Option<GUID> = None;
                 let mut vendor_id: Option<VendorId> = None;
@@ -264,6 +374,26 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                 let mut unicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
                 let mut multicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
                 let mut data_max_size_serialized: Option<i32> = None;
+                let mut type_name: Option<String> = None;
+                let mut topic_name: Option<String> = None;
+                let mut key: Option<()> = None;
+                let mut publication_key: Option<()> = None;
+                let mut durability: Option<Durability> = None;
+                let mut deadline: Option<Deadline> = None;
+                let mut latency_budget: Option<LatencyBudget> = None;
+                let mut liveliness: Option<Liveliness> = None;
+                let mut reliability: Option<Reliability> = None;
+                let mut user_data: Option<UserData> = None;
+                let mut ownership: Option<Ownership> = None;
+                let mut destination_order: Option<DestinationOrder> = None;
+                let mut time_based_filter: Option<TimeBasedFilter> = None;
+                let mut presentation: Option<Presentation> = None;
+                let mut partition: Option<Partition> = None;
+                let mut topic_data: Option<TopicData> = None;
+                let mut group_data: Option<GroupData> = None;
+                let mut durability_service: Option<DurabilityService> = None;
+                let mut lifespan: Option<Lifespan> = None;
+                let mut ownership_strength: Option<OwnershipStrength> = None;
 
                 macro_rules! read_pad {
                     ($type:ty) => {{
@@ -424,6 +554,78 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                                 data_max_size_serialized
                             );
                         }
+                        ParameterId::PID_TYPE_NAME => {
+                            type_name = seq.next_element()?;
+                            eprintln!(">>>>>>type_name: {:?}", type_name);
+                        }
+                        ParameterId::PID_TOPIC_NAME => {
+                            topic_name = seq.next_element()?;
+                            eprintln!(">>>>>>topic_name: {:?}", topic_name);
+                        }
+                        ParameterId::PID_DURABILITY => {
+                            durability = seq.next_element()?;
+                            eprintln!(">>>>>>durability: {:?}", durability);
+                        }
+                        ParameterId::PID_DEADLINE => {
+                            deadline = seq.next_element()?;
+                            eprintln!(">>>>>>deadline: {:?}", deadline);
+                        }
+                        ParameterId::PID_LATENCY_BUDGET => {
+                            latency_budget = seq.next_element()?;
+                            eprintln!(">>>>>>latency_budget: {:?}", latency_budget);
+                        }
+                        ParameterId::PID_LIVELINESS => {
+                            liveliness = seq.next_element()?;
+                            eprintln!(">>>>>>liveliness: {:?}", liveliness);
+                        }
+                        ParameterId::PID_RELIABILITY => {
+                            reliability = seq.next_element()?;
+                            eprintln!(">>>>>>reliability: {:?}", reliability);
+                        }
+                        ParameterId::PID_USER_DATA => {
+                            user_data = seq.next_element()?;
+                            eprintln!(">>>>>>user_data: {:?}", user_data);
+                        }
+                        ParameterId::PID_OWNERSHIP => {
+                            ownership = seq.next_element()?;
+                            eprintln!(">>>>>>ownership: {:?}", ownership);
+                        }
+                        ParameterId::PID_DESTINATION_ORDER => {
+                            destination_order = seq.next_element()?;
+                            eprintln!(">>>>>>destination_order: {:?}", destination_order);
+                        }
+                        ParameterId::PID_TIME_BASED_FILTER => {
+                            time_based_filter = seq.next_element()?;
+                            eprintln!(">>>>>>time_based_filter: {:?}", time_based_filter);
+                        }
+                        ParameterId::PID_PRESENTATION => {
+                            presentation = seq.next_element()?;
+                            eprintln!(">>>>>>presentation: {:?}", presentation);
+                        }
+                        ParameterId::PID_PARTITION => {
+                            partition = seq.next_element()?;
+                            eprintln!(">>>>>>partition: {:?}", partition);
+                        }
+                        ParameterId::PID_TOPIC_DATA => {
+                            topic_data = seq.next_element()?;
+                            eprintln!(">>>>>>topic_data: {:?}", topic_data);
+                        }
+                        ParameterId::PID_GROUP_DATA => {
+                            group_data = seq.next_element()?;
+                            eprintln!(">>>>>>group_data: {:?}", group_data);
+                        }
+                        ParameterId::PID_DURABILITY_SERVICE => {
+                            durability_service = seq.next_element()?;
+                            eprintln!(">>>>>>durability_service: {:?}", durability_service);
+                        }
+                        ParameterId::PID_LIFESPAN => {
+                            lifespan = seq.next_element()?;
+                            eprintln!(">>>>>>lifespan: {:?}", lifespan);
+                        }
+                        ParameterId::PID_OWNERSHIP_STRENGTH => {
+                            ownership_strength = seq.next_element()?;
+                            eprintln!(">>>>>>ownership_strength: {:?}", ownership_strength);
+                        }
                         ParameterId::PID_SENTINEL => {
                             break;
                         }
@@ -450,6 +652,26 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                     unicast_locator_list,
                     multicast_locator_list,
                     data_max_size_serialized,
+                    type_name,
+                    topic_name,
+                    key,
+                    publication_key,
+                    durability,
+                    deadline,
+                    latency_budget,
+                    liveliness,
+                    reliability,
+                    user_data,
+                    ownership,
+                    destination_order,
+                    time_based_filter,
+                    presentation,
+                    partition,
+                    topic_data,
+                    group_data,
+                    durability_service,
+                    lifespan,
+                    ownership_strength,
                 ))
             }
 
