@@ -114,11 +114,17 @@ impl QosBuilder {
     }
 }
 
-mod policy {
+pub mod policy {
     use crate::structure::duration::Duration;
-    use serde::{Deserialize, Serialize};
+    use serde::{
+        ser::{SerializeStruct, Serializer},
+        Deserialize, Serialize,
+    };
     use serde_repr::{Deserialize_repr, Serialize_repr};
     use std::fmt;
+
+    // Default value of QoS Policies is on DDS v1.4 spec 2.2.3 Supported QoS
+    const LENGTH_UNLIMITED: i32 = -1;
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct DurabilityService {
@@ -129,6 +135,21 @@ mod policy {
         max_instance: i32,
         max_samples_per_instanse: i32,
     }
+    impl Default for DurabilityService {
+        fn default() -> Self {
+            Self {
+                lease_duration: Duration {
+                    seconds: 100,
+                    fraction: 0,
+                },
+                history_kind: HistoryQosKind::KeepLast,
+                history_depth: 1,
+                max_samples: LENGTH_UNLIMITED,
+                max_instance: LENGTH_UNLIMITED,
+                max_samples_per_instanse: LENGTH_UNLIMITED,
+            }
+        }
+    }
 
     #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
@@ -138,12 +159,26 @@ mod policy {
         Transient = 2,
         Persistent = 3,
     }
+    impl Default for Durability {
+        fn default() -> Self {
+            Self::Volatile
+        }
+    }
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct Presentation {
         pub access_scope: PresentationQosAccessScopeKind,
         pub coherent_access: bool,
         pub ordered_access: bool,
+    }
+    impl Default for Presentation {
+        fn default() -> Self {
+            Self {
+                access_scope: PresentationQosAccessScopeKind::default(),
+                coherent_access: false,
+                ordered_access: false,
+            }
+        }
     }
 
     #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
@@ -153,14 +188,31 @@ mod policy {
         Topic = 1,
         Group = 2,
     }
+    impl Default for PresentationQosAccessScopeKind {
+        fn default() -> Self {
+            Self::Instance
+        }
+    }
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct Deadline {
         pub period: Duration,
     }
+    impl Default for Deadline {
+        fn default() -> Self {
+            Self {
+                period: Duration::INFINITE,
+            }
+        }
+    }
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct LatencyBudget(pub Duration);
+    impl Default for LatencyBudget {
+        fn default() -> Self {
+            Self(Duration::ZERO)
+        }
+    }
 
     #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
@@ -168,11 +220,32 @@ mod policy {
         Shared = 0,
         Exclusive = 1,
     }
+    impl Default for Ownership {
+        fn default() -> Self {
+            Self::Shared
+        }
+    }
+
+    #[derive(Clone, Copy, Serialize, Deserialize)]
+    pub struct OwnershipStrength(pub i32);
+    impl Default for OwnershipStrength {
+        fn default() -> Self {
+            Self(0)
+        }
+    }
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct Liveliness {
         pub kind: LivelinessQosKind,
         pub lease_duration: Duration,
+    }
+    impl Default for Liveliness {
+        fn default() -> Self {
+            Self {
+                kind: LivelinessQosKind::Automatic,
+                lease_duration: Duration::INFINITE,
+            }
+        }
     }
 
     #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
@@ -187,11 +260,38 @@ mod policy {
     pub struct TimeBasedFilter {
         pub minimun_separation: Duration,
     }
+    impl Default for TimeBasedFilter {
+        fn default() -> Self {
+            Self {
+                minimun_separation: Duration::ZERO,
+            }
+        }
+    }
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct Reliability {
         pub kind: ReliabilityQosKind,
         pub max_bloking_time: Duration,
+    }
+    impl Reliability {
+        fn default_datareader() -> Self {
+            Self {
+                kind: ReliabilityQosKind::BestEffort,
+                max_bloking_time: Duration {
+                    seconds: 0,
+                    fraction: 100,
+                },
+            }
+        }
+        fn default_datawriter() -> Self {
+            Self {
+                kind: ReliabilityQosKind::Reliable,
+                max_bloking_time: Duration {
+                    seconds: 0,
+                    fraction: 100,
+                },
+            }
+        }
     }
 
     #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
@@ -207,11 +307,24 @@ mod policy {
         ByReceptionTimestamp = 0,
         BySourceTimestamp = 1,
     }
+    impl Default for DestinationOrder {
+        fn default() -> Self {
+            Self::ByReceptionTimestamp
+        }
+    }
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct History {
         pub kind: HistoryQosKind,
         pub depth: i32,
+    }
+    impl Default for History {
+        fn default() -> Self {
+            Self {
+                kind: HistoryQosKind::KeepLast,
+                depth: 1,
+            }
+        }
     }
 
     #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
@@ -227,9 +340,43 @@ mod policy {
         pub max_instance: i32,
         pub max_samples_per_instanse: i32,
     }
+    impl Default for ResourceLimits {
+        fn default() -> Self {
+            Self {
+                max_samples: LENGTH_UNLIMITED,
+                max_instance: LENGTH_UNLIMITED,
+                max_samples_per_instanse: LENGTH_UNLIMITED,
+            }
+        }
+    }
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct Lifespan(pub Duration);
+    impl Default for Lifespan {
+        fn default() -> Self {
+            Self(Duration::INFINITE)
+        }
+    }
+
+    #[derive(Clone, Default, Serialize, Deserialize)]
+    pub struct Partition {
+        pub name: Vec<String>,
+    }
+
+    #[derive(Clone, Default, Serialize, Deserialize)]
+    pub struct UserData {
+        pub value: Vec<u8>,
+    }
+
+    #[derive(Clone, Default, Serialize, Deserialize)]
+    pub struct TopicData {
+        pub value: Vec<u8>,
+    }
+
+    #[derive(Clone, Default, Serialize, Deserialize)]
+    pub struct GroupData {
+        pub value: Vec<u8>,
+    }
 }
 
 mod test {
