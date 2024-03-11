@@ -116,64 +116,42 @@ impl QosBuilder {
 
 mod policy {
     use crate::structure::duration::Duration;
-    use serde::{ser::SerializeStruct, Deserialize, Serialize};
+    use serde::{Deserialize, Serialize};
+    use serde_repr::{Deserialize_repr, Serialize_repr};
+    use std::fmt;
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct DurabilityService {
         lease_duration: Duration,
-        // TODO
-        history_kind: (),
-        history_depth: (),
-        max_samples: (),
-        max_instance: (),
-        max_samples_per_instanse: (),
+        history_kind: HistoryQosKind,
+        history_depth: i32,
+        max_samples: i32,
+        max_instance: i32,
+        max_samples_per_instanse: i32,
     }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
+    #[repr(i32)]
     pub enum Durability {
         Volatile = 0,
         TransientLocal = 1,
         Transient = 2,
         Persistent = 3,
     }
-    impl Serialize for Durability {
-        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            match self {
-                Self::Volatile => serializer.serialize_i32(0),
-                Self::TransientLocal => serializer.serialize_i32(1),
-                Self::Transient => serializer.serialize_i32(2),
-                Self::Persistent => serializer.serialize_i32(3),
-            }
-        }
-    }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct Presentation {
         pub access_scope: PresentationQosAccessScopeKind,
         pub coherent_access: bool,
-        pub oerered_access: bool,
+        pub ordered_access: bool,
     }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
+    #[repr(i32)]
     pub enum PresentationQosAccessScopeKind {
         Instance = 0,
         Topic = 1,
         Group = 2,
-    }
-    impl Serialize for PresentationQosAccessScopeKind {
-        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            match self {
-                Self::Instance => serializer.serialize_i32(0),
-                Self::Topic => serializer.serialize_i32(1),
-                Self::Group => serializer.serialize_i32(2),
-            }
-        }
     }
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -184,57 +162,25 @@ mod policy {
     #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct LatencyBudget(pub Duration);
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
+    #[repr(i32)]
     pub enum Ownership {
         Shared = 0,
         Exclusive = 1,
     }
-    impl Serialize for Ownership {
-        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            match self {
-                Self::Shared => serializer.serialize_i32(0),
-                Self::Exclusive => serializer.serialize_i32(1),
-            }
-        }
-    }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct Liveliness {
         pub kind: LivelinessQosKind,
         pub lease_duration: Duration,
     }
-    impl Serialize for Liveliness {
-        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            let mut s = serializer.serialize_struct("Liveliness", 2)?;
-            s.serialize_field("kind", &self.kind)?;
-            s.serialize_field("lease_duration", &self.lease_duration)?;
-            s.end()
-        }
-    }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
+    #[repr(i32)]
     pub enum LivelinessQosKind {
         Automatic = 0,
         ManualByParticipant = 1,
         ManualByTopic = 2,
-    }
-    impl Serialize for LivelinessQosKind {
-        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            match self {
-                Self::Automatic => serializer.serialize_i32(0),
-                Self::ManualByParticipant => serializer.serialize_i32(1),
-                Self::ManualByTopic => serializer.serialize_i32(2),
-            }
-        }
     }
 
     #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -242,88 +188,47 @@ mod policy {
         pub minimun_separation: Duration,
     }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct Reliability {
         pub kind: ReliabilityQosKind,
         pub max_bloking_time: Duration,
     }
-    impl Serialize for Reliability {
-        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            let mut s = serializer.serialize_struct("Reliability", 2)?;
-            s.serialize_field("kind", &self.kind)?;
-            s.serialize_field("max_bloking_time", &self.max_bloking_time)?;
-            s.end()
-        }
-    }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
+    #[repr(i32)]
     pub enum ReliabilityQosKind {
         Reliable = 2,
         BestEffort = 1,
     }
-    impl Serialize for ReliabilityQosKind {
-        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            match self {
-                Self::Reliable => serializer.serialize_i32(2),
-                Self::BestEffort => serializer.serialize_i32(1),
-            }
-        }
-    }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
+    #[repr(i32)]
     pub enum DestinationOrder {
         ByReceptionTimestamp = 0,
         BySourceTimestamp = 1,
     }
-    impl Serialize for DestinationOrder {
-        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            match self {
-                Self::ByReceptionTimestamp => serializer.serialize_i32(0),
-                Self::BySourceTimestamp => serializer.serialize_i32(1),
-            }
-        }
-    }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct History {
         pub kind: HistoryQosKind,
-        pub depth: i64,
+        pub depth: i32,
     }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
+    #[repr(i32)]
     pub enum HistoryQosKind {
         KeepLast = 0,
         KeepAll = 1,
     }
-    impl Serialize for HistoryQosKind {
-        fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            match self {
-                Self::KeepLast => serializer.serialize_i32(0),
-                Self::KeepAll => serializer.serialize_i32(1),
-            }
-        }
-    }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct ResourceLimits {
-        pub max_samples: i64,
-        pub max_instance: i64,
-        pub max_samples_per_instanse: i64,
+        pub max_samples: i32,
+        pub max_instance: i32,
+        pub max_samples_per_instanse: i32,
     }
 
-    #[derive(Clone, Copy, Serialize)]
+    #[derive(Clone, Copy, Serialize, Deserialize)]
     pub struct Lifespan(pub Duration);
 }
 
@@ -334,11 +239,11 @@ mod test {
 
     #[test]
     fn test_serialize() {
-        // let reliability =
-        let reliability_kind = policy::Deadline {
-            period: Duration::new(3, 2),
+        let history = policy::History {
+            kind: policy::HistoryQosKind::KeepAll,
+            depth: 100,
         };
-        let serialized = cdr::serialize::<_, _, PlCdrLe>(&reliability_kind, Infinite).unwrap();
+        let serialized = cdr::serialize::<_, _, PlCdrLe>(&history, Infinite).unwrap();
         let mut serialized_str = String::new();
         let mut count = 0;
         for b in serialized {
@@ -352,5 +257,20 @@ mod test {
         }
         eprintln!("~~~~~~~~~~~~~~~~~~\n{}\n~~~~~~~~~~~~~~~~~~", serialized_str);
     }
-    fn test_deserialize() {}
+    #[test]
+    fn test_deserialize() {
+        let presentation = policy::Presentation {
+            access_scope: policy::PresentationQosAccessScopeKind::Topic,
+            coherent_access: false,
+            ordered_access: true,
+        };
+        let serialized = cdr::serialize::<_, _, PlCdrLe>(&presentation, Infinite).unwrap();
+        let deserialized = cdr::deserialize::<policy::Presentation>(&serialized).unwrap();
+        match deserialized.access_scope {
+            policy::PresentationQosAccessScopeKind::Topic => (),
+            _ => panic!(),
+        }
+        assert_eq!(presentation.coherent_access, deserialized.coherent_access);
+        assert_eq!(presentation.ordered_access, deserialized.ordered_access);
+    }
 }
