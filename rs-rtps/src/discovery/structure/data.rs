@@ -703,12 +703,405 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
 
 #[derive(Clone)]
 pub struct SubscriptionBuiltinTopicData {
-    // TODO
+    pub key: Option<()>,
+    pub publication_key: Option<()>,
+    pub topic_name: Option<String>,
+    pub type_name: Option<String>,
+    pub durability: Option<Durability>,
+    pub deadline: Option<Deadline>,
+    pub latency_budget: Option<LatencyBudget>,
+    pub liveliness: Option<Liveliness>,
+    pub reliability: Option<Reliability>,
+    pub ownership: Option<Ownership>,
+    pub destination_order: Option<DestinationOrder>,
+    pub user_data: Option<UserData>,
+    pub time_based_filter: Option<TimeBasedFilter>,
+    pub presentation: Option<Presentation>,
+    pub partition: Option<Partition>,
+    pub topic_data: Option<TopicData>,
+    pub group_data: Option<GroupData>,
+    pub durability_service: Option<DurabilityService>,
+    pub lifespan: Option<Lifespan>,
+}
+impl SubscriptionBuiltinTopicData {
+    pub fn new(
+        key: Option<()>,
+        publication_key: Option<()>,
+        topic_name: Option<String>,
+        type_name: Option<String>,
+        durability: Option<Durability>,
+        deadline: Option<Deadline>,
+        latency_budget: Option<LatencyBudget>,
+        liveliness: Option<Liveliness>,
+        reliability: Option<Reliability>,
+        ownership: Option<Ownership>,
+        destination_order: Option<DestinationOrder>,
+        user_data: Option<UserData>,
+        time_based_filter: Option<TimeBasedFilter>,
+        presentation: Option<Presentation>,
+        partition: Option<Partition>,
+        topic_data: Option<TopicData>,
+        group_data: Option<GroupData>,
+        durability_service: Option<DurabilityService>,
+        lifespan: Option<Lifespan>,
+    ) -> Self {
+        Self {
+            key,
+            publication_key,
+            topic_name,
+            type_name,
+            durability,
+            deadline,
+            latency_budget,
+            liveliness,
+            reliability,
+            ownership,
+            destination_order,
+            user_data,
+            time_based_filter,
+            presentation,
+            partition,
+            topic_data,
+            group_data,
+            durability_service,
+            lifespan,
+        }
+    }
+}
+
+impl Serialize for SubscriptionBuiltinTopicData {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("SubscriptionBuiltinTopicData", 4)?;
+        // topic_name
+        if let Some(topic_name) = &self.topic_name {
+            s.serialize_field("parameterId", &ParameterId::PID_TOPIC_NAME.value)?;
+            s.serialize_field::<u16>("parameterLength", &(topic_name.len() as u16))?;
+            s.serialize_field("topic_name", &topic_name)?;
+        }
+
+        // type_name
+        if let Some(type_name) = &self.type_name {
+            s.serialize_field("parameterId", &ParameterId::PID_TYPE_NAME.value)?;
+            s.serialize_field::<u16>("parameterLength", &(type_name.len() as u16))?;
+            s.serialize_field("type_name", &type_name)?;
+        }
+
+        // durability
+        if let Some(durability) = &self.durability {
+            s.serialize_field("parameterId", &ParameterId::PID_DURABILITY.value)?;
+            s.serialize_field::<u16>("parameterLength", &4)?;
+            s.serialize_field("durability", &durability)?;
+        }
+
+        // deadline
+        if let Some(deadline) = &self.deadline {
+            s.serialize_field("parameterId", &ParameterId::PID_DEADLINE.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("deadline", &deadline)?;
+        }
+
+        // latency_budget
+        if let Some(latency_budget) = &self.latency_budget {
+            s.serialize_field("parameterId", &ParameterId::PID_LATENCY_BUDGET.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("latency_budget", &latency_budget)?;
+        }
+
+        // liveliness
+        if let Some(liveliness) = &self.liveliness {
+            s.serialize_field("parameterId", &ParameterId::PID_LIVELINESS.value)?;
+            s.serialize_field::<u16>("parameterLength", &12)?;
+            s.serialize_field("liveliness", &liveliness)?;
+        }
+
+        // reliability
+        if let Some(reliability) = &self.reliability {
+            s.serialize_field("parameterId", &ParameterId::PID_RELIABILITY.value)?;
+            s.serialize_field::<u16>("parameterLength", &12)?;
+            s.serialize_field("reliability", &reliability)?;
+        }
+
+        // ownership
+        if let Some(ownership) = &self.ownership {
+            s.serialize_field("parameterId", &ParameterId::PID_OWNERSHIP.value)?;
+            s.serialize_field::<u16>("parameterLength", &4)?;
+            s.serialize_field("ownership", &ownership)?;
+        }
+
+        // destination_order
+        if let Some(destination_order) = &self.destination_order {
+            s.serialize_field("parameterId", &ParameterId::PID_DESTINATION_ORDER.value)?;
+            s.serialize_field::<u16>("parameterLength", &4)?;
+            s.serialize_field("destination_order", &destination_order)?;
+        }
+
+        // user_data
+        if let Some(user_data) = &self.user_data {
+            s.serialize_field("parameterId", &ParameterId::PID_USER_DATA.value)?;
+            s.serialize_field::<u16>("parameterLength", &user_data.serialized_size())?;
+            s.serialize_field("user_data", &user_data)?;
+        }
+
+        // time_based_filter
+        if let Some(time_based_filter) = &self.time_based_filter {
+            s.serialize_field("parameterId", &ParameterId::PID_TIME_BASED_FILTER.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("time_based_filter", &time_based_filter)?;
+        }
+
+        // presentation
+        if let Some(presentation) = &self.presentation {
+            s.serialize_field("parameterId", &ParameterId::PID_PRESENTATION.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("presentation", &presentation)?;
+        }
+
+        // partition
+        if let Some(partition) = &self.partition {
+            s.serialize_field("parameterId", &ParameterId::PID_PARTITION.value)?;
+            s.serialize_field::<u16>("parameterLength", &partition.serialized_size())?;
+            s.serialize_field("partition", &partition)?;
+        }
+
+        // topic_data
+        if let Some(topic_data) = &self.topic_data {
+            s.serialize_field("parameterId", &ParameterId::PID_TOPIC_DATA.value)?;
+            s.serialize_field::<u16>("parameterLength", &topic_data.serialized_size())?;
+            s.serialize_field("topic_data", &topic_data)?;
+        }
+
+        // group_data
+        if let Some(group_data) = &self.group_data {
+            s.serialize_field("parameterId", &ParameterId::PID_GROUP_DATA.value)?;
+            s.serialize_field::<u16>("parameterLength", &group_data.serialized_size())?;
+            s.serialize_field("group_data", &group_data)?;
+        }
+
+        // durability_service
+        if let Some(durability_service) = &self.durability_service {
+            s.serialize_field("parameterId", &ParameterId::PID_DURABILITY_SERVICE.value)?;
+            s.serialize_field::<u16>("parameterLength", &28)?;
+            s.serialize_field("durability_service", &durability_service)?;
+        }
+
+        // lifespan
+        if let Some(lifespan) = &self.lifespan {
+            s.serialize_field("parameterId", &ParameterId::PID_LIFESPAN.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("lifespan", &lifespan)?;
+        }
+
+        s.end()
+    }
 }
 
 #[derive(Clone)]
 pub struct PublicationBuiltinTopicData {
-    // TODO
+    pub key: Option<()>,
+    pub publication_key: Option<()>,
+    pub type_name: Option<String>,
+    pub topic_name: Option<String>,
+    pub durability: Option<Durability>,
+    pub durability_service: Option<DurabilityService>,
+    pub deadline: Option<Deadline>,
+    pub latency_budget: Option<LatencyBudget>,
+    pub liveliness: Option<Liveliness>,
+    pub reliability: Option<Reliability>,
+    pub lifespan: Option<Lifespan>,
+    pub user_data: Option<UserData>,
+    pub time_based_filter: Option<TimeBasedFilter>,
+    pub ownership: Option<Ownership>,
+    pub ownership_strength: Option<OwnershipStrength>,
+    pub destination_order: Option<DestinationOrder>,
+    pub presentation: Option<Presentation>,
+    pub partition: Option<Partition>,
+    pub topic_data: Option<TopicData>,
+    pub group_data: Option<GroupData>,
+}
+impl PublicationBuiltinTopicData {
+    pub fn new(
+        key: Option<()>,
+        publication_key: Option<()>,
+        type_name: Option<String>,
+        topic_name: Option<String>,
+        durability: Option<Durability>,
+        durability_service: Option<DurabilityService>,
+        deadline: Option<Deadline>,
+        latency_budget: Option<LatencyBudget>,
+        liveliness: Option<Liveliness>,
+        reliability: Option<Reliability>,
+        lifespan: Option<Lifespan>,
+        user_data: Option<UserData>,
+        time_based_filter: Option<TimeBasedFilter>,
+        ownership: Option<Ownership>,
+        ownership_strength: Option<OwnershipStrength>,
+        destination_order: Option<DestinationOrder>,
+        presentation: Option<Presentation>,
+        partition: Option<Partition>,
+        topic_data: Option<TopicData>,
+        group_data: Option<GroupData>,
+    ) -> Self {
+        Self {
+            key,
+            publication_key,
+            type_name,
+            topic_name,
+            durability,
+            durability_service,
+            deadline,
+            latency_budget,
+            liveliness,
+            reliability,
+            lifespan,
+            user_data,
+            time_based_filter,
+            ownership,
+            ownership_strength,
+            destination_order,
+            presentation,
+            partition,
+            topic_data,
+            group_data,
+        }
+    }
+}
+impl Serialize for PublicationBuiltinTopicData {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("PublicationBuiltinTopicData", 4)?;
+        // type_name
+        if let Some(type_name) = &self.type_name {
+            s.serialize_field("parameterId", &ParameterId::PID_TYPE_NAME.value)?;
+            s.serialize_field::<u16>("parameterLength", &(type_name.len() as u16))?;
+            s.serialize_field("type_name", &type_name)?;
+        }
+
+        // topic_name
+        if let Some(topic_name) = &self.topic_name {
+            s.serialize_field("parameterId", &ParameterId::PID_TOPIC_NAME.value)?;
+            s.serialize_field::<u16>("parameterLength", &(topic_name.len() as u16))?;
+            s.serialize_field("topic_name", &topic_name)?;
+        }
+
+        // durability
+        if let Some(durability) = &self.durability {
+            s.serialize_field("parameterId", &ParameterId::PID_DURABILITY.value)?;
+            s.serialize_field::<u16>("parameterLength", &4)?;
+            s.serialize_field("durability", &durability)?;
+        }
+
+        // durability_service
+        if let Some(durability_service) = &self.durability_service {
+            s.serialize_field("parameterId", &ParameterId::PID_DURABILITY_SERVICE.value)?;
+            s.serialize_field::<u16>("parameterLength", &28)?;
+            s.serialize_field("durability_service", &durability_service)?;
+        }
+
+        // deadline
+        if let Some(deadline) = &self.deadline {
+            s.serialize_field("parameterId", &ParameterId::PID_DEADLINE.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("deadline", &deadline)?;
+        }
+
+        // latency_budget
+        if let Some(latency_budget) = &self.latency_budget {
+            s.serialize_field("parameterId", &ParameterId::PID_LATENCY_BUDGET.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("latency_budget", &latency_budget)?;
+        }
+
+        // liveliness
+        if let Some(liveliness) = &self.liveliness {
+            s.serialize_field("parameterId", &ParameterId::PID_LIVELINESS.value)?;
+            s.serialize_field::<u16>("parameterLength", &12)?;
+            s.serialize_field("liveliness", &liveliness)?;
+        }
+
+        // reliability
+        if let Some(reliability) = &self.reliability {
+            s.serialize_field("parameterId", &ParameterId::PID_RELIABILITY.value)?;
+            s.serialize_field::<u16>("parameterLength", &12)?;
+            s.serialize_field("reliability", &reliability)?;
+        }
+
+        // lifespan
+        if let Some(lifespan) = &self.lifespan {
+            s.serialize_field("parameterId", &ParameterId::PID_LIFESPAN.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("lifespan", &lifespan)?;
+        }
+
+        // user_data
+        if let Some(user_data) = &self.user_data {
+            s.serialize_field("parameterId", &ParameterId::PID_USER_DATA.value)?;
+            s.serialize_field::<u16>("parameterLength", &(4 + user_data.value.len() as u16))?;
+            s.serialize_field("user_data", &user_data)?;
+        }
+
+        // time_based_filter
+        if let Some(time_based_filter) = &self.time_based_filter {
+            s.serialize_field("parameterId", &ParameterId::PID_TIME_BASED_FILTER.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("time_based_filter", &time_based_filter)?;
+        }
+
+        // ownership
+        if let Some(ownership) = &self.ownership {
+            s.serialize_field("parameterId", &ParameterId::PID_OWNERSHIP.value)?;
+            s.serialize_field::<u16>("parameterLength", &4)?;
+            s.serialize_field("ownership", &ownership)?;
+        }
+
+        // ownership_strength
+        if let Some(ownership_strength) = &self.ownership_strength {
+            s.serialize_field("parameterId", &ParameterId::PID_OWNERSHIP_STRENGTH.value)?;
+            s.serialize_field::<u16>("parameterLength", &4)?;
+            s.serialize_field("ownership_strength", &ownership_strength)?;
+        }
+
+        // destination_order
+        if let Some(destination_order) = &self.destination_order {
+            s.serialize_field("parameterId", &ParameterId::PID_DESTINATION_ORDER.value)?;
+            s.serialize_field::<u16>("parameterLength", &4)?;
+            s.serialize_field("destination_order", &destination_order)?;
+        }
+
+        // presentation
+        if let Some(presentation) = &self.presentation {
+            s.serialize_field("parameterId", &ParameterId::PID_PRESENTATION.value)?;
+            s.serialize_field::<u16>("parameterLength", &8)?;
+            s.serialize_field("presentation", &presentation)?;
+        }
+
+        // partition
+        if let Some(partition) = &self.partition {
+            s.serialize_field("parameterId", &ParameterId::PID_PARTITION.value)?;
+            s.serialize_field::<u16>("parameterLength", &partition.serialized_size())?;
+            s.serialize_field("partition", &partition)?;
+        }
+
+        // topic_data
+        if let Some(topic_data) = &self.topic_data {
+            s.serialize_field("parameterId", &ParameterId::PID_TOPIC_DATA.value)?;
+            s.serialize_field::<u16>("parameterLength", &topic_data.serialized_size())?;
+            s.serialize_field("topic_data", &topic_data)?;
+        }
+
+        // group_data
+        if let Some(group_data) = &self.group_data {
+            s.serialize_field("parameterId", &ParameterId::PID_GROUP_DATA.value)?;
+            s.serialize_field::<u16>("parameterLength", &group_data.serialized_size())?;
+            s.serialize_field("group_data", &group_data)?;
+        }
+
+        s.end()
+    }
 }
 
 #[derive(Clone)]

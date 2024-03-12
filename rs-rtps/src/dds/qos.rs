@@ -362,20 +362,54 @@ pub mod policy {
     pub struct Partition {
         pub name: Vec<String>,
     }
+    impl Partition {
+        pub fn serialized_size(&self) -> u16 {
+            // length of name: i32, 4 octet
+            let mut len = 4;
+            for n in &self.name {
+                len += 4; // length of n: i32, 4octet
+                len += (n.len() as u16) + 1; // length of n+1: `+1` means null char
+                match len % 4 {
+                    // padding
+                    0 => (),
+                    1 => len += 3,
+                    2 => len += 2,
+                    3 => len += 1,
+                    _ => unreachable!(),
+                }
+            }
+            len
+        }
+    }
 
     #[derive(Clone, Debug, Default, Serialize, Deserialize)]
     pub struct UserData {
         pub value: Vec<u8>,
+    }
+    impl UserData {
+        pub fn serialized_size(&self) -> u16 {
+            4 + self.value.len() as u16
+        }
     }
 
     #[derive(Clone, Debug, Default, Serialize, Deserialize)]
     pub struct TopicData {
         pub value: Vec<u8>,
     }
+    impl TopicData {
+        pub fn serialized_size(&self) -> u16 {
+            4 + self.value.len() as u16
+        }
+    }
 
     #[derive(Clone, Debug, Default, Serialize, Deserialize)]
     pub struct GroupData {
         pub value: Vec<u8>,
+    }
+    impl GroupData {
+        pub fn serialized_size(&self) -> u16 {
+            4 + self.value.len() as u16
+        }
     }
 }
 
