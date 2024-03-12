@@ -771,6 +771,8 @@ impl SubscriptionBuiltinTopicData {
 }
 
 impl Serialize for SubscriptionBuiltinTopicData {
+    // serialization format of String is wrong
+    // TODO: fix it
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -971,6 +973,8 @@ impl PublicationBuiltinTopicData {
     }
 }
 impl Serialize for PublicationBuiltinTopicData {
+    // serialization format of String is wrong
+    // TODO: fix it
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
