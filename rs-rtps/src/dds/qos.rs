@@ -274,7 +274,7 @@ pub mod policy {
         pub max_bloking_time: Duration,
     }
     impl Reliability {
-        fn default_datareader() -> Self {
+        pub fn default_datareader() -> Self {
             Self {
                 kind: ReliabilityQosKind::BestEffort,
                 max_bloking_time: Duration {
@@ -283,7 +283,7 @@ pub mod policy {
                 },
             }
         }
-        fn default_datawriter() -> Self {
+        pub fn default_datawriter() -> Self {
             Self {
                 kind: ReliabilityQosKind::Reliable,
                 max_bloking_time: Duration {
