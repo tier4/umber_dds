@@ -1107,6 +1107,72 @@ impl Serialize for PublicationBuiltinTopicData {
 }
 
 #[derive(Clone)]
+pub struct DiscoveredReaderData {
+    proxy: ReaderProxy,
+    builtin_topic_data: SubscriptionBuiltinTopicData,
+}
+impl DiscoveredReaderData {
+    pub fn new(proxy: ReaderProxy, builtin_topic_data: SubscriptionBuiltinTopicData) -> Self {
+        Self {
+            proxy,
+            builtin_topic_data,
+        }
+    }
+}
+impl Serialize for DiscoveredReaderData {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("DiscoveredReaderData", 2)?;
+        // proxy
+        s.serialize_field("proxy", &self.proxy)?;
+
+        // SubscriptionBuiltinTopicData
+        s.serialize_field("builtin_topic_data", &self.builtin_topic_data)?;
+
+        // sentinel
+        s.serialize_field("parameterId", &ParameterId::PID_SENTINEL.value)?;
+        s.serialize_field::<u16>("vendorId: padding", &0)?;
+
+        s.end()
+    }
+}
+
+#[derive(Clone)]
+pub struct DiscoveredWriterData {
+    proxy: WriterProxy,
+    builtin_topic_data: PublicationBuiltinTopicData,
+}
+impl DiscoveredWriterData {
+    pub fn new(proxy: WriterProxy, builtin_topic_data: PublicationBuiltinTopicData) -> Self {
+        Self {
+            proxy,
+            builtin_topic_data,
+        }
+    }
+}
+impl Serialize for DiscoveredWriterData {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("DiscoveredWriterData", 2)?;
+        // proxy
+        s.serialize_field("proxy", &self.proxy)?;
+
+        // SubscriptionBuiltinTopicData
+        s.serialize_field("builtin_topic_data", &self.builtin_topic_data)?;
+
+        // sentinel
+        s.serialize_field("parameterId", &ParameterId::PID_SENTINEL.value)?;
+        s.serialize_field::<u16>("vendorId: padding", &0)?;
+
+        s.end()
+    }
+}
+
+#[derive(Clone)]
 pub struct SPDPdiscoveredParticipantData {
     pub domain_id: u16,
     pub domain_tag: String,
