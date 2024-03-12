@@ -3,7 +3,7 @@ use crate::dds::{
     datawriter::DataWriter,
     participant::DomainParticipant,
     publisher::Publisher,
-    qos::{QosBuilder, QosPolicies},
+    qos::{policy::*, QosBuilder, QosPolicies},
     subscriber::Subscriber,
     tokens::*,
     topic::Topic,
@@ -11,7 +11,8 @@ use crate::dds::{
 };
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
-    PublicationBuiltinTopicData, SPDPdiscoveredParticipantData, SubscriptionBuiltinTopicData,
+    DiscoveredReaderData, DiscoveredWriterData, PublicationBuiltinTopicData,
+    SPDPdiscoveredParticipantData, SubscriptionBuiltinTopicData,
 };
 use crate::message::{
     message_header::ProtocolVersion,
@@ -21,7 +22,11 @@ use crate::network::net_util::{
     spdp_multicast_port, spdp_unicast_port, usertraffic_multicast_port, usertraffic_unicast_port,
 };
 use crate::structure::{
-    entity::RTPSEntity, entity_id::EntityId, topic_kind::TopicKind, vendor_id::VendorId,
+    entity::RTPSEntity,
+    entity_id::EntityId,
+    proxy::{ReaderProxy, WriterProxy},
+    topic_kind::TopicKind,
+    vendor_id::VendorId,
 };
 use enumflags2::make_bitflags;
 use mio_extras::{channel as mio_channel, timer::Timer};
@@ -49,6 +54,10 @@ pub struct Discovery {
     subscriber: Subscriber,
     spdp_builtin_participant_writer: DataWriter<SPDPdiscoveredParticipantData>,
     spdp_builtin_participant_reader: DataReader<SPDPdiscoveredParticipantData>,
+    sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData>,
+    sedp_builtin_pub_reader: DataReader<DiscoveredWriterData>,
+    sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
+    sedp_builtin_sub_reader: DataReader<DiscoveredReaderData>,
     spdp_send_timer: Timer<()>,
 }
 
@@ -58,6 +67,8 @@ impl Discovery {
         let qos = QosBuilder::new().build();
         let publisher = dp.create_publisher(qos);
         let subscriber = dp.create_subscriber(qos);
+
+        // For SPDP
         let spdp_topic = Topic::new(
             "DCPSParticipant".to_string(),
             TypeDesc::new("SPDPDiscoveredParticipantData".to_string()),
@@ -77,6 +88,35 @@ impl Discovery {
             spdp_topic.clone(),
             spdp_reader_entity_id,
         );
+
+        // For SEDP
+        let sedp_publication_topic = Topic::new(
+            "DCPSPublication".to_string(),
+            TypeDesc::new("PublicationBuiltinTopicData".to_string()),
+            dp.clone(),
+            qos,
+            TopicKind::WithKey,
+        );
+        let sedp_pub_writer_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER;
+        let sedp_pub_reader_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR;
+        let sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData> = publisher
+            .create_datawriter_with_entityid(qos, spdp_topic.clone(), sedp_pub_writer_entity_id);
+        let sedp_builtin_pub_reader: DataReader<DiscoveredWriterData> = subscriber
+            .create_datareader_with_entityid(qos, spdp_topic.clone(), sedp_pub_reader_entity_id);
+        let sedp_subscription_topic = Topic::new(
+            "DCPSSucscription".to_string(),
+            TypeDesc::new("SubscriptionBuiltinTopicData".to_string()),
+            dp.clone(),
+            qos,
+            TopicKind::WithKey,
+        );
+        let sedp_sub_writer_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER;
+        let sedp_sub_reader_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR;
+        let sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData> = publisher
+            .create_datawriter_with_entityid(qos, spdp_topic.clone(), sedp_sub_writer_entity_id);
+        let sedp_builtin_sub_reader: DataReader<DiscoveredReaderData> = subscriber
+            .create_datareader_with_entityid(qos, spdp_topic.clone(), sedp_sub_reader_entity_id);
+
         let mut spdp_send_timer: Timer<()> = Timer::default();
         spdp_send_timer.set_timeout(Duration::new(3, 0), ());
         poll.register(
@@ -93,6 +133,10 @@ impl Discovery {
             subscriber,
             spdp_builtin_participant_writer,
             spdp_builtin_participant_reader,
+            sedp_builtin_pub_writer,
+            sedp_builtin_pub_reader,
+            sedp_builtin_sub_writer,
+            sedp_builtin_sub_reader,
             spdp_send_timer,
         }
     }
