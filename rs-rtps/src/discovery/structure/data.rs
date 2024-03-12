@@ -857,6 +857,7 @@ impl Serialize for SubscriptionBuiltinTopicData {
             s.serialize_field("parameterId", &ParameterId::PID_PRESENTATION.value)?;
             s.serialize_field::<u16>("parameterLength", &8)?;
             s.serialize_field("presentation", &presentation)?;
+            s.serialize_field::<u16>("vendorId: padding", &0)?;
         }
 
         // partition
@@ -1077,6 +1078,7 @@ impl Serialize for PublicationBuiltinTopicData {
             s.serialize_field("parameterId", &ParameterId::PID_PRESENTATION.value)?;
             s.serialize_field::<u16>("parameterLength", &8)?;
             s.serialize_field("presentation", &presentation)?;
+            s.serialize_field::<u16>("vendorId: padding", &0)?;
         }
 
         // partition
