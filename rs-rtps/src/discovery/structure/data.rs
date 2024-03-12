@@ -600,6 +600,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         }
                         ParameterId::PID_PRESENTATION => {
                             presentation = seq.next_element()?;
+                            read_pad!(u16);
                             eprintln!(">>>>>>presentation: {:?}", presentation);
                         }
                         ParameterId::PID_PARTITION => {
