@@ -163,6 +163,63 @@ impl Discovery {
             0,
             crate::structure::duration::Duration::new(20, 0),
         );
+        let writer_proxy = WriterProxy::new(
+            self.dp.guid(),
+            Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
+            Locator::new_list_from_self_ipv4(spdp_multicast_port(domain_id) as u32),
+            42,
+        );
+        let pub_data = PublicationBuiltinTopicData::new(
+            None,
+            None,
+            None, //Some(String::from("Test")),
+            None, // Some(String::from("Test")),
+            Some(Durability::default()),
+            Some(DurabilityService::default()),
+            Some(Deadline::default()),
+            Some(LatencyBudget::default()),
+            Some(Liveliness::default()),
+            Some(Reliability::default_datareader()),
+            Some(Lifespan::default()),
+            Some(UserData::default()),
+            Some(TimeBasedFilter::default()),
+            Some(Ownership::default()),
+            Some(OwnershipStrength::default()),
+            Some(DestinationOrder::default()),
+            Some(Presentation::default()),
+            Some(Partition::default()),
+            Some(TopicData::default()),
+            Some(GroupData::default()),
+        );
+        let discoverd_writer_data = DiscoveredWriterData::new(writer_proxy, pub_data);
+        let reader_proxy = ReaderProxy::new(
+            self.dp.guid(),
+            false,
+            Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
+            Locator::new_list_from_self_ipv4(spdp_multicast_port(domain_id) as u32),
+        );
+        let sub_data = SubscriptionBuiltinTopicData::new(
+            None,
+            None,
+            None, //Some(String::from("Test")),
+            None, // Some(String::from("Test")),
+            Some(Durability::default()),
+            Some(Deadline::default()),
+            Some(LatencyBudget::default()),
+            Some(Liveliness::default()),
+            Some(Reliability::default_datareader()),
+            Some(Ownership::default()),
+            Some(DestinationOrder::default()),
+            Some(UserData::default()),
+            Some(TimeBasedFilter::default()),
+            Some(Presentation::default()),
+            Some(Partition::default()),
+            Some(TopicData::default()),
+            Some(GroupData::default()),
+            Some(DurabilityService::default()),
+            Some(Lifespan::default()),
+        );
+        let discoverd_reader_data = DiscoveredReaderData::new(reader_proxy, sub_data);
         loop {
             self.poll.poll(&mut events, None).unwrap();
             for event in events.iter() {
@@ -172,6 +229,10 @@ impl Discovery {
                             eprintln!("@discovery: timer timedout");
                             self.spdp_builtin_participant_writer
                                 .write_builtin_data(data.clone());
+                            self.sedp_builtin_pub_writer
+                                .write_builtin_data(discoverd_writer_data.clone());
+                            self.sedp_builtin_sub_writer
+                                .write_builtin_data(discoverd_reader_data.clone());
                             self.spdp_send_timer.set_timeout(Duration::new(3, 0), ());
                         }
                         Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
