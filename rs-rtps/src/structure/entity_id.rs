@@ -80,7 +80,7 @@ impl EntityId {
 
     pub const SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER: Self = Self {
         entity_key: [0x00, 0x00, 0x03],
-        entity_kind: EntityKind::READER_NO_KEY_BUILT_IN,
+        entity_kind: EntityKind::WRITER_WITH_KEY_BUILT_IN,
     };
 
     pub const SEDP_BUILTIN_PUBLICATIONS_DETECTOR: Self = Self {
