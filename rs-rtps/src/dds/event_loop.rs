@@ -141,7 +141,7 @@ impl EventLoop {
                             };
                             writer.handle_writer_cmd();
                         } else if eid.is_reader() {
-                            unimplemented!();
+                            unimplemented!("Reader entity: {:?}", eid);
                         } else {
                             panic!("receive message from unknown entity: {:?}", eid);
                         }
