@@ -185,24 +185,25 @@ HistoryCacheはDDSとRTPSのインターフェースだから、RTPSとそれに
 
 sample bihaviorの図をみると誰がHistoryCacheを持っているのかわからないけど、rtps spec 2.4の8.4.7.1 を見ると、RTPS Writerがwriter cache を持っていることがわかる。
 
-### Message Receiverが従うルール (spec 8.3.4.1)
-1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
-2. submessageLengthフィールドは次のsubmessageがどこから始まるかを定義する、もしくは、Section 8.3.3.2.3(p. 34)で示されるようにMessageの終わりを拡張するSubmessageを指し示す。もしこのフィールドが無効なら、残りのMessageは無効である。
-3. 未知のSubmessageIDをもつSubmessageは無視されなければならず、次のSubmessageに継続してパースされなければならない。具体的にRTPS 2.4の実装ではversion 2.4で定義されているSubmessageKind以外のIDをもつSubmessageは無視される。
-未知のvenderId由来のvender-specificの範囲のSubmessageIdも無視されなければならず、次のSubmessageに継続してパースされなければならない。
-4. Submessage flags.Submessageのreceiverは未知のflagを無視されるべきである。RTPS2.4の実装では"X"(unused)とプロトコルにマークされたすべてのフラッグは飛ばされるべきである。
-5. 正しいsubmessageLengthフィールドは既知のIDをもつSubmessageであっても、常に次のSubmessageを探すのに使われなくてはならない。(おそらく、既知の種類のSubmessageで長さがわかっている場合でも、versionが上がって新しくElementが追加されている可能性があるから)
-6. 既知だが、無効なSubmessageは残りのMessage(the rest of the Message)を無効にする。
-// "the rest of the Message"が何を指すのか仕様書から読み取れないが、RustDDSの実装は、無効なSubmessageが含まれるMessageを無効なものとして破棄している
-tomiy(tomiy-tomiylab)とytakano(ytakano)の解釈はそれまでに処理したSubmessageは使用し、無効なSubmessageとそれより後のSubmessageを破棄する。
-ただし、無効なSubmessageを受け取ると、それ以降のSubmessageを無効とするとしか仕様書には書いておらず、Submessageを無効とする具体的な操作は定義されていない。
-同一Message内に複数のSubmessageが含まれている場合、前のSubmessageは後ろのSubmessageを処理するのに必要な情報である。
-"8.3.4 The RTPS Message Receiver
-The interpretation and meaning of a Submessage within a Message may depend on the previous Submessages contained
-within that same Message. "
-つまり、Message内に1つでも無効なSubmessageが含まれている場合、そのMessageを処理する意義は失われるため、RustDDSでは破棄していると思われる。
+## 8.4 Behavior Module
+このモジュールではRTPS entityの動的な振る舞いを説明する。RTPS WriterとRTPS Readerの間でメッセージを交換する正しい流れとそれらを構築するタイミングを説明する。
 
-## Example Behavior (日本語訳)
+### 8.4.1 Overview
+一度RTPS WriterがRTPS Readerとマッチすると、それらはWriterのHistoryCacheに存在するCacheChangeの変更をReaderのHistoryCacheに伝播させることを保証しなければならない。
+
+Behavior ModuleはどのようにマッチするRTPS WriterとReaderのペアがCacheChangeの変更を伝播させるためにどのように振る舞うべきか説明する。8.3で定義されるRTPS Messageをつかったメッセージの交換として振る舞いは定義される。
+
+Behavior Moduleは以下のように構成されている。
+- 8.4.2は振る舞いに関してすべてのRTPSプロトコル実装がが満足するべき必要条件を列挙している。それらの必要条件を満足する実装はcompliantでほかのcompliantな実装とinteroperableであるといえる。
+- 上で暗示されているように、複数の実装は最小の必要条件を満足していれば、それぞれの実装はmemory requirements, bandwidth usage, scalability, efficiencyの間で異なるトレードオフを選択できる。RTPSの仕様では対応する振る舞いを持つ1つの実装を要求しない。代わりに、インターオペラビリティのための最小の必要条件とStatelessとStatefulという2つのリファレンス実装を8.4.3で提供する。
+- プロトコルの振る舞いはRELIABILITY QoSのような設定に依存する。8.4.4では利用可能な組み合わせを説明する。
+- 8.4.5, 8.4.6では表記の慣例とこのモジュールで仕様される新しい型を定義する。
+- 8.4.7から8.4.12まで2つのリファレンス実装をモデル化する。
+- 8.4.13ではParticipantsがそれぞれが保持しているWriterのlivelinessを宣言するために使われるWriter Liveliness Protocolを説明する。
+- 8.4.14ではfragmented dataを含む、いくつかの補足的な振る舞いを説明する。
+- 最後に、8.4.15は正い実装のためのガイドラインを提供する。
+
+### 8.4.1.1 Example Behavior (日本語訳)
 specのFigure 8.14 – Example Behavior
 
 https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A193%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C46%2C489%2C0%5D
@@ -220,16 +221,111 @@ https://www.omg.org/spec/DDSI-RTPS/2.3/Beta1/PDF#%5B%7B%22num%22%3A193%2C%22gen%
     a.  RELIABLE DDS DataReaderには、 RTPS ReaderのHistoryCacheにあるchangeはすべてのそれより前のchange(i.e., より小さいsequence numberをもつchange)が見える場合のみ、ユーザーアプリケーションから見えるようになる。
 
     b. BEST_EFFORT DDS DataReaderには、RTPS ReaderのHistoryCacheにあるchangeは未来のchangeがまだ見えるようになっていない(i.e., RTPS ReceiverのHistoryCacheにより大きいsequence numberをもつchangeがない)場合のみ、ユーザーから見えるようになる。
-
-〜〜続く〜〜
-
 // TODO
+23.
 
-8.4.4でRELIABILITY QoSのような設定に依存する振る舞いを説明
+上記の説明はいくつかのDDS DataReaderとRTPS Readerの間のやり取りがモデル化されていない。例えば、RTPS Readerが使うDataReaderに新しいchangeが受信されたかどうか確認するために`read`もしくは`take`を呼ぶ(i.e., what causes step 10 to be taken)べきであることを知らせる仕組みはモデル化されていない。
 
-8.4.7-12では2つのリファレンス実装をモデル化する
+また、いくつかのDDS DataWriterとRTPS Writerの間のやり取りもモデル化されていない。例えば、RTPS Writerが使うDataWriterに特定のchangeがacknowledgedが完了していて、HistoryCacheaから削除可能かどうか確認するように知らせる仕組みがモデル化されていない。
 
-8.4.13
+前述のやり取りがモデル化されていないのは、それらはmiddlewareの内部実装であり、RTPS protocolに影響を与えないからである。
+
+### 8.4.2 Behavior Required for Interoperability
+この章では全てのRTPS実装が
+- プロトコルの仕様に準拠する
+- 他の実装と相互使用可能にする
+
+ために満足しなければならない必要条件を説明する。
+
+それらの必要条件の範囲は異なるベンダーのRTPS実装の間でのメッセージ交換に限定される。
+同じベンダー同士のメッセージ交換では、ベンダーは準拠していない実装を選択するかもしれないし、proprietaryなプロトコルを代わりに使うかもしれない
+
+### 8.4.2.1 General Requirements
+以下の必要条件はすべてのRTPS Entityに適用される。
+
+#### 8.4.2.1.1 All communications must take place using RTPS Messages
+8.3で定義されているRTPS Message以外は使用できない。必要なコンテンツ、正当性、それぞれのメッセージの解釈はRTPSの仕様で規定されている。
+
+ベンダーはプロトコルによて提供されるextension mechanisms(8.6を参照)を使用してメッセージをベンダー特有のニーズのためにメッセージを拡張するかもしれない。これはinteroperoperabilityに影響しない。
+
+#### 8.4.2.1.2 All implementations must implement the RTPS Message Receiver
+RTPS Messageに含まれるSubmessageを解釈し、MessageReceiverの状態を保持するために、8.4.3で説明されるRTPS Message Receiverが従がうルールを実装しなければならない。
+
+この必要条件には、8.3.7 に定義されているように、Entity Submessagesの適切な解釈のために必要な場合、Interpreter SubmessagesでEntity Submessagesを先行させることによる適切なメッセージフォーマットも含まれる。
+
+#### 8.4.2.1.3 The timing characteristics of all implementations must be tunable
+アプリケーションの要件、deployment configuration、および基礎となるトランスポートによって、エンドユーザーはRTPSプロトコルのタイミング特性を調整することを望むかもしれない。
+
+したがって、プロトコルの動作に対する要求が、遅延応答を許容したり、周期的なイベントを指定したりする場合、実装はエンドユーザーがそれらのタイミング特性を調整できるようにしなければならない。
+
+#### 8.4.2.1.4 Implementations must implement the Simple Participant and Endpoint Discovery Protocols
+実装はremote Endpointsのdiscoveryを可能にするためにSimple Participant/Endpoint Discovery Protocolを実装しなければならない。
+
+RTPSはアプリケーションのeployment needsによって異なるParticipant/Endpoint Discovery Protocolを使用することを許している。
+interoperabilityのため、実装はすくなくともSimple Participant Discovery ProtocolとSimple Endpoint Discovery Protocolを実装しなければならない。(8.5.1を参照)
+
+### 8.4.2.2 Required RTPS Writer Behavior
+以下の必要条件はRTPS Writerのみに適用される。言及されない限り、必要条件はreliableとbest-effortの両方に適用される。
+
+#### 8.4.2.2.1 Writers must not send data out-of-order
+Writerはdata sampleをそれらがHistoryCacheに追加された順番で送信しなければならない。
+
+#### 8.4.2.2.2 Writers must include in-line QoS values if requested by a Reader
+Writerはdin-line QoSと共にdata messageを受信するために、Readerの要求に従がわなければならない。
+
+#### 8.4.2.2.3 Writers must send periodic HEARTBEAT Messages (reliable only)
+Writerは、利用可能なサンプルのシーケンス番号を含む定期的なHEARTBEAT Messageを送信することによって、データサンプルが利用可能であることを、マッチングする各Reliable Readerに定期的に通知しなければならない。もし、サンプルが存在しなければHEARTBEAT Messageを送信する必要はない。
+
+厳格で信頼できるコミュニケーションのため、Writerは継続してHEARTBEAT MessageをReaderにReaderが利用可能なサンプルをすべて受信したことをacknowledgeするか、または受信したサンプルがなくなるまで送信しなければならない。それ以外のすべての場合において、送信される HEARTBEAT メッセージの数は実装に依存し、有限である可能性がある。
+
+#### 8.4.2.2.4 Writers must eventually respond to a negative acknowledgment (reliable only)
+Readerがdata sampleを失なったことを示すACKNACK Messageを受信したとき、Writerは失なわれたdata sampleを送信し、もしくはサンプルが関係ないときはGAP messageを送信し、もしくはサンプルがそれ以上利用可能でないならHEARTBEAT messageを送信しなければならない。
+
+Writerは即座に反応するか、将来の特定の時間帯に応答をスケジュールすることを選択する。それはまた、関連する応答をまとめることも可能で、ACKNACK MessageとWriterのresponseが一対一で対応している必要はない。それらの決定とタイミング特性は実装特有である。
+
+#### 8.4.2.2.5 Sending Heartbeats and Gaps with Writer Group Information
+Groupに所属しているWriterはReaderがすべてのWriterのsampleにacknowledgeしているたとしても、HEARTBEAT or GAP SubmessagesをそのマッチしているReaderに送信するべき(shall)である。これは、Subscriverが、そのWriterで利用できないグループシーケンス番号を検出するために必要である。このルールの例外はWriterが同じ情報を含む DATA or
+DATA_FRAG Submessagesを送信したときである。
+
+### 8.4.2.3 Required RTPS Reader Behavior
+best-effortなReaderは、データを受信するだけで、自分ではメッセージを送信しないので、完全に受動的である。したがって、以下のrequirementsはreliable Readerのみに適用される。
+
+#### 8.4.2.3.1 Readers must respond eventually after receiving a HEARTBEAT with final flag not set
+final flagがセットされていないHEARTBEAT Messageを受信したとき、ReaderはACKNACK Messageに応答しなければならない。ACKNACK Messageは、すべてのデータサンプルを受信したことを認めるか、またはいくつかのデータサンプルが欠落していることを示す。
+
+応答はmessage storms(おそらく輻輳のこと)を避けるため遅延するかもしれない。
+
+#### 8.4.2.3.2 Readers must respond eventually after receiving a HEARTBEAT that indicates a sample is missing
+HEARTBEAT Messageを受信するとき、data samplesを失なったReaderはdata sampleが失なわれたことを示すACKNACK Messageに応答しなければならない。この要件は、Readerがそのキャッシュにこれらの欠落サンプルを収容できる場合にのみ適用され、 HEARTBEAT メッセージのfinal flagの設定とは無関係である。
+
+応答はmessage storms(おそらく輻輳のこと)を避けるため遅延するかもしれない。
+
+liveliness HEARTBEATが、livelinessのみのメッセージであることを示すために、liveliness flagsとfinal flagの両方がセットされている場合、この応答は必要ない。
+
+#### 8.4.2.3.3 Once acknowledged, always acknowledged
+一度Readerが受信したsampleにACKNACK Messageを使かって陽にacknowledgeした場合、それ以降その同じサンプルに対してnegative acknowledgeすることはできない。
+
+一度WriterがすべてのReaderからpositive acknowledgeを受信すると、Writerは関連するリソースを再利用することができる。しかし、もしWriterが以前positively acknowledgeを受けたsampleに対し、negative acknowledgemenを受け、Writerがrequestをserviceしている場合、Writerはsampleを送信すべきである。
+
+#### 8.4.2.3.4 Readers can only send an ACKNACK Message in response to a HEARTBEAT Message
+定常状態では、ACKNACK MessageはWriterからのHEARTBEAT Messageに対する応答としてのみ送信できる。ACKNACK Messages can be sent from a Reader when it first discovers a Writer as an optimization.(???) Writerはそれらの先取りのACKNACK Messageに応答する必要はない。
+
+### Message Receiverが従うルール (spec 8.3.4.1)
+1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
+2. submessageLengthフィールドは次のsubmessageがどこから始まるかを定義する、もしくは、Section 8.3.3.2.3(p. 34)で示されるようにMessageの終わりを拡張するSubmessageを指し示す。もしこのフィールドが無効なら、残りのMessageは無効である。
+3. 未知のSubmessageIDをもつSubmessageは無視されなければならず、次のSubmessageに継続してパースされなければならない。具体的にRTPS 2.4の実装ではversion 2.4で定義されているSubmessageKind以外のIDをもつSubmessageは無視される。
+未知のvenderId由来のvender-specificの範囲のSubmessageIdも無視されなければならず、次のSubmessageに継続してパースされなければならない。
+4. Submessage flags.Submessageのreceiverは未知のflagを無視されるべきである。RTPS2.4の実装では"X"(unused)とプロトコルにマークされたすべてのフラッグは飛ばされるべきである。
+5. 正しいsubmessageLengthフィールドは既知のIDをもつSubmessageであっても、常に次のSubmessageを探すのに使われなくてはならない。(おそらく、既知の種類のSubmessageで長さがわかっている場合でも、versionが上がって新しくElementが追加されている可能性があるから)
+6. 既知だが、無効なSubmessageは残りのMessage(the rest of the Message)を無効にする。
+// "the rest of the Message"が何を指すのか仕様書から読み取れないが、RustDDSの実装は、無効なSubmessageが含まれるMessageを無効なものとして破棄している
+tomiy(tomiy-tomiylab)とytakano(ytakano)の解釈はそれまでに処理したSubmessageは使用し、無効なSubmessageとそれより後のSubmessageを破棄する。
+ただし、無効なSubmessageを受け取ると、それ以降のSubmessageを無効とするとしか仕様書には書いておらず、Submessageを無効とする具体的な操作は定義されていない。
+同一Message内に複数のSubmessageが含まれている場合、前のSubmessageは後ろのSubmessageを処理するのに必要な情報である。
+"8.3.4 The RTPS Message Receiver
+The interpretation and meaning of a Submessage within a Message may depend on the previous Submessages contained
+within that same Message. "
+つまり、Message内に1つでも無効なSubmessageが含まれている場合、そのMessageを処理する意義は失われるため、RustDDSでは破棄していると思われる。
 
 ## 8.4.15 Implementation Guidelines
 この章は正式なプロトコルの仕様ではない。この章の目的は高パフォーマンスなプロトコル実装のためのガイドラインを提供することである。
@@ -485,3 +581,6 @@ IF ( TOPICS_ANNOUNCER IS_IN participant_data.availableEndpoints ) THEN
     reader.matched_writer_add(proxy);
 ENDIF
 ```
+
+## 8.5.5.2 Removal of a previously discovered Participant
+remote ParticipantのleaseDurationに基づき、local Participant ‘local_participant’ は以前発見したGUID_t participant_guidをもつParticipantはこれ以上あらわれないと結論づける。Participant ‘local_participant’は、GUID_t participant_guidによって識別されるParticipant内のエンドポイントと通信していた任意のローカルエンドポイントを再設定しなければなりません。
