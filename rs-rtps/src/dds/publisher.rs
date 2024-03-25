@@ -3,6 +3,7 @@ use crate::dds::{
 };
 use crate::rtps::writer::{WriterCmd, WriterIngredients};
 use crate::structure::{
+    duration::Duration,
     entity::RTPSEntity,
     entity_id::{EntityId, EntityKind},
     guid::GUID,
@@ -109,6 +110,15 @@ impl InnerPublisher {
                     EntityKind::WRITER_WITH_KEY_USER_DEFIND,
                 ),
             ),
+            topic_kind: crate::structure::topic_kind::TopicKind::WithKey,
+            reliability_level: crate::policy::ReliabilityQosKind::BestEffort,
+            unicast_locator_list: Vec::new(),
+            multicast_locator_list: Vec::new(),
+            push_mode: false,
+            heartbeat_period: Duration::new(20, 0),
+            nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
+            nack_suppression_duration: Duration::ZERO,
+            data_max_size_serialized: 0,
             writer_command_receiver,
         };
         self.add_writer_sender.send(writer_ing).unwrap();
@@ -125,6 +135,15 @@ impl InnerPublisher {
             mio_channel::sync_channel::<WriterCmd>(4);
         let writer_ing = WriterIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
+            topic_kind: crate::structure::topic_kind::TopicKind::WithKey,
+            reliability_level: crate::policy::ReliabilityQosKind::BestEffort,
+            unicast_locator_list: Vec::new(),
+            multicast_locator_list: Vec::new(),
+            push_mode: false,
+            heartbeat_period: Duration::new(20, 0),
+            nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
+            nack_suppression_duration: Duration::ZERO,
+            data_max_size_serialized: 0,
             writer_command_receiver,
         };
         self.add_writer_sender.send(writer_ing).unwrap();
