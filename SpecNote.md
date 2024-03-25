@@ -310,6 +310,41 @@ liveliness HEARTBEATが、livelinessのみのメッセージであることを�
 #### 8.4.2.3.4 Readers can only send an ACKNACK Message in response to a HEARTBEAT Message
 定常状態では、ACKNACK MessageはWriterからのHEARTBEAT Messageに対する応答としてのみ送信できる。ACKNACK Messages can be sent from a Reader when it first discovers a Writer as an optimization.(???) Writerはそれらの先取りのACKNACK Messageに応答する必要はない。
 
+### 8.4.3 Implementing the RTPS Protocol
+RTPS specはプロトコルに準拠した実装は8.4.2で説明されているrequirementsのみ満足すればよいと宣言している。しかし、実際の実装の振る舞いは各実装による設計上のトレードオフのfunctionとして異なる可能性がある。
+
+RTPS specificationのBefabior Moduleは2つのreference 実装を定義する。
++ Stateless Reference Implementation:
+
+Stateless Reference Implementationはスケーラビリティのために最適化されている。それはほとんどremote entityの状態を保持しない。そのため巨大なシステムでもスケールする。スケーラビリティが向上し、メモリ使用量が減少するが、より多くの帯域が必要となるというトレードオフがある。Stateless Reference Implementationはmulticastを通じたbest-effortなコミュニケーションでの使用に向いている。
+
++ Stateful Refarence Implementation:
+
+The Stateful Reference Implementationはremote entityのすべての状態を保持する。このアプローチは帯域使用量を最小化するが、より多くのメモリーが必要となりスケーラビリティが減少することを意味している。Stateless Reference Implementationと対比して、厳格で信頼できるコミュニケーションを保証し、Writer側にQoS-baseやcontent-basedのフィルタリングを適用できる。
+
+どちらのreference implementationも以下の章で詳細に説明している。
+
+実際の実装では、reference implementationに従がう必要はない。どのくらいの状態を保持しているかによって、実装はreference implementationの組み合わせになる可能性がある。
+
+例えば、Stateless Reference Implementationは最小の情報とremote entityの状態を保持する。そのため、それぞれのremote Readerとそのpropertyを追跡し続けなければならないtime-based filteringをWriter側でできない。それぞれのremote Writerから受信した最大のsequence numberを追跡しなければならないReader側でのdrop out-of-order samplesができない。いくつかの実装では、Stateless Reference Implementationに擬態しているかもしれない。しかし、上記の制限を回避するために十分に追加の状態を保持することを選択しているかもしれない。
+この場合、実装はステートフルなリファレンス実装に近づく。あるいは、状態を維持した場合の動作に可能な限り近似させるために、ゆっくりとエイジングさせ、必要に応じて保持することもできる。
+
+実際の実装にかかわらず、interoperabilityを保証するため、全ての実装が両方のreference implementationを含み、8.4.2で説明されるrequirementsを満足することが重要である。
+
+### 8.4.4 The Behavior of a Writer with respect to each matched Reader
+それぞれのmatched Readerに関係するRTPS Writerの挙動はRTPS WriterとRTPS ReaderのreliabilityLevel attributeの設定に依存する。この設定はbest-effortのプロトコルが使用されるか、reliableなprotocolが使用されるかを制御する。
+
+すべてのreliabilityLevelの組み合わせが可能なわけではない。RTPS WriterはRTPS WriterのreliabilityLevelがRELIABLEにセットされているか、RTPS WriterとRTPS ReaderのreliabilityLevelが両方BEST_EFFORTにセットされていないかぎり、RTPS Readerとマッチすることはできない。これはDDSの仕様で、BEST_EFFORT DDS DataWriterは BEST_EFFORT DDS DataReadeのみとマッチ可能で、 RELIABLE DDS DataWriterはRELIABLEとBEST_EFFORT DDS DataReaderの両方とマッチ可能であると提示されているからである。
+
+8.4.3で言及されているように、WriterがReaderとマッチできるかは両方が同じRTPS protocolの実装を使用しているかに依存しない。Stateful WriterはStateless Readerとコミュニケーション可能で、その逆も同様である。
+
+### 8.4.5 Notational Conventions
+reference implementationsはUML sequence chartsとstate-diagramsで説明される。それらのdiagramはRTPS entityを表す略語を使用する。使用される略語をTable 8.45に示す。
+
+### 8.4.7 RTPS Writer Reference Implementations
+8.2で最初に説明したように、RTPS Writer Reference ImplementationsはRTPS Writer classのspwcializationに基づいている。この章では、RTPS Writerと RTPS Writer Reference
+Implementationsをモデル化するために使用されるすべての追加のclassを説明する。実際の振る舞いは8.4.8と8.4.9で説明される。
+
 ### Message Receiverが従うルール (spec 8.3.4.1)
 1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
 2. submessageLengthフィールドは次のsubmessageがどこから始まるかを定義する、もしくは、Section 8.3.3.2.3(p. 34)で示されるようにMessageの終わりを拡張するSubmessageを指し示す。もしこのフィールドが無効なら、残りのMessageは無効である。
