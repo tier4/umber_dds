@@ -26,7 +26,7 @@ use std::ops::{Add, AddAssign};
 
 pub type Count = i32;
 
-#[derive(PartialEq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Clone, Copy)]
 pub struct SequenceNumber(pub i64); // The precise definition of SequenceNumber is:
                                     // struct SequenceNumber {high: i32, low: u32}.
                                     // Therefore, when serialized in LittleEndian, SequenceNumber(0) is represented as:
@@ -191,7 +191,7 @@ impl Timestamp {
 }
 
 // spec versin 2.3, 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
-#[derive(Readable, Writable, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Readable, Writable, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Locator {
     kind: i32,
     port: u32,

@@ -2,7 +2,7 @@ use crate::message::submessage::element::SequenceNumber;
 use crate::structure::guid::GUID;
 use bytes::Bytes;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct CacheChange {
     kind: ChangeKind,
     writer_guid: GUID,
@@ -33,7 +33,7 @@ impl CacheChange {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum ChangeKind {
     Alive,
     AliveFiltered,
@@ -42,7 +42,7 @@ pub enum ChangeKind {
     NotAliveUnregistered,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct CacheData {
     data: Bytes,
 }
@@ -53,13 +53,13 @@ impl CacheData {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct InstantHandle {/* TODO */}
 
 pub struct HistoryCache {
-    changes: Vec<CacheChange>,
-    min_seq_num: Option<SequenceNumber>,
-    max_seq_num: Option<SequenceNumber>,
+    pub changes: Vec<CacheChange>,
+    pub min_seq_num: Option<SequenceNumber>,
+    pub max_seq_num: Option<SequenceNumber>,
 }
 
 impl HistoryCache {
