@@ -1,5 +1,6 @@
 use crate::dds::{
-    datawriter::DataWriter, participant::DomainParticipant, qos::QosPolicies, topic::Topic,
+    datawriter::DataWriter, participant::DomainParticipant, qos::policy::*, qos::QosPolicies,
+    topic::Topic,
 };
 use crate::rtps::writer::{WriterCmd, WriterIngredients};
 use crate::structure::{
@@ -102,6 +103,12 @@ impl InnerPublisher {
     ) -> DataWriter<D> {
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
+        let reliability_level = if let Some(reliability) = qos.reliability {
+            reliability.kind
+        } else {
+            ReliabilityQosKind::BestEffort // If qos don't specify reliability_level, the
+                                           // reliability_level of Writer is set to BestEffort
+        };
         let writer_ing = WriterIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
@@ -110,8 +117,8 @@ impl InnerPublisher {
                     EntityKind::WRITER_WITH_KEY_USER_DEFIND,
                 ),
             ),
-            topic_kind: crate::structure::topic_kind::TopicKind::WithKey,
-            reliability_level: crate::policy::ReliabilityQosKind::BestEffort,
+            topic_kind: topic.kind(),
+            reliability_level,
             unicast_locator_list: Vec::new(),
             multicast_locator_list: Vec::new(),
             push_mode: false,
@@ -133,10 +140,16 @@ impl InnerPublisher {
     ) -> DataWriter<D> {
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
+        let reliability_level = if let Some(reliability) = qos.reliability {
+            reliability.kind
+        } else {
+            ReliabilityQosKind::BestEffort // If qos don't specify reliability_level, the
+                                           // reliability_level of Writer is set to BestEffort
+        };
         let writer_ing = WriterIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
-            topic_kind: crate::structure::topic_kind::TopicKind::WithKey,
-            reliability_level: crate::policy::ReliabilityQosKind::BestEffort,
+            topic_kind: topic.kind(),
+            reliability_level,
             unicast_locator_list: Vec::new(),
             multicast_locator_list: Vec::new(),
             push_mode: false,
