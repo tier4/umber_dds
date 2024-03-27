@@ -12,6 +12,7 @@ pub mod infots;
 pub mod nackfrag;
 
 use crate::network::net_util::get_local_interfaces;
+use crate::structure::duration::Duration;
 use crate::structure::parameter_id::ParameterId;
 use byteorder::ReadBytesExt;
 use bytes::{BufMut, Bytes, BytesMut};
@@ -21,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
 use std::io;
 use std::net::IpAddr;
+use std::ops::Sub;
 use std::ops::{Add, AddAssign};
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
@@ -170,7 +172,7 @@ impl<C: Context> Writable<C> for ParameterList {
     }
 }
 
-#[derive(Readable, Writable)]
+#[derive(Readable, Writable, Clone, Copy)]
 pub struct Timestamp {
     pub seconds: u32,
     pub fraction: u32,
@@ -196,6 +198,24 @@ impl Timestamp {
             seconds: (now / 1_000_000_000) as u32,
             fraction: (now % 1_000_000_000) as u32,
         })
+    }
+}
+
+impl Sub for Timestamp {
+    type Output = Duration;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let mut lsec = self.seconds as i32;
+        let rsec = rhs.seconds as i32;
+        let mut fraction = if self.fraction < rhs.fraction {
+            lsec -= 1;
+            self.fraction + 1_000_000_000 - rhs.fraction
+        } else {
+            self.fraction - rhs.fraction
+        };
+        let seconds = lsec - rsec;
+
+        return Duration::new(seconds, fraction);
     }
 }
 
