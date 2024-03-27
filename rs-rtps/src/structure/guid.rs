@@ -30,7 +30,7 @@ impl GUID {
     }
 }
 
-#[derive(Readable, Writable, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Readable, Writable, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct GuidPrefix {
     pub guid_prefix: [u8; 12],
 }
