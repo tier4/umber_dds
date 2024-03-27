@@ -16,6 +16,7 @@ use crate::structure::parameter_id::ParameterId;
 use byteorder::ReadBytesExt;
 use bytes::{BufMut, Bytes, BytesMut};
 use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
 use std::io;
@@ -188,6 +189,14 @@ impl Timestamp {
         seconds: 0xFFFFFFFF,
         fraction: 0xFFFFFFFE,
     };
+
+    pub fn now() -> Option<Self> {
+        let now = Local::now().timestamp_nanos_opt()?;
+        Some(Self {
+            seconds: (now / 1_000_000_000) as u32,
+            fraction: (now % 1_000_000_000) as u32,
+        })
+    }
 }
 
 // spec versin 2.3, 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
