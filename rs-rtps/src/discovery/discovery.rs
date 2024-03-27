@@ -9,6 +9,7 @@ use crate::dds::{
     topic::Topic,
     typedesc::TypeDesc,
 };
+use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
     DiscoveredReaderData, DiscoveredWriterData, PublicationBuiltinTopicData,
@@ -49,6 +50,7 @@ use std::time::Duration;
 
 pub struct Discovery {
     dp: DomainParticipant,
+    discovery_db: DiscoveryDB,
     poll: Poll,
     publisher: Publisher,
     subscriber: Subscriber,
@@ -62,7 +64,7 @@ pub struct Discovery {
 }
 
 impl Discovery {
-    pub fn new(dp: DomainParticipant) -> Self {
+    pub fn new(dp: DomainParticipant, discovery_db: DiscoveryDB) -> Self {
         let poll = Poll::new().unwrap();
         let qos = QosBuilder::new().build();
         let publisher = dp.create_publisher(qos);
@@ -128,6 +130,7 @@ impl Discovery {
         .unwrap();
         Self {
             dp,
+            discovery_db,
             poll,
             publisher,
             subscriber,

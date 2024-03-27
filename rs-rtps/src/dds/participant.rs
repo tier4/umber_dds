@@ -1,4 +1,4 @@
-use crate::discovery::discovery::Discovery;
+use crate::discovery::{discovery::Discovery, discovery_db::DiscoveryDB};
 use crate::network::net_util::*;
 use crate::rtps::reader::ReaderIngredients;
 use crate::rtps::writer::WriterIngredients;
@@ -40,17 +40,19 @@ impl DomainParticipant {
     pub fn new(domain_id: u16) -> Self {
         let (disc_thread_sender, disc_thread_receiver) =
             mio_channel::channel::<thread::JoinHandle<()>>();
+        let discovery_db = DiscoveryDB::new();
         let dp = Self {
             inner: Arc::new(Mutex::new(DomainParticipantDisc::new(
                 domain_id,
                 disc_thread_receiver,
+                discovery_db.clone(),
             ))),
         };
         let dp_clone = dp.clone();
         let discovery_handler = Builder::new()
             .name(String::from("discovery"))
             .spawn(|| {
-                let mut discovery = Discovery::new(dp_clone);
+                let mut discovery = Discovery::new(dp_clone, discovery_db);
                 discovery.discovery_loop();
             })
             .unwrap();
@@ -89,9 +91,10 @@ impl DomainParticipantDisc {
     fn new(
         domain_id: u16,
         disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
+        discovery_db: DiscoveryDB,
     ) -> Self {
         Self {
-            inner: Arc::new(DomainParticipantInner::new(domain_id)),
+            inner: Arc::new(DomainParticipantInner::new(domain_id, discovery_db)),
             disc_thread_receiver,
         }
     }
@@ -136,7 +139,7 @@ struct DomainParticipantInner {
 }
 
 impl DomainParticipantInner {
-    pub fn new(domain_id: u16) -> DomainParticipantInner {
+    pub fn new(domain_id: u16, discovery_db: DiscoveryDB) -> DomainParticipantInner {
         let mut socket_list: HashMap<mio_v06::Token, UdpSocket> = HashMap::new();
         let spdp_multi_socket = new_multicast(
             "0.0.0.0",
@@ -194,6 +197,7 @@ impl DomainParticipantInner {
                 guid_prefix,
                 add_writer_receiver,
                 add_reader_receiver,
+                discovery_db,
             );
             ev_loop.event_loop();
         });

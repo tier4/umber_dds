@@ -1,3 +1,4 @@
+use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::{
     cdr::deserialize,
     data::{SDPBuiltinData, SPDPdiscoveredParticipantData},
@@ -27,10 +28,11 @@ pub struct MessageReceiver {
     multicast_reply_locator_list: Vec<Locator>,
     have_timestamp: bool,
     timestamp: Timestamp,
+    discovery_db: DiscoveryDB,
 }
 
 impl MessageReceiver {
-    pub fn new(participant_guidprefix: GuidPrefix) -> MessageReceiver {
+    pub fn new(participant_guidprefix: GuidPrefix, discovery_db: DiscoveryDB) -> MessageReceiver {
         Self {
             own_guid_prefix: participant_guidprefix,
             source_version: ProtocolVersion::PROTOCOLVERSION,
@@ -41,6 +43,7 @@ impl MessageReceiver {
             multicast_reply_locator_list: vec![Locator::INVALID],
             have_timestamp: false,
             timestamp: Timestamp::TIME_INVALID,
+            discovery_db,
         }
     }
 
@@ -116,7 +119,7 @@ impl MessageReceiver {
     }
 
     fn handle_entity_submessage(
-        &self,
+        &mut self,
         entity_subm: EntitySubmessage,
         mut writers: &mut HashMap<EntityId, Writer>,
         mut readers: &mut HashMap<EntityId, Reader>,
@@ -204,7 +207,7 @@ impl MessageReceiver {
         }
     }
     fn handle_data_submsg(
-        &self,
+        &mut self,
         data: Data,
         flag: BitFlags<DataFlag>,
         readers: &mut HashMap<EntityId, Reader>,
@@ -246,6 +249,10 @@ impl MessageReceiver {
                 ),
             };
             let new_data = deserialized.toSPDPdiscoverdParticipantData();
+            let timestamp = Timestamp::now().expect("Couldn't get timestamp");
+            self.discovery_db
+                .write(new_data.guid.guid_prefix, timestamp, new_data);
+            /*
             eprintln!("domain_id: {}", new_data.domain_id);
             eprintln!("domain_tag: {}", new_data.domain_tag);
             eprintln!("protocol_version: {:?}", new_data.protocol_version);
@@ -276,7 +283,34 @@ impl MessageReceiver {
                 "manual_liveliness_count: {:?}",
                 new_data.manual_liveliness_count
             );
-            eprintln!("lease_duration: {:?}", new_data.lease_duration);
+            eprintln!("lease_duration: {:?}", new_data.lease_duration.clone());
+            */
+        }
+        // if msg is for SEDP
+        if data.writer_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER {
+            let mut deserialized = match deserialize::<SDPBuiltinData>(
+                &data.serialized_payload.as_ref().unwrap().to_bytes(),
+            ) {
+                Ok(d) => d,
+                Err(e) => panic!(
+                    "neko~~~~~: failed deserialize reseived sedp(w) data message: {}",
+                    e
+                ),
+            };
+            eprintln!("successed for deserialize sedp(w)");
+        }
+        // if msg is for SEDP
+        if data.writer_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER {
+            let mut deserialized = match deserialize::<SDPBuiltinData>(
+                &data.serialized_payload.as_ref().unwrap().to_bytes(),
+            ) {
+                Ok(d) => d,
+                Err(e) => panic!(
+                    "neko~~~~~: failed deserialize reseived sedp(r) data message: {}",
+                    e
+                ),
+            };
+            eprintln!("successed for deserialize sedp(r)");
         }
         let cache_data = match data.serialized_payload {
             Some(s) => Some(CacheData::new(s.value)),

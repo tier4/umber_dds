@@ -1,4 +1,5 @@
 use crate::dds::tokens::*;
+use crate::discovery::discovery_db::DiscoveryDB;
 use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterIngredients};
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
@@ -34,6 +35,7 @@ impl EventLoop {
         participant_guidprefix: GuidPrefix,
         mut add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
         mut add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
+        discovery_db: DiscoveryDB,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
@@ -64,7 +66,7 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .unwrap();
-        let message_receiver = MessageReceiver::new(participant_guidprefix);
+        let message_receiver = MessageReceiver::new(participant_guidprefix, discovery_db);
         let sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
             poll,
