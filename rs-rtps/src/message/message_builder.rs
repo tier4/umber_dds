@@ -23,15 +23,13 @@ impl MessageBuilder {
         }
     }
 
-    pub fn info_ts(&mut self, endiannes: Endianness, timestamp_nanos: Option<i64>) {
+    pub fn info_ts(&mut self, endiannes: Endianness, timestamp: Option<Timestamp>) {
         let mut timestamp: Option<Timestamp> = None;
         let mut ts_flag = InfoTimestampFlag::from_enndianness(endiannes);
         let mut infots_body_length = 0;
-        match timestamp_nanos {
+        match timestamp {
             Some(t) => {
-                let seconds = (t / 1_000_000_000) as u32;
-                let fraction = (((t % 1_000_000_000) << 32) / 1_000_000_000) as u32;
-                timestamp = Some(Timestamp { seconds, fraction });
+                timestamp = Some(t);
                 infots_body_length += 8;
             }
             None => ts_flag |= InfoTimestampFlag::Invalidate,

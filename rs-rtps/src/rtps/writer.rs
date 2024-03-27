@@ -1,6 +1,6 @@
 use crate::message::{
     message_builder::MessageBuilder,
-    submessage::element::{Locator, SequenceNumber, SerializedPayload},
+    submessage::element::{Locator, SequenceNumber, SerializedPayload, Timestamp},
 };
 use crate::network::udp_sender::UdpSender;
 use crate::policy::ReliabilityQosKind;
@@ -124,8 +124,8 @@ impl Writer {
                     // TODO: register a_change to writer HistoryCache
                     // build RTPS Message
                     let mut message_builder = MessageBuilder::new();
-                    let now = Local::now().timestamp_nanos_opt().unwrap();
-                    message_builder.info_ts(Endianness::LittleEndian, Some(now));
+                    let time_stamp = Timestamp::now();
+                    message_builder.info_ts(Endianness::LittleEndian, time_stamp);
                     message_builder.data(
                         Endianness::LittleEndian,
                         EntityId::UNKNOW,
