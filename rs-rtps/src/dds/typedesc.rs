@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct TypeDesc {
     name: String,
 }
