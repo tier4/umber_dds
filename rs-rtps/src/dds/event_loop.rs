@@ -36,6 +36,7 @@ impl EventLoop {
         mut add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
         mut add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
         discovery_db: DiscoveryDB,
+        discdb_update_sender: mio_channel::Sender<GuidPrefix>,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
@@ -66,7 +67,8 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .unwrap();
-        let message_receiver = MessageReceiver::new(participant_guidprefix, discovery_db);
+        let message_receiver =
+            MessageReceiver::new(participant_guidprefix, discovery_db, discdb_update_sender);
         let sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
             poll,

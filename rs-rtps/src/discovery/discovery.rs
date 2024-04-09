@@ -25,6 +25,7 @@ use crate::network::net_util::{
 use crate::structure::{
     entity::RTPSEntity,
     entity_id::EntityId,
+    guid::GuidPrefix,
     proxy::{ReaderProxy, WriterProxy},
     topic_kind::TopicKind,
     vendor_id::VendorId,
@@ -51,6 +52,7 @@ use std::time::Duration;
 pub struct Discovery {
     dp: DomainParticipant,
     discovery_db: DiscoveryDB,
+    discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     poll: Poll,
     publisher: Publisher,
     subscriber: Subscriber,
@@ -64,7 +66,11 @@ pub struct Discovery {
 }
 
 impl Discovery {
-    pub fn new(dp: DomainParticipant, discovery_db: DiscoveryDB) -> Self {
+    pub fn new(
+        dp: DomainParticipant,
+        discovery_db: DiscoveryDB,
+        mut discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
+    ) -> Self {
         let poll = Poll::new().unwrap();
         let qos = QosBuilder::new().build();
         let publisher = dp.create_publisher(qos);
@@ -128,9 +134,17 @@ impl Discovery {
             PollOpt::edge(),
         )
         .unwrap();
+        poll.register(
+            &mut discdb_update_receiver,
+            DISCOVERY_DB_UPDATE,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
         Self {
             dp,
             discovery_db,
+            discdb_update_receiver,
             poll,
             publisher,
             subscriber,
@@ -237,6 +251,17 @@ impl Discovery {
                             self.sedp_builtin_sub_writer
                                 .write_builtin_data(discoverd_reader_data.clone());
                             self.spdp_send_timer.set_timeout(Duration::new(3, 0), ());
+                        }
+                        DISCOVERY_DB_UPDATE => {
+                            while let Ok(guid_prefix) = self.discdb_update_receiver.try_recv() {
+                                println!(
+                                    "##################  @discovery  Discovery message received from: {:?}",
+                                    guid_prefix
+                                );
+                                // SPDP message received from guid_prefix
+                                // TODO
+                                // rtps 2.3 spec: 8.5.5.1 Discovery of a new remote Participant
+                            }
                         }
                         Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
                     },

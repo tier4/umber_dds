@@ -16,6 +16,7 @@ use crate::rtps::{
 use crate::structure::entity_id::EntityId;
 use crate::structure::{guid::*, vendor_id::*};
 use colored::*;
+use mio_extras::channel as mio_channel;
 use std::collections::HashMap;
 
 pub struct MessageReceiver {
@@ -29,10 +30,15 @@ pub struct MessageReceiver {
     have_timestamp: bool,
     timestamp: Timestamp,
     discovery_db: DiscoveryDB,
+    discdb_update_sender: mio_channel::Sender<GuidPrefix>,
 }
 
 impl MessageReceiver {
-    pub fn new(participant_guidprefix: GuidPrefix, discovery_db: DiscoveryDB) -> MessageReceiver {
+    pub fn new(
+        participant_guidprefix: GuidPrefix,
+        discovery_db: DiscoveryDB,
+        discdb_update_sender: mio_channel::Sender<GuidPrefix>,
+    ) -> MessageReceiver {
         Self {
             own_guid_prefix: participant_guidprefix,
             source_version: ProtocolVersion::PROTOCOLVERSION,
@@ -44,6 +50,7 @@ impl MessageReceiver {
             have_timestamp: false,
             timestamp: Timestamp::TIME_INVALID,
             discovery_db,
+            discdb_update_sender,
         }
     }
 
@@ -250,8 +257,13 @@ impl MessageReceiver {
             };
             let new_data = deserialized.toSPDPdiscoverdParticipantData();
             let timestamp = Timestamp::now().expect("Couldn't get timestamp");
-            self.discovery_db
-                .write(new_data.guid.guid_prefix, timestamp, new_data);
+            let guid_prefix = new_data.guid.guid_prefix;
+            self.discovery_db.write(guid_prefix, timestamp, new_data);
+            self.discdb_update_sender.send(guid_prefix).unwrap();
+            println!(
+                "##################  @message_receiver  Discovery message received from: {:?}",
+                guid_prefix
+            );
             /*
             eprintln!("domain_id: {}", new_data.domain_id);
             eprintln!("domain_tag: {}", new_data.domain_tag);
