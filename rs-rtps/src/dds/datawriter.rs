@@ -39,7 +39,9 @@ impl<D: Serialize> DataWriter<D> {
             serialized_payload: Some(serialized_payload),
         };
         println!("--- @datawriter writer_command_sender.send ---");
-        self.writer_command_sender.send(writer_cmd).unwrap();
+        self.writer_command_sender
+            .send(writer_cmd)
+            .expect("couldn't send message");
     }
 
     pub fn write_builtin_data(&self, data: D) {
@@ -49,6 +51,8 @@ impl<D: Serialize> DataWriter<D> {
             serialized_payload: Some(serialized_payload),
         };
         println!("--- @datawriter writer_command_sender.send ---");
-        self.writer_command_sender.send(writer_cmd).unwrap();
+        self.writer_command_sender
+            .send(writer_cmd)
+            .expect("couldn't send message");
     }
 }
