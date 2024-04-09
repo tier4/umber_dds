@@ -345,6 +345,20 @@ reference implementationsはUML sequence chartsとstate-diagramsで説明され�
 8.2で最初に説明したように、RTPS Writer Reference ImplementationsはRTPS Writer classのspwcializationに基づいている。この章では、RTPS Writerと RTPS Writer Reference
 Implementationsをモデル化するために使用されるすべての追加のclassを説明する。実際の振る舞いは8.4.8と8.4.9で説明される。
 
+### 8.4.8 RTPS StatelessWriter Behavior
+#### 8.4.8.1 Best-Effort StatelessWriter Behavior
+
++ Transition T1
+
+このtransitionはRTPS Best-Effort StatelessWriter 'the_rtps_writer'がRTPS ReaderLocatorと共に設定されたとき、トリガーされる。設定は
+'the_rtps_writer'に関係するDDS DataWriterにマッチするDDS DataReaderの発見の結果として、Discovery protocol(8.5)により行なわれる。
+
+discovery protocolはReaderLocatorのコンストラクタのパラメータを提供する。
+
++ Transition T2
+
+このtransitionは `[RL::unsent_changes() != <empty>]`が示しているように、ReaderLocator
+
 ### Message Receiverが従うルール (spec 8.3.4.1)
 1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
 2. submessageLengthフィールドは次のsubmessageがどこから始まるかを定義する、もしくは、Section 8.3.3.2.3(p. 34)で示されるようにMessageの終わりを拡張するSubmessageを指し示す。もしこのフィールドが無効なら、残りのMessageは無効である。
