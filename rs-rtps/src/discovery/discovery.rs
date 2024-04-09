@@ -163,7 +163,7 @@ impl Discovery {
                 usertraffic_unicast_port(domain_id, participant_id) as u32
             ),
             Locator::new_list_from_self_ipv4(usertraffic_multicast_port(domain_id) as u32),
-            0,
+            Some(0),
             crate::structure::duration::Duration::new(20, 0),
         );
         let writer_proxy = WriterProxy::new(

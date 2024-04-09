@@ -163,7 +163,7 @@ impl SDPBuiltinData {
             self.metarraffic_multicast_locator_list.take().unwrap();
         let default_unicast_locator_list = self.default_unicast_locator_list.take().unwrap();
         let default_multicast_locator_list = self.default_multicast_locator_list.take().unwrap();
-        let manual_liveliness_count = self.manual_liveliness_count.unwrap();
+        let manual_liveliness_count = self.manual_liveliness_count;
         let lease_duration = self.lease_duration.unwrap_or(Duration {
             seconds: 100,
             fraction: 0,
@@ -217,6 +217,12 @@ impl SDPBuiltinData {
     // MEMO: SEDPのbuilt-in
     // dataへの変換を実装するとき、足りないデータがあれば、デフォルト値でおぎなう。
     // デフォルト値はrtps 2.3 spec "Table 9.14 - ParameterId mapping and default values"にある。
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Property {
+    name: String,
+    value: String,
 }
 
 impl<'de> Deserialize<'de> for SDPBuiltinData {
@@ -442,6 +448,11 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             domain_tag = seq.next_element()?;
                             eprintln!(">>>>>>domain_tag: {:?}", domain_tag);
                         }
+                        ParameterId::PID_ENTITY_NAME => {
+                            // for compatibility between this implementation and FastDDS
+                            let _entity_name: Option<String> = seq.next_element()?;
+                            eprintln!(">>>>>>_entity_name: {:?}", _entity_name);
+                        }
                         ParameterId::PID_PROTOCOL_VERSION => {
                             protocol_version = seq.next_element()?;
                             eprintln!(">>>>>>protocol_version: {:?}", protocol_version);
@@ -626,6 +637,11 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         ParameterId::PID_OWNERSHIP_STRENGTH => {
                             ownership_strength = seq.next_element()?;
                             eprintln!(">>>>>>ownership_strength: {:?}", ownership_strength);
+                        }
+                        ParameterId::PID_PROPERTY_LIST => {
+                            // for compatibility between this implementation and FastDDS
+                            let _property_list: Option<Vec<Property>> = seq.next_element()?;
+                            eprintln!(">>>>>>_property_list: {:?}", _property_list);
                         }
                         ParameterId::PID_SENTINEL => {
                             break;
@@ -1190,7 +1206,7 @@ pub struct SPDPdiscoveredParticipantData {
     pub metarraffic_multicast_locator_list: Vec<Locator>,
     pub default_multicast_locator_list: Vec<Locator>,
     pub default_unicast_locator_list: Vec<Locator>,
-    pub manual_liveliness_count: Count,
+    pub manual_liveliness_count: Option<Count>, // Some DDS implementation's SPDP message don't contains manual_liveliness_count, rtps 2.3 spec don't specify default value of manual_liveliness_count.
     pub lease_duration: Duration,
 }
 
@@ -1207,7 +1223,7 @@ impl SPDPdiscoveredParticipantData {
         metarraffic_multicast_locator_list: Vec<Locator>,
         default_unicast_locator_list: Vec<Locator>,
         default_multicast_locator_list: Vec<Locator>,
-        manual_liveliness_count: Count,
+        manual_liveliness_count: Option<Count>,
         lease_duration: Duration,
     ) -> Self {
         Self {
@@ -1322,12 +1338,14 @@ impl Serialize for SPDPdiscoveredParticipantData {
         s.serialize_field("lease_duration", &self.lease_duration)?;
 
         // manual_liveliness_count
-        s.serialize_field(
-            "parameterId",
-            &ParameterId::PID_PARTICIPANT_MANUAL_LIVELINESS_COUNT.value,
-        )?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field::<i32>("manual_liveliness_count", &self.manual_liveliness_count)?;
+        if let Some(manual_liveliness_count) = self.manual_liveliness_count {
+            s.serialize_field(
+                "parameterId",
+                &ParameterId::PID_PARTICIPANT_MANUAL_LIVELINESS_COUNT.value,
+            )?;
+            s.serialize_field::<u16>("parameterLength", &4)?;
+            s.serialize_field::<i32>("manual_liveliness_count", &manual_liveliness_count)?;
+        }
 
         // sentinel
         s.serialize_field("parameterId", &ParameterId::PID_SENTINEL.value)?;
@@ -1361,7 +1379,7 @@ mod test {
             Locator::new_list_from_self_ipv4(7410),
             Locator::new_list_from_self_ipv4(7411),
             Locator::new_list_from_self_ipv4(7440),
-            0,
+            Some(0),
             Duration {
                 seconds: 20,
                 fraction: 0,
@@ -1399,7 +1417,7 @@ mod test {
             Locator::new_list_from_self_ipv4(7410),
             Locator::new_list_from_self_ipv4(7411),
             Locator::new_list_from_self_ipv4(7440),
-            0,
+            Some(0),
             Duration {
                 seconds: 20,
                 fraction: 0,
