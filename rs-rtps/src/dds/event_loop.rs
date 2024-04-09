@@ -132,13 +132,14 @@ impl EventLoop {
                             }
                         }
                         DISCOVERY_SEND_TOKEN => {
+                            eprintln!("=== @event_loop Discovery cmd received ===");
                             todo!(); // send spdp msg
                         }
                         _ => eprintln!("undefined Token or unimplemented event"),
                     },
                     TokenDec::Entity(eid) => {
                         if eid.is_writer() {
-                            eprintln!("=== @event_loop Discovery cmd received ===");
+                            eprintln!("~~~~~~~~~~~~~Writer entity: {:?}", eid);
                             let writer = match self.writers.get_mut(&eid) {
                                 Some(w) => w,
                                 None => panic!("Unregisterd writer."),
