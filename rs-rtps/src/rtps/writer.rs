@@ -105,45 +105,36 @@ impl Writer {
     }
 
     pub fn handle_writer_cmd(&mut self) {
-        loop {
-            let cmd = match self.writer_command_receiver.try_recv() {
-                Ok(c) => {
-                    // this is new_change
-                    self.last_change_sequence_number += SequenceNumber(1);
-                    let cache_data = match &c.serialized_payload {
-                        Some(v) => CacheData::new(v.value.clone()),
-                        None => CacheData::new(Bytes::from("")),
-                    };
-                    let a_change = CacheChange::new(
-                        ChangeKind::Alive,
-                        self.guid,
-                        self.last_change_sequence_number,
-                        Some(cache_data),
-                        InstantHandle {},
-                    );
-                    // TODO: register a_change to writer HistoryCache
-                    // build RTPS Message
-                    let mut message_builder = MessageBuilder::new();
-                    let time_stamp = Timestamp::now();
-                    message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-                    message_builder.data(
-                        Endianness::LittleEndian,
-                        EntityId::UNKNOW,
-                        self.guid.entity_id,
-                        a_change,
-                        c.serialized_payload,
-                    );
-                    let message = message_builder.build(self.guid_prefix());
-                    let message_buf = message.write_to_vec_with_ctx(self.endianness).unwrap();
-                    self.sender.send_to_multicast(
-                        &message_buf,
-                        Ipv4Addr::new(239, 255, 0, 1),
-                        7400,
-                    );
-                }
-                Err(_) => break,
+        while let Ok(cmd) = self.writer_command_receiver.try_recv() {
+            // this is new_change
+            self.last_change_sequence_number += SequenceNumber(1);
+            let cache_data = match &cmd.serialized_payload {
+                Some(v) => CacheData::new(v.value.clone()),
+                None => CacheData::new(Bytes::from("")),
             };
-            // println!("writer received : {:?}", cmd.serialized_data);
+            let a_change = CacheChange::new(
+                ChangeKind::Alive,
+                self.guid,
+                self.last_change_sequence_number,
+                Some(cache_data),
+                InstantHandle {},
+            );
+            // TODO: register a_change to writer HistoryCache
+            // build RTPS Message
+            let mut message_builder = MessageBuilder::new();
+            let time_stamp = Timestamp::now();
+            message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+            message_builder.data(
+                Endianness::LittleEndian,
+                EntityId::UNKNOW,
+                self.guid.entity_id,
+                a_change,
+                cmd.serialized_payload,
+            );
+            let message = message_builder.build(self.guid_prefix());
+            let message_buf = message.write_to_vec_with_ctx(self.endianness).unwrap();
+            self.sender
+                .send_to_multicast(&message_buf, Ipv4Addr::new(239, 255, 0, 1), 7400);
         }
     }
 
