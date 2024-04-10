@@ -202,7 +202,7 @@ impl MessageReceiver {
         writers: &mut HashMap<EntityId, Writer>,
     ) {
         // validation
-        if !ackanck.reader_sn_state.validate() {
+        if !ackanck.reader_sn_state.is_valid() {
             panic!("Invalid AckNack Submessage received");
         }
         let writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);

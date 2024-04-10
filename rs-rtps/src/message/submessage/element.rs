@@ -79,19 +79,11 @@ pub type FragmentNumber = u32;
 
 pub type SequenceNumberSet = NumberSet<SequenceNumber>;
 impl SequenceNumberSet {
-    pub fn validate(&self) -> bool {
+    pub fn is_valid(&self) -> bool {
         // rtps spec 9.4.2.6 SequenceNumberSet
-        let mut is_valid = true;
-        if self.bitmap_base < SequenceNumber(1) {
-            is_valid = false;
-        }
-        if self.num_bits > 256 {
-            is_valid = false
-        }
-        if self.bitmap.len() as u32 == (self.num_bits + 31) / 32 {
-            is_valid = false
-        }
-        is_valid
+        self.bitmap_base >= SequenceNumber(1)
+            && self.num_bits < 256
+            && self.bitmap.len() as u32 == (self.num_bits + 31) / 32
     }
 }
 pub type FragmentNumberSet = NumberSet<FragmentNumber>;
