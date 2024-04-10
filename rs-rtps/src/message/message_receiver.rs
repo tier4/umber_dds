@@ -18,6 +18,22 @@ use crate::structure::{guid::*, vendor_id::*};
 use colored::*;
 use mio_extras::channel as mio_channel;
 use std::collections::HashMap;
+use std::{error, fmt};
+
+#[derive(Debug, Clone)]
+struct MessageError;
+
+impl fmt::Display for MessageError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "")
+    }
+}
+
+impl error::Error for MessageError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        None
+    }
+}
 
 pub struct MessageReceiver {
     own_guid_prefix: GuidPrefix,
@@ -117,9 +133,18 @@ impl MessageReceiver {
             println!("submessage kind: {:?}", submsg.header.get_submessagekind());
             match submsg.body {
                 SubMessageBody::Entity(e) => {
-                    self.handle_entity_submessage(e, &mut writers, &mut readers)
+                    if self
+                        .handle_entity_submessage(e, &mut writers, &mut readers)
+                        .is_err()
+                    {
+                        return;
+                    }
                 }
-                SubMessageBody::Interpreter(i) => self.handle_interpreter_submessage(i),
+                SubMessageBody::Interpreter(i) => {
+                    if self.handle_interpreter_submessage(i).is_err() {
+                        return;
+                    }
+                }
             }
         }
         println!("<<<<<<<<<<<<<<<<\n");
@@ -130,7 +155,7 @@ impl MessageReceiver {
         entity_subm: EntitySubmessage,
         mut writers: &mut HashMap<EntityId, Writer>,
         mut readers: &mut HashMap<EntityId, Reader>,
-    ) {
+    ) -> Result<(), MessageError> {
         println!("handle entity submsg");
         match entity_subm {
             EntitySubmessage::AckNack(acknack, flags) => {
@@ -139,22 +164,35 @@ impl MessageReceiver {
             EntitySubmessage::Data(data, flags) => {
                 self.handle_data_submsg(data, flags, &mut readers)
             }
-            EntitySubmessage::DataFrag(dat_frag, flags) => (),
-            EntitySubmessage::Gap(gap, flags) => (),
-            EntitySubmessage::HeartBeat(heartbeat, flags) => (),
-            EntitySubmessage::HeartbeatFrag(heartbeatfrag, flags) => (),
-            EntitySubmessage::NackFrag(nack_frag, flags) => (),
+            EntitySubmessage::DataFrag(data_frag, flags) => {
+                Self::handle_datafrag_submsg(data_frag, flags)
+            }
+            EntitySubmessage::Gap(gap, flags) => Self::handle_gap_submsg(gap, flags),
+            EntitySubmessage::HeartBeat(heartbeat, flags) => {
+                Self::handle_heartbeat_submsg(heartbeat, flags)
+            }
+            EntitySubmessage::HeartbeatFrag(heartbeatfrag, flags) => {
+                Self::handle_heartbeatfrag_submsg(heartbeatfrag, flags)
+            }
+            EntitySubmessage::NackFrag(nack_frag, flags) => {
+                Self::handle_nackfrag_submsg(nack_frag, flags)
+            }
         }
     }
-    fn handle_interpreter_submessage(&mut self, interpreter_subm: InterpreterSubmessage) {
+    fn handle_interpreter_submessage(
+        &mut self,
+        interpreter_subm: InterpreterSubmessage,
+    ) -> Result<(), MessageError> {
         println!("handle interpreter submsg");
         match interpreter_subm {
             InterpreterSubmessage::InfoReply(info_reply, flags) => {
                 self.unicast_reply_locator_list = info_reply.unicast_locator_list;
                 if flags.contains(InfoReplyFlag::Multicast) {
-                    self.multicast_reply_locator_list = info_reply
-                        .multicast_locator_list
-                        .expect("invalid InfoReply");
+                    if let Some(multi_loc_list) = info_reply.multicast_locator_list {
+                        self.multicast_reply_locator_list = multi_loc_list;
+                    } else {
+                        return Err(MessageError);
+                    }
                 } else {
                     self.multicast_reply_locator_list.clear();
                 }
@@ -162,9 +200,11 @@ impl MessageReceiver {
             InterpreterSubmessage::InfoReplyIp4(info_reply_ip4, flags) => {
                 self.unicast_reply_locator_list = info_reply_ip4.unicast_locator_list;
                 if flags.contains(InfoReplyIp4Flag::Multicast) {
-                    self.multicast_reply_locator_list = info_reply_ip4
-                        .multicast_locator_list
-                        .expect("invalid InfoReplyIp4");
+                    if let Some(multi_rep_loc_list) = info_reply_ip4.multicast_locator_list {
+                        self.multicast_reply_locator_list = multi_rep_loc_list;
+                    } else {
+                        return Err(MessageError);
+                    }
                 } else {
                     self.multicast_reply_locator_list.clear();
                 }
@@ -172,7 +212,11 @@ impl MessageReceiver {
             InterpreterSubmessage::InfoTimestamp(info_ts, flags) => {
                 if !flags.contains(InfoTimestampFlag::Invalidate) {
                     self.have_timestamp = true;
-                    self.timestamp = info_ts.timestamp.expect("invalid InfoTS");
+                    if let Some(ts) = info_ts.timestamp {
+                        self.timestamp = ts;
+                    } else {
+                        return Err(MessageError);
+                    }
                 } else {
                     self.have_timestamp = false;
                 }
@@ -193,6 +237,7 @@ impl MessageReceiver {
                 }
             }
         }
+        Ok(())
     }
 
     fn handle_acknack_submsg(
@@ -200,10 +245,11 @@ impl MessageReceiver {
         ackanck: AckNack,
         flag: BitFlags<AckNackFlag>,
         writers: &mut HashMap<EntityId, Writer>,
-    ) {
+    ) -> Result<(), MessageError> {
         // validation
         if !ackanck.reader_sn_state.is_valid() {
-            panic!("Invalid AckNack Submessage received");
+            eprintln!("Invalid AckNack Submessage received");
+            return Err(MessageError);
         }
         let writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);
         let reader_guid = GUID::new(self.source_guid_prefix, ackanck.reader_id);
@@ -211,19 +257,21 @@ impl MessageReceiver {
         match writers.get_mut(&ackanck.writer_id) {
             Some(w) => w.handle_acknack(),
             None => (),
-        }
+        };
+        Ok(())
     }
     fn handle_data_submsg(
         &mut self,
         data: Data,
         flag: BitFlags<DataFlag>,
         readers: &mut HashMap<EntityId, Reader>,
-    ) {
+    ) -> Result<(), MessageError> {
         // validation
         if data.writer_sn < SequenceNumber(0)
             || data.writer_sn == SequenceNumber::SEQUENCENUMBER_UNKNOWN
         {
-            panic!("Invalid Data Submessage received");
+            eprintln!("Invalid Data Submessage received");
+            return Err(MessageError);
         }
         // TODO: check inlineQos is valid
         if flag.contains(DataFlag::Data) && !flag.contains(DataFlag::Key) {
@@ -250,10 +298,13 @@ impl MessageReceiver {
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
             ) {
                 Ok(d) => d,
-                Err(e) => panic!(
-                    "neko~~~~~: failed deserialize reseived spdp data message: {}",
-                    e
-                ),
+                Err(e) => {
+                    eprintln!(
+                        "neko~~~~~: failed deserialize reseived spdp data message: {}",
+                        e
+                    );
+                    return Err(MessageError);
+                }
             };
             let new_data = deserialized.toSPDPdiscoverdParticipantData();
             let timestamp = Timestamp::now().expect("Couldn't get timestamp");
@@ -304,10 +355,13 @@ impl MessageReceiver {
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
             ) {
                 Ok(d) => d,
-                Err(e) => panic!(
-                    "neko~~~~~: failed deserialize reseived sedp(w) data message: {}",
-                    e
-                ),
+                Err(e) => {
+                    eprintln!(
+                        "neko~~~~~: failed deserialize reseived sedp(w) data message: {}",
+                        e
+                    );
+                    return Err(MessageError);
+                }
             };
             eprintln!("successed for deserialize sedp(w)");
         }
@@ -317,10 +371,13 @@ impl MessageReceiver {
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
             ) {
                 Ok(d) => d,
-                Err(e) => panic!(
-                    "neko~~~~~: failed deserialize reseived sedp(r) data message: {}",
-                    e
-                ),
+                Err(e) => {
+                    eprintln!(
+                        "neko~~~~~: failed deserialize reseived sedp(r) data message: {}",
+                        e
+                    );
+                    return Err(MessageError);
+                }
             };
             eprintln!("successed for deserialize sedp(r)");
         }
@@ -339,15 +396,34 @@ impl MessageReceiver {
         match readers.get_mut(&data.reader_id) {
             Some(r) => r.add_change(change),
             None => (),
-        }
+        };
+        Ok(())
     }
-    fn handle_datafrag_submsg(data_frag: DataFrag, flag: BitFlags<DataFragFlag>) {}
-    fn handle_gap_submsg(gap: Gap, flag: BitFlags<GapFlag>) {}
-    fn handle_heartbeat_submsg(heartbeat: Heartbeat, flag: BitFlags<HeartbeatFlag>) {}
+    fn handle_datafrag_submsg(
+        data_frag: DataFrag,
+        flag: BitFlags<DataFragFlag>,
+    ) -> Result<(), MessageError> {
+        Ok(())
+    }
+    fn handle_gap_submsg(gap: Gap, flag: BitFlags<GapFlag>) -> Result<(), MessageError> {
+        Ok(())
+    }
+    fn handle_heartbeat_submsg(
+        heartbeat: Heartbeat,
+        flag: BitFlags<HeartbeatFlag>,
+    ) -> Result<(), MessageError> {
+        Ok(())
+    }
     fn handle_heartbeatfrag_submsg(
         heartbeat_frag: HeartbeatFrag,
         flag: BitFlags<HeartbeatFragFlag>,
-    ) {
+    ) -> Result<(), MessageError> {
+        Ok(())
     }
-    fn handle_nackfrag_submsg(nack_frag: NackFrag, flag: BitFlags<NackFragFlag>) {}
+    fn handle_nackfrag_submsg(
+        nack_frag: NackFrag,
+        flag: BitFlags<NackFragFlag>,
+    ) -> Result<(), MessageError> {
+        Ok(())
+    }
 }
