@@ -81,6 +81,7 @@ impl InnerSubscriber {
         topic: Topic,
         subscriber: Subscriber,
     ) -> DataReader<D> {
+        let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
         let reader_ing = ReaderIngredients {
             guid: GUID::new(
@@ -91,9 +92,10 @@ impl InnerSubscriber {
                 ),
             ),
             rhc: history_cache.clone(),
+            reader_ready_notifier,
         };
         self.add_reader_sender.send(reader_ing).unwrap();
-        DataReader::<D>::new(qos, topic, subscriber, history_cache)
+        DataReader::<D>::new(qos, topic, subscriber, history_cache, reader_ready_receiver)
     }
 
     pub fn create_datareader_with_entityid<D: Serialize>(
@@ -103,12 +105,14 @@ impl InnerSubscriber {
         subscriber: Subscriber,
         entity_id: EntityId,
     ) -> DataReader<D> {
+        let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
         let reader_ing = ReaderIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
             rhc: history_cache.clone(),
+            reader_ready_notifier,
         };
         self.add_reader_sender.send(reader_ing).unwrap();
-        DataReader::<D>::new(qos, topic, subscriber, history_cache)
+        DataReader::<D>::new(qos, topic, subscriber, history_cache, reader_ready_receiver)
     }
 }
