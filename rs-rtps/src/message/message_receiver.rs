@@ -382,7 +382,7 @@ impl MessageReceiver {
             eprintln!("successed for deserialize sedp(r)");
         }
         let cache_data = match data.serialized_payload {
-            Some(s) => Some(CacheData::new(s.value)),
+            Some(s) => Some(CacheData::new(s.to_bytes())),
             None => None,
         };
 
