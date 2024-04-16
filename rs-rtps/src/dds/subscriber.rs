@@ -8,7 +8,7 @@ use crate::structure::{
     guid::GUID,
 };
 use mio_extras::channel as mio_channel;
-use serde::Serialize;
+use serde::Deserialize;
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
@@ -27,10 +27,14 @@ impl Subscriber {
             inner: Arc::new(InnerSubscriber::new(guid, qos, dp, add_reader_sender)),
         }
     }
-    pub fn create_datareader<D: Serialize>(&self, qos: QosPolicies, topic: Topic) -> DataReader<D> {
+    pub fn create_datareader<D: for<'de> Deserialize<'de>>(
+        &self,
+        qos: QosPolicies,
+        topic: Topic,
+    ) -> DataReader<D> {
         self.inner.create_datareader(qos, topic, self.clone())
     }
-    pub fn create_datareader_with_entityid<D: Serialize>(
+    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
         qos: QosPolicies,
         topic: Topic,
@@ -75,7 +79,7 @@ impl InnerSubscriber {
         self.qos = qos
     }
 
-    pub fn create_datareader<D: Serialize>(
+    pub fn create_datareader<D: for<'de> Deserialize<'de>>(
         &self,
         qos: QosPolicies,
         topic: Topic,
@@ -98,7 +102,7 @@ impl InnerSubscriber {
         DataReader::<D>::new(qos, topic, subscriber, history_cache, reader_ready_receiver)
     }
 
-    pub fn create_datareader_with_entityid<D: Serialize>(
+    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
         qos: QosPolicies,
         topic: Topic,

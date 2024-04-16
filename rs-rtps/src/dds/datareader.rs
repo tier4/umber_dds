@@ -2,12 +2,12 @@ use crate::dds::{qos::QosPolicies, subscriber::Subscriber, topic::Topic};
 use crate::rtps::cache::HistoryCache;
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
-use serde::Serialize;
+use serde::Deserialize;
 use std::io;
 use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
 
-pub struct DataReader<D: Serialize> {
+pub struct DataReader<D: for<'de> Deserialize<'de>> {
     data_phantom: PhantomData<D>,
     qos: QosPolicies,
     topic: Topic,
@@ -16,7 +16,7 @@ pub struct DataReader<D: Serialize> {
     reader_ready_receiver: mio_channel::Receiver<()>,
 }
 
-impl<D: Serialize> DataReader<D> {
+impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     pub fn new(
         qos: QosPolicies,
         topic: Topic,
@@ -51,7 +51,7 @@ impl<D: Serialize> DataReader<D> {
     pub fn set_qos() {}
 }
 
-impl<D: Serialize> Evented for DataReader<D> {
+impl<D: for<'de> Deserialize<'de>> Evented for DataReader<D> {
     fn register(
         &self,
         poll: &Poll,

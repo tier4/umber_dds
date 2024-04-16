@@ -12,7 +12,7 @@ use crate::dds::{
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
-    DiscoveredReaderData, DiscoveredWriterData, PublicationBuiltinTopicData,
+    DiscoveredReaderData, DiscoveredWriterData, PublicationBuiltinTopicData, SDPBuiltinData,
     SPDPdiscoveredParticipantData, SubscriptionBuiltinTopicData,
 };
 use crate::message::{
@@ -57,11 +57,11 @@ pub struct Discovery {
     publisher: Publisher,
     subscriber: Subscriber,
     spdp_builtin_participant_writer: DataWriter<SPDPdiscoveredParticipantData>,
-    spdp_builtin_participant_reader: DataReader<SPDPdiscoveredParticipantData>,
+    spdp_builtin_participant_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData>,
-    sedp_builtin_pub_reader: DataReader<DiscoveredWriterData>,
+    sedp_builtin_pub_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
-    sedp_builtin_sub_reader: DataReader<DiscoveredReaderData>,
+    sedp_builtin_sub_reader: DataReader<SDPBuiltinData>,
     spdp_send_timer: Timer<()>,
 }
 
@@ -109,7 +109,7 @@ impl Discovery {
         let sedp_pub_reader_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR;
         let sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData> = publisher
             .create_datawriter_with_entityid(qos, spdp_topic.clone(), sedp_pub_writer_entity_id);
-        let sedp_builtin_pub_reader: DataReader<DiscoveredWriterData> = subscriber
+        let sedp_builtin_pub_reader: DataReader<SDPBuiltinData> = subscriber
             .create_datareader_with_entityid(qos, spdp_topic.clone(), sedp_pub_reader_entity_id);
         let sedp_subscription_topic = Topic::new(
             "DCPSSucscription".to_string(),
@@ -122,7 +122,7 @@ impl Discovery {
         let sedp_sub_reader_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR;
         let sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData> = publisher
             .create_datawriter_with_entityid(qos, spdp_topic.clone(), sedp_sub_writer_entity_id);
-        let sedp_builtin_sub_reader: DataReader<DiscoveredReaderData> = subscriber
+        let sedp_builtin_sub_reader: DataReader<SDPBuiltinData> = subscriber
             .create_datareader_with_entityid(qos, spdp_topic.clone(), sedp_sub_reader_entity_id);
 
         let mut spdp_send_timer: Timer<()> = Timer::default();
