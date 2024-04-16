@@ -305,7 +305,9 @@ impl MessageReceiver {
             InstantHandle {}, // TODO
         );
 
-        if data.writer_id == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER {
+        if data.writer_id == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
+            || data.reader_id == EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
+        {
             // if msg is for SPDP
             let mut deserialized = match deserialize::<SDPBuiltinData>(
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
@@ -365,7 +367,9 @@ impl MessageReceiver {
                 Some(r) => r.add_change(change),
                 None => (),
             };
-        } else if data.writer_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER {
+        } else if data.writer_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER
+            || data.reader_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
+        {
             // if msg is for SEDP
             let mut deserialized = match deserialize::<SDPBuiltinData>(
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
@@ -384,7 +388,9 @@ impl MessageReceiver {
                 Some(r) => r.add_change(change),
                 None => (),
             };
-        } else if data.writer_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER {
+        } else if data.writer_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER
+            || data.reader_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
+        {
             // if msg is for SEDP
             let mut deserialized = match deserialize::<SDPBuiltinData>(
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
