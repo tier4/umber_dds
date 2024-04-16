@@ -292,8 +292,21 @@ impl MessageReceiver {
         let writer_guid = GUID::new(self.dest_guid_prefix, data.writer_id);
         let reader_guid = GUID::new(self.source_guid_prefix, data.reader_id);
 
-        // if msg is for SPDP
+        let cache_data = match data.serialized_payload {
+            Some(ref s) => Some(CacheData::new(s.to_bytes())),
+            None => None,
+        };
+
+        let change = CacheChange::new(
+            ChangeKind::Alive,
+            writer_guid,
+            data.writer_sn,
+            cache_data,
+            InstantHandle {}, // TODO
+        );
+
         if data.writer_id == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER {
+            // if msg is for SPDP
             let mut deserialized = match deserialize::<SDPBuiltinData>(
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
             ) {
@@ -348,9 +361,12 @@ impl MessageReceiver {
             );
             eprintln!("lease_duration: {:?}", new_data.lease_duration.clone());
             */
-        }
-        // if msg is for SEDP
-        if data.writer_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER {
+            match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
+                Some(r) => r.add_change(change),
+                None => (),
+            };
+        } else if data.writer_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER {
+            // if msg is for SEDP
             let mut deserialized = match deserialize::<SDPBuiltinData>(
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
             ) {
@@ -364,9 +380,12 @@ impl MessageReceiver {
                 }
             };
             eprintln!("successed for deserialize sedp(w)");
-        }
-        // if msg is for SEDP
-        if data.writer_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER {
+            match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
+                Some(r) => r.add_change(change),
+                None => (),
+            };
+        } else if data.writer_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER {
+            // if msg is for SEDP
             let mut deserialized = match deserialize::<SDPBuiltinData>(
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
             ) {
@@ -380,23 +399,19 @@ impl MessageReceiver {
                 }
             };
             eprintln!("successed for deserialize sedp(r)");
+            match readers.get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR) {
+                Some(r) => r.add_change(change),
+                None => (),
+            };
+        } else {
+            match readers.get_mut(&data.reader_id) {
+                Some(r) => r.add_change(change),
+                None => match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
+                    Some(r) => r.add_change(change),
+                    None => (),
+                },
+            };
         }
-        let cache_data = match data.serialized_payload {
-            Some(s) => Some(CacheData::new(s.to_bytes())),
-            None => None,
-        };
-
-        let change = CacheChange::new(
-            ChangeKind::Alive,
-            writer_guid,
-            data.writer_sn,
-            cache_data,
-            InstantHandle {}, // TODO
-        );
-        match readers.get_mut(&data.reader_id) {
-            Some(r) => r.add_change(change),
-            None => (),
-        };
         Ok(())
     }
     fn handle_datafrag_submsg(
