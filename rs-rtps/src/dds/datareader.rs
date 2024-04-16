@@ -1,4 +1,5 @@
 use crate::dds::{qos::QosPolicies, subscriber::Subscriber, topic::Topic};
+use crate::discovery::structure::cdr::deserialize;
 use crate::rtps::cache::HistoryCache;
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
@@ -33,20 +34,32 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
             reader_ready_receiver,
         }
     }
-    pub fn take(&self) -> Option<D> {
-        match self.get_change() {
-            Some(d) => {
-                self.remove_change();
-                Some(d)
+
+    pub fn take(&self) -> Vec<D> {
+        while let Ok(_) = self.reader_ready_receiver.try_recv() {}
+        let d = self.get_change();
+        self.remove_changes();
+        d
+    }
+    fn get_change(&self) -> Vec<D> {
+        let hc = self.rhc.read().unwrap();
+        let data = hc.get_changes();
+        let mut v: Vec<D> = Vec::new();
+        for d in data {
+            match d {
+                Some(cd) => match deserialize::<D>(&cd.data()) {
+                    Ok(neko) => v.push(neko),
+                    Err(_e) => (),
+                },
+                None => (),
             }
-            None => None,
         }
+        v
     }
-    fn get_change(&self) -> Option<D> {
-        todo!();
-        // get change from reader HistoryCache
+    fn remove_changes(&self) {
+        let mut hc = self.rhc.write().unwrap();
+        hc.remove_changes();
     }
-    fn remove_change(&self) {}
     pub fn get_qos() {}
     pub fn set_qos() {}
 }

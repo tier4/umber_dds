@@ -31,6 +31,10 @@ impl CacheChange {
             instance_handle,
         }
     }
+
+    pub fn data_value(&self) -> Option<CacheData> {
+        self.data_value.clone()
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -50,6 +54,10 @@ pub struct CacheData {
 impl CacheData {
     pub fn new(data: Bytes) -> Self {
         Self { data }
+    }
+
+    pub fn data(&self) -> Bytes {
+        self.data.clone()
     }
 }
 
@@ -73,10 +81,18 @@ impl HistoryCache {
     pub fn add_change(&mut self, change: CacheChange) {
         self.changes.push(change);
     }
+    pub fn get_changes(&self) -> Vec<Option<CacheData>> {
+        self.changes.iter().map(|c| c.data_value()).collect()
+    }
     pub fn remove_change(&mut self, change: CacheChange) {
         if let Some(remove_idx) = self.changes.iter().position(|c| *c == change) {
             self.changes.remove(remove_idx);
         }
+    }
+    pub fn remove_changes(&mut self) {
+        self.changes = Vec::new();
+        self.min_seq_num = None;
+        self.max_seq_num = None;
     }
     pub fn get_seq_num_min(&self) -> SequenceNumber {
         let mut min = SequenceNumber::MAX;
