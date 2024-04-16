@@ -30,3 +30,6 @@ pub const SPDP_SEND_TIMER: Token = Token(PTB + 8);
 pub const USERTRAFFIC_UNI_TOKEN: Token = Token(PTB + 9);
 pub const USERTRAFFIC_MULTI_TOKEN: Token = Token(PTB + 10);
 pub const DISCOVERY_DB_UPDATE: Token = Token(PTB + 11);
+pub const SPDP_PARTICIPANT_DETECTOR: Token = Token(PTB + 12);
+pub const SEDP_PUBLICATIONS_DETECTOR: Token = Token(PTB + 13);
+pub const SEDP_SUBSCRIPTIONS_DETECTOR: Token = Token(PTB + 14);

@@ -91,11 +91,18 @@ impl Discovery {
             spdp_topic.clone(),
             spdp_writer_entity_id,
         );
-        let spdp_builtin_participant_reader = subscriber.create_datareader_with_entityid(
+        let mut spdp_builtin_participant_reader = subscriber.create_datareader_with_entityid(
             qos,
             spdp_topic.clone(),
             spdp_reader_entity_id,
         );
+        poll.register(
+            &mut spdp_builtin_participant_reader,
+            SPDP_PARTICIPANT_DETECTOR,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
 
         // For SEDP
         let sedp_publication_topic = Topic::new(
@@ -253,14 +260,14 @@ impl Discovery {
                             self.spdp_send_timer.set_timeout(Duration::new(3, 0), ());
                         }
                         DISCOVERY_DB_UPDATE => {
-                            while let Ok(guid_prefix) = self.discdb_update_receiver.try_recv() {
-                                println!(
-                                    "##################  @discovery  Discovery message received from: {:?}",
-                                    guid_prefix
-                                );
-                                // SPDP message received from guid_prefix
-                                // TODO
-                                // rtps 2.3 spec: 8.5.5.1 Discovery of a new remote Participant
+                            eprintln!("@discovery: discovery_db updated")
+                        }
+                        SPDP_PARTICIPANT_DETECTOR => {
+                            eprintln!("##################  @discovery  Discovery message received",);
+                            let vd = self.spdp_builtin_participant_reader.take();
+                            for mut d in vd {
+                                let spdp_data = d.toSPDPdiscoverdParticipantData();
+                                eprintln!("spdp from {:?} received.", spdp_data.guid);
                             }
                         }
                         Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
