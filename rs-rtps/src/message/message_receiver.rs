@@ -1,8 +1,5 @@
 use crate::discovery::discovery_db::DiscoveryDB;
-use crate::discovery::structure::{
-    cdr::deserialize,
-    data::{SDPBuiltinData, SPDPdiscoveredParticipantData},
-};
+use crate::discovery::structure::{cdr::deserialize, data::SDPBuiltinData};
 use crate::message::{
     submessage::{element::*, submessage_flag::*, *},
     *,
@@ -290,7 +287,7 @@ impl MessageReceiver {
             // For example, this flag should be set when the SerializedPayload is transformed as described in the DDS-Security specification
         }
         let writer_guid = GUID::new(self.dest_guid_prefix, data.writer_id);
-        let reader_guid = GUID::new(self.source_guid_prefix, data.reader_id);
+        let _reader_guid = GUID::new(self.source_guid_prefix, data.reader_id);
 
         let cache_data = match data.serialized_payload {
             Some(ref s) => Some(CacheData::new(s.to_bytes())),
@@ -321,7 +318,7 @@ impl MessageReceiver {
                     return Err(MessageError);
                 }
             };
-            let new_data = deserialized.toSPDPdiscoverdParticipantData();
+            let new_data = deserialized.to_spdp_discoverd_participant_data();
             let timestamp = Timestamp::now().expect("Couldn't get timestamp");
             let guid_prefix = new_data.guid.guid_prefix;
             self.discovery_db.write(guid_prefix, timestamp, new_data);
@@ -371,7 +368,7 @@ impl MessageReceiver {
             || data.reader_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
         {
             // if msg is for SEDP
-            let mut deserialized = match deserialize::<SDPBuiltinData>(
+            let deserialized = match deserialize::<SDPBuiltinData>(
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
             ) {
                 Ok(d) => d,
@@ -392,7 +389,7 @@ impl MessageReceiver {
             || data.reader_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
         {
             // if msg is for SEDP
-            let mut deserialized = match deserialize::<SDPBuiltinData>(
+            let deserialized = match deserialize::<SDPBuiltinData>(
                 &data.serialized_payload.as_ref().unwrap().to_bytes(),
             ) {
                 Ok(d) => d,

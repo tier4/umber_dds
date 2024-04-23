@@ -3,7 +3,7 @@ use crate::dds::{
     datawriter::DataWriter,
     participant::DomainParticipant,
     publisher::Publisher,
-    qos::{policy::*, QosBuilder, QosPolicies},
+    qos::{policy::*, QosBuilder},
     subscriber::Subscriber,
     tokens::*,
     topic::Topic,
@@ -15,10 +15,7 @@ use crate::discovery::structure::data::{
     DiscoveredReaderData, DiscoveredWriterData, PublicationBuiltinTopicData, SDPBuiltinData,
     SPDPdiscoveredParticipantData, SubscriptionBuiltinTopicData,
 };
-use crate::message::{
-    message_header::ProtocolVersion,
-    submessage::element::{Count, Locator},
-};
+use crate::message::{message_header::ProtocolVersion, submessage::element::Locator};
 use crate::network::net_util::{
     spdp_multicast_port, spdp_unicast_port, usertraffic_multicast_port, usertraffic_unicast_port,
 };
@@ -32,7 +29,6 @@ use crate::structure::{
 };
 use enumflags2::make_bitflags;
 use mio_extras::{channel as mio_channel, timer::Timer};
-use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use std::time::Duration;
 
@@ -266,7 +262,7 @@ impl Discovery {
                             eprintln!("##################  @discovery  Discovery message received",);
                             let vd = self.spdp_builtin_participant_reader.take();
                             for mut d in vd {
-                                let spdp_data = d.toSPDPdiscoverdParticipantData();
+                                let spdp_data = d.to_spdp_discoverd_participant_data();
                                 eprintln!("spdp from {:?} received.", spdp_data.guid);
                             }
                         }

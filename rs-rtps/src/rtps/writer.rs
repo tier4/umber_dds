@@ -10,7 +10,6 @@ use crate::structure::{
     duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, topic_kind::TopicKind,
 };
 use bytes::Bytes;
-use chrono::Local;
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
@@ -106,6 +105,10 @@ impl Writer {
 
     pub fn handle_writer_cmd(&mut self) {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
+            eprintln!(
+                "~~~~~~~~~~~~~Writer entity: {:?} processed @writer",
+                self.guid_prefix()
+            );
             // this is new_change
             self.last_change_sequence_number += SequenceNumber(1);
             let cache_data = match &cmd.serialized_payload {

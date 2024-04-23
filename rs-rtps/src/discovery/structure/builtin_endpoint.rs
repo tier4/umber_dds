@@ -1,4 +1,4 @@
-use enumflags2::{bitflags, make_bitflags, BitFlags};
+use enumflags2::bitflags;
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Debug)]

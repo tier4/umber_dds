@@ -199,7 +199,7 @@ impl Sub for Timestamp {
     fn sub(self, rhs: Self) -> Self::Output {
         let mut lsec = self.seconds as i32;
         let rsec = rhs.seconds as i32;
-        let mut fraction = if self.fraction < rhs.fraction {
+        let fraction = if self.fraction < rhs.fraction {
             lsec -= 1;
             self.fraction + 1_000_000_000 - rhs.fraction
         } else {

@@ -1,12 +1,8 @@
-use std::net::{Ipv4Addr, UdpSocket};
 mod network;
-use network::{net_util, udp_listinig_socket};
+use network::net_util;
 mod dds;
 mod rtps;
-use dds::{
-    datawriter::DataWriter, event_loop, participant::DomainParticipant, qos::*, topic::Topic,
-    typedesc::TypeDesc,
-};
+use dds::{participant::DomainParticipant, qos::*, topic::Topic, typedesc::TypeDesc};
 use serde::{Deserialize, Serialize};
 use structure::topic_kind::TopicKind;
 mod discovery;

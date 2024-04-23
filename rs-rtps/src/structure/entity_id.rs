@@ -1,4 +1,3 @@
-use crate::dds::participant::DomainParticipant;
 use crate::{Deserialize, Serialize};
 use mio_v06::Token;
 use speedy::{Readable, Writable};

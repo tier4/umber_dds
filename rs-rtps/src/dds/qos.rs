@@ -116,12 +116,8 @@ impl QosBuilder {
 
 pub mod policy {
     use crate::structure::duration::Duration;
-    use serde::{
-        ser::{SerializeStruct, Serializer},
-        Deserialize, Serialize,
-    };
+    use serde::{Deserialize, Serialize};
     use serde_repr::{Deserialize_repr, Serialize_repr};
-    use std::fmt;
 
     // Default value of QoS Policies is on DDS v1.4 spec 2.2.3 Supported QoS
     const LENGTH_UNLIMITED: i32 = -1;

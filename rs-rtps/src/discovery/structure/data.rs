@@ -1,17 +1,17 @@
 use crate::dds::qos::policy::*;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
-use crate::message::submessage::element::{Count, Locator, Parameter};
+use crate::message::submessage::element::{Count, Locator};
 use crate::structure::duration::Duration;
 use crate::structure::{
-    guid::{GuidPrefix, GUID},
+    guid::GUID,
     parameter_id::ParameterId,
     proxy::{ReaderProxy, WriterProxy},
     vendor_id::VendorId,
 };
-use enumflags2::{bitflags, make_bitflags, BitFlags};
-use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
-use serde::{ser::SerializeStruct, Serialize, Serializer};
+use enumflags2::BitFlags;
+use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
+use serde::{ser::SerializeStruct, Serialize};
 use std::fmt;
 
 #[derive(Clone, Default)]
@@ -148,7 +148,7 @@ impl SDPBuiltinData {
         }
     }
 
-    pub fn toSPDPdiscoverdParticipantData(&mut self) -> SPDPdiscoveredParticipantData {
+    pub fn to_spdp_discoverd_participant_data(&mut self) -> SPDPdiscoveredParticipantData {
         let domain_id = self.domain_id.unwrap(); // set this participant's domain_id is domain_id
                                                  // is none
         let domain_tag = self.domain_tag.take().unwrap_or(String::from(""));
@@ -186,7 +186,7 @@ impl SDPBuiltinData {
         }
     }
 
-    fn toReaderProxy(&mut self) -> ReaderProxy {
+    fn to_readerroxy(&mut self) -> ReaderProxy {
         let remote_guid = self.remote_guid.unwrap();
         let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
         let unicast_locator_list = self.unicast_locator_list.take().unwrap();
@@ -199,7 +199,7 @@ impl SDPBuiltinData {
         )
     }
 
-    fn toWriterProxy(&mut self) -> WriterProxy {
+    fn to_writerproxy(&mut self) -> WriterProxy {
         let remote_guid = self.remote_guid.unwrap();
         let unicast_locator_list = self.unicast_locator_list.take().unwrap();
         let multicast_locator_list = self.multicast_locator_list.take().unwrap();
@@ -231,43 +231,43 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
         D: Deserializer<'de>,
     {
         enum Field {
-            domain_id,
-            domain_tag,
-            protocol_version,
-            guid,
-            vendor_id,
-            expects_inline_qos,
-            available_builtin_endpoint,
-            metarraffic_unicast_locator_list,
-            metarraffic_multicast_locator_list,
-            default_unicast_locator_list,
-            default_multicast_locator_list,
-            manual_liveliness_count,
-            lease_duration,
-            remote_guid,
-            unicast_locator_list,
-            multicast_locator_list,
-            data_max_size_serialized,
-            type_name,
-            topic_name,
-            key,
-            publication_key,
-            durability,
-            deadline,
-            latency_budget,
-            liveliness,
-            reliability,
-            user_data,
-            ownership,
-            destination_order,
-            time_based_filter,
-            presentation,
-            partition,
-            topic_data,
-            group_data,
-            durability_service,
-            lifespan,
-            ownership_strength,
+            DomainID,
+            DomainTag,
+            ProtocolVersion,
+            Guid,
+            VendorId,
+            ExpectsInlineQos,
+            AvailableBuiltinEndpoint,
+            MetatrafficUnicastLocatorList,
+            MetatrafficMulticastLocatorList,
+            DefaultUnicastLocatorList,
+            DefaultMulticastLocatorList,
+            ManualLivelinessCount,
+            LeaseDuration,
+            RemoteGuid,
+            UnicastLocatorList,
+            MulticastLocatorList,
+            DataMaxSizeSerialized,
+            TypeName,
+            TopicName,
+            Key,
+            PublicationKey,
+            Durability,
+            Deadline,
+            LatencyBudget,
+            Liveliness,
+            Reliability,
+            UserData,
+            Ownership,
+            DestinationOrder,
+            TimeBasedFilter,
+            Presentation,
+            Partition,
+            TopicData,
+            GroupData,
+            DurabilityService,
+            Lifespan,
+            OwnershipStrength,
         }
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
@@ -289,57 +289,55 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         let value = 256 * v[0] as u16 + v[1] as u16;
                         let pid = ParameterId { value };
                         match pid {
-                            ParameterId::PID_DOMAIN_ID => Ok(Field::domain_id),
-                            ParameterId::PID_DOMAIN_TAG => Ok(Field::domain_tag),
-                            ParameterId::PID_PROTOCOL_VERSION => Ok(Field::protocol_version),
-                            ParameterId::PID_PARTICIPANT_GUID => Ok(Field::guid),
-                            ParameterId::PID_VENDOR_ID => Ok(Field::vendor_id),
-                            ParameterId::PID_EXPECTS_INLINE_QOS => Ok(Field::expects_inline_qos),
+                            ParameterId::PID_DOMAIN_ID => Ok(Field::DomainID),
+                            ParameterId::PID_DOMAIN_TAG => Ok(Field::DomainTag),
+                            ParameterId::PID_PROTOCOL_VERSION => Ok(Field::ProtocolVersion),
+                            ParameterId::PID_PARTICIPANT_GUID => Ok(Field::Guid),
+                            ParameterId::PID_VENDOR_ID => Ok(Field::VendorId),
+                            ParameterId::PID_EXPECTS_INLINE_QOS => Ok(Field::ExpectsInlineQos),
                             ParameterId::PID_BUILTIN_ENDPOINT_SET => {
-                                Ok(Field::available_builtin_endpoint)
+                                Ok(Field::AvailableBuiltinEndpoint)
                             }
                             ParameterId::PID_METATRAFFIC_UNICAST_LOCATOR => {
-                                Ok(Field::metarraffic_unicast_locator_list)
+                                Ok(Field::MetatrafficUnicastLocatorList)
                             }
                             ParameterId::PID_METATRAFFIC_MULTICAST_LOCATOR => {
-                                Ok(Field::metarraffic_multicast_locator_list)
+                                Ok(Field::MetatrafficMulticastLocatorList)
                             }
                             ParameterId::PID_DEFAULT_UNICAST_LOCATOR => {
-                                Ok(Field::default_unicast_locator_list)
+                                Ok(Field::DefaultUnicastLocatorList)
                             }
                             ParameterId::PID_DEFAULT_MULTICAST_LOCATOR => {
-                                Ok(Field::default_multicast_locator_list)
+                                Ok(Field::DefaultMulticastLocatorList)
                             }
                             ParameterId::PID_PARTICIPANT_MANUAL_LIVELINESS_COUNT => {
-                                Ok(Field::manual_liveliness_count)
+                                Ok(Field::ManualLivelinessCount)
                             }
-                            ParameterId::PID_PARTICIPANT_LEASE_DURATION => {
-                                Ok(Field::lease_duration)
-                            }
-                            ParameterId::PID_ENDPOINT_GUID => Ok(Field::remote_guid),
-                            ParameterId::PID_UNICAST_LOCATOR => Ok(Field::unicast_locator_list),
-                            ParameterId::PID_MULTICAST_LOCATOR => Ok(Field::multicast_locator_list),
+                            ParameterId::PID_PARTICIPANT_LEASE_DURATION => Ok(Field::LeaseDuration),
+                            ParameterId::PID_ENDPOINT_GUID => Ok(Field::RemoteGuid),
+                            ParameterId::PID_UNICAST_LOCATOR => Ok(Field::UnicastLocatorList),
+                            ParameterId::PID_MULTICAST_LOCATOR => Ok(Field::MulticastLocatorList),
                             ParameterId::PID_TYPE_MAX_SIZE_SERIALIZED => {
-                                Ok(Field::data_max_size_serialized)
+                                Ok(Field::DataMaxSizeSerialized)
                             }
-                            ParameterId::PID_TYPE_NAME => Ok(Field::type_name),
-                            ParameterId::PID_TOPIC_NAME => Ok(Field::topic_name),
-                            ParameterId::PID_DURABILITY => Ok(Field::durability),
-                            ParameterId::PID_DEADLINE => Ok(Field::deadline),
-                            ParameterId::PID_LATENCY_BUDGET => Ok(Field::latency_budget),
-                            ParameterId::PID_LIVELINESS => Ok(Field::liveliness),
-                            ParameterId::PID_RELIABILITY => Ok(Field::reliability),
-                            ParameterId::PID_USER_DATA => Ok(Field::user_data),
-                            ParameterId::PID_OWNERSHIP => Ok(Field::ownership),
-                            ParameterId::PID_DESTINATION_ORDER => Ok(Field::destination_order),
-                            ParameterId::PID_TIME_BASED_FILTER => Ok(Field::time_based_filter),
-                            ParameterId::PID_PRESENTATION => Ok(Field::presentation),
-                            ParameterId::PID_PARTITION => Ok(Field::partition),
-                            ParameterId::PID_TOPIC_DATA => Ok(Field::topic_data),
-                            ParameterId::PID_GROUP_DATA => Ok(Field::group_data),
-                            ParameterId::PID_DURABILITY_SERVICE => Ok(Field::durability_service),
-                            ParameterId::PID_LIFESPAN => Ok(Field::lifespan),
-                            ParameterId::PID_OWNERSHIP_STRENGTH => Ok(Field::ownership_strength),
+                            ParameterId::PID_TYPE_NAME => Ok(Field::TypeName),
+                            ParameterId::PID_TOPIC_NAME => Ok(Field::TopicName),
+                            ParameterId::PID_DURABILITY => Ok(Field::Durability),
+                            ParameterId::PID_DEADLINE => Ok(Field::Deadline),
+                            ParameterId::PID_LATENCY_BUDGET => Ok(Field::LatencyBudget),
+                            ParameterId::PID_LIVELINESS => Ok(Field::Liveliness),
+                            ParameterId::PID_RELIABILITY => Ok(Field::Reliability),
+                            ParameterId::PID_USER_DATA => Ok(Field::UserData),
+                            ParameterId::PID_OWNERSHIP => Ok(Field::Ownership),
+                            ParameterId::PID_DESTINATION_ORDER => Ok(Field::DestinationOrder),
+                            ParameterId::PID_TIME_BASED_FILTER => Ok(Field::TimeBasedFilter),
+                            ParameterId::PID_PRESENTATION => Ok(Field::Presentation),
+                            ParameterId::PID_PARTITION => Ok(Field::Partition),
+                            ParameterId::PID_TOPIC_DATA => Ok(Field::TopicData),
+                            ParameterId::PID_GROUP_DATA => Ok(Field::GroupData),
+                            ParameterId::PID_DURABILITY_SERVICE => Ok(Field::DurabilityService),
+                            ParameterId::PID_LIFESPAN => Ok(Field::Lifespan),
+                            ParameterId::PID_OWNERSHIP_STRENGTH => Ok(Field::OwnershipStrength),
                             pid => Err(de::Error::unknown_field(
                                 &format!("pid: {:?}", pid.value),
                                 FIELDS,
@@ -382,8 +380,8 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                 let mut data_max_size_serialized: Option<i32> = None;
                 let mut type_name: Option<String> = None;
                 let mut topic_name: Option<String> = None;
-                let mut key: Option<()> = None;
-                let mut publication_key: Option<()> = None;
+                let key: Option<()> = None;
+                let publication_key: Option<()> = None;
                 let mut durability: Option<Durability> = None;
                 let mut deadline: Option<Deadline> = None;
                 let mut latency_budget: Option<LatencyBudget> = None;
@@ -646,7 +644,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         ParameterId::PID_SENTINEL => {
                             break;
                         }
-                        _ => unimplemented!(),
+                        _ => unimplemented!("deserialization of ParameterId: 0x{:04X}", pid),
                     }
                     eprintln!();
                 }
@@ -1362,6 +1360,7 @@ mod test {
     use crate::message::message_header::ProtocolVersion;
     use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
     use cdr::{Infinite, PlCdrLe};
+    use enumflags2::make_bitflags;
 
     #[test]
     fn test_serialize() {
@@ -1428,7 +1427,7 @@ mod test {
             Ok(d) => d,
             Err(e) => panic!("neko~~~~~: failed deserialize\n{}", e),
         };
-        let new_data = deseriarized.toSPDPdiscoverdParticipantData();
+        let new_data = deseriarized.to_spdp_discoverd_participant_data();
         eprintln!("domain_id: {}", new_data.domain_id);
         eprintln!("domain_tag: {}", new_data.domain_tag);
         eprintln!("protocol_version: {:?}", new_data.protocol_version);

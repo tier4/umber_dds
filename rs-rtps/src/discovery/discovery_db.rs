@@ -1,6 +1,5 @@
 use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
 use crate::message::submessage::element::Timestamp;
-use crate::structure::duration::Duration;
 use crate::structure::guid::GuidPrefix;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -27,7 +26,7 @@ impl DiscoveryDB {
     }
 
     fn read(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
-        let mut inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().unwrap();
         inner.read(guid_prefix)
     }
 }
