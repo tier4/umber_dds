@@ -359,6 +359,219 @@ discovery protocolはReaderLocatorのコンストラクタのパラメータを�
 
 このtransitionは `[RL::unsent_changes() != <empty>]`が示しているように、ReaderLocator
 
+### 8.4.9 RTPS StatefulWriter Behavior
+
+#### 8.4.9.1 Best-Effort StatefulWriter Behavior
+
++ Transition T1: Initial -> Idle
+
+rtps_writer.matched_reader_add()でreader_proxyが追加されることによりトリガーされる。これはDisocvery Protocolによって行なわれる。
+
++ Transition T2: idle -> pushing
+
+未送信のchangeがある状態になることによりトリガーされる
+
++ Transition T3: pushing -> idle
+
+未送信のchangeがない状態(ただし、送信したchangeが受信されているとは限らない)になることによりトリガーされる
+
++ Transition T4: pushing -> pushing
+
+送信する必要のあるchangeが存在する状態になることでトリガーされる。
+以下のアクションを行なう
+```
+a_change := the_reader_proxy.next_unsent_change();
+a_change.status := UNDERWAY;
+if (a_change.is_relevant) {
+    DATA = new DATA(a_change);
+    IF (the_reader_proxy.expectsInlineQos) {
+        DATA.inlineQos := the_rtps_writer.related_dds_writer.qos;
+        DATA.inlineQos += a_change.inlineQos;
+    }
+    DATA.readerId := ENTITYID_UNKNOWN;
+    send DATA;
+}
+else {
+    GAP = new GAP(a_change.sequenceNumber);
+    GAP.readerId := ENTITYID_UNKNOWN;
+    Send GAP;
+}
+```
+トランジション後、以下のpost-condiditonsが行なわれる
+```
+( a_change BELONGS-TO the_reader_proxy.unsent_changes() ) == FALSE
+```
+
++ Transition T5: ready -> ready
+
+対応するDataWriterによって、新しいCacheChangeがHistoryCacheに追加されることによってトリガーされる。ReaderProxyによって表される、そのcahngeがRTPS Readerと対応するかは、DDS_FILTERによって決定される。
+```
+ADD a_change TO the_reader_proxy.changes_for_reader;
+IF (DDS_FILTER(the_reader_proxy, change)) THEN change.is_relevant := FALSE;
+    ELSE change.is_relevant := TRUE;
+IF (the_rtps_writer.pushMode == true) THEN change.status := UNSENT;
+    ELSE change.status := UNACKNOWLEDGED;
+```
+
++ Transition T6: any state -> finish
+
+ReaderProxyによって示されるRTPS Readerがこれ以上matchしないという設定によりトリガーされる。
+この設定は、DiscoveryProtocolによって、行なわれる。
+```
+the_rtps_writer.matched_reader_remove(the_reader_proxy);
+delete the_reader_proxy;
+```
+
+#### 8.4.9.2 Reliable StatefulWriter Behavior
+
++ Transition T1: Initial -> announcing
+
+対応するRTPS Readerでの設定によりトリガーされる。これはDisocvery Protocolによって行なわれる。
+
++ Transition T2: announcing -> pushing
+
+未送信のchangeがある状態になることによりトリガーされる
+
++ Transition T3: pushing -> announcing
+
+未送信のchangeがない状態(ただし、送信したchangeが受信されているとは限らない)になることによりトリガーされる
+
++ Transition T4: pushing -> pushing
+
+送信する必要のあるchangeが存在する状態になることでトリガーされる。
+以下のアクションを行なう
+```
+a_change := the_reader_proxy.next_unsent_change();
+a_change.status := UNDERWAY;
+if (a_change.is_relevant) {
+    DATA = new DATA(a_change);
+    IF (the_reader_proxy.expectsInlineQos) {
+        DATA.inlineQos := the_rtps_writer.related_dds_writer.qos;
+        DATA.inlineQos += a_change.inlineQos;
+    }
+    DATA.readerId := ENTITYID_UNKNOWN;
+    send DATA;
+}
+else {
+    GAP = new GAP(a_change.sequenceNumber);
+    GAP.readerId := ENTITYID_UNKNOWN;
+    Send GAP;
+}
+```
+トランジション後、以下のpost-condiditonsが行なわれる
+```
+( a_change BELONGS-TO the_reader_proxy.unsent_changes() ) == FALSE
+```
+
++ Transition T5: announcing -> idle
+
+HistoryCache中のすべてのchangeがRTPS Readerによって、ackされたことがReaderProxyによって示されている状態によってトリガーされる
+
++ Transition T6: idle -> announcing
+
+HistoryCache中のchangeがRTPS Readerによって、ackされていないことがReaderProxyによって示されている状態によってトリガーされる
+
+
++ Transition T7: announcing -> announcing
+
+W::heartbeatPeriodごとにfire(タイムアウト)するように設定されたperiodic timerを発見したことによりトリガーされる。
+以下のアクションを行なう
+```
+seq_num_min := the_rtps_writer.writer_cache.get_seq_num_min();
+seq_num_max := the_rtps_writer.writer_cache.get_seq_num_max();
+HEARTBEAT := new HEARTBEAT(the_rtps_writer.writerGuid, seq_num_min, seq_num_max);
+HEARTBEAT.FinalFlag := NOT_SET;
+HEARTBEAT.readerId := ENTITYID_UNKNOWN;
+send HEARTBEAT;
+```
+
++ Transition T8: waiting -> waiting
+
+ReaderProxyの示すRTPS ReaderからのAckNack Messageを受信したことによってトリガーされる。
+以下のアクションを行なう
+```
+the_rtps_writer.acked_changes_set(ACKNACK.readerSNState.base - 1);
+the_reader_proxy.requested_changes_set(ACKNACK.readerSNState.set);
+```
+トランジション後、以下のpost-condiditonsが行なわれる
+```
+MIN { change.sequenceNumber IN the_reader_proxy.unacked_changes() } >=
+                                            ACKNACK.readerSNState.base - 1
+```
+
++ Transition T9: waiting -> must_repair
+
+ReaderProxyの示すRTPS Readerからchangeを要求されることによりトリガーされる
+
++ Transition T10: must_repair -> must_repair
+
+ReaderProxyの示すRTPS ReaderからのAckNack Messageを受信したことによってトリガーされる。
+以下のアクションを行なう
+```
+the_rtps_writer.acked_changes_set(ACKNACK.readerSNState.base - 1);
+the_reader_proxy.requested_changes_set(ACKNACK.readerSNState.set);
+```
+
++ Transition T11: must_repair -> repairing
+
+state must_repairに入ってから、W::nackResponseDelay 経過したことがタイマーのfire(タイムアウト)によって示されるときにトリガーされる
+
++ Transition T12: repairing -> repairing
+
+送信する必要のあるchangeが存在する状態になることでトリガーされる。
+以下のアクションを行なう
+```
+a_change := the_reader_proxy.next_requested_change();
+a_change.status := UNDERWAY;
+if (a_change.is_relevant) {
+    DATA = new DATA(a_change, the_reader_proxy.remoteReaderGuid);
+    IF (the_reader_proxy.expectsInlineQos) {
+        DATA.inlineQos := the_rtps_writer.related_dds_writer.qos;
+        DATA.inlineQos += a_change.inlineQos;
+    }
+    send DATA;
+}
+else {
+    GAP = new GAP(a_change.sequenceNumber, the_reader_proxy.remoteReaderGuid);
+    send GAP;
+}
+```
+トランジション後、以下のpost-condiditonsが行なわれる
+```
+( a_change BELONGS-TO the_reader_proxy.requested_changes() ) == FALSE
+```
+
++ Transition T13: repairing -> waiting
+
+ReaderProxyの示すRTPS Readerによって要求されたchangeがなくなったときにトリガーされる。
+
++ Transition T14: ready -> ready
+
+対応するDataWriterによって、新しいCacheChangeがHistoryCacheに追加されることによってトリガーされる。ReaderProxyによって表される、そのcahngeがRTPS Readerと対応するかは、DDS_FILTERによって決定される。以下のアクションを行なう
+```
+ADD a_change TO the_reader_proxy.changes_for_reader;
+IF (DDS_FILTER(the_reader_proxy, change)) THEN a_change.is_relevant := FALSE;
+    ELSE a_change.is_relevant := TRUE;
+IF (the_rtps_writer.pushMode == true) THEN a_change.status := UNSENT;
+    ELSE a_change.status := UNACKNOWLEDGED;
+```
+
++ Transition T15: ready -> ready
+
+対応するDataWriterによって、HistoryCachからCacheChangeが削除されることによってトリガーされる。例えば、HISTORY_QOSをKEEP_LAST with depth ==1にセットして使用しているとき、新しいchangeはDDS DataWriterに前のchangeをHistory Cacheから削除させる。以下のアクションを行なう
+```
+a_change.is_relevant := FALSE;
+```
+
++ Transition T16: any state -> afinal
+
+ReaderProxyによって示されるRTPS Readerがこれ以上matchしないという設定によりトリガーされる。
+この設定は、DiscoveryProtocolによって、行なわれる。
+```
+the_rtps_writer.matched_reader_remove(the_reader_proxy);
+delete the_reader_proxy;
+```
+
 ### Message Receiverが従うルール (spec 8.3.4.1)
 1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
 2. submessageLengthフィールドは次のsubmessageがどこから始まるかを定義する、もしくは、Section 8.3.3.2.3(p. 34)で示されるようにMessageの終わりを拡張するSubmessageを指し示す。もしこのフィールドが無効なら、残りのMessageは無効である。
@@ -563,7 +776,7 @@ discovereされたParticipantはSEDPを使用する.
 
 以下の疑似コードはdiscovered Participantにある一致するSEDP built-in Endpointsとコミュニケーションするためにlocal SEDP built-in Endpoints within local_participantを設定する。
 
-どのようにEndpointが設定するかはプロトコルの実装に依存する。stateful refarence 実装では、この操作は以下のようなlogical stepsで行われる。
+どのようにEndpointが設定されるかはプロトコルの実装に依存する。stateful refarence 実装では、この操作は以下のようなlogical stepsで行われる。
 ```
 // discoverされたparticipantのdomainIdが自分自身のdomainIdと一致するか確認
 // もし一致しなければ、local endpointsはdiscoverされたparticipantとコミュニケートするように設定されない。
