@@ -4,7 +4,7 @@ use serde::{ser::SerializeStruct, Serialize};
 
 #[derive(Clone)]
 pub struct ReaderProxy {
-    remote_reader_guid: GUID,
+    pub remote_reader_guid: GUID,
     expects_inline_qos: bool,
     unicast_locator_list: Vec<Locator>,
     multicast_locator_list: Vec<Locator>,

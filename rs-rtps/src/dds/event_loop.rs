@@ -313,9 +313,7 @@ impl EventLoop {
             .writers
             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER)
         {
-            if let Some(proxy) = sedp_builtin_pub_writer.matched_reader_loolup(guid) {
-                sedp_builtin_pub_writer.matched_reader_remove(proxy);
-            }
+            sedp_builtin_pub_writer.matched_reader_remove(guid);
         }
 
         let guid = GUID::new(
@@ -339,9 +337,7 @@ impl EventLoop {
             .writers
             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER)
         {
-            if let Some(proxy) = sedp_builtin_sub_writer.matched_reader_loolup(guid) {
-                sedp_builtin_sub_writer.matched_reader_remove(proxy);
-            }
+            sedp_builtin_sub_writer.matched_reader_remove(guid);
         }
 
         let guid = GUID::new(

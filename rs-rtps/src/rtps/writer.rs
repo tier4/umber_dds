@@ -14,6 +14,7 @@ use bytes::Bytes;
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
+use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::rc::Rc;
 
@@ -36,6 +37,8 @@ pub struct Writer {
     data_max_size_serialized: i32,
     // StatelessWriter
     reader_locators: Vec<ReaderLocator>,
+    // StatefulWriter
+    reader_proxy: HashMap<GUID, ReaderProxy>,
     // This implementation spesific
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
@@ -58,6 +61,7 @@ impl Writer {
             writer_cache: HistoryCache::new(),
             data_max_size_serialized: wi.data_max_size_serialized,
             reader_locators: Vec::new(),
+            reader_proxy: HashMap::new(),
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
             sender,
@@ -147,13 +151,16 @@ impl Writer {
     }
 
     pub fn matched_reader_add(&mut self, proxy: ReaderProxy) {
-        unimplemented!("DataWriter::matched_reader_add");
+        self.reader_proxy.insert(proxy.remote_reader_guid, proxy);
     }
     pub fn matched_reader_loolup(&self, guid: GUID) -> Option<ReaderProxy> {
-        unimplemented!("DataWriter::matched_reader_loolup");
+        match self.reader_proxy.get(&guid) {
+            Some(prxy) => Some(prxy.clone()),
+            None => None,
+        }
     }
-    pub fn matched_reader_remove(&mut self, proxy: ReaderProxy) {
-        unimplemented!("DataWriter::matched_reader_remove");
+    pub fn matched_reader_remove(&mut self, guid: GUID) {
+        self.reader_proxy.remove(&guid);
     }
 }
 
