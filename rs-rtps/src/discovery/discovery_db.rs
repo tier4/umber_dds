@@ -25,7 +25,7 @@ impl DiscoveryDB {
         inner.write(guid_prefix, timestamp, data)
     }
 
-    fn read(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
+    pub fn read(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
         let inner = self.inner.lock().unwrap();
         inner.read(guid_prefix)
     }

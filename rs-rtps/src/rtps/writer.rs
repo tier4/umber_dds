@@ -7,7 +7,8 @@ use crate::policy::ReliabilityQosKind;
 use crate::rtps::cache::{CacheChange, CacheData, ChangeKind, HistoryCache, InstantHandle};
 use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{
-    duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, topic_kind::TopicKind,
+    duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, proxy::ReaderProxy,
+    topic_kind::TopicKind,
 };
 use bytes::Bytes;
 use mio_extras::channel as mio_channel;
@@ -143,6 +144,16 @@ impl Writer {
 
     pub fn handle_acknack(&mut self) {
         todo!(); // TODO
+    }
+
+    pub fn matched_reader_add(&mut self, proxy: ReaderProxy) {
+        unimplemented!("DataWriter::matched_reader_add");
+    }
+    pub fn matched_reader_loolup(&self, guid: GUID) -> Option<ReaderProxy> {
+        unimplemented!("DataWriter::matched_reader_loolup");
+    }
+    pub fn matched_reader_remove(&mut self, proxy: ReaderProxy) {
+        unimplemented!("DataWriter::matched_reader_remove");
     }
 }
 

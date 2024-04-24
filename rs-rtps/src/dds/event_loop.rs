@@ -1,8 +1,13 @@
 use crate::dds::tokens::*;
-use crate::discovery::discovery_db::DiscoveryDB;
+use crate::discovery::{discovery_db::DiscoveryDB, structure::builtin_endpoint::BuiltinEndpoint};
 use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterIngredients};
-use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
+use crate::structure::{
+    entity::RTPSEntity,
+    entity_id::EntityId,
+    guid::*,
+    proxy::{ReaderProxy, WriterProxy},
+};
 use bytes::BytesMut;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::net::UdpSocket;
@@ -18,6 +23,7 @@ const MAX_MESSAGE_SIZE: usize = 64 * 1024; // This is max we can get from UDP.
 const MESSAGE_BUFFER_ALLOCATION_CHUNK: usize = 256 * 1024;
 
 pub struct EventLoop {
+    domain_id: u16,
     poll: Poll,
     sockets: HashMap<Token, UdpSocket>,
     message_receiver: MessageReceiver,
@@ -27,16 +33,19 @@ pub struct EventLoop {
     readers: HashMap<EntityId, Reader>,
     sender: Rc<UdpSender>,
     spdp_send_timer: Timer<()>,
+    discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
+    discovery_db: DiscoveryDB,
 }
 
 impl EventLoop {
     pub fn new(
+        domain_id: u16,
         mut sockets: HashMap<Token, UdpSocket>,
         participant_guidprefix: GuidPrefix,
         mut add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
         mut add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
         discovery_db: DiscoveryDB,
-        discdb_update_sender: mio_channel::Sender<GuidPrefix>,
+        mut discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
@@ -67,10 +76,17 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .unwrap();
-        let message_receiver =
-            MessageReceiver::new(participant_guidprefix, discovery_db, discdb_update_sender);
+        poll.register(
+            &mut discdb_update_receiver,
+            DISCOVERY_DB_UPDATE,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
+        let message_receiver = MessageReceiver::new(participant_guidprefix);
         let sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
+            domain_id,
             poll,
             sockets,
             message_receiver,
@@ -80,6 +96,8 @@ impl EventLoop {
             readers: HashMap::new(),
             sender,
             spdp_send_timer,
+            discdb_update_receiver,
+            discovery_db,
         }
     }
 
@@ -135,6 +153,9 @@ impl EventLoop {
                             eprintln!("=== @event_loop Discovery cmd received ===");
                             todo!(); // send spdp msg
                         }
+                        DISCOVERY_DB_UPDATE => {
+                            self.handle_participant_discovery();
+                        }
                         _ => eprintln!("undefined Token or unimplemented event"),
                     },
                     TokenDec::Entity(eid) => {
@@ -180,6 +201,160 @@ impl EventLoop {
                 message: packet,
                 addr,
             });
+        }
+    }
+
+    fn handle_participant_discovery(&mut self) {
+        // configure sedp_builtin_{pub/sub}_writer based on reseived spdp_data
+        eprintln!("##################  @discovery  Discovery message received",);
+
+        while let Ok(guid_prefix) = self.discdb_update_receiver.try_recv() {
+            if let Some(spdp_data) = self.discovery_db.read(guid_prefix) {
+                eprintln!("spdp from {:?} received.", spdp_data.guid);
+                if spdp_data.domain_id != self.domain_id {
+                    continue;
+                } else {
+                    let available_builtin_endpoint = spdp_data.available_builtin_endpoint;
+                    if available_builtin_endpoint
+                        .contains(BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR)
+                    {
+                        let guid = GUID::new(
+                            spdp_data.guid.guid_prefix,
+                            EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR,
+                        );
+                        let proxy = ReaderProxy::new(
+                            guid,
+                            spdp_data.expects_inline_qos,
+                            spdp_data.metarraffic_unicast_locator_list.clone(),
+                            spdp_data.metarraffic_multicast_locator_list.clone(),
+                        );
+                        if let Some(writer) = self
+                            .writers
+                            .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER)
+                        {
+                            writer.matched_reader_add(proxy);
+                        }
+                        // self.sedp_builtin_pub_writer.matched_reader_add(proxy);
+                    }
+                    if available_builtin_endpoint
+                        .contains(BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER)
+                    {
+                        let guid = GUID::new(
+                            spdp_data.guid.guid_prefix,
+                            EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER,
+                        );
+                        let proxy = WriterProxy::new(
+                            guid,
+                            spdp_data.metarraffic_unicast_locator_list.clone(),
+                            spdp_data.metarraffic_multicast_locator_list.clone(),
+                            0, // TODO: What value should I set?
+                        );
+                        if let Some(reader) = self
+                            .readers
+                            .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR)
+                        {
+                            reader.matched_writer_add(proxy);
+                        }
+                        // self.sedp_builtin_pub_reader.matched_writer_add(proxy);
+                    }
+                    if available_builtin_endpoint
+                        .contains(BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR)
+                    {
+                        let guid = GUID::new(
+                            spdp_data.guid.guid_prefix,
+                            EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR,
+                        );
+                        let proxy = ReaderProxy::new(
+                            guid,
+                            spdp_data.expects_inline_qos,
+                            spdp_data.metarraffic_unicast_locator_list.clone(),
+                            spdp_data.metarraffic_multicast_locator_list.clone(),
+                        );
+                        if let Some(writer) = self
+                            .writers
+                            .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER)
+                        {
+                            writer.matched_reader_add(proxy);
+                        }
+                        // self.sedp_builtin_sub_writer.matched_reader_add(proxy);
+                    }
+                    if available_builtin_endpoint
+                        .contains(BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER)
+                    {
+                        let guid = GUID::new(
+                            spdp_data.guid.guid_prefix,
+                            EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER,
+                        );
+                        let proxy = WriterProxy::new(
+                            guid,
+                            spdp_data.metarraffic_unicast_locator_list,
+                            spdp_data.metarraffic_multicast_locator_list,
+                            0, // TODO: What value should I set?
+                        );
+                        if let Some(reader) = self
+                            .readers
+                            .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR)
+                        {
+                            reader.matched_writer_add(proxy);
+                        }
+                        // self.sedp_builtin_sub_reader.matched_writer_add(proxy);
+                    }
+                }
+            }
+        }
+    }
+
+    fn remove_discoverd_participant(&mut self, participant_guid: GUID) {
+        let guid = GUID::new(
+            participant_guid.guid_prefix,
+            EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR,
+        );
+        if let Some(sedp_builtin_pub_writer) = self
+            .writers
+            .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER)
+        {
+            if let Some(proxy) = sedp_builtin_pub_writer.matched_reader_loolup(guid) {
+                sedp_builtin_pub_writer.matched_reader_remove(proxy);
+            }
+        }
+
+        let guid = GUID::new(
+            participant_guid.guid_prefix,
+            EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER,
+        );
+        if let Some(sedp_builtin_pub_reader) = self
+            .readers
+            .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR)
+        {
+            if let Some(proxy) = sedp_builtin_pub_reader.matched_writer_lookup(guid) {
+                sedp_builtin_pub_reader.matched_writer_remove(proxy);
+            }
+        }
+
+        let guid = GUID::new(
+            participant_guid.guid_prefix,
+            EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR,
+        );
+        if let Some(sedp_builtin_sub_writer) = self
+            .writers
+            .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER)
+        {
+            if let Some(proxy) = sedp_builtin_sub_writer.matched_reader_loolup(guid) {
+                sedp_builtin_sub_writer.matched_reader_remove(proxy);
+            }
+        }
+
+        let guid = GUID::new(
+            participant_guid.guid_prefix,
+            EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER,
+        );
+        if let Some(sedp_builtin_sub_reader) = self
+            .readers
+            .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR)
+        {
+            if let Some(proxy) = sedp_builtin_sub_reader.matched_writer_lookup(guid) {
+                sedp_builtin_sub_reader.matched_writer_remove(proxy);
+            }
         }
     }
 }

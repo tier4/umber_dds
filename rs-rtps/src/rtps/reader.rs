@@ -1,6 +1,5 @@
 use crate::rtps::cache::{CacheChange, HistoryCache};
-use crate::structure::entity::RTPSEntity;
-use crate::structure::guid::GUID;
+use crate::structure::{entity::RTPSEntity, guid::GUID, proxy::WriterProxy};
 use mio_extras::channel as mio_channel;
 use std::sync::{Arc, RwLock};
 
@@ -23,6 +22,15 @@ impl Reader {
     pub fn add_change(&mut self, change: CacheChange) {
         self.reader_cache.write().unwrap().add_change(change);
         self.reader_ready_notifier.send(()).unwrap();
+    }
+    pub fn matched_writer_add(&mut self, proxy: WriterProxy) {
+        unimplemented!("DataReader::matched_writer_add");
+    }
+    pub fn matched_writer_lookup(&self, guid: GUID) -> Option<WriterProxy> {
+        unimplemented!("DataReader::matched_writer_lookup");
+    }
+    pub fn matched_writer_remove(&mut self, proxy: WriterProxy) {
+        unimplemented!("DataReader::matched_writer_remove");
     }
 }
 

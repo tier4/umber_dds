@@ -1,4 +1,3 @@
-use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::{cdr::deserialize, data::SDPBuiltinData};
 use crate::message::{
     submessage::{element::*, submessage_flag::*, *},
@@ -13,7 +12,6 @@ use crate::rtps::{
 use crate::structure::entity_id::EntityId;
 use crate::structure::{guid::*, vendor_id::*};
 use colored::*;
-use mio_extras::channel as mio_channel;
 use std::collections::HashMap;
 use std::{error, fmt};
 
@@ -42,16 +40,10 @@ pub struct MessageReceiver {
     multicast_reply_locator_list: Vec<Locator>,
     have_timestamp: bool,
     timestamp: Timestamp,
-    discovery_db: DiscoveryDB,
-    discdb_update_sender: mio_channel::Sender<GuidPrefix>,
 }
 
 impl MessageReceiver {
-    pub fn new(
-        participant_guidprefix: GuidPrefix,
-        discovery_db: DiscoveryDB,
-        discdb_update_sender: mio_channel::Sender<GuidPrefix>,
-    ) -> MessageReceiver {
+    pub fn new(participant_guidprefix: GuidPrefix) -> MessageReceiver {
         Self {
             own_guid_prefix: participant_guidprefix,
             source_version: ProtocolVersion::PROTOCOLVERSION,
@@ -62,8 +54,6 @@ impl MessageReceiver {
             multicast_reply_locator_list: vec![Locator::INVALID],
             have_timestamp: false,
             timestamp: Timestamp::TIME_INVALID,
-            discovery_db,
-            discdb_update_sender,
         }
     }
 
@@ -319,10 +309,7 @@ impl MessageReceiver {
                 }
             };
             let new_data = deserialized.to_spdp_discoverd_participant_data();
-            let timestamp = Timestamp::now().expect("Couldn't get timestamp");
             let guid_prefix = new_data.guid.guid_prefix;
-            self.discovery_db.write(guid_prefix, timestamp, new_data);
-            self.discdb_update_sender.send(guid_prefix).unwrap();
             println!(
                 "##################  @message_receiver  Discovery message received from: {:?}",
                 guid_prefix

@@ -47,14 +47,14 @@ impl DomainParticipant {
                 domain_id,
                 disc_thread_receiver,
                 discovery_db.clone(),
-                discdb_update_sender,
+                discdb_update_receiver,
             ))),
         };
         let dp_clone = dp.clone();
         let discovery_handler = Builder::new()
             .name(String::from("discovery"))
             .spawn(|| {
-                let mut discovery = Discovery::new(dp_clone, discovery_db, discdb_update_receiver);
+                let mut discovery = Discovery::new(dp_clone, discovery_db, discdb_update_sender);
                 discovery.discovery_loop();
             })
             .unwrap();
@@ -94,13 +94,13 @@ impl DomainParticipantDisc {
         domain_id: u16,
         disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
         discovery_db: DiscoveryDB,
-        discdb_update_sender: mio_channel::Sender<GuidPrefix>,
+        discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     ) -> Self {
         Self {
             inner: Arc::new(DomainParticipantInner::new(
                 domain_id,
                 discovery_db,
-                discdb_update_sender,
+                discdb_update_receiver,
             )),
             disc_thread_receiver,
         }
@@ -149,7 +149,7 @@ impl DomainParticipantInner {
     pub fn new(
         domain_id: u16,
         discovery_db: DiscoveryDB,
-        discdb_update_sender: mio_channel::Sender<GuidPrefix>,
+        discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     ) -> DomainParticipantInner {
         let mut socket_list: HashMap<mio_v06::Token, UdpSocket> = HashMap::new();
         let spdp_multi_socket = new_multicast(
@@ -204,12 +204,13 @@ impl DomainParticipantInner {
         let new_thread = thread::spawn(move || {
             let guid_prefix = my_guid.guid_prefix;
             let ev_loop = EventLoop::new(
+                domain_id,
                 socket_list,
                 guid_prefix,
                 add_writer_receiver,
                 add_reader_receiver,
                 discovery_db,
-                discdb_update_sender,
+                discdb_update_receiver,
             );
             ev_loop.event_loop();
         });

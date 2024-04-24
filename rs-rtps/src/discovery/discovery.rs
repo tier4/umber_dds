@@ -15,14 +15,17 @@ use crate::discovery::structure::data::{
     DiscoveredReaderData, DiscoveredWriterData, PublicationBuiltinTopicData, SDPBuiltinData,
     SPDPdiscoveredParticipantData, SubscriptionBuiltinTopicData,
 };
-use crate::message::{message_header::ProtocolVersion, submessage::element::Locator};
+use crate::message::{
+    message_header::ProtocolVersion,
+    submessage::element::{Locator, Timestamp},
+};
 use crate::network::net_util::{
     spdp_multicast_port, spdp_unicast_port, usertraffic_multicast_port, usertraffic_unicast_port,
 };
 use crate::structure::{
     entity::RTPSEntity,
     entity_id::EntityId,
-    guid::GuidPrefix,
+    guid::{GuidPrefix, GUID},
     proxy::{ReaderProxy, WriterProxy},
     topic_kind::TopicKind,
     vendor_id::VendorId,
@@ -44,11 +47,14 @@ use std::time::Duration;
 // SPDPbuiltinParticipantReader
 // RTPS Reader
 // remote ParticipantからSPDPdiscoveredParticipantData announcementを受信する。
+//
+// SEDPbuiltin{Publication/Sunscription}{Writer/Reader}
+// rtps 2.3 spec 8.5.4.2によると、reliableでStatefullな{Writer/Reader}
 
 pub struct Discovery {
     dp: DomainParticipant,
     discovery_db: DiscoveryDB,
-    discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
+    discdb_update_sender: mio_channel::Sender<GuidPrefix>,
     poll: Poll,
     publisher: Publisher,
     subscriber: Subscriber,
@@ -65,7 +71,7 @@ impl Discovery {
     pub fn new(
         dp: DomainParticipant,
         discovery_db: DiscoveryDB,
-        mut discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
+        mut discdb_update_sender: mio_channel::Sender<GuidPrefix>,
     ) -> Self {
         let poll = Poll::new().unwrap();
         let qos = QosBuilder::new().build();
@@ -137,17 +143,10 @@ impl Discovery {
             PollOpt::edge(),
         )
         .unwrap();
-        poll.register(
-            &mut discdb_update_receiver,
-            DISCOVERY_DB_UPDATE,
-            Ready::readable(),
-            PollOpt::edge(),
-        )
-        .unwrap();
         Self {
             dp,
             discovery_db,
-            discdb_update_receiver,
+            discdb_update_sender,
             poll,
             publisher,
             subscriber,
@@ -255,17 +254,7 @@ impl Discovery {
                                 .write_builtin_data(discoverd_reader_data.clone());
                             self.spdp_send_timer.set_timeout(Duration::new(3, 0), ());
                         }
-                        DISCOVERY_DB_UPDATE => {
-                            eprintln!("@discovery: discovery_db updated")
-                        }
-                        SPDP_PARTICIPANT_DETECTOR => {
-                            eprintln!("##################  @discovery  Discovery message received",);
-                            let vd = self.spdp_builtin_participant_reader.take();
-                            for mut d in vd {
-                                let spdp_data = d.to_spdp_discoverd_participant_data();
-                                eprintln!("spdp from {:?} received.", spdp_data.guid);
-                            }
-                        }
+                        SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
                         Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
                     },
                     TokenDec::Entity(eid) => {
@@ -278,6 +267,26 @@ impl Discovery {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    fn handle_participant_discovery(&mut self) {
+        let vd = self.spdp_builtin_participant_reader.take();
+        for mut d in vd {
+            let spdp_data = d.to_spdp_discoverd_participant_data();
+            if spdp_data.domain_id != self.dp.domain_id() {
+                continue;
+            } else {
+                let guid_prefix = spdp_data.guid.guid_prefix;
+                self.discovery_db.write(
+                    spdp_data.guid.guid_prefix,
+                    Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
+                    spdp_data,
+                );
+                self.discdb_update_sender
+                    .send(guid_prefix)
+                    .expect("couldn't send update notification to discdb_update_sender");
             }
         }
     }
