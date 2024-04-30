@@ -1,6 +1,7 @@
 use crate::message::submessage::element::SequenceNumber;
 use crate::structure::guid::GUID;
 use bytes::Bytes;
+use std::collections::HashMap;
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct CacheChange {
@@ -108,7 +109,7 @@ impl CacheData {
 pub struct InstantHandle {/* TODO */}
 
 pub struct HistoryCache {
-    pub changes: Vec<CacheChange>,
+    pub changes: HashMap<SequenceNumber, CacheChange>,
     pub min_seq_num: Option<SequenceNumber>,
     pub max_seq_num: Option<SequenceNumber>,
 }
@@ -116,32 +117,38 @@ pub struct HistoryCache {
 impl HistoryCache {
     pub fn new() -> Self {
         Self {
-            changes: Vec::new(),
+            changes: HashMap::new(),
             min_seq_num: None,
             max_seq_num: None,
         }
     }
     pub fn add_change(&mut self, change: CacheChange) {
-        self.changes.push(change);
+        self.changes.insert(change.sequence_number, change);
     }
     pub fn get_changes(&self) -> Vec<Option<CacheData>> {
-        self.changes.iter().map(|c| c.data_value()).collect()
+        self.changes.iter().map(|c| c.1.data_value()).collect()
     }
     pub fn remove_change(&mut self, change: CacheChange) {
-        if let Some(remove_idx) = self.changes.iter().position(|c| *c == change) {
-            self.changes.remove(remove_idx);
+        let mut to_del = Vec::new();
+        for (k, v) in self.changes.iter() {
+            if *v == change {
+                to_del.push(k.clone());
+            }
+        }
+        for k in to_del {
+            self.changes.remove(&k);
         }
     }
     pub fn remove_changes(&mut self) {
-        self.changes = Vec::new();
+        self.changes = HashMap::new();
         self.min_seq_num = None;
         self.max_seq_num = None;
     }
     pub fn get_seq_num_min(&self) -> SequenceNumber {
         let mut min = SequenceNumber::MAX;
         for c in &self.changes {
-            if c.sequence_number < min {
-                min = c.sequence_number;
+            if *c.0 < min {
+                min = *c.0;
             }
         }
         min
@@ -149,8 +156,8 @@ impl HistoryCache {
     pub fn get_seq_num_max(&self) -> SequenceNumber {
         let mut max = SequenceNumber::MIN;
         for c in &self.changes {
-            if c.sequence_number > max {
-                max = c.sequence_number;
+            if *c.0 > max {
+                max = *c.0;
             }
         }
         max

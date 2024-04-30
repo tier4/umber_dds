@@ -2,6 +2,7 @@ use crate::dds::qos::policy::*;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator};
+use crate::rtps::cache::HistoryCache;
 use crate::structure::duration::Duration;
 use crate::structure::{
     guid::GUID,
@@ -13,6 +14,7 @@ use enumflags2::BitFlags;
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::{ser::SerializeStruct, Serialize};
 use std::fmt;
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone, Default)]
 pub struct SDPBuiltinData {
@@ -186,7 +188,7 @@ impl SDPBuiltinData {
         }
     }
 
-    fn to_readerroxy(&mut self) -> ReaderProxy {
+    fn to_readerroxy(&mut self, history_cache: Arc<RwLock<HistoryCache>>) -> ReaderProxy {
         let remote_guid = self.remote_guid.unwrap();
         let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
         let unicast_locator_list = self.unicast_locator_list.take().unwrap();
@@ -196,6 +198,7 @@ impl SDPBuiltinData {
             expects_inline_qos,
             unicast_locator_list,
             multicast_locator_list,
+            history_cache,
         )
     }
 

@@ -22,6 +22,7 @@ use crate::message::{
 use crate::network::net_util::{
     spdp_multicast_port, spdp_unicast_port, usertraffic_multicast_port, usertraffic_unicast_port,
 };
+use crate::rtps::cache::HistoryCache;
 use crate::structure::{
     entity::RTPSEntity,
     entity_id::EntityId,
@@ -33,6 +34,7 @@ use crate::structure::{
 use enumflags2::make_bitflags;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 // SPDPbuiltinParticipantWriter
@@ -216,6 +218,7 @@ impl Discovery {
             false,
             Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
             Locator::new_list_from_self_ipv4(spdp_multicast_port(domain_id) as u32),
+            Arc::new(RwLock::new(HistoryCache::new())),
         );
         let sub_data = SubscriptionBuiltinTopicData::new(
             None,

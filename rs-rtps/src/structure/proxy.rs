@@ -1,6 +1,10 @@
-use crate::message::submessage::element::Locator;
+use crate::message::submessage::element::{Locator, SequenceNumber};
+use crate::rtps::cache::{ChangeForReader, ChangeForReaderStatusKind, HistoryCache};
 use crate::structure::{guid::GUID, parameter_id::ParameterId};
 use serde::{ser::SerializeStruct, Serialize};
+use std::cmp::min;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct ReaderProxy {
@@ -8,6 +12,8 @@ pub struct ReaderProxy {
     expects_inline_qos: bool,
     unicast_locator_list: Vec<Locator>,
     multicast_locator_list: Vec<Locator>,
+    history_cache: Arc<RwLock<HistoryCache>>,
+    cache_state: HashMap<SequenceNumber, ChangeForReader>,
 }
 
 impl ReaderProxy {
@@ -16,13 +22,97 @@ impl ReaderProxy {
         expects_inline_qos: bool,
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
+        history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Self {
         Self {
             remote_reader_guid,
             expects_inline_qos,
             unicast_locator_list,
             multicast_locator_list,
+            history_cache,
+            cache_state: HashMap::new(),
         }
+    }
+    pub fn acked_changes_set(&mut self, commited_seq_num: SequenceNumber) {
+        let hc = self.history_cache.read().unwrap();
+        for (k, v) in &hc.changes {
+            if v.sequence_number <= commited_seq_num {
+                self.cache_state.insert(
+                    *k,
+                    ChangeForReader::new(*k, ChangeForReaderStatusKind::Acknowledged, false),
+                );
+            }
+        }
+    }
+    pub fn next_requested_change(&self) -> Option<ChangeForReader> {
+        let mut next_seq_num = SequenceNumber::MAX;
+        for change in self.requested_changes() {
+            next_seq_num = min(next_seq_num, change.seq_num);
+        }
+
+        for change in self.requested_changes() {
+            if change.seq_num == next_seq_num {
+                return Some(change);
+            }
+        }
+        None
+    }
+    pub fn next_unsent_change(&self) -> Option<ChangeForReader> {
+        let mut next_seq_num = SequenceNumber::MAX;
+
+        for change in self.unsent_changes() {
+            next_seq_num = min(next_seq_num, change.seq_num);
+        }
+
+        for change in self.unsent_changes() {
+            if change.seq_num == next_seq_num {
+                return Some(change);
+            }
+        }
+        None
+    }
+    pub fn requested_changes(&self) -> Vec<ChangeForReader> {
+        let mut requested_changes = Vec::new();
+        for (_sn, change_for_reader) in &self.cache_state {
+            match change_for_reader.status {
+                ChangeForReaderStatusKind::Unsent => {
+                    requested_changes.push(change_for_reader.clone())
+                }
+                _ => (),
+            }
+        }
+        requested_changes
+    }
+    pub fn requested_changes_set(&mut self, req_seq_num_set: Vec<SequenceNumber>) {
+        for seq_num in req_seq_num_set {
+            for (sn, change_for_reader) in &mut self.cache_state {
+                if *sn == seq_num {
+                    change_for_reader.status = ChangeForReaderStatusKind::Requested;
+                }
+            }
+        }
+    }
+    pub fn unsent_changes(&self) -> Vec<ChangeForReader> {
+        let mut unsent_changes = Vec::new();
+        for (_sn, change_for_reader) in &self.cache_state {
+            match change_for_reader.status {
+                ChangeForReaderStatusKind::Unsent => unsent_changes.push(change_for_reader.clone()),
+                _ => (),
+            }
+        }
+        unsent_changes
+    }
+    pub fn unacked_changes(&self) -> Vec<ChangeForReader> {
+        let mut unacked_changes = Vec::new();
+        for (_sn, change_for_reader) in &self.cache_state {
+            match change_for_reader.status {
+                ChangeForReaderStatusKind::Unsent => {
+                    unacked_changes.push(change_for_reader.clone())
+                }
+                _ => (),
+            }
+        }
+        unacked_changes
     }
 }
 impl Serialize for ReaderProxy {

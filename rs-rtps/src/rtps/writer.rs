@@ -4,7 +4,9 @@ use crate::message::{
 };
 use crate::network::udp_sender::UdpSender;
 use crate::policy::ReliabilityQosKind;
-use crate::rtps::cache::{CacheChange, CacheData, ChangeKind, HistoryCache, InstantHandle};
+use crate::rtps::cache::{
+    CacheChange, CacheData, ChangeForReader, ChangeKind, HistoryCache, InstantHandle,
+};
 use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{
     duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, proxy::ReaderProxy,
@@ -17,6 +19,7 @@ use speedy::{Endianness, Writable};
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 /// RTPS StatelessWriter
 pub struct Writer {
@@ -33,7 +36,7 @@ pub struct Writer {
     nack_response_delay: Duration,
     nack_suppression_duration: Duration,
     last_change_sequence_number: SequenceNumber,
-    writer_cache: HistoryCache,
+    writer_cache: Arc<RwLock<HistoryCache>>,
     data_max_size_serialized: i32,
     // StatelessWriter
     reader_locators: Vec<ReaderLocator>,
@@ -58,7 +61,7 @@ impl Writer {
             nack_response_delay: wi.nack_response_delay,
             nack_suppression_duration: wi.nack_suppression_duration,
             last_change_sequence_number: SequenceNumber(0),
-            writer_cache: HistoryCache::new(),
+            writer_cache: Arc::new(RwLock::new(HistoryCache::new())),
             data_max_size_serialized: wi.data_max_size_serialized,
             reader_locators: Vec::new(),
             reader_proxy: HashMap::new(),
@@ -100,7 +103,14 @@ impl Writer {
     pub fn unsent_changes_reset(&mut self) {
         // StatelessWriter
         for rl in &mut self.reader_locators {
-            rl.unsent_changes = self.writer_cache.changes.clone();
+            rl.unsent_changes = self
+                .writer_cache
+                .read()
+                .unwrap()
+                .changes
+                .values()
+                .cloned()
+                .collect();
         }
     }
 
@@ -150,8 +160,23 @@ impl Writer {
         todo!(); // TODO
     }
 
-    pub fn matched_reader_add(&mut self, proxy: ReaderProxy) {
-        self.reader_proxy.insert(proxy.remote_reader_guid, proxy);
+    pub fn matched_reader_add(
+        &mut self,
+        remote_reader_guid: GUID,
+        expects_inline_qos: bool,
+        unicast_locator_list: Vec<Locator>,
+        multicast_locator_list: Vec<Locator>,
+    ) {
+        self.reader_proxy.insert(
+            remote_reader_guid,
+            ReaderProxy::new(
+                remote_reader_guid,
+                expects_inline_qos,
+                unicast_locator_list,
+                multicast_locator_list,
+                self.writer_cache.clone(),
+            ),
+        );
     }
     pub fn matched_reader_loolup(&self, guid: GUID) -> Option<ReaderProxy> {
         match self.reader_proxy.get(&guid) {

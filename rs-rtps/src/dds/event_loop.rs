@@ -222,19 +222,17 @@ impl EventLoop {
                             spdp_data.guid.guid_prefix,
                             EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR,
                         );
-                        let proxy = ReaderProxy::new(
-                            guid,
-                            spdp_data.expects_inline_qos,
-                            spdp_data.metarraffic_unicast_locator_list.clone(),
-                            spdp_data.metarraffic_multicast_locator_list.clone(),
-                        );
                         if let Some(writer) = self
                             .writers
                             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER)
                         {
-                            writer.matched_reader_add(proxy);
+                            writer.matched_reader_add(
+                                guid,
+                                spdp_data.expects_inline_qos,
+                                spdp_data.metarraffic_unicast_locator_list.clone(),
+                                spdp_data.metarraffic_multicast_locator_list.clone(),
+                            );
                         }
-                        // self.sedp_builtin_pub_writer.matched_reader_add(proxy);
                     }
                     if available_builtin_endpoint
                         .contains(BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER)
@@ -255,7 +253,6 @@ impl EventLoop {
                         {
                             reader.matched_writer_add(proxy);
                         }
-                        // self.sedp_builtin_pub_reader.matched_writer_add(proxy);
                     }
                     if available_builtin_endpoint
                         .contains(BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR)
@@ -264,19 +261,17 @@ impl EventLoop {
                             spdp_data.guid.guid_prefix,
                             EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR,
                         );
-                        let proxy = ReaderProxy::new(
-                            guid,
-                            spdp_data.expects_inline_qos,
-                            spdp_data.metarraffic_unicast_locator_list.clone(),
-                            spdp_data.metarraffic_multicast_locator_list.clone(),
-                        );
                         if let Some(writer) = self
                             .writers
                             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER)
                         {
-                            writer.matched_reader_add(proxy);
+                            writer.matched_reader_add(
+                                guid,
+                                spdp_data.expects_inline_qos,
+                                spdp_data.metarraffic_unicast_locator_list.clone(),
+                                spdp_data.metarraffic_multicast_locator_list.clone(),
+                            );
                         }
-                        // self.sedp_builtin_sub_writer.matched_reader_add(proxy);
                     }
                     if available_builtin_endpoint
                         .contains(BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER)
@@ -297,7 +292,6 @@ impl EventLoop {
                         {
                             reader.matched_writer_add(proxy);
                         }
-                        // self.sedp_builtin_sub_reader.matched_writer_add(proxy);
                     }
                 }
             }
