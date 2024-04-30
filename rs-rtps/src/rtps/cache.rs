@@ -37,6 +37,49 @@ impl CacheChange {
     }
 }
 
+#[derive(Clone)]
+pub enum ChangeForReaderStatusKind {
+    Unsent,
+    Unacknowledged,
+    Requested,
+    Acknowledged,
+    Underway,
+}
+
+pub enum ChangeFromWriterStatusKind {
+    Lost,
+    Missing,
+    Received,
+    Uuknown,
+}
+
+#[derive(Clone)]
+pub struct ChangeForReader {
+    pub seq_num: SequenceNumber,
+    pub status: ChangeForReaderStatusKind,
+    pub is_relevant: bool,
+}
+
+impl ChangeForReader {
+    pub fn new(
+        seq_num: SequenceNumber,
+        status: ChangeForReaderStatusKind,
+        is_relevant: bool,
+    ) -> Self {
+        Self {
+            seq_num,
+            status,
+            is_relevant,
+        }
+    }
+}
+
+pub struct ChangeFromWriter {
+    seq_num: SequenceNumber,
+    is_relevant: bool,
+    status: ChangeFromWriterStatusKind,
+}
+
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum ChangeKind {
     Alive,
