@@ -29,7 +29,7 @@ use std::ops::{Add, AddAssign};
 
 pub type Count = i32;
 
-#[derive(PartialEq, Eq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct SequenceNumber(pub i64); // The precise definition of SequenceNumber is:
                                     // struct SequenceNumber {high: i32, low: u32}.
                                     // Therefore, when serialized in LittleEndian, SequenceNumber(0) is represented as:
