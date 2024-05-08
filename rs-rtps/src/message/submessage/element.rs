@@ -214,12 +214,12 @@ impl Sub for Timestamp {
 // spec versin 2.3, 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
 #[derive(Readable, Writable, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Locator {
-    kind: i32,
-    port: u32,
+    pub kind: i32,
+    pub port: u32,
     // spec version 2.3, 9.3.2.3 Locator_t
     // if address contains an IPv4 address. In this case, the leading 12 octets of the
     //  address must be zero. The last 4 octets are used to store the IPv4 address.
-    address: [u8; 16],
+    pub address: [u8; 16],
 }
 
 impl Locator {
