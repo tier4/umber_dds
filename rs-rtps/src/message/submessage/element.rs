@@ -328,6 +328,7 @@ impl RepresentationIdentifier {
     };
 }
 
+#[derive(PartialEq, Eq, Clone)]
 pub struct SerializedPayload {
     pub representation_identifier: RepresentationIdentifier,
     pub representation_options: [u8; 2], // Not used. Send as zero, ignore on receive.
