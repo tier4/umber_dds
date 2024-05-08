@@ -1,6 +1,7 @@
 use crate::{Deserialize, Serialize};
 use mio_v06::Token;
 use speedy::{Readable, Writable};
+use std::fmt;
 
 // spec 9.2.2
 #[derive(Debug, PartialEq, Readable, Writable, Clone, Copy, Eq, Hash, Serialize, Deserialize)]
@@ -137,7 +138,7 @@ impl EntityId {
     }
 }
 
-#[derive(Debug, PartialEq, Readable, Writable, Clone, Copy, Eq, Hash, Serialize, Deserialize)]
+#[derive(PartialEq, Readable, Writable, Clone, Copy, Eq, Hash, Serialize, Deserialize)]
 pub struct EntityKind {
     value: u8,
 }
@@ -164,4 +165,45 @@ impl EntityKind {
     // self difined
     pub const PUBLISHER: Self = Self { value: 0x40 };
     pub const SUBSCRIBER: Self = Self { value: 0x41 };
+}
+
+impl fmt::Debug for EntityKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Self::UNKNOW_USER_DEFIND => write!(f, "EntityKind: UNKNOW_USER_DEFIND(0x00)"),
+            Self::WRITER_WITH_KEY_USER_DEFIND => {
+                write!(f, "EntityKind: WRITER_WITH_KEY_USER_DEFIND(0x02)")
+            }
+            Self::WRITER_NO_KEY_USER_DEFIND => {
+                write!(f, "EntityKind: WRITER_NO_KEY_USER_DEFIND(0x03)")
+            }
+            Self::READER_NO_KEY_USER_DEFIND => {
+                write!(f, "EntityKind: READER_NO_KEY_USER_DEFIND(0x04)")
+            }
+            Self::READER_WITH_KEY_USER_DEFIND => {
+                write!(f, "EntityKind: READER_WITH_KEY_USER_DEFIND(0x07)")
+            }
+            Self::WRITER_GROUP_USER_DEFIND => {
+                write!(f, "EntityKind: WRITER_GROUP_USER_DEFIND(0x08)")
+            }
+            Self::READER_GROUP_USER_DEFIND => {
+                write!(f, "EntityKind: READER_GROUP_USER_DEFIND(0x09)")
+            }
+            Self::UNKNOW_BUILT_IN => write!(f, "EntityKind: UNKNOW_BUILT_IN(0xC0)"),
+            Self::PARTICIPANT_BUILT_IN => write!(f, "EntityKind: PARTICIPANT_BUILT_IN(0xC1)"),
+            Self::WRITER_WITH_KEY_BUILT_IN => {
+                write!(f, "EntityKind: WRITER_WITH_KEY_BUILT_IN(0xC2)")
+            }
+            Self::WRITER_NO_KEY_BUILT_IN => write!(f, "EntityKind: WRITER_NO_KEY_BUILT_IN(0xC3)"),
+            Self::READER_NO_KEY_BUILT_IN => write!(f, "EntityKind: READER_NO_KEY_BUILT_IN(0xC4)"),
+            Self::READER_WITH_KEY_BUILT_IN => {
+                write!(f, "EntityKind: READER_WITH_KEY_BUILT_IN(0xC7)")
+            }
+            Self::WRITER_GROUP_BUILT_IN => write!(f, "EntityKind: WRITER_GROUP_BUILT_IN(0xC8)"),
+            Self::READER_GROUP_BUILT_IN => write!(f, "EntityKind: READER_GROUP_BUILT_IN(0xC9)"),
+            Self::PUBLISHER => write!(f, "EntityKind: PUBLISHER(0x40)"),
+            Self::SUBSCRIBER => write!(f, "EntityKind: SUBSCRIBER(0x41)"),
+            _ => write!(f, "EntityKind: OTHER(0x{:02X})", self.value),
+        }
+    }
 }
