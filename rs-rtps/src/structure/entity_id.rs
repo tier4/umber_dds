@@ -152,7 +152,7 @@ impl EntityKind {
     pub const WRITER_GROUP_USER_DEFIND: Self = Self { value: 0x08 };
     pub const READER_GROUP_USER_DEFIND: Self = Self { value: 0x09 };
 
-    pub const UNKNOW_BUILT_IN: Self = Self { value: 0x00 };
+    pub const UNKNOW_BUILT_IN: Self = Self { value: 0xc0 };
     pub const PARTICIPANT_BUILT_IN: Self = Self { value: 0xc1 };
     pub const WRITER_WITH_KEY_BUILT_IN: Self = Self { value: 0xc2 };
     pub const WRITER_NO_KEY_BUILT_IN: Self = Self { value: 0xc3 };
