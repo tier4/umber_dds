@@ -9,9 +9,9 @@ use std::sync::{Arc, RwLock};
 #[derive(Clone)]
 pub struct ReaderProxy {
     pub remote_reader_guid: GUID,
-    expects_inline_qos: bool,
-    unicast_locator_list: Vec<Locator>,
-    multicast_locator_list: Vec<Locator>,
+    pub expects_inline_qos: bool,
+    pub unicast_locator_list: Vec<Locator>,
+    pub multicast_locator_list: Vec<Locator>,
     history_cache: Arc<RwLock<HistoryCache>>,
     cache_state: HashMap<SequenceNumber, ChangeForReader>,
 }
@@ -152,10 +152,10 @@ impl Serialize for ReaderProxy {
 
 #[derive(Clone)]
 pub struct WriterProxy {
-    remote_writer_guid: GUID,
-    unicast_locator_list: Vec<Locator>,
-    multicast_locator_list: Vec<Locator>,
-    data_max_size_serialized: i32, // in rtps 2.3 spec, Figure 8.30: long
+    pub remote_writer_guid: GUID,
+    pub unicast_locator_list: Vec<Locator>,
+    pub multicast_locator_list: Vec<Locator>,
+    pub data_max_size_serialized: i32, // in rtps 2.3 spec, Figure 8.30: long
 }
 
 impl WriterProxy {
