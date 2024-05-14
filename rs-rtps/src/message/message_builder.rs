@@ -51,12 +51,30 @@ impl MessageBuilder {
         self.submessages.push(ts_msg);
     }
 
-    pub fn heartbeat(&self, endiannes: Endianness) {
-        let hb = todo!();
-        let hb_flag = HeartbeatFlag::from_enndianness(endiannes);
+    pub fn heartbeat(
+        &mut self,
+        endiannes: Endianness,
+        writer_id: EntityId,
+        reader_id: EntityId,
+        first_sn: SequenceNumber,
+        last_sn: SequenceNumber,
+        count: Count,
+        is_final: bool,
+    ) {
+        let heartbeat_body_length = 28;
+        let hb = Heartbeat::new(
+            reader_id, writer_id, first_sn, last_sn, count, None, None, None, None, None,
+        );
+        let mut hb_flag = HeartbeatFlag::from_enndianness(endiannes);
+        if is_final {
+            hb_flag |= HeartbeatFlag::Final;
+        }
         let hb_body = SubMessageBody::Entity(EntitySubmessage::HeartBeat(hb, hb_flag));
-        let hb_header =
-            SubMessageHeader::new(SubMessageKind::HEARTBEAT as u8, hb_flag.bits(), todo!());
+        let hb_header = SubMessageHeader::new(
+            SubMessageKind::HEARTBEAT as u8,
+            hb_flag.bits(),
+            heartbeat_body_length,
+        );
         let hb_msg = SubMessage {
             header: hb_header,
             body: hb_body,
