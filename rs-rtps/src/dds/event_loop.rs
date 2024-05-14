@@ -266,17 +266,16 @@ impl EventLoop {
                             spdp_data.guid.guid_prefix,
                             EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER,
                         );
-                        let proxy = WriterProxy::new(
-                            guid,
-                            spdp_data.metarraffic_unicast_locator_list.clone(),
-                            spdp_data.metarraffic_multicast_locator_list.clone(),
-                            0, // TODO: What value should I set?
-                        );
                         if let Some(reader) = self
                             .readers
                             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR)
                         {
-                            reader.matched_writer_add(proxy);
+                            reader.matched_writer_add(
+                                guid,
+                                spdp_data.metarraffic_unicast_locator_list.clone(),
+                                spdp_data.metarraffic_multicast_locator_list.clone(),
+                                0, // TODO: What value should I set?
+                            );
                         }
                     }
                     if available_builtin_endpoint
@@ -305,17 +304,16 @@ impl EventLoop {
                             spdp_data.guid.guid_prefix,
                             EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER,
                         );
-                        let proxy = WriterProxy::new(
-                            guid,
-                            spdp_data.metarraffic_unicast_locator_list,
-                            spdp_data.metarraffic_multicast_locator_list,
-                            0, // TODO: What value should I set?
-                        );
                         if let Some(reader) = self
                             .readers
                             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR)
                         {
-                            reader.matched_writer_add(proxy);
+                            reader.matched_writer_add(
+                                guid,
+                                spdp_data.metarraffic_unicast_locator_list,
+                                spdp_data.metarraffic_multicast_locator_list,
+                                0, // TODO: What value should I set?
+                            );
                         }
                     }
                 }

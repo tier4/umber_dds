@@ -47,9 +47,23 @@ impl Reader {
         self.reader_cache.write().unwrap().add_change(change);
         self.reader_ready_notifier.send(()).unwrap();
     }
-    pub fn matched_writer_add(&mut self, proxy: WriterProxy) {
+    pub fn matched_writer_add(
+        &mut self,
+        remote_writer_guid: GUID,
+        unicast_locator_list: Vec<Locator>,
+        multicast_locator_list: Vec<Locator>,
+        data_max_size_serialized: i32,
+    ) {
         eprintln!("DataReader::matched_writer_add");
-        // unimplemented!("DataReader::matched_writer_add");
+        self.writer_proxy.insert(
+            remote_writer_guid,
+            WriterProxy::new(
+                remote_writer_guid,
+                unicast_locator_list,
+                multicast_locator_list,
+                data_max_size_serialized,
+            ),
+        );
     }
     pub fn matched_writer_lookup(&self, guid: GUID) -> Option<WriterProxy> {
         unimplemented!("DataReader::matched_writer_lookup");
