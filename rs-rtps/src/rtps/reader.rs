@@ -1,12 +1,29 @@
+use crate::message::submessage::element::Locator;
+use crate::policy::ReliabilityQosKind;
 use crate::rtps::cache::{CacheChange, HistoryCache};
-use crate::structure::{entity::RTPSEntity, guid::GUID, proxy::WriterProxy};
+use crate::structure::{
+    duration::Duration, entity::RTPSEntity, guid::GUID, proxy::WriterProxy, topic_kind::TopicKind,
+};
 use mio_extras::channel as mio_channel;
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-/// RTPS StatelessReader
+/// RTPS StatefulReader
 pub struct Reader {
+    // Entity
     guid: GUID,
+    // Endpoint
+    topic_kind: TopicKind,
+    reliability_level: ReliabilityQosKind,
+    unicast_locator_list: Vec<Locator>,
+    multicast_locator_list: Vec<Locator>,
+    // Reader
+    expectsinline_qos: bool,
+    heartbeat_response_delay: Duration,
     reader_cache: Arc<RwLock<HistoryCache>>,
+    // StatefulReader
+    writer_proxy: HashMap<GUID, WriterProxy>,
+    // This implementation spesific
     reader_ready_notifier: mio_channel::Sender<()>,
 }
 
@@ -14,7 +31,14 @@ impl Reader {
     pub fn new(ri: ReaderIngredients) -> Self {
         Self {
             guid: ri.guid,
+            topic_kind: ri.topic_kind,
+            reliability_level: ri.reliability_level,
+            unicast_locator_list: ri.unicast_locator_list,
+            multicast_locator_list: ri.multicast_locator_list,
+            expectsinline_qos: ri.expectsinline_qos,
+            heartbeat_response_delay: ri.heartbeat_response_delay,
             reader_cache: ri.rhc,
+            writer_proxy: HashMap::new(),
             reader_ready_notifier: ri.reader_ready_notifier,
         }
     }
@@ -24,7 +48,8 @@ impl Reader {
         self.reader_ready_notifier.send(()).unwrap();
     }
     pub fn matched_writer_add(&mut self, proxy: WriterProxy) {
-        unimplemented!("DataReader::matched_writer_add");
+        eprintln!("DataReader::matched_writer_add");
+        // unimplemented!("DataReader::matched_writer_add");
     }
     pub fn matched_writer_lookup(&self, guid: GUID) -> Option<WriterProxy> {
         unimplemented!("DataReader::matched_writer_lookup");
@@ -35,8 +60,18 @@ impl Reader {
 }
 
 pub struct ReaderIngredients {
+    // Entity
     pub guid: GUID,
+    // Endpoint
+    pub topic_kind: TopicKind,
+    pub reliability_level: ReliabilityQosKind,
+    pub unicast_locator_list: Vec<Locator>,
+    pub multicast_locator_list: Vec<Locator>,
+    // Reader
+    pub expectsinline_qos: bool,
+    pub heartbeat_response_delay: Duration,
     pub rhc: Arc<RwLock<HistoryCache>>,
+    // This implementation spesific
     pub reader_ready_notifier: mio_channel::Sender<()>,
 }
 

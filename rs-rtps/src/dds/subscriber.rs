@@ -1,8 +1,10 @@
 use crate::dds::{
-    datareader::DataReader, participant::DomainParticipant, qos::QosPolicies, topic::Topic,
+    datareader::DataReader, participant::DomainParticipant, qos::policy::*, qos::QosPolicies,
+    topic::Topic,
 };
 use crate::rtps::{cache::HistoryCache, reader::ReaderIngredients};
 use crate::structure::{
+    duration::Duration,
     entity::RTPSEntity,
     entity_id::{EntityId, EntityKind},
     guid::GUID,
@@ -87,6 +89,11 @@ impl InnerSubscriber {
     ) -> DataReader<D> {
         let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
+        let reliability_level = if let Some(reliability) = qos.reliability {
+            reliability.kind
+        } else {
+            ReliabilityQosKind::BestEffort
+        };
         let reader_ing = ReaderIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
@@ -95,6 +102,12 @@ impl InnerSubscriber {
                     EntityKind::READER_WITH_KEY_USER_DEFIND,
                 ),
             ),
+            topic_kind: topic.kind(),
+            reliability_level,
+            unicast_locator_list: Vec::new(),
+            multicast_locator_list: Vec::new(),
+            expectsinline_qos: false,
+            heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),
             reader_ready_notifier,
         };
@@ -111,8 +124,19 @@ impl InnerSubscriber {
     ) -> DataReader<D> {
         let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
+        let reliability_level = if let Some(reliability) = qos.reliability {
+            reliability.kind
+        } else {
+            ReliabilityQosKind::BestEffort
+        };
         let reader_ing = ReaderIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
+            topic_kind: topic.kind(),
+            reliability_level,
+            unicast_locator_list: Vec::new(),
+            multicast_locator_list: Vec::new(),
+            expectsinline_qos: false,
+            heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),
             reader_ready_notifier,
         };
