@@ -26,6 +26,34 @@ pub struct Heartbeat {
     pub secure_writer_set: Option<GroupDigest>,
 }
 
+impl Heartbeat {
+    pub fn new(
+        reader_id: EntityId,
+        writer_id: EntityId,
+        first_sn: SequenceNumber,
+        last_sn: SequenceNumber,
+        count: Count,
+        current_gsn: Option<SequenceNumber>,
+        first_gsn: Option<SequenceNumber>,
+        last_gsn: Option<SequenceNumber>,
+        writer_set: Option<GroupDigest>,
+        secure_writer_set: Option<GroupDigest>,
+    ) -> Self {
+        Self {
+            reader_id,
+            writer_id,
+            first_sn,
+            last_sn,
+            count,
+            current_gsn,
+            first_gsn,
+            last_gsn,
+            writer_set,
+            secure_writer_set,
+        }
+    }
+}
+
 impl<C: Context> Writable<C> for Heartbeat {
     fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
         writer.write_value(&self.reader_id)?;
