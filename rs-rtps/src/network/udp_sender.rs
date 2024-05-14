@@ -38,9 +38,9 @@ impl UdpSender {
         })
     }
 
-    pub fn send_to_multicast(&self, data: &[u8], mutlicast_group: Ipv4Addr, port: u16) {
+    pub fn send_to(&self, data: &[u8], addr: Ipv4Addr, port: u16) {
         for msocket in &self.multicast_sockets {
-            match msocket.send_to(data, (mutlicast_group, port)) {
+            match msocket.send_to(data, (addr, port)) {
                 Ok(_n) => (),
                 Err(_) => panic!("udp send failed."),
             }

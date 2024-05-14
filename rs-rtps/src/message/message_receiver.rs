@@ -5,7 +5,7 @@ use crate::message::{
 };
 use crate::net_util::*;
 use crate::rtps::{
-    cache::{CacheChange, CacheData, ChangeKind, InstantHandle},
+    cache::{CacheChange, ChangeKind, InstantHandle},
     reader::Reader,
     writer::Writer,
 };
@@ -279,16 +279,11 @@ impl MessageReceiver {
         let writer_guid = GUID::new(self.dest_guid_prefix, data.writer_id);
         let _reader_guid = GUID::new(self.source_guid_prefix, data.reader_id);
 
-        let cache_data = match data.serialized_payload {
-            Some(ref s) => Some(CacheData::new(s.to_bytes())),
-            None => None,
-        };
-
         let change = CacheChange::new(
             ChangeKind::Alive,
             writer_guid,
             data.writer_sn,
-            cache_data,
+            data.serialized_payload.clone(),
             InstantHandle {}, // TODO
         );
 

@@ -33,6 +33,19 @@ impl ReaderProxy {
             cache_state: HashMap::new(),
         }
     }
+    pub fn update_cache_state(
+        &mut self,
+        seq_num: SequenceNumber,
+        is_relevant: bool,
+        state: ChangeForReaderStatusKind,
+    ) {
+        // `is_relevant` is related to DDS_FILLTER
+        // Now this implementation does not support DDS_FILLTER,
+        // so is_relevant is always set to true.
+        let change_for_reader = ChangeForReader::new(seq_num, state, is_relevant);
+        self.cache_state.insert(seq_num, change_for_reader);
+    }
+
     pub fn acked_changes_set(&mut self, commited_seq_num: SequenceNumber) {
         let hc = self.history_cache.read().unwrap();
         for (k, v) in &hc.changes {

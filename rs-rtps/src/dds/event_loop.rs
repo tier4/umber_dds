@@ -17,6 +17,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use crate::message::message_receiver::*;
+use crate::message::submessage::element::Locator;
 use crate::network::{net_util::*, udp_sender::UdpSender};
 
 const MAX_MESSAGE_SIZE: usize = 64 * 1024; // This is max we can get from UDP.
@@ -130,6 +131,19 @@ impl EventLoop {
                             while let Ok(writer_ing) = self.add_writer_receiver.try_recv() {
                                 eprintln!("in ev_loop: entity_id: {:?}", writer_ing.guid);
                                 let mut writer = Writer::new(writer_ing, self.sender.clone());
+                                if writer.guid().entity_id
+                                    == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
+                                {
+                                    writer.matched_reader_add(
+                                        GUID::UNKNOW,
+                                        false,
+                                        Vec::new(),
+                                        Vec::from([Locator::new_from_ipv4(
+                                            spdp_multicast_port(self.domain_id) as u32,
+                                            [239, 255, 0, 1],
+                                        )]),
+                                    );
+                                }
                                 let token = writer.entity_token();
                                 self.poll
                                     .register(

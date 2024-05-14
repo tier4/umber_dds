@@ -1,6 +1,5 @@
-use crate::message::submessage::element::SequenceNumber;
+use crate::message::submessage::element::{SequenceNumber, SerializedPayload};
 use crate::structure::guid::GUID;
-use bytes::Bytes;
 use std::collections::HashMap;
 
 #[derive(PartialEq, Eq, Clone)]
@@ -8,7 +7,7 @@ pub struct CacheChange {
     kind: ChangeKind,
     writer_guid: GUID,
     pub sequence_number: SequenceNumber,
-    data_value: Option<CacheData>,
+    data_value: Option<SerializedPayload>,
     // inline_qos: ParameterList,
     instance_handle: InstantHandle, // In DDS, the value of the fields
                                     // labeled as ‘key’ within the data
@@ -21,7 +20,7 @@ impl CacheChange {
         kind: ChangeKind,
         writer_guid: GUID,
         sequence_number: SequenceNumber,
-        data_value: Option<CacheData>,
+        data_value: Option<SerializedPayload>,
         instance_handle: InstantHandle,
     ) -> Self {
         Self {
@@ -33,7 +32,7 @@ impl CacheChange {
         }
     }
 
-    pub fn data_value(&self) -> Option<CacheData> {
+    pub fn data_value(&self) -> Option<SerializedPayload> {
         self.data_value.clone()
     }
 }
@@ -90,21 +89,6 @@ pub enum ChangeKind {
     NotAliveUnregistered,
 }
 
-#[derive(PartialEq, Eq, Clone)]
-pub struct CacheData {
-    data: Bytes,
-}
-
-impl CacheData {
-    pub fn new(data: Bytes) -> Self {
-        Self { data }
-    }
-
-    pub fn data(&self) -> Bytes {
-        self.data.clone()
-    }
-}
-
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct InstantHandle {/* TODO */}
 
@@ -125,7 +109,14 @@ impl HistoryCache {
     pub fn add_change(&mut self, change: CacheChange) {
         self.changes.insert(change.sequence_number, change);
     }
-    pub fn get_changes(&self) -> Vec<Option<CacheData>> {
+    pub fn get_change(&self, seq_num: SequenceNumber) -> Option<CacheChange> {
+        match self.changes.get(&seq_num) {
+            Some(c) => Some(c.clone()),
+            None => None,
+        }
+    }
+
+    pub fn get_changes(&self) -> Vec<Option<SerializedPayload>> {
         self.changes.iter().map(|c| c.1.data_value()).collect()
     }
     pub fn remove_change(&mut self, change: CacheChange) {

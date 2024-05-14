@@ -70,10 +70,10 @@ impl MessageBuilder {
         reader_id: EntityId,
         writer_id: EntityId,
         cache_change: CacheChange,
-        serialized_payload: Option<SerializedPayload>,
     ) {
         let mut data_flag = DataFlag::from_enndianness(endiannes);
         let payload_length;
+        let serialized_payload = cache_change.data_value();
         if let Some(payload) = &serialized_payload {
             data_flag |= DataFlag::Data;
             payload_length = 4 + payload.value.len();

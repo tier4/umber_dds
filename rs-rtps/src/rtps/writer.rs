@@ -5,14 +5,13 @@ use crate::message::{
 use crate::network::udp_sender::UdpSender;
 use crate::policy::ReliabilityQosKind;
 use crate::rtps::cache::{
-    CacheChange, CacheData, ChangeForReader, ChangeKind, HistoryCache, InstantHandle,
+    CacheChange, ChangeForReaderStatusKind, ChangeKind, HistoryCache, InstantHandle,
 };
 use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{
     duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, proxy::ReaderProxy,
     topic_kind::TopicKind,
 };
-use bytes::Bytes;
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
@@ -74,7 +73,7 @@ impl Writer {
     pub fn new_change(
         &mut self,
         kind: ChangeKind,
-        data: Option<CacheData>,
+        data: Option<SerializedPayload>,
         handle: InstantHandle,
     ) -> CacheChange {
         // Writer
@@ -121,38 +120,117 @@ impl Writer {
     pub fn handle_writer_cmd(&mut self) {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
             eprintln!(
-                "~~~~~~~~~~~~~Writer entity: {:?} processed @writer",
-                self.guid_prefix()
+                "~~~~~~~~~~~~~Writer entity {:?}: processed @writer",
+                self.guid().entity_id
             );
             // this is new_change
             self.last_change_sequence_number += SequenceNumber(1);
-            let cache_data = match &cmd.serialized_payload {
-                Some(v) => CacheData::new(v.value.clone()),
-                None => CacheData::new(Bytes::from("")),
-            };
             let a_change = CacheChange::new(
                 ChangeKind::Alive,
                 self.guid,
                 self.last_change_sequence_number,
-                Some(cache_data),
+                cmd.serialized_payload,
                 InstantHandle {},
             );
-            // TODO: register a_change to writer HistoryCache
-            // build RTPS Message
-            let mut message_builder = MessageBuilder::new();
-            let time_stamp = Timestamp::now();
-            message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-            message_builder.data(
-                Endianness::LittleEndian,
-                EntityId::UNKNOW,
-                self.guid.entity_id,
-                a_change,
-                cmd.serialized_payload,
-            );
-            let message = message_builder.build(self.guid_prefix());
-            let message_buf = message.write_to_vec_with_ctx(self.endianness).unwrap();
-            self.sender
-                .send_to_multicast(&message_buf, Ipv4Addr::new(239, 255, 0, 1), 7400);
+            // register a_change to writer HistoryCache
+            self.add_change_to_hc(a_change.clone());
+            let self_entity_id = self.guid().entity_id;
+            let self_guid_prefix = self.guid_prefix();
+            for (_guid, reader_proxy) in &mut self.reader_proxy {
+                eprintln!(
+                    "~~~~~~~~~~~~~Writer entity {:?}: for remote reader {:?} @writer",
+                    self_entity_id, reader_proxy.remote_reader_guid
+                );
+                while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
+                    eprintln!(
+                        "~~~~~~~~~~~~~Writer entity {:?}: find unsent change  @writer",
+                        self_entity_id
+                    );
+                    reader_proxy.update_cache_state(
+                        change_for_reader.seq_num,
+                        change_for_reader.is_relevant,
+                        ChangeForReaderStatusKind::Underway,
+                    );
+                    if change_for_reader.is_relevant {
+                        if let Some(aa_change) = self
+                            .writer_cache
+                            .read()
+                            .unwrap()
+                            .get_change(change_for_reader.seq_num)
+                        {
+                            // build RTPS Message
+                            let mut message_builder = MessageBuilder::new();
+                            let time_stamp = Timestamp::now();
+                            message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                            message_builder.data(
+                                Endianness::LittleEndian,
+                                EntityId::UNKNOW,
+                                self.guid.entity_id,
+                                aa_change,
+                            );
+                            let message = message_builder.build(self_guid_prefix);
+                            let message_buf =
+                                message.write_to_vec_with_ctx(self.endianness).unwrap();
+
+                            eprintln!(
+                                "~~~~~~~~~~~~~Writer entity {:?}: send unsent change  @writer",
+                                self_entity_id
+                            );
+                            // TODO:
+                            // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
+                            for uni_loc in &reader_proxy.unicast_locator_list {
+                                if uni_loc.kind == Locator::KIND_UDPV4 {
+                                    let port = uni_loc.port;
+                                    let addr = uni_loc.address;
+                                    eprintln!(
+                                        "~~~~~~~~~~~~~Writer entity {:?}: send to {}.{}.{}.{}:{}  @writer",
+                                        self_entity_id, addr[12], addr[13], addr[14], addr[15], port);
+                                    self.sender.send_to(
+                                        &message_buf,
+                                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                        port as u16,
+                                    );
+                                }
+                            }
+                            for mul_loc in &reader_proxy.multicast_locator_list {
+                                if mul_loc.kind == Locator::KIND_UDPV4 {
+                                    let port = mul_loc.port;
+                                    let addr = mul_loc.address;
+                                    eprintln!(
+                                        "~~~~~~~~~~~~~Writer entity {:?}: send to {}.{}.{}.{}:{}  @writer",
+                                        self_entity_id, addr[12], addr[13], addr[14], addr[15], port);
+                                    self.sender.send_to(
+                                        &message_buf,
+                                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                        port as u16,
+                                    );
+                                }
+                            }
+                        } else {
+                            todo!(); // TODO: send GAP
+                        }
+                    } else {
+                        unreachable!();
+                    }
+                }
+            }
+        }
+    }
+
+    fn add_change_to_hc(&mut self, change: CacheChange) {
+        // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
+        self.writer_cache.write().unwrap().add_change(change);
+        for (_guid, reader_proxy) in &mut self.reader_proxy {
+            reader_proxy.update_cache_state(
+                self.last_change_sequence_number,
+                /* TODO: if DDS_FILTER(reader_proxy, change) { false } else { true }, */
+                true,
+                if self.push_mode {
+                    ChangeForReaderStatusKind::Unsent
+                } else {
+                    ChangeForReaderStatusKind::Unacknowledged
+                },
+            )
         }
     }
 

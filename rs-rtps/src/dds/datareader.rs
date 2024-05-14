@@ -47,7 +47,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         let mut v: Vec<D> = Vec::new();
         for d in data {
             match d {
-                Some(cd) => match deserialize::<D>(&cd.data()) {
+                Some(cd) => match deserialize::<D>(&cd.to_bytes()) {
                     Ok(neko) => v.push(neko),
                     Err(_e) => (),
                 },
