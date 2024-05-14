@@ -33,7 +33,7 @@ pub struct EventLoop {
     writers: HashMap<EntityId, Writer>,
     readers: HashMap<EntityId, Reader>,
     sender: Rc<UdpSender>,
-    spdp_send_timer: Timer<()>,
+    hb_timer: Timer<EntityId>,
     discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     discovery_db: DiscoveryDB,
 }
@@ -67,12 +67,10 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .unwrap();
-        let mut spdp_send_timer: Timer<()> = Timer::default();
-        // spdp_send_timer.set_timeout(Duration::new(20, 0), ()); // TODO:
-        // spdpの送信間隔をtunableにする。
+        let mut hb_timer = Timer::default();
         poll.register(
-            &mut spdp_send_timer,
-            DISCOVERY_SEND_TOKEN,
+            &mut hb_timer,
+            HEARTBEAT_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
@@ -96,7 +94,7 @@ impl EventLoop {
             writers: HashMap::new(),
             readers: HashMap::new(),
             sender,
-            spdp_send_timer,
+            hb_timer,
             discdb_update_receiver,
             discovery_db,
         }
@@ -144,6 +142,10 @@ impl EventLoop {
                                         )]),
                                     );
                                 }
+                                if writer.is_reliable() {
+                                    self.hb_timer
+                                        .set_timeout(writer.heartbeat_period(), writer.entity_id());
+                                }
                                 let token = writer.entity_token();
                                 self.poll
                                     .register(
@@ -169,6 +171,15 @@ impl EventLoop {
                         }
                         DISCOVERY_DB_UPDATE => {
                             self.handle_participant_discovery();
+                        }
+                        HEARTBEAT_TIMER => {
+                            if let Some(eid) = self.hb_timer.poll() {
+                                if let Some(writer) = self.writers.get_mut(&eid) {
+                                    writer.send_heart_beat();
+                                    self.hb_timer
+                                        .set_timeout(writer.heartbeat_period(), writer.entity_id());
+                                };
+                            }
                         }
                         _ => eprintln!("undefined Token or unimplemented event"),
                     },

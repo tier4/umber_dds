@@ -1,6 +1,6 @@
 use crate::message::{
     message_builder::MessageBuilder,
-    submessage::element::{Locator, SequenceNumber, SerializedPayload, Timestamp},
+    submessage::element::{Count, Locator, SequenceNumber, SerializedPayload, Timestamp},
 };
 use crate::network::udp_sender::UdpSender;
 use crate::policy::ReliabilityQosKind;
@@ -45,6 +45,7 @@ pub struct Writer {
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
     sender: Rc<UdpSender>,
+    hb_counter: Count,
 }
 
 impl Writer {
@@ -67,6 +68,7 @@ impl Writer {
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
             sender,
+            hb_counter: 0,
         }
     }
 
@@ -219,6 +221,49 @@ impl Writer {
                     } else {
                         unreachable!();
                     }
+                }
+            }
+        }
+    }
+
+    pub fn send_heart_beat(&mut self) {
+        let mut message_builder = MessageBuilder::new();
+        let time_stamp = Timestamp::now();
+        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+        let writer_cache = self.writer_cache.read().unwrap();
+        message_builder.heartbeat(
+            self.endianness,
+            self.entity_id(),
+            self.entity_id(),
+            writer_cache.get_seq_num_min(),
+            writer_cache.get_seq_num_max(),
+            self.hb_counter,
+            false,
+        );
+        self.hb_counter += 1;
+        let msg = message_builder.build(self.guid_prefix());
+        let message_buf = msg.write_to_vec_with_ctx(self.endianness).unwrap();
+        for (_guid, reader_proxy) in &mut self.reader_proxy {
+            for uni_loc in &reader_proxy.unicast_locator_list {
+                if uni_loc.kind == Locator::KIND_UDPV4 {
+                    let port = uni_loc.port;
+                    let addr = uni_loc.address;
+                    self.sender.send_to(
+                        &message_buf,
+                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                        port as u16,
+                    );
+                }
+            }
+            for mul_loc in &reader_proxy.multicast_locator_list {
+                if mul_loc.kind == Locator::KIND_UDPV4 {
+                    let port = mul_loc.port;
+                    let addr = mul_loc.address;
+                    self.sender.send_to(
+                        &message_buf,
+                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                        port as u16,
+                    );
                 }
             }
         }
