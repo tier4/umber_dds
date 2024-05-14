@@ -87,6 +87,13 @@ impl Writer {
         )
     }
 
+    pub fn is_reliable(&self) -> bool {
+        match self.reliability_level {
+            ReliabilityQosKind::Reliable => true,
+            ReliabilityQosKind::BestEffort => false,
+        }
+    }
+
     pub fn reader_locator_add(&mut self, locator: ReaderLocator) {
         // StatelessWriter
         self.reader_locators.push(locator)
