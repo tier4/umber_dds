@@ -272,6 +272,13 @@ impl Writer {
     pub fn matched_reader_remove(&mut self, guid: GUID) {
         self.reader_proxy.remove(&guid);
     }
+
+    pub fn heartbeat_period(&self) -> std::time::Duration {
+        std::time::Duration::new(
+            self.heartbeat_period.seconds as u64,
+            self.heartbeat_period.fraction,
+        )
+    }
 }
 
 impl RTPSEntity for Writer {
