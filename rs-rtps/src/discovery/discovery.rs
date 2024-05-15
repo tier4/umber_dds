@@ -213,6 +213,7 @@ impl Discovery {
             Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
             Locator::new_list_from_self_ipv4(spdp_multicast_port(domain_id) as u32),
             42,
+            Arc::new(RwLock::new(HistoryCache::new())),
         );
         let pub_data = PublicationBuiltinTopicData::new(
             None,

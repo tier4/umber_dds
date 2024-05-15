@@ -5,7 +5,7 @@ use std::collections::HashMap;
 #[derive(PartialEq, Eq, Clone)]
 pub struct CacheChange {
     kind: ChangeKind,
-    writer_guid: GUID,
+    pub writer_guid: GUID,
     pub sequence_number: SequenceNumber,
     data_value: Option<SerializedPayload>,
     // inline_qos: ParameterList,
@@ -46,6 +46,7 @@ pub enum ChangeForReaderStatusKind {
     Underway,
 }
 
+#[derive(Clone)]
 pub enum ChangeFromWriterStatusKind {
     Lost,
     Missing,
@@ -74,10 +75,25 @@ impl ChangeForReader {
     }
 }
 
+#[derive(Clone)]
 pub struct ChangeFromWriter {
-    seq_num: SequenceNumber,
-    is_relevant: bool,
-    status: ChangeFromWriterStatusKind,
+    pub seq_num: SequenceNumber,
+    pub is_relevant: bool,
+    pub status: ChangeFromWriterStatusKind,
+}
+
+impl ChangeFromWriter {
+    pub fn new(
+        seq_num: SequenceNumber,
+        status: ChangeFromWriterStatusKind,
+        is_relevant: bool,
+    ) -> Self {
+        Self {
+            seq_num,
+            status,
+            is_relevant,
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]

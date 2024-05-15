@@ -62,6 +62,7 @@ impl Reader {
                 unicast_locator_list,
                 multicast_locator_list,
                 data_max_size_serialized,
+                self.reader_cache.clone(),
             ),
         );
     }

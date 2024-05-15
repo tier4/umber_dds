@@ -1,8 +1,11 @@
 use crate::message::submessage::element::{Locator, SequenceNumber};
-use crate::rtps::cache::{ChangeForReader, ChangeForReaderStatusKind, HistoryCache};
+use crate::rtps::cache::{
+    ChangeForReader, ChangeForReaderStatusKind, ChangeFromWriter, ChangeFromWriterStatusKind,
+    HistoryCache,
+};
 use crate::structure::{guid::GUID, parameter_id::ParameterId};
 use serde::{ser::SerializeStruct, Serialize};
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -169,6 +172,8 @@ pub struct WriterProxy {
     pub unicast_locator_list: Vec<Locator>,
     pub multicast_locator_list: Vec<Locator>,
     pub data_max_size_serialized: i32, // in rtps 2.3 spec, Figure 8.30: long
+    history_cache: Arc<RwLock<HistoryCache>>,
+    cache_state: HashMap<SequenceNumber, ChangeFromWriter>,
 }
 
 impl WriterProxy {
@@ -177,12 +182,84 @@ impl WriterProxy {
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
         data_max_size_serialized: i32,
+        history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Self {
         Self {
             remote_writer_guid,
             unicast_locator_list,
             multicast_locator_list,
             data_max_size_serialized,
+            history_cache,
+            cache_state: HashMap::new(),
+        }
+    }
+
+    pub fn update_cache_state(
+        &mut self,
+        seq_num: SequenceNumber,
+        is_relevant: bool,
+        state: ChangeFromWriterStatusKind,
+    ) {
+        // `is_relevant` is related to DDS_FILLTER
+        // Now this implementation does not support DDS_FILLTER,
+        // so is_relevant is always set to true.
+        let change_from_writer = ChangeFromWriter::new(seq_num, state, is_relevant);
+        self.cache_state.insert(seq_num, change_from_writer);
+    }
+
+    pub fn available_changes_max(&self) -> SequenceNumber {
+        // もし、max_seq_num == SequenceNumber::MINになったら?
+        let mut max_seq_num = SequenceNumber::MIN;
+        for (sn, cfw) in &self.cache_state {
+            match cfw.status {
+                ChangeFromWriterStatusKind::Received | ChangeFromWriterStatusKind::Lost => {
+                    max_seq_num = max(max_seq_num, *sn);
+                }
+                _ => (),
+            }
+        }
+        max_seq_num
+    }
+    pub fn irrelevant_change_set(&mut self, seq_num: SequenceNumber) {
+        self.update_cache_state(seq_num, false, ChangeFromWriterStatusKind::Received);
+    }
+    pub fn lost_changes_update(&mut self, first_available_seq_num: SequenceNumber) {
+        for (sn, cfw) in &mut self.cache_state {
+            match cfw.status {
+                ChangeFromWriterStatusKind::Uuknown | ChangeFromWriterStatusKind::Missing => {
+                    if *sn < first_available_seq_num {
+                        cfw.status = ChangeFromWriterStatusKind::Lost;
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+    pub fn missing_changes(&self) -> Vec<SequenceNumber> {
+        let mut missing_changes = Vec::new();
+        for (sn, cfw) in &self.cache_state {
+            match cfw.status {
+                ChangeFromWriterStatusKind::Missing => missing_changes.push(*sn),
+                _ => (),
+            }
+        }
+        missing_changes
+    }
+    pub fn missing_changes_update(&mut self, last_available_seq_num: SequenceNumber) {
+        for (sn, cfw) in &mut self.cache_state {
+            match cfw.status {
+                ChangeFromWriterStatusKind::Uuknown => {
+                    if *sn <= last_available_seq_num {
+                        cfw.status = ChangeFromWriterStatusKind::Missing;
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+    pub fn received_chage_set(&mut self, seq_num: SequenceNumber) {
+        if let Some(cfw) = self.cache_state.get_mut(&seq_num) {
+            cfw.status = ChangeFromWriterStatusKind::Received;
         }
     }
 }

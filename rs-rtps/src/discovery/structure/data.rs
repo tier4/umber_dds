@@ -202,7 +202,7 @@ impl SDPBuiltinData {
         )
     }
 
-    fn to_writerproxy(&mut self) -> WriterProxy {
+    fn to_writerproxy(&mut self, history_cache: Arc<RwLock<HistoryCache>>) -> WriterProxy {
         let remote_guid = self.remote_guid.unwrap();
         let unicast_locator_list = self.unicast_locator_list.take().unwrap();
         let multicast_locator_list = self.multicast_locator_list.take().unwrap();
@@ -212,6 +212,7 @@ impl SDPBuiltinData {
             unicast_locator_list,
             multicast_locator_list,
             data_max_size_serialized,
+            history_cache,
         )
     }
     // rtps 2.4 spec: 8.5.4.4 Data Types associated with built-in Endpoints used by the Simple Endpoint Discovery Protocol
