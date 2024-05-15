@@ -55,6 +55,12 @@ impl AddAssign for SequenceNumber {
         *self = *self + other;
     }
 }
+impl Sub for SequenceNumber {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        Self(self.0 - other.0)
+    }
+}
 
 impl<'a, C: Context> Readable<'a, C> for SequenceNumber {
     #[inline]

@@ -154,7 +154,7 @@ impl MessageReceiver {
             EntitySubmessage::DataFrag(data_frag, flags) => {
                 Self::handle_datafrag_submsg(data_frag, flags)
             }
-            EntitySubmessage::Gap(gap, flags) => Self::handle_gap_submsg(gap, flags),
+            EntitySubmessage::Gap(gap, flags) => self.handle_gap_submsg(gap, flags, readers),
             EntitySubmessage::HeartBeat(heartbeat, flags) => {
                 Self::handle_heartbeat_submsg(heartbeat, flags)
             }
@@ -253,6 +253,7 @@ impl MessageReceiver {
         flag: BitFlags<DataFlag>,
         readers: &mut HashMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
+        // rtps 2.3 spec 8.3.7.2 Data
         // validation
         if data.writer_sn < SequenceNumber(0)
             || data.writer_sn == SequenceNumber::SEQUENCENUMBER_UNKNOWN
@@ -405,7 +406,48 @@ impl MessageReceiver {
     ) -> Result<(), MessageError> {
         Ok(())
     }
-    fn handle_gap_submsg(gap: Gap, flag: BitFlags<GapFlag>) -> Result<(), MessageError> {
+    fn handle_gap_submsg(
+        &self,
+        gap: Gap,
+        flag: BitFlags<GapFlag>,
+        readers: &mut HashMap<EntityId, Reader>,
+    ) -> Result<(), MessageError> {
+        // rtps 2.3 spec 8.3.7.4 Gap
+        // validation
+        if gap.gap_start <= SequenceNumber(0) {
+            // gapStart is zero or negative
+            eprintln!("Invalid Gap Submessage received");
+            return Err(MessageError);
+        }
+        if !gap.gap_list.is_valid() {
+            // gapList is invalid
+            eprintln!("Invalid Gap Submessage received");
+            return Err(MessageError);
+        }
+        if flag.contains(GapFlag::GroupInfo) {
+            // GroupInfoFlag is set and
+            if gap.gap_start_gsn <= SequenceNumber(0) {
+                // gapStartGSN.value is zero or negative
+                eprintln!("Invalid Gap Submessage received");
+                return Err(MessageError);
+            }
+            if gap.gap_end_gsn <= SequenceNumber(0) {
+                // gapEndGSN.value is zero or negative
+                eprintln!("Invalid Gap Submessage received");
+                return Err(MessageError);
+            }
+            if gap.gap_end_gsn < gap.gap_start_gsn - SequenceNumber(1) {
+                // gapEndGSN.value < gapStartGSN.value-1
+                eprintln!("Invalid Gap Submessage received");
+                return Err(MessageError);
+            }
+        }
+        let _writer_guid = GUID::new(self.source_guid_prefix, gap.writer_id);
+        let _reader_guid = GUID::new(self.dest_guid_prefix, gap.reader_id);
+        match readers.get_mut(&gap.reader_id) {
+            Some(r) => r.handle_gqp(gap),
+            None => (),
+        };
         Ok(())
     }
     fn handle_heartbeat_submsg(
