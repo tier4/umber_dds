@@ -345,6 +345,11 @@ reference implementationsはUML sequence chartsとstate-diagramsで説明され�
 8.2で最初に説明したように、RTPS Writer Reference ImplementationsはRTPS Writer classのspwcializationに基づいている。この章では、RTPS Writerと RTPS Writer Reference
 Implementationsをモデル化するために使用されるすべての追加のclassを説明する。実際の振る舞いは8.4.8と8.4.9で説明される。
 
+### 8.4.7.1 RTPS Writer
+DataWriterからRTPS Writerへ情報を渡すために,RTPS WriterはHistoryCacheを持っている。
+StatefulWriterはmatchする各Readerの管理のために,matchしたremote Reader1つに対し1つのReaderProxyを持つ。
+ReaderProxyでは、HistoryCache中の各データが各Readerに対し、送信済、未送信、ACK済、再送リクエスト等どの状態であるかを管理する。
+
 ### 8.4.8 RTPS StatelessWriter Behavior
 #### 8.4.8.1 Best-Effort StatelessWriter Behavior
 
@@ -397,7 +402,7 @@ else {
     Send GAP;
 }
 ```
-トランジション後、以下のpost-condiditonsが行なわれる
+トランジション後、以下のpost-condiditonsが保持される
 ```
 ( a_change BELONGS-TO the_reader_proxy.unsent_changes() ) == FALSE
 ```
@@ -458,7 +463,7 @@ else {
     Send GAP;
 }
 ```
-トランジション後、以下のpost-condiditonsが行なわれる
+トランジション後、以下のpost-condiditonsが保持される
 ```
 ( a_change BELONGS-TO the_reader_proxy.unsent_changes() ) == FALSE
 ```
@@ -493,7 +498,7 @@ ReaderProxyの示すRTPS ReaderからのAckNack Messageを受信したことに�
 the_rtps_writer.acked_changes_set(ACKNACK.readerSNState.base - 1);
 the_reader_proxy.requested_changes_set(ACKNACK.readerSNState.set);
 ```
-トランジション後、以下のpost-condiditonsが行なわれる
+トランジション後、以下のpost-condiditonsが保持される
 ```
 MIN { change.sequenceNumber IN the_reader_proxy.unacked_changes() } >=
                                             ACKNACK.readerSNState.base - 1
@@ -536,7 +541,7 @@ else {
     send GAP;
 }
 ```
-トランジション後、以下のpost-condiditonsが行なわれる
+トランジション後、以下のpost-condiditonsが保持される
 ```
 ( a_change BELONGS-TO the_reader_proxy.requested_changes() ) == FALSE
 ```
@@ -563,7 +568,7 @@ IF (the_rtps_writer.pushMode == true) THEN a_change.status := UNSENT;
 a_change.is_relevant := FALSE;
 ```
 
-+ Transition T16: any state -> afinal
++ Transition T16: any state -> final
 
 ReaderProxyによって示されるRTPS Readerがこれ以上matchしないという設定によりトリガーされる。
 この設定は、DiscoveryProtocolによって、行なわれる。
@@ -571,6 +576,60 @@ ReaderProxyによって示されるRTPS Readerがこれ以上matchしないと�
 the_rtps_writer.matched_reader_remove(the_reader_proxy);
 delete the_reader_proxy;
 ```
+
+### 8.4.12 RTPS StatefulReader Behavior
+
+#### 8.4.12.1 Best-Effort StatefulReader Behavior
+
++ Transition T1: Initial -> waiting
+
+対応するRTPS Writerでの設定によりトリガーされる。これはDisocvery Protocolによって行なわれる。
+
++ Transition T2: waiting -> waiting
+
+DATA messageを受信することによりトリガーされる。
+
+Best-Effort readerはcahngeと関係するsequence numberが過去にRTPS Writerから受信したすべてのchangeのsequence numberの中で最も大きいもの(WriterProxy::available_changes_max())よりも大きいことを厳格に確認する。もし確認に失敗すれば、changeを破棄する。これにより重複したchangesとout-of-orderなchangesがないことを保証する。
+
+以下のアクションを行なう
+```
+a_change := new CacheChange(DATA);
+writer_guid := {Receiver.SourceGuidPrefix, DATA.writerId};
+writer_proxy := the_rtps_reader.matched_writer_lookup(writer_guid);
+expected_seq_num := writer_proxy.available_changes_max() + 1;
+if ( a_change.sequenceNumber >= expected_seq_num ) {
+    the_rtps_reader.reader_cache.add_change(a_change);
+    writer_proxy.received_change_set(a_change.sequenceNumber);
+    if ( a_change.sequenceNumber > expected_seq_num ) {
+        writer_proxy.lost_changes_update(a_change.sequenceNumber);
+    }
+}
+```
+
+トランジション後、以下のpost-condiditonsが保持される
+```
+writer_proxy.available_changes_max() >= a_change.sequenceNumber
+```
+
++ Transition T3: waiting -> final
+
+WriterProxyによって示されるRTPS Writerがこれ以上matchしないという設定によりトリガーされる。
+この設定は、以前存在したrtps readerと関係するDDS DataReaderにマッチするDDS DataWriterの破棄の一部として、DiscoveryProtocolによって、行なわれる。
+
++ Transition T4: waiting -> waiting
+
+WriterProxyの示すRTPS WriterからRTPS StatefulReaderへのGAP messageを受信することによりトリガーされる。
+以下のアクションを行なう
+```
+FOREACH seq_num IN [GAP.gapStart, GAP.gapList.base-1] DO {
+    the_writer_proxy.irrelevant_change_set(seq_num);
+}
+FOREACH seq_num IN GAP.gapList DO {
+    the_writer_proxy.irrelevant_change_set(seq_num);
+}
+```
+
+#### 8.4.12.2 Reliable StatefulReader Behavior
 
 ### Message Receiverが従うルール (spec 8.3.4.1)
 1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
