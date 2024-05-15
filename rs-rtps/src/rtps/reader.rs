@@ -1,4 +1,4 @@
-use crate::message::submessage::element::Locator;
+use crate::message::submessage::element::{gap::Gap, Locator, SequenceNumber};
 use crate::policy::ReliabilityQosKind;
 use crate::rtps::cache::{CacheChange, HistoryCache};
 use crate::structure::{
@@ -44,9 +44,30 @@ impl Reader {
     }
 
     pub fn add_change(&mut self, change: CacheChange) {
-        self.reader_cache.write().unwrap().add_change(change);
-        self.reader_ready_notifier.send(()).unwrap();
+        let writer_guid = GUID::new(self.guid_prefix(), change.writer_guid.entity_id);
+        if self.matched_writer_lookup(writer_guid).is_some() {
+            let flag;
+            let expected_seq_num;
+            {
+                let writer_proxy = self.writer_proxy.get(&writer_guid).unwrap();
+                expected_seq_num = writer_proxy.available_changes_max() + SequenceNumber(1);
+                flag = change.sequence_number >= expected_seq_num;
+            }
+            if flag {
+                self.reader_cache
+                    .write()
+                    .unwrap()
+                    .add_change(change.clone());
+                self.reader_ready_notifier.send(()).unwrap();
+                let writer_proxy_mut = self.writer_proxy.get_mut(&writer_guid).unwrap();
+                writer_proxy_mut.received_chage_set(change.sequence_number);
+                if change.sequence_number > expected_seq_num {
+                    writer_proxy_mut.lost_changes_update(change.sequence_number);
+                }
+            }
+        }
     }
+
     pub fn matched_writer_add(
         &mut self,
         remote_writer_guid: GUID,
@@ -66,11 +87,20 @@ impl Reader {
             ),
         );
     }
-    pub fn matched_writer_lookup(&self, guid: GUID) -> Option<WriterProxy> {
-        unimplemented!("DataReader::matched_writer_lookup");
+    pub fn matched_writer_lookup(&mut self, guid: GUID) -> Option<WriterProxy> {
+        match self.writer_proxy.get_mut(&guid) {
+            Some(proxy) => Some(proxy.clone()),
+            None => None,
+        }
     }
-    pub fn matched_writer_remove(&mut self, proxy: WriterProxy) {
-        unimplemented!("DataReader::matched_writer_remove");
+    pub fn matched_writer_remove(&mut self, guid: GUID) {
+        self.writer_proxy.remove(&guid);
+    }
+
+    pub fn handle_gqp(&mut self, gap: Gap) {
+        for (_guid, writer_proxy) in &mut self.writer_proxy {
+            todo!();
+        }
     }
 }
 
