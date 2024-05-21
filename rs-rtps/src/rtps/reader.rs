@@ -97,8 +97,8 @@ impl Reader {
         self.writer_proxy.remove(&guid);
     }
 
-    pub fn handle_gap(&mut self, gap: Gap) {
-        for (_guid, writer_proxy) in &mut self.writer_proxy {
+    pub fn handle_gap(&mut self, writer_guid: GUID, gap: Gap) {
+        if let Some(writer_proxy) = self.writer_proxy.get_mut(&writer_guid) {
             let mut seq_num = gap.gap_start;
             while seq_num < gap.gap_list.base() {
                 writer_proxy.irrelevant_change_set(seq_num);

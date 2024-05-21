@@ -442,10 +442,10 @@ impl MessageReceiver {
                 return Err(MessageError);
             }
         }
-        let _writer_guid = GUID::new(self.source_guid_prefix, gap.writer_id);
+        let writer_guid = GUID::new(self.source_guid_prefix, gap.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, gap.reader_id);
         match readers.get_mut(&gap.reader_id) {
-            Some(r) => r.handle_gap(gap),
+            Some(r) => r.handle_gap(writer_guid, gap),
             None => (),
         };
         Ok(())
