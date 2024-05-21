@@ -156,7 +156,7 @@ impl MessageReceiver {
             }
             EntitySubmessage::Gap(gap, flags) => self.handle_gap_submsg(gap, flags, readers),
             EntitySubmessage::HeartBeat(heartbeat, flags) => {
-                Self::handle_heartbeat_submsg(heartbeat, flags)
+                self.handle_heartbeat_submsg(heartbeat, flags, readers)
             }
             EntitySubmessage::HeartbeatFrag(heartbeatfrag, flags) => {
                 Self::handle_heartbeatfrag_submsg(heartbeatfrag, flags)
@@ -451,9 +451,68 @@ impl MessageReceiver {
         Ok(())
     }
     fn handle_heartbeat_submsg(
+        &self,
         heartbeat: Heartbeat,
         flag: BitFlags<HeartbeatFlag>,
+        readers: &mut HashMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
+        // rtps 2.3 spec 8.3.7.5 Heartbeat
+        // validation
+        if heartbeat.first_sn <= SequenceNumber(0) {
+            // first_sn is zero or negative
+            eprintln!("Invalid Heartbeat Submessage received");
+            return Err(MessageError);
+        }
+        if heartbeat.last_sn < SequenceNumber(0) {
+            // last_sn is negative
+            eprintln!("Invalid Heartbeat Submessage received");
+            return Err(MessageError);
+        }
+        if heartbeat.last_sn < heartbeat.first_sn - SequenceNumber(1) {
+            // lastSN.value < firstSN.value - 1
+            eprintln!("Invalid Heartbeat Submessage received");
+            return Err(MessageError);
+        }
+        if flag.contains(HeartbeatFlag::GroupInfo) {
+            // TODO: GrupuInfo falgが立っていれば、必ず*_gsnがNoneでないかどうか確認
+            if heartbeat.current_gsn.unwrap() <= SequenceNumber(0) {
+                // currentGNS is zero or negative
+                eprintln!("Invalid Heartbeat Submessage received");
+                return Err(MessageError);
+            }
+            if heartbeat.first_gsn.unwrap() <= SequenceNumber(0) {
+                // firstGSN is zero or negative
+                eprintln!("Invalid Heartbeat Submessage received");
+                return Err(MessageError);
+            }
+            if heartbeat.last_gsn.unwrap() < SequenceNumber(0) {
+                // lastGSN is negative
+                eprintln!("Invalid Heartbeat Submessage received");
+                return Err(MessageError);
+            }
+            if heartbeat.last_gsn.unwrap() < heartbeat.first_gsn.unwrap() - SequenceNumber(1) {
+                // lastGSN.value < firstGSN.value - 1
+                eprintln!("Invalid Heartbeat Submessage received");
+                return Err(MessageError);
+            }
+            if heartbeat.current_gsn.unwrap() < heartbeat.first_gsn.unwrap() {
+                // currentGNS.value < firstGSN.value
+                eprintln!("Invalid Heartbeat Submessage received");
+                return Err(MessageError);
+            }
+            if heartbeat.current_gsn.unwrap() < heartbeat.last_gsn.unwrap() {
+                // currentGNS.value < lastGSN.value
+                eprintln!("Invalid Heartbeat Submessage received");
+                return Err(MessageError);
+            }
+        }
+
+        let writer_guid = GUID::new(self.source_guid_prefix, heartbeat.writer_id);
+        let _reader_guid = GUID::new(self.dest_guid_prefix, heartbeat.reader_id);
+        match readers.get_mut(&heartbeat.reader_id) {
+            Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
+            None => (),
+        };
         Ok(())
     }
     fn handle_heartbeatfrag_submsg(
