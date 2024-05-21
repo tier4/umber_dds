@@ -29,7 +29,7 @@ use std::ops::{Add, AddAssign};
 
 pub type Count = i32;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
 pub struct SequenceNumber(pub i64); // The precise definition of SequenceNumber is:
                                     // struct SequenceNumber {high: i32, low: u32}.
                                     // Therefore, when serialized in LittleEndian, SequenceNumber(0) is represented as:
@@ -85,6 +85,25 @@ pub type FragmentNumber = u32;
 
 pub type SequenceNumberSet = NumberSet<SequenceNumber>;
 impl SequenceNumberSet {
+    pub fn base(&self) -> SequenceNumber {
+        self.bitmap_base
+    }
+    // TODO: consider using HashSet<SequenceNumber>
+    pub fn set(&self) -> Vec<SequenceNumber> {
+        let mut set = Vec::new();
+        for (map_line, map) in self.bitmap.iter().enumerate() {
+            let bitmap_end = self.num_bits - map_line as u32 * 32;
+            for offset in 0..bitmap_end {
+                // if bit m is set
+                if (map & 1 << (31 - offset)) == 1 << (31 - offset) {
+                    let sn = self.bitmap_base.0 + 32 * map_line as i64 + offset as i64;
+                    let seq_num = SequenceNumber(sn);
+                    set.push(seq_num);
+                }
+            }
+        }
+        set
+    }
     pub fn is_valid(&self) -> bool {
         // rtps spec 9.4.2.6 SequenceNumberSet
         self.bitmap_base >= SequenceNumber(1)
@@ -419,6 +438,7 @@ impl<C: Context> Writable<C> for SerializedPayload {
 
 #[cfg(test)]
 mod test {
+    use super::{SequenceNumber, SequenceNumberSet};
     use cdr::{CdrLe, Infinite};
     use serde::{Deserialize, Serialize};
 
@@ -428,6 +448,22 @@ mod test {
         x: i32,
         y: i32,
         shapesize: i32,
+    }
+
+    #[test]
+    fn test_sequence_number_set() {
+        let seq_num_set = SequenceNumberSet {
+            bitmap_base: SequenceNumber(2),
+            num_bits: 12,
+            bitmap: Vec::from([0xfff00000]),
+        };
+        assert!(seq_num_set.is_valid());
+        let v = seq_num_set.set();
+        let mut correct = Vec::new();
+        for i in 2..=13 {
+            correct.push(SequenceNumber(i));
+        }
+        assert_eq!(v, correct);
     }
 
     #[test]
