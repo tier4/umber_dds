@@ -1,9 +1,13 @@
-use crate::message::submessage::element::{gap::Gap, Locator, SequenceNumber};
+use crate::message::submessage::{
+    element::{gap::Gap, heartbeat::Heartbeat, Locator, SequenceNumber},
+    submessage_flag::HeartbeatFlag,
+};
 use crate::policy::ReliabilityQosKind;
 use crate::rtps::cache::{CacheChange, HistoryCache};
 use crate::structure::{
     duration::Duration, entity::RTPSEntity, guid::GUID, proxy::WriterProxy, topic_kind::TopicKind,
 };
+use enumflags2::BitFlags;
 use mio_extras::channel as mio_channel;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -107,6 +111,52 @@ impl Reader {
             for seq_num in gap.gap_list.set() {
                 writer_proxy.irrelevant_change_set(seq_num);
             }
+        }
+    }
+
+    pub fn handle_heartbeat(
+        &mut self,
+        writer_guid: GUID,
+        hb_flag: BitFlags<HeartbeatFlag>,
+        heartbeat: Heartbeat,
+    ) {
+        for (_guid, writer_proxy) in &mut self.writer_proxy {
+            writer_proxy.missing_changes_update(heartbeat.last_sn);
+            writer_proxy.lost_changes_update(heartbeat.first_sn);
+        }
+        if !hb_flag.contains(HeartbeatFlag::Final) {
+            // to must_send_ack
+            // Transition: T5
+            // TODO: set timer which duration is self.heartbeat_response_delay
+        } else if !hb_flag.contains(HeartbeatFlag::Liveliness) {
+            // to may_send_ack
+            if let Some(writer_proxy) = self.writer_proxy.get_mut(&writer_guid) {
+                if writer_proxy.missing_changes().len() == 0 {
+                    // to waiting
+                    // Transition: T3
+                    // nothing to do
+                } else {
+                    // to must_send_ack
+                    // Transition: T4
+
+                    // Transition: T5
+                    // TODO: set timer which duration is self.heartbeat_response_delay
+                }
+            }
+        } else {
+            // to waiting
+            // nothing to do
+        }
+    }
+
+    pub fn handle_hb_response_timeout(&mut self, writer_guid: GUID, heartbeat: Heartbeat) {
+        if let Some(writer_proxy) = self.writer_proxy.get_mut(&writer_guid) {
+            let missign_seq_num_set_base = writer_proxy.available_changes_max() + SequenceNumber(1);
+            let mut missign_seq_num_set_set = Vec::new();
+            for change in writer_proxy.missing_changes() {
+                missign_seq_num_set_set.push(change);
+            }
+            // TODO: send acknack
         }
     }
 }
