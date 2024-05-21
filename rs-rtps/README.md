@@ -3,7 +3,7 @@ RustでRTPS/DDSを実装
 
 最初はStatelessでbesteffortな実装のみに絞って実装する
 
-- [ ] DataWriter.write()でData submessageが乗ったパケットを送信できるようにする
+- [x] DataWriter.write()でData submessageが乗ったパケットを送信できるようにする
 - [ ] DataReader.read()でData submessageが乗ったパケットを受信して受け取れるようにする
 - [ ] besteffortでほかのノードをDiscoveryしてPub/Subできるところまで実装
 
@@ -11,19 +11,23 @@ RustでRTPS/DDSを実装
 - [x] QosPoliciesを実装
 - [ ] Publisher/Subscriber, DataWriter/DataReader, RTPSWriter/RTPSReaderの役割を把握(DDSがデータを書き込むときに、どこでSubmessageを生成して、どのエンティティーのどのメソッドが呼ばれるのか？)
 - [ ] Topicを実装
-- [ ] Publisher/Subscriberを実装
+- [x] Publisher/Subscriberを実装
 - [ ] DataWriter/DataReaderのwith_key/no_keyについて調査
-- [ ] DataWriter/DataReaderを実装
+- [x] DataWriter/DataReaderを実装
     - [x] RTPSWriterへのコマンドの送信を実装
 - [ ] RTPSWriter/RTPSReaderを実装
     - [x] writer_cmd_receiverをevent_loopのpollに登録
     - [x] DataWriterから受け取ったdataのserializerを実装
     - [x] RTPS Messageのビルダーを実装
+    - [ ] Best-Effort StatefulWriter Behavior
+    - [ ] Reliable StatefulWriter Behavior
+    - [ ] Best-Effort StatefulReader Behavior
+    - [ ] Reliable StatefulReader Behavior
 - [x] UDP senderの実装
 - [ ] Discovery Moduleを実装
-- [ ] HistoryCacheを実装
+- [x] HistoryCacheを実装
     - [x] DataWriterにHistoryCacheを実装
-    - [ ] DataReaderにHistoryCacheを実装
+    - [x] DataReaderにHistoryCacheを実装
 どれもDiscoveryに必要そうなものを最低限実装
 
 ## Log
