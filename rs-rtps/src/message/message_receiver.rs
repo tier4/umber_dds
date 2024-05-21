@@ -445,7 +445,7 @@ impl MessageReceiver {
         let _writer_guid = GUID::new(self.source_guid_prefix, gap.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, gap.reader_id);
         match readers.get_mut(&gap.reader_id) {
-            Some(r) => r.handle_gqp(gap),
+            Some(r) => r.handle_gap(gap),
             None => (),
         };
         Ok(())
