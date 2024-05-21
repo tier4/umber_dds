@@ -615,6 +615,11 @@ writer_proxy.available_changes_max() >= a_change.sequenceNumber
 
 WriterProxyによって示されるRTPS Writerがこれ以上matchしないという設定によりトリガーされる。
 この設定は、以前存在したrtps readerと関係するDDS DataReaderにマッチするDDS DataWriterの破棄の一部として、DiscoveryProtocolによって、行なわれる。
+以下のアクションを行なう
+```
+the_rtps_reader.matched_writer_remove(the_writer_proxy);
+delete the_writer_proxy;
+```
 
 + Transition T4: waiting -> waiting
 
@@ -630,6 +635,94 @@ FOREACH seq_num IN GAP.gapList DO {
 ```
 
 #### 8.4.12.2 Reliable StatefulReader Behavior
+
++ Transition T1: Initial -> waiting
+
+対応するRTPS Writerでの設定によりトリガーされる。これはDisocvery Protocolによって行なわれる。
+
++ Transition T2: waiting -> must_send_ack | may_send_ack | waiting
+
+WriterProxyの示すRTPS WriterからHEARTBEAT messageを受信することによりトリガーされる。
+このトランジションでlogical actionはないが、HEARTBEATの受信によってこのトランジションと同時に引き起こされるトランジションT7ではlogical actionがある。
+
+遷移先の状態は以下のようにHEARTBEAT messageのflagによって決定される
+```
+if (HB.FinalFlag == NOT_SET) then
+    must_send_ack
+else if (HB.LivelinessFlag == NOT_SET) then
+    may_send_ack
+else
+    waiting
+```
+
++ Transition T3: may_send_ack -> waiting
+
+[W::missing_changes() == <empty>] によってトリガーされる。これは、WriterProxyの示すRTPS WriterのHistoryCacheにあるすべてのchangesがRTPS Readerによって受信されたことが示されている。
+
+ + Transition T4: may_send_ack -> must_send_ack
+
+[W::missing_changes() != <empty>] によってトリガーされる。これは、WriterProxyの示すRTPS WriterのHistoryCacheにあるchangesのうちRTPS Readerによって受信されていないものがあることが示されている。
+
++ Transition T5: must_send_ack -> waiting
+
+状態must_send_ackに遷移してからR::heartbeatResponseDelayだけ経過したことを示すタイマーが発火することによりトリガーされる。
+以下のアクションを行なう
+```
+missing_seq_num_set.base := the_writer_proxy.available_changes_max() + 1;
+missing_seq_num_set.set := <empty>;
+FOREACH change IN the_writer_proxy.missing_changes() DO
+    ADD change.sequenceNumber TO missing_seq_num_set.set;
+send ACKNACK(missing_seq_num_set);
+```
+上記のlogial actionはACKNACK messageの含めることのできるsequence numberの容量の制限によりPSM mappingを正確に表現していない。ACKNACKメッセージが欠落しているシーケンス番号の完全なリストを収容できない場合、it should be constructed such that it contains the subset with smaller value of the sequence number.
+
++ Transition T6: initial2 -> ready
+
+トランジションT1と同様に、対応するRTPS Writerでの設定によってトリガーされる。
+
++ Transition T7: ready -> ready
+
+WriterProxyの示すRTPS WriterからHEARTBEAT messageを受信することによりトリガーされる。
+以下のアクションを行なう
+```
+the_writer_proxy.missing_changes_update(HEARTBEAT.lastSN);
+the_writer_proxy.lost_changes_update(HEARTBEAT.firstSN);
+```
+
++ Transition T8: ready -> ready
+
+WriterProxyの示すRTPS WriterからDATA messageを受信することによりトリガーされる。
+以下のアクションを行なう
+```
+a_change := new CacheChange(DATA);
+the_reader.reader_cache.add_change(a_change);
+the_writer_proxy.received_change_set(a_change.sequenceNumber);
+```
+8.2.9で説明されているように、DDS DataReaderのread or takeによってデータにアクセスするとき、すべてのフィルタリングは完了している。
+
++ Transition T9: ready -> ready
+
+WriterProxyの示すRTPS WriterからRTPS StatefulReaderへのGAP messageを受信することによりトリガーされる。
+以下のアクションを行なう
+```
+FOREACH seq_num IN [GAP.gapStart, GAP.gapList.base-1] DO {
+    the_writer_proxy.irrelevant_change_set(seq_num);
+}
+FOREACH seq_num IN GAP.gapList DO {
+    the_writer_proxy.irrelevant_change_set(seq_num);
+}
+```
+
++ Transition T10: any state -> final
+
+WriterProxyによって示されるRTPS Writerがこれ以上matchしないという設定によりトリガーされる。
+この設定は、以前存在したrtps readerと関係するDDS DataReaderにマッチするDDS DataWriterの破棄の一部として、DiscoveryProtocolによって、行なわれる。
+以下のアクションを行なう
+```
+the_rtps_reader.matched_writer_remove(the_writer_proxy);
+delete the_writer_proxy;
+```
+
 
 ### Message Receiverが従うルール (spec 8.3.4.1)
 1. full Submessage headerを読み込めない場合、残りのMessageは壊れていると考える
