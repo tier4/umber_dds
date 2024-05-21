@@ -99,7 +99,14 @@ impl Reader {
 
     pub fn handle_gqp(&mut self, gap: Gap) {
         for (_guid, writer_proxy) in &mut self.writer_proxy {
-            todo!();
+            let mut seq_num = gap.gap_start;
+            while seq_num < gap.gap_list.base() {
+                writer_proxy.irrelevant_change_set(seq_num);
+                seq_num -= SequenceNumber(1);
+            }
+            for seq_num in gap.gap_list.set() {
+                writer_proxy.irrelevant_change_set(seq_num);
+            }
         }
     }
 }

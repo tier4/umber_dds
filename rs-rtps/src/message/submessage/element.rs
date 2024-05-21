@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
 use std::io;
 use std::net::IpAddr;
-use std::ops::Sub;
 use std::ops::{Add, AddAssign};
+use std::ops::{Sub, SubAssign};
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
 
@@ -59,6 +59,11 @@ impl Sub for SequenceNumber {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
         Self(self.0 - other.0)
+    }
+}
+impl SubAssign for SequenceNumber {
+    fn sub_assign(&mut self, other: Self) {
+        *self = *self + other;
     }
 }
 
