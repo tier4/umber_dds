@@ -233,11 +233,14 @@ impl MessageReceiver {
         flag: BitFlags<AckNackFlag>,
         writers: &mut HashMap<EntityId, Writer>,
     ) -> Result<(), MessageError> {
+        // rtps 2.3 spec 8.3.7. AckNack
+
         // validation
         if !ackanck.reader_sn_state.is_valid() {
             eprintln!("Invalid AckNack Submessage received");
             return Err(MessageError);
         }
+
         let writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);
         let reader_guid = GUID::new(self.source_guid_prefix, ackanck.reader_id);
         // TODO: writer.handle_acknackに適切な引数を渡す。
@@ -254,6 +257,7 @@ impl MessageReceiver {
         readers: &mut HashMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.2 Data
+
         // validation
         if data.writer_sn < SequenceNumber(0)
             || data.writer_sn == SequenceNumber::SEQUENCENUMBER_UNKNOWN
@@ -261,6 +265,7 @@ impl MessageReceiver {
             eprintln!("Invalid Data Submessage received");
             return Err(MessageError);
         }
+
         // TODO: check inlineQos is valid
         if flag.contains(DataFlag::Data) && !flag.contains(DataFlag::Key) {
             // he serializedPayload element is interpreted as the value of the dtat-object
@@ -277,6 +282,7 @@ impl MessageReceiver {
             // This flag is informational. It indicates that the SerializedPayload has been transformed as described in another specification
             // For example, this flag should be set when the SerializedPayload is transformed as described in the DDS-Security specification
         }
+
         let writer_guid = GUID::new(self.dest_guid_prefix, data.writer_id);
         let _reader_guid = GUID::new(self.source_guid_prefix, data.reader_id);
 
@@ -413,35 +419,12 @@ impl MessageReceiver {
         readers: &mut HashMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.4 Gap
+
         // validation
-        if gap.gap_start <= SequenceNumber(0) {
-            // gapStart is zero or negative
-            eprintln!("Invalid Gap Submessage received");
+        if !gap.is_valid(flag) {
             return Err(MessageError);
         }
-        if !gap.gap_list.is_valid() {
-            // gapList is invalid
-            eprintln!("Invalid Gap Submessage received");
-            return Err(MessageError);
-        }
-        if flag.contains(GapFlag::GroupInfo) {
-            // GroupInfoFlag is set and
-            if gap.gap_start_gsn <= SequenceNumber(0) {
-                // gapStartGSN.value is zero or negative
-                eprintln!("Invalid Gap Submessage received");
-                return Err(MessageError);
-            }
-            if gap.gap_end_gsn <= SequenceNumber(0) {
-                // gapEndGSN.value is zero or negative
-                eprintln!("Invalid Gap Submessage received");
-                return Err(MessageError);
-            }
-            if gap.gap_end_gsn < gap.gap_start_gsn - SequenceNumber(1) {
-                // gapEndGSN.value < gapStartGSN.value-1
-                eprintln!("Invalid Gap Submessage received");
-                return Err(MessageError);
-            }
-        }
+
         let writer_guid = GUID::new(self.source_guid_prefix, gap.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, gap.reader_id);
         match readers.get_mut(&gap.reader_id) {
@@ -457,54 +440,10 @@ impl MessageReceiver {
         readers: &mut HashMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.5 Heartbeat
+
         // validation
-        if heartbeat.first_sn <= SequenceNumber(0) {
-            // first_sn is zero or negative
-            eprintln!("Invalid Heartbeat Submessage received");
+        if !heartbeat.is_valid(flag) {
             return Err(MessageError);
-        }
-        if heartbeat.last_sn < SequenceNumber(0) {
-            // last_sn is negative
-            eprintln!("Invalid Heartbeat Submessage received");
-            return Err(MessageError);
-        }
-        if heartbeat.last_sn < heartbeat.first_sn - SequenceNumber(1) {
-            // lastSN.value < firstSN.value - 1
-            eprintln!("Invalid Heartbeat Submessage received");
-            return Err(MessageError);
-        }
-        if flag.contains(HeartbeatFlag::GroupInfo) {
-            // TODO: GrupuInfo falgが立っていれば、必ず*_gsnがNoneでないかどうか確認
-            if heartbeat.current_gsn.unwrap() <= SequenceNumber(0) {
-                // currentGNS is zero or negative
-                eprintln!("Invalid Heartbeat Submessage received");
-                return Err(MessageError);
-            }
-            if heartbeat.first_gsn.unwrap() <= SequenceNumber(0) {
-                // firstGSN is zero or negative
-                eprintln!("Invalid Heartbeat Submessage received");
-                return Err(MessageError);
-            }
-            if heartbeat.last_gsn.unwrap() < SequenceNumber(0) {
-                // lastGSN is negative
-                eprintln!("Invalid Heartbeat Submessage received");
-                return Err(MessageError);
-            }
-            if heartbeat.last_gsn.unwrap() < heartbeat.first_gsn.unwrap() - SequenceNumber(1) {
-                // lastGSN.value < firstGSN.value - 1
-                eprintln!("Invalid Heartbeat Submessage received");
-                return Err(MessageError);
-            }
-            if heartbeat.current_gsn.unwrap() < heartbeat.first_gsn.unwrap() {
-                // currentGNS.value < firstGSN.value
-                eprintln!("Invalid Heartbeat Submessage received");
-                return Err(MessageError);
-            }
-            if heartbeat.current_gsn.unwrap() < heartbeat.last_gsn.unwrap() {
-                // currentGNS.value < lastGSN.value
-                eprintln!("Invalid Heartbeat Submessage received");
-                return Err(MessageError);
-            }
         }
 
         let writer_guid = GUID::new(self.source_guid_prefix, heartbeat.writer_id);
