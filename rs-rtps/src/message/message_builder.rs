@@ -1,8 +1,8 @@
 use super::element::*;
 use super::{
     submessage::{
-        element::{data::Data, heartbeat::Heartbeat, infots::InfoTimestamp},
-        submessage_flag::{DataFlag, HeartbeatFlag, InfoTimestampFlag},
+        element::{acknack::AckNack, data::Data, heartbeat::Heartbeat, infots::InfoTimestamp},
+        submessage_flag::{AckNackFlag, DataFlag, HeartbeatFlag, InfoTimestampFlag},
         submessage_header::SubMessageHeader,
         EntitySubmessage, InterpreterSubmessage, SubMessage, SubMessageBody, SubMessageKind,
     },
@@ -49,6 +49,34 @@ impl MessageBuilder {
             body: ts_body,
         };
         self.submessages.push(ts_msg);
+    }
+
+    pub fn acknack(
+        &mut self,
+        endiannes: Endianness,
+        writer_id: EntityId,
+        reader_id: EntityId,
+        reader_sn_state: SequenceNumberSet,
+        count: Count,
+        is_final: bool,
+    ) {
+        let acknack_body_length = 12 + reader_sn_state.size();
+        let acknack = AckNack::new(reader_id, writer_id, reader_sn_state, count);
+        let mut acknack_flag = AckNackFlag::from_enndianness(endiannes);
+        if is_final {
+            acknack_flag |= AckNackFlag::Final;
+        }
+        let acknack_body = SubMessageBody::Entity(EntitySubmessage::AckNack(acknack, acknack_flag));
+        let acknack_header = SubMessageHeader::new(
+            SubMessageKind::ACKNACK as u8,
+            acknack_flag.bits(),
+            acknack_body_length,
+        );
+        let acknack_msg = SubMessage {
+            header: acknack_header,
+            body: acknack_body,
+        };
+        self.submessages.push(acknack_msg);
     }
 
     pub fn heartbeat(
