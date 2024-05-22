@@ -132,6 +132,12 @@ impl SequenceNumberSet {
             bitmap,
         }
     }
+    pub fn size(&self) -> u16 {
+        // bitmap_base: 8
+        // num_bits: 4
+        // bitmap: bitmap.len() * 4
+        12 + self.bitmap.len() as u16 * 4
+    }
     pub fn is_valid(&self) -> bool {
         // rtps spec 9.4.2.6 SequenceNumberSet
         self.bitmap_base >= SequenceNumber(1)
