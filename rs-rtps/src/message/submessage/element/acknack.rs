@@ -10,6 +10,22 @@ pub struct AckNack {
     pub count: Count,
 }
 
+impl AckNack {
+    pub fn new(
+        reader_id: EntityId,
+        writer_id: EntityId,
+        reader_sn_state: SequenceNumberSet,
+        count: Count,
+    ) -> Self {
+        Self {
+            reader_id,
+            writer_id,
+            reader_sn_state,
+            count,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::message::submessage::element::acknack::AckNack;
