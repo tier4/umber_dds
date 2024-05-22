@@ -20,6 +20,7 @@ use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
+use std::fmt;
 use std::io;
 use std::net::IpAddr;
 use std::ops::{Add, AddAssign};
@@ -116,6 +117,21 @@ impl SequenceNumberSet {
             && self.bitmap.len() as u32 == (self.num_bits + 31) / 32
     }
 }
+
+impl fmt::Debug for SequenceNumberSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "SequenceNumberSet {{ bitmap_base: {}, num_bits: {},  bitmap: {{",
+            self.bitmap_base.0, self.num_bits
+        )?;
+        for map in &self.bitmap {
+            write!(f, "{:>032b}, ", map)?;
+        }
+        write!(f, "}} }}")
+    }
+}
+
 pub type FragmentNumberSet = NumberSet<FragmentNumber>;
 
 #[derive(Readable, Writable)]
