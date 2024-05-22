@@ -1,15 +1,21 @@
+use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
-    element::{gap::Gap, heartbeat::Heartbeat, Locator, SequenceNumber},
+    element::{gap::Gap, heartbeat::Heartbeat, Count, Locator, SequenceNumber, SequenceNumberSet},
     submessage_flag::HeartbeatFlag,
 };
+use crate::network::udp_sender::UdpSender;
 use crate::policy::ReliabilityQosKind;
 use crate::rtps::cache::{CacheChange, HistoryCache};
 use crate::structure::{
-    duration::Duration, entity::RTPSEntity, guid::GUID, proxy::WriterProxy, topic_kind::TopicKind,
+    duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, proxy::WriterProxy,
+    topic_kind::TopicKind,
 };
 use enumflags2::BitFlags;
 use mio_extras::channel as mio_channel;
+use speedy::{Endianness, Writable};
 use std::collections::HashMap;
+use std::net::Ipv4Addr;
+use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
 /// RTPS StatefulReader
@@ -28,11 +34,18 @@ pub struct Reader {
     // StatefulReader
     writer_proxy: HashMap<GUID, WriterProxy>,
     // This implementation spesific
+    endianness: Endianness,
     reader_ready_notifier: mio_channel::Sender<()>,
+    set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
+    sender: Rc<UdpSender>,
 }
 
 impl Reader {
-    pub fn new(ri: ReaderIngredients) -> Self {
+    pub fn new(
+        ri: ReaderIngredients,
+        sender: Rc<UdpSender>,
+        set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
+    ) -> Self {
         Self {
             guid: ri.guid,
             topic_kind: ri.topic_kind,
@@ -43,7 +56,17 @@ impl Reader {
             heartbeat_response_delay: ri.heartbeat_response_delay,
             reader_cache: ri.rhc,
             writer_proxy: HashMap::new(),
+            endianness: Endianness::LittleEndian,
             reader_ready_notifier: ri.reader_ready_notifier,
+            set_reader_hb_timer_sender,
+            sender,
+        }
+    }
+
+    pub fn is_reliable(&self) -> bool {
+        match self.reliability_level {
+            ReliabilityQosKind::Reliable => true,
+            ReliabilityQosKind::BestEffort => false,
         }
     }
 
@@ -127,7 +150,10 @@ impl Reader {
         if !hb_flag.contains(HeartbeatFlag::Final) {
             // to must_send_ack
             // Transition: T5
-            // TODO: set timer which duration is self.heartbeat_response_delay
+            // set timer whose duration is self.heartbeat_response_delay
+            self.set_reader_hb_timer_sender
+                .send((self.entity_id(), writer_guid))
+                .unwrap();
         } else if !hb_flag.contains(HeartbeatFlag::Liveliness) {
             // to may_send_ack
             if let Some(writer_proxy) = self.writer_proxy.get_mut(&writer_guid) {
@@ -140,7 +166,10 @@ impl Reader {
                     // Transition: T4
 
                     // Transition: T5
-                    // TODO: set timer which duration is self.heartbeat_response_delay
+                    // set timer whose duration is self.heartbeat_response_delay
+                    self.set_reader_hb_timer_sender
+                        .send((self.entity_id(), writer_guid))
+                        .unwrap();
                 }
             }
         } else {
@@ -149,15 +178,47 @@ impl Reader {
         }
     }
 
-    pub fn handle_hb_response_timeout(&mut self, writer_guid: GUID, heartbeat: Heartbeat) {
+    pub fn handle_hb_response_timeout(&mut self, writer_guid: GUID) {
+        let self_guid_prefix = self.guid_prefix();
+        let self_entity_id = self.entity_id();
         if let Some(writer_proxy) = self.writer_proxy.get_mut(&writer_guid) {
             let missign_seq_num_set_base = writer_proxy.available_changes_max() + SequenceNumber(1);
             let mut missign_seq_num_set_set = Vec::new();
             for change in writer_proxy.missing_changes() {
                 missign_seq_num_set_set.push(change);
             }
-            // TODO: send acknack
+            let reader_sn_state =
+                SequenceNumberSet::from_vec(missign_seq_num_set_base, missign_seq_num_set_set);
+            let mut message_builder = MessageBuilder::new();
+            message_builder.acknack(
+                self.endianness,
+                self_entity_id,
+                writer_guid.entity_id,
+                reader_sn_state,
+                0,
+                false,
+            );
+            let message = message_builder.build(self_guid_prefix);
+            let message_buf = message.write_to_vec_with_ctx(self.endianness).unwrap();
+            for uni_loc in &writer_proxy.unicast_locator_list {
+                if uni_loc.kind == Locator::KIND_UDPV4 {
+                    let port = uni_loc.port;
+                    let addr = uni_loc.address;
+                    self.sender.send_to(
+                        &message_buf,
+                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                        port as u16,
+                    );
+                }
+            }
         }
+    }
+
+    pub fn heartbeat_response_delay(&self) -> std::time::Duration {
+        std::time::Duration::new(
+            self.heartbeat_response_delay.seconds as u64,
+            self.heartbeat_response_delay.fraction,
+        )
     }
 }
 

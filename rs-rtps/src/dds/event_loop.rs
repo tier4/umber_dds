@@ -30,10 +30,13 @@ pub struct EventLoop {
     message_receiver: MessageReceiver,
     add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
     add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
+    set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
+    set_reader_hb_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
     writers: HashMap<EntityId, Writer>,
     readers: HashMap<EntityId, Reader>,
     sender: Rc<UdpSender>,
-    hb_timer: Timer<EntityId>,
+    writer_hb_timer: Timer<EntityId>,
+    reader_hb_timers: Vec<Timer<(EntityId, GUID)>>, // (reader EntityId, writer GUID)
     discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     discovery_db: DiscoveryDB,
 }
@@ -67,10 +70,10 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .unwrap();
-        let mut hb_timer = Timer::default();
+        let mut writer_hb_timer = Timer::default();
         poll.register(
-            &mut hb_timer,
-            HEARTBEAT_TIMER,
+            &mut writer_hb_timer,
+            WRITER_HEARTBEAT_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
@@ -78,6 +81,14 @@ impl EventLoop {
         poll.register(
             &mut discdb_update_receiver,
             DISCOVERY_DB_UPDATE,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
+        let (set_reader_hb_timer_sender, mut set_reader_hb_timer_receiver) = mio_channel::channel();
+        poll.register(
+            &mut set_reader_hb_timer_receiver,
+            SET_READER_HEARTBEAT_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
@@ -91,10 +102,13 @@ impl EventLoop {
             message_receiver,
             add_writer_receiver,
             add_reader_receiver,
+            set_reader_hb_timer_sender,
+            set_reader_hb_timer_receiver,
             writers: HashMap::new(),
             readers: HashMap::new(),
             sender,
-            hb_timer,
+            writer_hb_timer,
+            reader_hb_timers: Vec::new(),
             discdb_update_receiver,
             discovery_db,
         }
@@ -143,7 +157,7 @@ impl EventLoop {
                                     );
                                 }
                                 if writer.is_reliable() {
-                                    self.hb_timer
+                                    self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
                                 }
                                 let token = writer.entity_token();
@@ -161,7 +175,11 @@ impl EventLoop {
                         ADD_READER_TOKEN => {
                             while let Ok(reader_ing) = self.add_reader_receiver.try_recv() {
                                 eprintln!("in event_loop received add reader");
-                                let reader = Reader::new(reader_ing);
+                                let reader = Reader::new(
+                                    reader_ing,
+                                    self.sender.clone(),
+                                    self.set_reader_hb_timer_sender.clone(),
+                                );
                                 self.readers.insert(reader.entity_id(), reader);
                             }
                         }
@@ -172,13 +190,44 @@ impl EventLoop {
                         DISCOVERY_DB_UPDATE => {
                             self.handle_participant_discovery();
                         }
-                        HEARTBEAT_TIMER => {
-                            if let Some(eid) = self.hb_timer.poll() {
+                        WRITER_HEARTBEAT_TIMER => {
+                            if let Some(eid) = self.writer_hb_timer.poll() {
                                 if let Some(writer) = self.writers.get_mut(&eid) {
                                     writer.send_heart_beat();
-                                    self.hb_timer
+                                    self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
                                 };
+                            }
+                        }
+                        SET_READER_HEARTBEAT_TIMER => {
+                            while let Ok((reader_entity_id, writer_guid)) =
+                                self.set_reader_hb_timer_receiver.try_recv()
+                            {
+                                if let Some(reader) = self.readers.get(&reader_entity_id) {
+                                    let mut reader_hb_timer = Timer::default();
+                                    reader_hb_timer.set_timeout(
+                                        reader.heartbeat_response_delay(),
+                                        (reader_entity_id, writer_guid),
+                                    );
+                                    self.poll
+                                        .register(
+                                            &mut reader_hb_timer,
+                                            WRITER_HEARTBEAT_TIMER,
+                                            Ready::readable(),
+                                            PollOpt::edge(),
+                                        )
+                                        .unwrap();
+                                    self.reader_hb_timers.push(reader_hb_timer);
+                                }
+                            }
+                        }
+                        READER_HEARTBEAT_TIMER => {
+                            for rhb_timer in &mut self.reader_hb_timers {
+                                if let Some((reid, wguid)) = rhb_timer.poll() {
+                                    if let Some(reader) = self.readers.get_mut(&reid) {
+                                        reader.handle_hb_response_timeout(wguid);
+                                    }
+                                }
                             }
                         }
                         _ => eprintln!("undefined Token or unimplemented event"),

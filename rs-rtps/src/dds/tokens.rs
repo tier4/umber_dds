@@ -33,4 +33,6 @@ pub const DISCOVERY_DB_UPDATE: Token = Token(PTB + 11);
 pub const SPDP_PARTICIPANT_DETECTOR: Token = Token(PTB + 12);
 pub const SEDP_PUBLICATIONS_DETECTOR: Token = Token(PTB + 13);
 pub const SEDP_SUBSCRIPTIONS_DETECTOR: Token = Token(PTB + 14);
-pub const HEARTBEAT_TIMER: Token = Token(PTB + 15);
+pub const WRITER_HEARTBEAT_TIMER: Token = Token(PTB + 15);
+pub const SET_READER_HEARTBEAT_TIMER: Token = Token(PTB + 16);
+pub const READER_HEARTBEAT_TIMER: Token = Token(PTB + 17);
