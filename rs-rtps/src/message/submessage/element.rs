@@ -20,6 +20,7 @@ use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
+use std::cmp::max;
 use std::fmt;
 use std::io;
 use std::net::IpAddr;
@@ -109,6 +110,27 @@ impl SequenceNumberSet {
             }
         }
         set
+    }
+    pub fn from_vec(base: SequenceNumber, set: Vec<SequenceNumber>) -> Self {
+        let mut num_bits: u32 = 0;
+        let mut bitmap: Vec<u32> = Vec::new();
+        for seq_num in set {
+            let offset_from_base = seq_num.0 - base.0;
+            num_bits = max(num_bits, offset_from_base as u32 + 1);
+            let line = offset_from_base / 32;
+            let offset_in_line = offset_from_base % 32;
+            if bitmap.len() < line as usize + 1 {
+                for _ in 0..(line + 1 - bitmap.len() as i64) {
+                    bitmap.push(0);
+                }
+            }
+            bitmap[line as usize] = bitmap[line as usize] | 1 << (31 - offset_in_line);
+        }
+        Self {
+            bitmap_base: base,
+            num_bits,
+            bitmap,
+        }
     }
     pub fn is_valid(&self) -> bool {
         // rtps spec 9.4.2.6 SequenceNumberSet
@@ -482,6 +504,22 @@ mod test {
         let v = seq_num_set.set();
         let mut correct = Vec::new();
         for i in 2..=13 {
+            correct.push(SequenceNumber(i));
+        }
+        assert_eq!(v, correct);
+    }
+
+    #[test]
+    fn test_sequence_number_from_vec() {
+        let mut seq_num_vec = Vec::new();
+        for i in 5..=42 {
+            seq_num_vec.push(SequenceNumber(i));
+        }
+        let seq_num_set = SequenceNumberSet::from_vec(SequenceNumber(2), seq_num_vec);
+        assert!(seq_num_set.is_valid());
+        let v = seq_num_set.set();
+        let mut correct = Vec::new();
+        for i in 5..=42 {
             correct.push(SequenceNumber(i));
         }
         assert_eq!(v, correct);
