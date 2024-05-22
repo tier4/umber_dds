@@ -20,7 +20,7 @@ use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::fmt;
 use std::io;
 use std::net::IpAddr;
@@ -99,7 +99,7 @@ impl SequenceNumberSet {
     pub fn set(&self) -> Vec<SequenceNumber> {
         let mut set = Vec::new();
         for (map_line, map) in self.bitmap.iter().enumerate() {
-            let bitmap_end = self.num_bits - map_line as u32 * 32;
+            let bitmap_end = min(32, self.num_bits - map_line as u32 * 32);
             for offset in 0..bitmap_end {
                 // if bit m is set
                 if (map & 1 << (31 - offset)) == 1 << (31 - offset) {
