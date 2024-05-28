@@ -63,6 +63,7 @@ impl EntityId {
         entity_kind: EntityKind::UNKNOW_USER_DEFIND,
     };
 
+    // rtps spec: 9.3.1.3 Predefined EntityIds
     pub const PARTICIPANT: Self = Self {
         entity_key: [0x00, 0x00, 0x01],
         entity_kind: EntityKind::PARTICIPANT_BUILT_IN,
@@ -75,7 +76,7 @@ impl EntityId {
 
     pub const SED_PBUILTIN_TOPICS_DETECTOR: Self = Self {
         entity_key: [0x00, 0x00, 0x02],
-        entity_kind: EntityKind::READER_NO_KEY_BUILT_IN,
+        entity_kind: EntityKind::READER_WITH_KEY_BUILT_IN,
     };
 
     pub const SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER: Self = Self {
@@ -85,7 +86,7 @@ impl EntityId {
 
     pub const SEDP_BUILTIN_PUBLICATIONS_DETECTOR: Self = Self {
         entity_key: [0x00, 0x00, 0x03],
-        entity_kind: EntityKind::READER_NO_KEY_BUILT_IN,
+        entity_kind: EntityKind::READER_WITH_KEY_BUILT_IN,
     };
 
     pub const SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER: Self = Self {
@@ -95,7 +96,7 @@ impl EntityId {
 
     pub const SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR: Self = Self {
         entity_key: [0x00, 0x00, 0x04],
-        entity_kind: EntityKind::READER_NO_KEY_BUILT_IN,
+        entity_kind: EntityKind::READER_WITH_KEY_BUILT_IN,
     };
 
     pub const SPDP_BUILTIN_PARTICIPANT_ANNOUNCER: Self = Self {
@@ -105,7 +106,7 @@ impl EntityId {
 
     pub const SPDP_BUILTIN_PARTICIPANT_DETECTOR: Self = Self {
         entity_key: [0x00, 0x01, 0x00],
-        entity_kind: EntityKind::READER_NO_KEY_BUILT_IN,
+        entity_kind: EntityKind::READER_WITH_KEY_BUILT_IN,
     };
 
     pub const P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER: Self = Self {
@@ -115,7 +116,7 @@ impl EntityId {
 
     pub const P2P_BUILTIN_PARTICIPANT_MESSAGE_READER: Self = Self {
         entity_key: [0x00, 0x02, 0x00],
-        entity_kind: EntityKind::READER_NO_KEY_BUILT_IN,
+        entity_kind: EntityKind::READER_WITH_KEY_BUILT_IN,
     };
 
     fn as_usize(&self) -> usize {
