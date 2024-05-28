@@ -12,6 +12,7 @@ use crate::structure::{
     duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, proxy::ReaderProxy,
     topic_kind::TopicKind,
 };
+use colored::*;
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
@@ -20,7 +21,7 @@ use std::net::Ipv4Addr;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
-/// RTPS StatelessWriter
+/// RTPS StatefulWriter
 pub struct Writer {
     // Entity
     guid: GUID,
@@ -128,10 +129,6 @@ impl Writer {
 
     pub fn handle_writer_cmd(&mut self) {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
-            eprintln!(
-                "~~~~~~~~~~~~~Writer entity {:?}: processed @writer",
-                self.guid().entity_id
-            );
             // this is new_change
             self.last_change_sequence_number += SequenceNumber(1);
             let a_change = CacheChange::new(
@@ -146,15 +143,7 @@ impl Writer {
             let self_entity_id = self.guid().entity_id;
             let self_guid_prefix = self.guid_prefix();
             for (_guid, reader_proxy) in &mut self.reader_proxy {
-                eprintln!(
-                    "~~~~~~~~~~~~~Writer entity {:?}: for remote reader {:?} @writer",
-                    self_entity_id, reader_proxy.remote_reader_guid
-                );
                 while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
-                    eprintln!(
-                        "~~~~~~~~~~~~~Writer entity {:?}: find unsent change  @writer",
-                        self_entity_id
-                    );
                     reader_proxy.update_cache_state(
                         change_for_reader.seq_num,
                         change_for_reader.is_relevant,
@@ -181,10 +170,6 @@ impl Writer {
                             let message_buf =
                                 message.write_to_vec_with_ctx(self.endianness).unwrap();
 
-                            eprintln!(
-                                "~~~~~~~~~~~~~Writer entity {:?}: send unsent change  @writer",
-                                self_entity_id
-                            );
                             // TODO:
                             // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
                             for uni_loc in &reader_proxy.unicast_locator_list {
@@ -192,8 +177,14 @@ impl Writer {
                                     let port = uni_loc.port;
                                     let addr = uni_loc.address;
                                     eprintln!(
-                                        "~~~~~~~~~~~~~Writer entity {:?}: send to {}.{}.{}.{}:{}  @writer",
-                                        self_entity_id, addr[12], addr[13], addr[14], addr[15], port);
+                                        "<{}>: send data message to {}.{}.{}.{}:{}",
+                                        "Writer: Info".green(),
+                                        addr[12],
+                                        addr[13],
+                                        addr[14],
+                                        addr[15],
+                                        port
+                                    );
                                     self.sender.send_to(
                                         &message_buf,
                                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
@@ -206,8 +197,14 @@ impl Writer {
                                     let port = mul_loc.port;
                                     let addr = mul_loc.address;
                                     eprintln!(
-                                        "~~~~~~~~~~~~~Writer entity {:?}: send to {}.{}.{}.{}:{}  @writer",
-                                        self_entity_id, addr[12], addr[13], addr[14], addr[15], port);
+                                        "<{}>: send data message to {}.{}.{}.{}:{}",
+                                        "Writer: Info".green(),
+                                        addr[12],
+                                        addr[13],
+                                        addr[14],
+                                        addr[15],
+                                        port
+                                    );
                                     self.sender.send_to(
                                         &message_buf,
                                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
@@ -248,6 +245,15 @@ impl Writer {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
                     let addr = uni_loc.address;
+                    eprintln!(
+                        "<{}>: send heartbeat message to {}.{}.{}.{}:{}",
+                        "Writer: Info".green(),
+                        addr[12],
+                        addr[13],
+                        addr[14],
+                        addr[15],
+                        port
+                    );
                     self.sender.send_to(
                         &message_buf,
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
@@ -259,6 +265,15 @@ impl Writer {
                 if mul_loc.kind == Locator::KIND_UDPV4 {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
+                    eprintln!(
+                        "<{}>: send heartbeat message to {}.{}.{}.{}:{}",
+                        "Writer: Info".green(),
+                        addr[12],
+                        addr[13],
+                        addr[14],
+                        addr[15],
+                        port
+                    );
                     self.sender.send_to(
                         &message_buf,
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
@@ -297,6 +312,7 @@ impl Writer {
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
     ) {
+        eprintln!("<{}>: add matched Reader", "Writer: Info".green());
         self.reader_proxy.insert(
             remote_reader_guid,
             ReaderProxy::new(

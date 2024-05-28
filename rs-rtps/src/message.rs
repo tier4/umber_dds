@@ -45,12 +45,6 @@ impl Message {
             let submessage_body_buf = rtps_body_buf.split_to(submessage_body_len);
             // TODO: submessage_body_bufが空っぽのときの挙動を確認
             // (PADのようなbodyが0のsubmessageが含まれているときの挙動)
-            println!("submessage header: {:?}", submessage_header);
-            print!("submessage {:?}: ", submessage_header.get_submessagekind());
-            for i in submessage_body_buf.iter() {
-                print!("0x{:02X} ", i);
-            }
-            println!();
             // DATA, DataFragはdeseriarizeにflagがひつようだからdeserializerを自前で実装
             // それ以外はspeedyをつかってdeserialize
             let e = submessage_header.get_endian();
@@ -181,6 +175,14 @@ impl Message {
             header: rtps_header,
             submessages,
         })
+    }
+
+    pub fn summary(&self) -> String {
+        let mut r = String::new();
+        for sub_msg in &self.submessages {
+            r += &format!("{:?}, ", sub_msg.header.get_submessagekind());
+        }
+        r
     }
 }
 

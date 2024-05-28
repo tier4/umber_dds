@@ -10,6 +10,7 @@ use crate::structure::{
     duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, proxy::WriterProxy,
     topic_kind::TopicKind,
 };
+use colored::*;
 use enumflags2::BitFlags;
 use mio_extras::channel as mio_channel;
 use speedy::{Endianness, Writable};
@@ -85,6 +86,7 @@ impl Reader {
                     .write()
                     .unwrap()
                     .add_change(change.clone());
+                eprintln!("<{}>: add change to reader_cache", "Reader: Info".green());
                 self.reader_ready_notifier.send(()).unwrap();
                 let writer_proxy_mut = self.writer_proxy.get_mut(&writer_guid).unwrap();
                 writer_proxy_mut.received_chage_set(change.sequence_number);
@@ -102,7 +104,7 @@ impl Reader {
         multicast_locator_list: Vec<Locator>,
         data_max_size_serialized: i32,
     ) {
-        eprintln!("DataReader::matched_writer_add");
+        eprintln!("<{}>: add matched Writer", "Reader: Info".green());
         self.writer_proxy.insert(
             remote_writer_guid,
             WriterProxy::new(

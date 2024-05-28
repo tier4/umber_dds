@@ -325,7 +325,6 @@ impl Locator {
             match a {
                 IpAddr::V4(v4a) => {
                     address = v4a.octets();
-                    println!("self ipv4: {:?}", address);
                     assert_ne!([0; 4], address);
 
                     let mut addr: [u8; 16] = [0; 16];

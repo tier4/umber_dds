@@ -162,7 +162,6 @@ impl InnerPublisher {
             writer_command_receiver,
         };
         self.add_writer_sender.send(writer_ing).unwrap();
-        println!("<<< @publisher add_writer_sender.send() >>>");
         DataWriter::<D>::new(writer_command_sender, qos, topic, outter)
     }
     pub fn get_participant(&self) -> DomainParticipant {

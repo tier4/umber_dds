@@ -38,7 +38,6 @@ impl<D: Serialize> DataWriter<D> {
         let writer_cmd = WriterCmd {
             serialized_payload: Some(serialized_payload),
         };
-        println!("--- @datawriter writer_command_sender.send ---");
         self.writer_command_sender
             .send(writer_cmd)
             .expect("couldn't send message");
@@ -50,7 +49,6 @@ impl<D: Serialize> DataWriter<D> {
         let writer_cmd = WriterCmd {
             serialized_payload: Some(serialized_payload),
         };
-        println!("--- @datawriter writer_command_sender.send ---");
         self.writer_command_sender
             .send(writer_cmd)
             .expect("couldn't send message");

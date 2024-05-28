@@ -273,7 +273,6 @@ impl Discovery {
                 match TokenDec::decode(event.token()) {
                     TokenDec::ReservedToken(token) => match token {
                         SPDP_SEND_TIMER => {
-                            eprintln!("@discovery: timer timedout");
                             self.spdp_builtin_participant_writer
                                 .write_builtin_data(data.clone());
                             self.sedp_builtin_pub_writer

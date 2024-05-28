@@ -9,6 +9,7 @@ use crate::structure::{
     proxy::{ReaderProxy, WriterProxy},
 };
 use bytes::BytesMut;
+use colored::*;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
@@ -141,11 +142,14 @@ impl EventLoop {
                         }
                         ADD_WRITER_TOKEN => {
                             while let Ok(writer_ing) = self.add_writer_receiver.try_recv() {
-                                eprintln!("in ev_loop: entity_id: {:?}", writer_ing.guid);
                                 let mut writer = Writer::new(writer_ing, self.sender.clone());
                                 if writer.guid().entity_id
                                     == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
                                 {
+                                    eprintln!(
+                                        "<{}>: add ReaderProxy to SPDP Writer",
+                                        "EventLoop: Info".green()
+                                    );
                                     writer.matched_reader_add(
                                         GUID::UNKNOW,
                                         false,
@@ -174,7 +178,6 @@ impl EventLoop {
                         }
                         ADD_READER_TOKEN => {
                             while let Ok(reader_ing) = self.add_reader_receiver.try_recv() {
-                                eprintln!("in event_loop received add reader");
                                 let reader = Reader::new(
                                     reader_ing,
                                     self.sender.clone(),
@@ -234,7 +237,6 @@ impl EventLoop {
                     },
                     TokenDec::Entity(eid) => {
                         if eid.is_writer() {
-                            eprintln!("~~~~~~~~~~~~~Writer entity: {:?}", eid);
                             let writer = match self.writers.get_mut(&eid) {
                                 Some(w) => w,
                                 None => panic!("Unregisterd writer."),
@@ -280,11 +282,9 @@ impl EventLoop {
 
     fn handle_participant_discovery(&mut self) {
         // configure sedp_builtin_{pub/sub}_writer based on reseived spdp_data
-        eprintln!("##################  @discovery  Discovery message received",);
 
         while let Ok(guid_prefix) = self.discdb_update_receiver.try_recv() {
             if let Some(spdp_data) = self.discovery_db.read(guid_prefix) {
-                eprintln!("spdp from {:?} received.", spdp_data.guid);
                 if spdp_data.domain_id != self.domain_id {
                     continue;
                 } else {
@@ -300,6 +300,7 @@ impl EventLoop {
                             .writers
                             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER)
                         {
+                            eprintln!("<{}>: sedp_writer.matched_reader_add", "EventLoop".green());
                             writer.matched_reader_add(
                                 guid,
                                 spdp_data.expects_inline_qos,
@@ -319,6 +320,7 @@ impl EventLoop {
                             .readers
                             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR)
                         {
+                            eprintln!("<{}>: sedp_reader.matched_writer_add", "EventLoop".green());
                             reader.matched_writer_add(
                                 guid,
                                 spdp_data.metarraffic_unicast_locator_list.clone(),
@@ -338,6 +340,7 @@ impl EventLoop {
                             .writers
                             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER)
                         {
+                            eprintln!("<{}>: sedp_writer.matched_reader_add", "EventLoop".green());
                             writer.matched_reader_add(
                                 guid,
                                 spdp_data.expects_inline_qos,
@@ -357,6 +360,7 @@ impl EventLoop {
                             .readers
                             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR)
                         {
+                            eprintln!("<{}>: sedp_reader.matched_writer_add", "EventLoop".green());
                             reader.matched_writer_add(
                                 guid,
                                 spdp_data.metarraffic_unicast_locator_list,

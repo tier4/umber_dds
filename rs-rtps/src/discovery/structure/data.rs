@@ -434,52 +434,39 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                     let pid: u16 = seq
                         .next_element()?
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                    eprintln!(">>>pid: {:04X}", pid);
                     let parameter_id = ParameterId { value: pid };
                     let _length: u16 = seq
                         .next_element()?
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                    eprintln!(">>>length: {:04X}", _length);
                     match parameter_id {
                         ParameterId::PID_DOMAIN_ID => {
                             domain_id = seq.next_element()?;
-                            eprintln!(">>>>>>domain_id: {:?}", domain_id);
                             read_pad!(u16);
                         }
                         ParameterId::PID_DOMAIN_TAG => {
                             domain_tag = seq.next_element()?;
-                            eprintln!(">>>>>>domain_tag: {:?}", domain_tag);
                         }
                         ParameterId::PID_ENTITY_NAME => {
                             // for compatibility between this implementation and FastDDS
                             let _entity_name: Option<String> = seq.next_element()?;
-                            eprintln!(">>>>>>_entity_name: {:?}", _entity_name);
                         }
                         ParameterId::PID_PROTOCOL_VERSION => {
                             protocol_version = seq.next_element()?;
-                            eprintln!(">>>>>>protocol_version: {:?}", protocol_version);
                             read_pad!(u16);
                         }
                         ParameterId::PID_PARTICIPANT_GUID => {
                             guid = seq.next_element()?;
-                            eprintln!(">>>>>>guid: {:?}", guid);
                         }
                         ParameterId::PID_VENDOR_ID => {
                             vendor_id = seq.next_element()?;
-                            eprintln!(">>>>>>vendor_id: {:?}", vendor_id);
                             read_pad!(u16);
                         }
                         ParameterId::PID_EXPECTS_INLINE_QOS => {
                             expects_inline_qos = seq.next_element()?;
-                            eprintln!(">>>>>>expects_inline_qos: {:?}", expects_inline_qos);
                             read_pad!(u16);
                         }
                         ParameterId::PID_BUILTIN_ENDPOINT_SET => {
                             available_builtin_endpoint = seq.next_element()?;
-                            eprintln!(
-                                ">>>>>>available_builtin_endpoint: {:?}",
-                                available_builtin_endpoint
-                            );
                         }
                         /*
                             rtps spec 2.4
@@ -511,146 +498,98 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         */
                         ParameterId::PID_METATRAFFIC_UNICAST_LOCATOR => {
                             read_locator_list!(metarraffic_unicast_locator_list);
-                            eprintln!(
-                                ">>>>>>metarraffic_unicast_locator_list: {:?}",
-                                metarraffic_unicast_locator_list
-                            );
                         }
                         ParameterId::PID_METATRAFFIC_MULTICAST_LOCATOR => {
                             read_locator_list!(metarraffic_multicast_locator_list);
-                            eprintln!(
-                                ">>>>>>metarraffic_multicast_locator_list: {:?}",
-                                metarraffic_multicast_locator_list
-                            );
                         }
                         ParameterId::PID_DEFAULT_UNICAST_LOCATOR => {
                             read_locator_list!(default_unicast_locator_list);
-                            eprintln!(
-                                ">>>>>>default_unicast_locator_list: {:?}",
-                                default_unicast_locator_list
-                            );
                         }
                         ParameterId::PID_DEFAULT_MULTICAST_LOCATOR => {
                             read_locator_list!(default_multicast_locator_list);
-                            eprintln!(
-                                ">>>>>>default_multicast_locator_list: {:?}",
-                                default_multicast_locator_list
-                            );
                         }
                         ParameterId::PID_PARTICIPANT_MANUAL_LIVELINESS_COUNT => {
                             manual_liveliness_count = seq.next_element()?;
-                            eprintln!(
-                                ">>>>>>manual_liveliness_count: {:?}",
-                                manual_liveliness_count
-                            );
                         }
                         ParameterId::PID_PARTICIPANT_LEASE_DURATION => {
                             lease_duration = seq.next_element()?;
-                            eprintln!(">>>>>>lease_duration: {:?}", lease_duration);
                         }
                         ParameterId::PID_ENDPOINT_GUID => {
                             remote_guid = seq.next_element()?;
-                            eprintln!(">>>>>>remote_guid: {:?}", remote_guid);
                         }
                         ParameterId::PID_UNICAST_LOCATOR => {
                             read_locator_list!(unicast_locator_list);
-                            eprintln!(">>>>>>unicast_locator_list: {:?}", unicast_locator_list);
                         }
                         ParameterId::PID_MULTICAST_LOCATOR => {
                             read_locator_list!(multicast_locator_list);
-                            eprintln!(">>>>>>multicast_locator_list: {:?}", multicast_locator_list);
                         }
                         ParameterId::PID_TYPE_MAX_SIZE_SERIALIZED => {
                             data_max_size_serialized = seq.next_element()?;
-                            eprintln!(
-                                ">>>>>>data_max_size_serialized: {:?}",
-                                data_max_size_serialized
-                            );
                         }
                         ParameterId::PID_TYPE_NAME => {
                             type_name = seq.next_element()?;
-                            eprintln!(">>>>>>type_name: {:?}", type_name);
                         }
                         ParameterId::PID_TOPIC_NAME => {
                             topic_name = seq.next_element()?;
-                            eprintln!(">>>>>>topic_name: {:?}", topic_name);
                         }
                         ParameterId::PID_DURABILITY => {
                             durability = seq.next_element()?;
-                            eprintln!(">>>>>>durability: {:?}", durability);
                         }
                         ParameterId::PID_DEADLINE => {
                             deadline = seq.next_element()?;
-                            eprintln!(">>>>>>deadline: {:?}", deadline);
                         }
                         ParameterId::PID_LATENCY_BUDGET => {
                             latency_budget = seq.next_element()?;
-                            eprintln!(">>>>>>latency_budget: {:?}", latency_budget);
                         }
                         ParameterId::PID_LIVELINESS => {
                             liveliness = seq.next_element()?;
-                            eprintln!(">>>>>>liveliness: {:?}", liveliness);
                         }
                         ParameterId::PID_RELIABILITY => {
                             reliability = seq.next_element()?;
-                            eprintln!(">>>>>>reliability: {:?}", reliability);
                         }
                         ParameterId::PID_USER_DATA => {
                             user_data = seq.next_element()?;
-                            eprintln!(">>>>>>user_data: {:?}", user_data);
                         }
                         ParameterId::PID_OWNERSHIP => {
                             ownership = seq.next_element()?;
-                            eprintln!(">>>>>>ownership: {:?}", ownership);
                         }
                         ParameterId::PID_DESTINATION_ORDER => {
                             destination_order = seq.next_element()?;
-                            eprintln!(">>>>>>destination_order: {:?}", destination_order);
                         }
                         ParameterId::PID_TIME_BASED_FILTER => {
                             time_based_filter = seq.next_element()?;
-                            eprintln!(">>>>>>time_based_filter: {:?}", time_based_filter);
                         }
                         ParameterId::PID_PRESENTATION => {
                             presentation = seq.next_element()?;
                             read_pad!(u16);
-                            eprintln!(">>>>>>presentation: {:?}", presentation);
                         }
                         ParameterId::PID_PARTITION => {
                             partition = seq.next_element()?;
-                            eprintln!(">>>>>>partition: {:?}", partition);
                         }
                         ParameterId::PID_TOPIC_DATA => {
                             topic_data = seq.next_element()?;
-                            eprintln!(">>>>>>topic_data: {:?}", topic_data);
                         }
                         ParameterId::PID_GROUP_DATA => {
                             group_data = seq.next_element()?;
-                            eprintln!(">>>>>>group_data: {:?}", group_data);
                         }
                         ParameterId::PID_DURABILITY_SERVICE => {
                             durability_service = seq.next_element()?;
-                            eprintln!(">>>>>>durability_service: {:?}", durability_service);
                         }
                         ParameterId::PID_LIFESPAN => {
                             lifespan = seq.next_element()?;
-                            eprintln!(">>>>>>lifespan: {:?}", lifespan);
                         }
                         ParameterId::PID_OWNERSHIP_STRENGTH => {
                             ownership_strength = seq.next_element()?;
-                            eprintln!(">>>>>>ownership_strength: {:?}", ownership_strength);
                         }
                         ParameterId::PID_PROPERTY_LIST => {
                             // for compatibility between this implementation and FastDDS
                             let _property_list: Option<Vec<Property>> = seq.next_element()?;
-                            eprintln!(">>>>>>_property_list: {:?}", _property_list);
                         }
                         ParameterId::PID_SENTINEL => {
                             break;
                         }
                         _ => unimplemented!("deserialization of ParameterId: 0x{:04X}", pid),
                     }
-                    eprintln!();
                 }
 
                 Ok(SDPBuiltinData::from(

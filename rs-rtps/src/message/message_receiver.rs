@@ -16,11 +16,11 @@ use std::collections::HashMap;
 use std::{error, fmt};
 
 #[derive(Debug, Clone)]
-struct MessageError;
+struct MessageError(String);
 
 impl fmt::Display for MessageError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "")
+        write!(f, "MessageError: ('{}')", self.0)
     }
 }
 
@@ -79,7 +79,7 @@ impl MessageReceiver {
             let msg = message.message;
             if msg.len() < 20 {
                 if msg.len() >= 16 && msg[0..4] == b"RTPS"[..] && msg[9..16] == b"DDSPING"[..] {
-                    println!("Received DDSPING");
+                    eprintln!("<{}>: Received DDSPING", "MessageReceiver: Info".green());
                     return;
                 }
             }
@@ -87,18 +87,22 @@ impl MessageReceiver {
             let rtps_message = match Message::new(msg_buf) {
                 Ok(m) => m,
                 Err(e) => {
-                    println!("{}: couldn't deserialize : {}", "error".red(), e);
+                    eprintln!(
+                        "<{}>: couldn't deserialize : {}",
+                        "MessageReceiver: Err".red(),
+                        e
+                    );
                     return;
                 }
             };
             if rtps_message.header.guid_prefix == self.own_guid_prefix {
-                eprintln!("*****  RTPS message form self. *****");
                 return;
             }
-            eprintln!("self.own_guid_prefix: {:?}", self.own_guid_prefix);
             eprintln!(
-                "*****  RTPS message form {:?}. *****",
-                rtps_message.header.guid_prefix
+                "<{}>: receive RTPS message form {:?}\n\t{}",
+                "MessageReceiver: Info".green(),
+                rtps_message.header.guid_prefix,
+                rtps_message.summary()
             );
             self.handle_parsed_packet(rtps_message, &mut writers, &mut readers);
         }
@@ -113,28 +117,22 @@ impl MessageReceiver {
         self.reset();
         self.dest_guid_prefix = self.own_guid_prefix;
         self.source_guid_prefix = rtps_msg.header.guid_prefix;
-        println!(">>>>>>>>>>>>>>>>");
-        println!("header: {:?}", rtps_msg.header);
         for submsg in rtps_msg.submessages {
-            println!("submessage header: {:?}", submsg.header);
-            println!("submessage kind: {:?}", submsg.header.get_submessagekind());
             match submsg.body {
                 SubMessageBody::Entity(e) => {
-                    if self
-                        .handle_entity_submessage(e, &mut writers, &mut readers)
-                        .is_err()
-                    {
+                    if let Err(e) = self.handle_entity_submessage(e, &mut writers, &mut readers) {
+                        eprintln!("<{}>: {:?}", "MessageReceiver: Err".red(), e);
                         return;
                     }
                 }
                 SubMessageBody::Interpreter(i) => {
-                    if self.handle_interpreter_submessage(i).is_err() {
+                    if let Err(e) = self.handle_interpreter_submessage(i) {
+                        eprintln!("<{}>: {:?}", "MessageReceiver: Err".red(), e);
                         return;
                     }
                 }
             }
         }
-        println!("<<<<<<<<<<<<<<<<\n");
     }
 
     fn handle_entity_submessage(
@@ -143,7 +141,6 @@ impl MessageReceiver {
         mut writers: &mut HashMap<EntityId, Writer>,
         mut readers: &mut HashMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
-        println!("handle entity submsg");
         match entity_subm {
             EntitySubmessage::AckNack(acknack, flags) => {
                 self.handle_acknack_submsg(acknack, flags, &mut writers)
@@ -170,7 +167,6 @@ impl MessageReceiver {
         &mut self,
         interpreter_subm: InterpreterSubmessage,
     ) -> Result<(), MessageError> {
-        println!("handle interpreter submsg");
         match interpreter_subm {
             InterpreterSubmessage::InfoReply(info_reply, flags) => {
                 self.unicast_reply_locator_list = info_reply.unicast_locator_list;
@@ -178,7 +174,7 @@ impl MessageReceiver {
                     if let Some(multi_loc_list) = info_reply.multicast_locator_list {
                         self.multicast_reply_locator_list = multi_loc_list;
                     } else {
-                        return Err(MessageError);
+                        return Err(MessageError("Invalid InfoReply Submessage".to_string()));
                     }
                 } else {
                     self.multicast_reply_locator_list.clear();
@@ -190,7 +186,7 @@ impl MessageReceiver {
                     if let Some(multi_rep_loc_list) = info_reply_ip4.multicast_locator_list {
                         self.multicast_reply_locator_list = multi_rep_loc_list;
                     } else {
-                        return Err(MessageError);
+                        return Err(MessageError("Invalid InfoReplyIp4 Submessage".to_string()));
                     }
                 } else {
                     self.multicast_reply_locator_list.clear();
@@ -202,7 +198,7 @@ impl MessageReceiver {
                     if let Some(ts) = info_ts.timestamp {
                         self.timestamp = ts;
                     } else {
-                        return Err(MessageError);
+                        return Err(MessageError("Invalid InfoTimestamp Submessage".to_string()));
                     }
                 } else {
                     self.have_timestamp = false;
@@ -237,8 +233,7 @@ impl MessageReceiver {
 
         // validation
         if !ackanck.reader_sn_state.is_valid() {
-            eprintln!("Invalid AckNack Submessage received");
-            return Err(MessageError);
+            return Err(MessageError("Invalid AckNack Submessage".to_string()));
         }
 
         let writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);
@@ -262,8 +257,7 @@ impl MessageReceiver {
         if data.writer_sn < SequenceNumber(0)
             || data.writer_sn == SequenceNumber::SEQUENCENUMBER_UNKNOWN
         {
-            eprintln!("Invalid Data Submessage received");
-            return Err(MessageError);
+            return Err(MessageError("Invalid Data Submessage".to_string()));
         }
 
         // TODO: check inlineQos is valid
@@ -303,55 +297,31 @@ impl MessageReceiver {
             ) {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!(
-                        "neko~~~~~: failed deserialize reseived spdp data message: {}",
+                    return Err(MessageError(format!(
+                        "failed deserialize reseived spdp data message: {:?}",
                         e
-                    );
-                    return Err(MessageError);
+                    )));
                 }
             };
             let new_data = deserialized.to_spdp_discoverd_participant_data();
             let guid_prefix = new_data.guid.guid_prefix;
-            println!(
-                "##################  @message_receiver  Discovery message received from: {:?}",
+            eprintln!(
+                "<{}>: handle SPDP message from: {:?}",
+                "MessageReceiver: Info".green(),
                 guid_prefix
             );
-            /*
-            eprintln!("domain_id: {}", new_data.domain_id);
-            eprintln!("domain_tag: {}", new_data.domain_tag);
-            eprintln!("protocol_version: {:?}", new_data.protocol_version);
-            eprintln!("guid: {:?}", new_data.guid);
-            eprintln!("vendor_id: {:?}", new_data.vendor_id);
-            eprintln!("expects_inline_qos: {:?}", new_data.expects_inline_qos);
-            eprintln!(
-                "available_builtin_endpoint: {:?}",
-                new_data.available_builtin_endpoint
-            );
-            eprintln!(
-                "metarraffic_unicast_locator_list: {:?}",
-                new_data.metarraffic_unicast_locator_list
-            );
-            eprintln!(
-                "metarraffic_multicast_locator_list: {:?}",
-                new_data.metarraffic_multicast_locator_list
-            );
-            eprintln!(
-                "default_unicast_locator_list: {:?}",
-                new_data.default_unicast_locator_list
-            );
-            eprintln!(
-                "default_multicast_locator_list: {:?}",
-                new_data.default_multicast_locator_list
-            );
-            eprintln!(
-                "manual_liveliness_count: {:?}",
-                new_data.manual_liveliness_count
-            );
-            eprintln!("lease_duration: {:?}", new_data.lease_duration.clone());
-            */
             match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
-                Some(r) => r.add_change(change),
-                None => (),
+                Some(r) => {
+                    eprintln!(
+                        "<{}>: add_change to spdp_builtin_participant_reader",
+                        "MessageReceiver: Info".green(),
+                    );
+                    r.add_change(change)
+                }
+                None => eprintln!(
+                    "<{}>: couldn't find spdp_builtin_participant_reader",
+                    "MessageReceiver: Err".red(),
+                ),
             };
         } else if data.writer_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER
             || data.reader_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
@@ -362,14 +332,16 @@ impl MessageReceiver {
             ) {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!(
-                        "neko~~~~~: failed deserialize reseived sedp(w) data message: {}",
+                    return Err(MessageError(format!(
+                        "failed deserialize reseived sedp(w) data message: {:?}",
                         e
-                    );
-                    return Err(MessageError);
+                    )));
                 }
             };
-            eprintln!("successed for deserialize sedp(w)");
+            eprintln!(
+                "<{}>: successed for deserialize sedp(w)",
+                "MessageReceiver: Info".green()
+            );
             match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
                 Some(r) => r.add_change(change),
                 None => (),
@@ -383,14 +355,16 @@ impl MessageReceiver {
             ) {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!(
-                        "neko~~~~~: failed deserialize reseived sedp(r) data message: {}",
+                    return Err(MessageError(format!(
+                        "failed deserialize reseived sedp(r) data message: {:?}",
                         e
-                    );
-                    return Err(MessageError);
+                    )));
                 }
             };
-            eprintln!("successed for deserialize sedp(r)");
+            eprintln!(
+                "<{}>: successed for deserialize sedp(r)",
+                "MessageReceiver: Info".green()
+            );
             match readers.get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR) {
                 Some(r) => r.add_change(change),
                 None => (),
@@ -422,7 +396,7 @@ impl MessageReceiver {
 
         // validation
         if !gap.is_valid(flag) {
-            return Err(MessageError);
+            return Err(MessageError("Invalid Gap Submessage".to_string()));
         }
 
         let writer_guid = GUID::new(self.source_guid_prefix, gap.writer_id);
@@ -443,14 +417,25 @@ impl MessageReceiver {
 
         // validation
         if !heartbeat.is_valid(flag) {
-            return Err(MessageError);
+            return Err(MessageError("Invalid Heartbeat Submessage".to_string()));
         }
 
         let writer_guid = GUID::new(self.source_guid_prefix, heartbeat.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, heartbeat.reader_id);
+        let mut reader_eids = String::new();
+        for (eid, _reader) in readers.into_iter() {
+            reader_eids += &format!("{:?}\n", eid);
+        }
         match readers.get_mut(&heartbeat.reader_id) {
             Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
-            None => (),
+            None => {
+                eprintln!(
+                    "<{}>: couldn't find reader whitch has {:?}\nthere are readers which has eid:\n{}",
+                    "MessageReceiver: Warn".yellow(),
+                    heartbeat.reader_id,
+                    reader_eids
+                );
+            }
         };
         Ok(())
     }
