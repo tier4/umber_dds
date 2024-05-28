@@ -7,7 +7,11 @@ use crate::network::udp_sender::UdpSender;
 use crate::policy::ReliabilityQosKind;
 use crate::rtps::cache::{CacheChange, HistoryCache};
 use crate::structure::{
-    duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, proxy::WriterProxy,
+    duration::Duration,
+    entity::RTPSEntity,
+    entity_id::EntityId,
+    guid::{GuidPrefix, GUID},
+    proxy::WriterProxy,
     topic_kind::TopicKind,
 };
 use colored::*;
@@ -71,8 +75,8 @@ impl Reader {
         }
     }
 
-    pub fn add_change(&mut self, change: CacheChange) {
-        let writer_guid = GUID::new(self.guid_prefix(), change.writer_guid.entity_id);
+    pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {
+        let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if self.matched_writer_lookup(writer_guid).is_some() {
             let flag;
             let expected_seq_num;

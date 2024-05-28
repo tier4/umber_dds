@@ -316,7 +316,13 @@ impl MessageReceiver {
                         "<{}>: add_change to spdp_builtin_participant_reader",
                         "MessageReceiver: Info".green(),
                     );
-                    r.add_change(change)
+                    r.matched_writer_add(
+                        GUID::new(guid_prefix, EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER),
+                        new_data.metarraffic_unicast_locator_list,
+                        new_data.metarraffic_multicast_locator_list,
+                        0,
+                    );
+                    r.add_change(self.source_guid_prefix, change)
                 }
                 None => eprintln!(
                     "<{}>: couldn't find spdp_builtin_participant_reader",
@@ -343,7 +349,7 @@ impl MessageReceiver {
                 "MessageReceiver: Info".green()
             );
             match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
-                Some(r) => r.add_change(change),
+                Some(r) => r.add_change(self.source_guid_prefix, change),
                 None => (),
             };
         } else if data.writer_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER
@@ -366,14 +372,14 @@ impl MessageReceiver {
                 "MessageReceiver: Info".green()
             );
             match readers.get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR) {
-                Some(r) => r.add_change(change),
+                Some(r) => r.add_change(self.source_guid_prefix, change),
                 None => (),
             };
         } else {
             match readers.get_mut(&data.reader_id) {
-                Some(r) => r.add_change(change),
+                Some(r) => r.add_change(self.source_guid_prefix, change),
                 None => match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
-                    Some(r) => r.add_change(change),
+                    Some(r) => r.add_change(self.source_guid_prefix, change),
                     None => (),
                 },
             };
