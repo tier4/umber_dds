@@ -33,7 +33,7 @@ pub struct Reader {
     heartbeat_response_delay: Duration,
     reader_cache: Arc<RwLock<HistoryCache>>,
     // StatefulReader
-    writer_proxy: HashMap<GUID, WriterProxy>,
+    matched_writers: HashMap<GUID, WriterProxy>,
     // This implementation spesific
     endianness: Endianness,
     reader_ready_notifier: mio_channel::Sender<()>,
@@ -56,7 +56,7 @@ impl Reader {
             expectsinline_qos: ri.expectsinline_qos,
             heartbeat_response_delay: ri.heartbeat_response_delay,
             reader_cache: ri.rhc,
-            writer_proxy: HashMap::new(),
+            matched_writers: HashMap::new(),
             endianness: Endianness::LittleEndian,
             reader_ready_notifier: ri.reader_ready_notifier,
             set_reader_hb_timer_sender,
@@ -77,7 +77,7 @@ impl Reader {
             let flag;
             let expected_seq_num;
             {
-                let writer_proxy = self.writer_proxy.get(&writer_guid).unwrap();
+                let writer_proxy = self.matched_writers.get(&writer_guid).unwrap();
                 expected_seq_num = writer_proxy.available_changes_max() + SequenceNumber(1);
                 flag = change.sequence_number >= expected_seq_num;
             }
@@ -88,7 +88,7 @@ impl Reader {
                     .add_change(change.clone());
                 eprintln!("<{}>: add change to reader_cache", "Reader: Info".green());
                 self.reader_ready_notifier.send(()).unwrap();
-                let writer_proxy_mut = self.writer_proxy.get_mut(&writer_guid).unwrap();
+                let writer_proxy_mut = self.matched_writers.get_mut(&writer_guid).unwrap();
                 writer_proxy_mut.received_chage_set(change.sequence_number);
                 if change.sequence_number > expected_seq_num {
                     writer_proxy_mut.lost_changes_update(change.sequence_number);
@@ -105,7 +105,7 @@ impl Reader {
         data_max_size_serialized: i32,
     ) {
         eprintln!("<{}>: add matched Writer", "Reader: Info".green());
-        self.writer_proxy.insert(
+        self.matched_writers.insert(
             remote_writer_guid,
             WriterProxy::new(
                 remote_writer_guid,
@@ -117,17 +117,17 @@ impl Reader {
         );
     }
     pub fn matched_writer_lookup(&mut self, guid: GUID) -> Option<WriterProxy> {
-        match self.writer_proxy.get_mut(&guid) {
+        match self.matched_writers.get_mut(&guid) {
             Some(proxy) => Some(proxy.clone()),
             None => None,
         }
     }
     pub fn matched_writer_remove(&mut self, guid: GUID) {
-        self.writer_proxy.remove(&guid);
+        self.matched_writers.remove(&guid);
     }
 
     pub fn handle_gap(&mut self, writer_guid: GUID, gap: Gap) {
-        if let Some(writer_proxy) = self.writer_proxy.get_mut(&writer_guid) {
+        if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
             let mut seq_num = gap.gap_start;
             while seq_num < gap.gap_list.base() {
                 writer_proxy.irrelevant_change_set(seq_num);
@@ -145,7 +145,7 @@ impl Reader {
         hb_flag: BitFlags<HeartbeatFlag>,
         heartbeat: Heartbeat,
     ) {
-        for (_guid, writer_proxy) in &mut self.writer_proxy {
+        for (_guid, writer_proxy) in &mut self.matched_writers {
             writer_proxy.missing_changes_update(heartbeat.last_sn);
             writer_proxy.lost_changes_update(heartbeat.first_sn);
         }
@@ -153,12 +153,16 @@ impl Reader {
             // to must_send_ack
             // Transition: T5
             // set timer whose duration is self.heartbeat_response_delay
-            self.set_reader_hb_timer_sender
-                .send((self.entity_id(), writer_guid))
-                .unwrap();
+            if self.heartbeat_response_delay == Duration::ZERO {
+                self.handle_hb_response_timeout(writer_guid);
+            } else {
+                self.set_reader_hb_timer_sender
+                    .send((self.entity_id(), writer_guid))
+                    .unwrap();
+            }
         } else if !hb_flag.contains(HeartbeatFlag::Liveliness) {
             // to may_send_ack
-            if let Some(writer_proxy) = self.writer_proxy.get_mut(&writer_guid) {
+            if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
                 if writer_proxy.missing_changes().len() == 0 {
                     // to waiting
                     // Transition: T3
@@ -183,7 +187,7 @@ impl Reader {
     pub fn handle_hb_response_timeout(&mut self, writer_guid: GUID) {
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
-        if let Some(writer_proxy) = self.writer_proxy.get_mut(&writer_guid) {
+        if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
             let missign_seq_num_set_base = writer_proxy.available_changes_max() + SequenceNumber(1);
             let mut missign_seq_num_set_set = Vec::new();
             for change in writer_proxy.missing_changes() {

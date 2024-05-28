@@ -41,7 +41,7 @@ pub struct Writer {
     // StatelessWriter
     reader_locators: Vec<ReaderLocator>,
     // StatefulWriter
-    reader_proxy: HashMap<GUID, ReaderProxy>,
+    matched_readers: HashMap<GUID, ReaderProxy>,
     // This implementation spesific
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
@@ -65,7 +65,7 @@ impl Writer {
             writer_cache: Arc::new(RwLock::new(HistoryCache::new())),
             data_max_size_serialized: wi.data_max_size_serialized,
             reader_locators: Vec::new(),
-            reader_proxy: HashMap::new(),
+            matched_readers: HashMap::new(),
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
             sender,
@@ -142,7 +142,7 @@ impl Writer {
             self.add_change_to_hc(a_change.clone());
             let self_entity_id = self.guid().entity_id;
             let self_guid_prefix = self.guid_prefix();
-            for (_guid, reader_proxy) in &mut self.reader_proxy {
+            for (_guid, reader_proxy) in &mut self.matched_readers {
                 while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
                     reader_proxy.update_cache_state(
                         change_for_reader.seq_num,
@@ -240,7 +240,7 @@ impl Writer {
         self.hb_counter += 1;
         let msg = message_builder.build(self.guid_prefix());
         let message_buf = msg.write_to_vec_with_ctx(self.endianness).unwrap();
-        for (_guid, reader_proxy) in &mut self.reader_proxy {
+        for (_guid, reader_proxy) in &mut self.matched_readers {
             for uni_loc in &reader_proxy.unicast_locator_list {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
@@ -287,7 +287,7 @@ impl Writer {
     fn add_change_to_hc(&mut self, change: CacheChange) {
         // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
         self.writer_cache.write().unwrap().add_change(change);
-        for (_guid, reader_proxy) in &mut self.reader_proxy {
+        for (_guid, reader_proxy) in &mut self.matched_readers {
             reader_proxy.update_cache_state(
                 self.last_change_sequence_number,
                 /* TODO: if DDS_FILTER(reader_proxy, change) { false } else { true }, */
@@ -313,7 +313,7 @@ impl Writer {
         multicast_locator_list: Vec<Locator>,
     ) {
         eprintln!("<{}>: add matched Reader", "Writer: Info".green());
-        self.reader_proxy.insert(
+        self.matched_readers.insert(
             remote_reader_guid,
             ReaderProxy::new(
                 remote_reader_guid,
@@ -325,13 +325,13 @@ impl Writer {
         );
     }
     pub fn matched_reader_loolup(&self, guid: GUID) -> Option<ReaderProxy> {
-        match self.reader_proxy.get(&guid) {
+        match self.matched_readers.get(&guid) {
             Some(prxy) => Some(prxy.clone()),
             None => None,
         }
     }
     pub fn matched_reader_remove(&mut self, guid: GUID) {
-        self.reader_proxy.remove(&guid);
+        self.matched_readers.remove(&guid);
     }
 
     pub fn heartbeat_period(&self) -> std::time::Duration {
