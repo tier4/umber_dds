@@ -312,7 +312,11 @@ impl Writer {
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
     ) {
-        eprintln!("<{}>: add matched Reader", "Writer: Info".green());
+        eprintln!(
+            "<{}>: add matched Reader which has {:?}",
+            "Writer: Info".green(),
+            remote_reader_guid
+        );
         self.matched_readers.insert(
             remote_reader_guid,
             ReaderProxy::new(

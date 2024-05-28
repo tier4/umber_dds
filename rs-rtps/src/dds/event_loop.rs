@@ -225,6 +225,13 @@ impl EventLoop {
                             {
                                 if let Some(reader) = self.readers.get(&reader_entity_id) {
                                     let mut reader_hb_timer = Timer::default();
+                                    eprintln!(
+                                        "<{}>: set Reader Heartbeat timer({:?}, ({:?}, {:?}))",
+                                        "EventLoop: Info".green(),
+                                        reader.heartbeat_response_delay(),
+                                        reader_entity_id,
+                                        writer_guid
+                                    );
                                     reader_hb_timer.set_timeout(
                                         reader.heartbeat_response_delay(),
                                         (reader_entity_id, writer_guid),
@@ -244,6 +251,10 @@ impl EventLoop {
                         READER_HEARTBEAT_TIMER => {
                             for rhb_timer in &mut self.reader_hb_timers {
                                 if let Some((reid, wguid)) = rhb_timer.poll() {
+                                    eprintln!(
+                                        "<{}>: fired Reader Heartbeat timer",
+                                        "EventLoop: Info".green(),
+                                    );
                                     if let Some(reader) = self.readers.get_mut(&reid) {
                                         reader.handle_hb_response_timeout(wguid);
                                     }
@@ -299,6 +310,10 @@ impl EventLoop {
 
     fn handle_participant_discovery(&mut self) {
         // configure sedp_builtin_{pub/sub}_writer based on reseived spdp_data
+        eprintln!(
+            "<{}>: handle_participant_discovery",
+            "EventLoop: Info".green(),
+        );
 
         while let Ok(guid_prefix) = self.discdb_update_receiver.try_recv() {
             if let Some(spdp_data) = self.discovery_db.read(guid_prefix) {
@@ -317,7 +332,10 @@ impl EventLoop {
                             .writers
                             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER)
                         {
-                            eprintln!("<{}>: sedp_writer.matched_reader_add", "EventLoop".green());
+                            eprintln!(
+                                "<{}>: sedp_writer.matched_reader_add(remote_sedp_pub_reader)",
+                                "EventLoop: Info".green()
+                            );
                             writer.matched_reader_add(
                                 guid,
                                 spdp_data.expects_inline_qos,
@@ -337,7 +355,10 @@ impl EventLoop {
                             .readers
                             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR)
                         {
-                            eprintln!("<{}>: sedp_reader.matched_writer_add", "EventLoop".green());
+                            eprintln!(
+                                "<{}>: sedp_reader.matched_writer_add(remote_sedp_pub_writer)",
+                                "EventLoop: Info".green()
+                            );
                             reader.matched_writer_add(
                                 guid,
                                 spdp_data.metarraffic_unicast_locator_list.clone(),
@@ -357,7 +378,10 @@ impl EventLoop {
                             .writers
                             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER)
                         {
-                            eprintln!("<{}>: sedp_writer.matched_reader_add", "EventLoop".green());
+                            eprintln!(
+                                "<{}>: sedp_writer.matched_reader_add(remote_sedp_sub_reader)",
+                                "EventLoop".green()
+                            );
                             writer.matched_reader_add(
                                 guid,
                                 spdp_data.expects_inline_qos,
@@ -377,7 +401,10 @@ impl EventLoop {
                             .readers
                             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR)
                         {
-                            eprintln!("<{}>: sedp_reader.matched_writer_add", "EventLoop".green());
+                            eprintln!(
+                                "<{}>: sedp_reader.matched_writer_add(remote_sedp_sub_writer)",
+                                "EventLoop: Info".green()
+                            );
                             reader.matched_writer_add(
                                 guid,
                                 spdp_data.metarraffic_unicast_locator_list,

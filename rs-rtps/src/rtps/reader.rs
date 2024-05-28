@@ -97,7 +97,15 @@ impl Reader {
                 if change.sequence_number > expected_seq_num {
                     writer_proxy_mut.lost_changes_update(change.sequence_number);
                 }
+            } else {
+                eprintln!("<{}>: dosen't write change to reader_cache, because change.sequence_number < expected_seq_num", "Reader: Warn".yellow());
             }
+        } else {
+            eprintln!(
+                "<{}>: couldn't find writer_proxy which has guid {:?}",
+                "Reader: Warn".yellow(),
+                writer_guid
+            );
         }
     }
 
@@ -108,7 +116,11 @@ impl Reader {
         multicast_locator_list: Vec<Locator>,
         data_max_size_serialized: i32,
     ) {
-        eprintln!("<{}>: add matched Writer", "Reader: Info".green());
+        eprintln!(
+            "<{}>: add matched Writer which has {:?}",
+            "Reader: Info".green(),
+            remote_writer_guid
+        );
         self.matched_writers.insert(
             remote_writer_guid,
             WriterProxy::new(
@@ -158,8 +170,16 @@ impl Reader {
             // Transition: T5
             // set timer whose duration is self.heartbeat_response_delay
             if self.heartbeat_response_delay == Duration::ZERO {
+                eprintln!(
+                    "<{}>: heartbeat_response_delay == 0",
+                    "Reader: Info".green(),
+                );
                 self.handle_hb_response_timeout(writer_guid);
             } else {
+                eprintln!(
+                    "<{}>: set_reader_hb_timer_sender sned",
+                    "Reader: Info".green(),
+                );
                 self.set_reader_hb_timer_sender
                     .send((self.entity_id(), writer_guid))
                     .unwrap();
@@ -177,9 +197,21 @@ impl Reader {
 
                     // Transition: T5
                     // set timer whose duration is self.heartbeat_response_delay
-                    self.set_reader_hb_timer_sender
-                        .send((self.entity_id(), writer_guid))
-                        .unwrap();
+                    if self.heartbeat_response_delay == Duration::ZERO {
+                        eprintln!(
+                            "<{}>: heartbeat_response_delay == 0",
+                            "Reader: Info".green(),
+                        );
+                        self.handle_hb_response_timeout(writer_guid);
+                    } else {
+                        eprintln!(
+                            "<{}>: set_reader_hb_timer_sender sned",
+                            "Reader: Info".green(),
+                        );
+                        self.set_reader_hb_timer_sender
+                            .send((self.entity_id(), writer_guid))
+                            .unwrap();
+                    }
                 }
             }
         } else {
@@ -214,6 +246,15 @@ impl Reader {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
                     let addr = uni_loc.address;
+                    eprintln!(
+                        "<{}>: sned acknack(heartbeat response) message to {}.{}.{}.{}:{}",
+                        "Reader: Info".green(),
+                        addr[12],
+                        addr[13],
+                        addr[14],
+                        addr[15],
+                        port
+                    );
                     self.sender.send_to(
                         &message_buf,
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
@@ -221,6 +262,12 @@ impl Reader {
                     );
                 }
             }
+        } else {
+            eprintln!(
+                "<{}>: couldn't find reader which has {:?}",
+                "Reader: Warn".yellow(),
+                writer_guid
+            );
         }
     }
 

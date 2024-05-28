@@ -31,6 +31,7 @@ use crate::structure::{
     topic_kind::TopicKind,
     vendor_id::VendorId,
 };
+use colored::*;
 use enumflags2::make_bitflags;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
@@ -306,6 +307,7 @@ impl Discovery {
                 continue;
             } else {
                 let guid_prefix = spdp_data.guid.guid_prefix;
+                eprintln!("<{}>: discovery_db wite", "Discovery: Info".green());
                 self.discovery_db.write(
                     spdp_data.guid.guid_prefix,
                     Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),

@@ -436,7 +436,7 @@ impl MessageReceiver {
             Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
             None => {
                 eprintln!(
-                    "<{}>: couldn't find reader whitch has {:?}\nthere are readers which has eid:\n{}",
+                    "<{}>: couldn't find reader which has {:?}\nthere are readers which has eid:\n{}",
                     "MessageReceiver: Warn".yellow(),
                     heartbeat.reader_id,
                     reader_eids
