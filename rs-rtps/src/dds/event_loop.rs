@@ -178,11 +178,28 @@ impl EventLoop {
                         }
                         ADD_READER_TOKEN => {
                             while let Ok(reader_ing) = self.add_reader_receiver.try_recv() {
-                                let reader = Reader::new(
+                                let mut reader = Reader::new(
                                     reader_ing,
                                     self.sender.clone(),
                                     self.set_reader_hb_timer_sender.clone(),
                                 );
+                                if reader.guid().entity_id
+                                    == EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
+                                {
+                                    eprintln!(
+                                        "<{}>: add WriterProxy to SPDP Reader",
+                                        "EventLoop: Info".green()
+                                    );
+                                    reader.matched_writer_add(
+                                        GUID::UNKNOW,
+                                        Vec::new(),
+                                        Vec::from([Locator::new_from_ipv4(
+                                            spdp_multicast_port(self.domain_id) as u32,
+                                            [239, 255, 0, 1],
+                                        )]),
+                                        0,
+                                    );
+                                }
                                 self.readers.insert(reader.entity_id(), reader);
                             }
                         }
