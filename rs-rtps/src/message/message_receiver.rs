@@ -232,7 +232,7 @@ impl MessageReceiver {
         // rtps 2.3 spec 8.3.7. AckNack
 
         // validation
-        if !ackanck.reader_sn_state.is_valid() {
+        if !ackanck.is_valid() {
             return Err(MessageError("Invalid AckNack Submessage".to_string()));
         }
 

@@ -24,6 +24,10 @@ impl AckNack {
             count,
         }
     }
+
+    pub fn is_valid(&self) -> bool {
+        self.reader_sn_state.is_valid()
+    }
 }
 
 #[cfg(test)]
