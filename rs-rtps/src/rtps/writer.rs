@@ -140,7 +140,6 @@ impl Writer {
             );
             // register a_change to writer HistoryCache
             self.add_change_to_hc(a_change.clone());
-            let self_entity_id = self.guid().entity_id;
             let self_guid_prefix = self.guid_prefix();
             for (_guid, reader_proxy) in &mut self.matched_readers {
                 while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
@@ -162,7 +161,7 @@ impl Writer {
                             message_builder.info_ts(Endianness::LittleEndian, time_stamp);
                             message_builder.data(
                                 Endianness::LittleEndian,
-                                EntityId::UNKNOW,
+                                reader_proxy.remote_reader_guid.entity_id,
                                 self.guid.entity_id,
                                 aa_change,
                             );
@@ -224,23 +223,25 @@ impl Writer {
     }
 
     pub fn send_heart_beat(&mut self) {
-        let mut message_builder = MessageBuilder::new();
         let time_stamp = Timestamp::now();
-        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
         let writer_cache = self.writer_cache.read().unwrap();
-        message_builder.heartbeat(
-            self.endianness,
-            self.entity_id(),
-            self.entity_id(),
-            writer_cache.get_seq_num_min(),
-            writer_cache.get_seq_num_max(),
-            self.hb_counter,
-            false,
-        );
         self.hb_counter += 1;
-        let msg = message_builder.build(self.guid_prefix());
-        let message_buf = msg.write_to_vec_with_ctx(self.endianness).unwrap();
+        let self_guid_prefix = self.guid_prefix();
+        let self_entity_id = self.entity_id();
         for (_guid, reader_proxy) in &mut self.matched_readers {
+            let mut message_builder = MessageBuilder::new();
+            message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+            message_builder.heartbeat(
+                self.endianness,
+                self_entity_id,
+                reader_proxy.remote_reader_guid.entity_id,
+                writer_cache.get_seq_num_min(),
+                writer_cache.get_seq_num_max(),
+                self.hb_counter - 1,
+                false,
+            );
+            let msg = message_builder.build(self_guid_prefix);
+            let message_buf = msg.write_to_vec_with_ctx(self.endianness).unwrap();
             for uni_loc in &reader_proxy.unicast_locator_list {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
