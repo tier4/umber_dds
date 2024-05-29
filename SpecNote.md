@@ -345,6 +345,18 @@ reference implementationsはUML sequence chartsとstate-diagramsで説明され�
 8.2で最初に説明したように、RTPS Writer Reference ImplementationsはRTPS Writer classのspwcializationに基づいている。この章では、RTPS Writerと RTPS Writer Reference
 Implementationsをモデル化するために使用されるすべての追加のclassを説明する。実際の振る舞いは8.4.8と8.4.9で説明される。
 
+### ReliableでStatefulなBehaviorのまとめ
+
+それぞれのTransitionの詳細は8.4.9.2 Reliable StatefulWriter Behavior, 8.4.12.2 Reliable StatefulReader Behaviorを参照
+
+再送無しバージョン
+
+![rtps_reliable_communication_ok](https://github.com/tier4/T4RustDDS/assets/58660268/53dd5418-4f96-41eb-82a5-ad461c9ed1ab)
+
+再送有りバージョン
+
+![rtps_reliable_communication_resend](https://github.com/tier4/T4RustDDS/assets/58660268/24bcdf7c-3469-4ca9-b97f-db1c2cad24af)
+
 ### 8.4.7.1 RTPS Writer
 DataWriterからRTPS Writerへ情報を渡すために,RTPS WriterはHistoryCacheを持っている。
 StatefulWriterはmatchする各Readerの管理のために,matchしたremote Reader1つに対し1つのReaderProxyを持つ。
@@ -428,6 +440,12 @@ delete the_reader_proxy;
 ```
 
 #### 8.4.9.2 Reliable StatefulWriter Behavior
+
+3つの状態機械があり、それぞれ、Dataの送信、Dataの再送、HistoryCacheの状態を管理している。
+それぞれのTransitionは以下のように状態機械と対応している。
++ Dataの送信: T1 ~ T7
++ Dataの再送: T8 ~ T13
++ HistoryCache: T14 ~ T15
 
 + Transition T1: Initial -> announcing
 
@@ -635,6 +653,12 @@ FOREACH seq_num IN GAP.gapList DO {
 ```
 
 #### 8.4.12.2 Reliable StatefulReader Behavior
+
+2つの状態機械があり、それぞれDataの再送、Messageの受信を管理している。
+それぞれのTransitionは以下のように状態機械と対応している。
++ Dataの再送: T1 ~ T5
++ Messageの受信: T6 ~ T9
+
 
 + Transition T1: Initial -> waiting
 
