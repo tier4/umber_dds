@@ -161,9 +161,16 @@ impl Reader {
         hb_flag: BitFlags<HeartbeatFlag>,
         heartbeat: Heartbeat,
     ) {
-        for (_guid, writer_proxy) in &mut self.matched_writers {
+        if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
             writer_proxy.missing_changes_update(heartbeat.last_sn);
             writer_proxy.lost_changes_update(heartbeat.first_sn);
+        } else {
+            eprintln!(
+                "<{}>: couldn't find reader which has {:?}",
+                "Reader: Warn".yellow(),
+                writer_guid
+            );
+            return;
         }
         if !hb_flag.contains(HeartbeatFlag::Final) {
             // to must_send_ack
