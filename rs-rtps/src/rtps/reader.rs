@@ -77,35 +77,53 @@ impl Reader {
 
     pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
-        if self.matched_writer_lookup(writer_guid).is_some() {
-            let flag;
-            let expected_seq_num;
-            {
-                let writer_proxy = self.matched_writers.get(&writer_guid).unwrap();
-                expected_seq_num = writer_proxy.available_changes_max() + SequenceNumber(1);
-                flag = change.sequence_number >= expected_seq_num;
-            }
-            if flag {
-                self.reader_cache
-                    .write()
-                    .unwrap()
-                    .add_change(change.clone());
-                eprintln!("<{}>: add change to reader_cache", "Reader: Info".green());
-                self.reader_ready_notifier.send(()).unwrap();
-                let writer_proxy_mut = self.matched_writers.get_mut(&writer_guid).unwrap();
-                writer_proxy_mut.received_chage_set(change.sequence_number);
-                if change.sequence_number > expected_seq_num {
-                    writer_proxy_mut.lost_changes_update(change.sequence_number);
-                }
-            } else {
-                eprintln!("<{}>: dosen't write change to reader_cache, because change.sequence_number < expected_seq_num", "Reader: Warn".yellow());
+        if self.is_reliable() {
+            self.reader_cache
+                .write()
+                .unwrap()
+                .add_change(change.clone());
+            eprintln!(
+                "<{}>: reliable reader, add change to reader_cache",
+                "Reader: Info".green()
+            );
+            self.reader_ready_notifier.send(()).unwrap();
+            if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
+                writer_proxy.received_chage_set(change.sequence_number);
             }
         } else {
-            eprintln!(
-                "<{}>: couldn't find writer_proxy which has guid {:?}",
-                "Reader: Warn".yellow(),
-                writer_guid
-            );
+            if self.matched_writer_lookup(writer_guid).is_some() {
+                let flag;
+                let expected_seq_num;
+                {
+                    let writer_proxy = self.matched_writers.get(&writer_guid).unwrap();
+                    expected_seq_num = writer_proxy.available_changes_max() + SequenceNumber(1);
+                    flag = change.sequence_number >= expected_seq_num;
+                }
+                if flag {
+                    self.reader_cache
+                        .write()
+                        .unwrap()
+                        .add_change(change.clone());
+                    eprintln!(
+                        "<{}>: besteffort reader, add change to reader_cache",
+                        "Reader: Info".green()
+                    );
+                    self.reader_ready_notifier.send(()).unwrap();
+                    let writer_proxy_mut = self.matched_writers.get_mut(&writer_guid).unwrap();
+                    writer_proxy_mut.received_chage_set(change.sequence_number);
+                    if change.sequence_number > expected_seq_num {
+                        writer_proxy_mut.lost_changes_update(change.sequence_number);
+                    }
+                } else {
+                    eprintln!("<{}>: dosen't write change to reader_cache, because change.sequence_number < expected_seq_num", "Reader: Warn".yellow());
+                }
+            } else {
+                eprintln!(
+                    "<{}>: couldn't find writer_proxy which has guid {:?}",
+                    "Reader: Warn".yellow(),
+                    writer_guid
+                );
+            }
         }
     }
 
