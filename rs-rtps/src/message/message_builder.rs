@@ -1,8 +1,13 @@
 use super::element::*;
 use super::{
     submessage::{
-        element::{acknack::AckNack, data::Data, heartbeat::Heartbeat, infots::InfoTimestamp},
-        submessage_flag::{AckNackFlag, DataFlag, HeartbeatFlag, InfoTimestampFlag},
+        element::{
+            acknack::AckNack, data::Data, heartbeat::Heartbeat, infodst::InfoDestination,
+            infots::InfoTimestamp,
+        },
+        submessage_flag::{
+            AckNackFlag, DataFlag, HeartbeatFlag, InfoDestionationFlag, InfoTimestampFlag,
+        },
         submessage_header::SubMessageHeader,
         EntitySubmessage, InterpreterSubmessage, SubMessage, SubMessageBody, SubMessageKind,
     },
@@ -49,6 +54,26 @@ impl MessageBuilder {
             body: ts_body,
         };
         self.submessages.push(ts_msg);
+    }
+
+    pub fn info_dst(&mut self, endiannes: Endianness, destination: GuidPrefix) {
+        let dst_flag = InfoDestionationFlag::from_enndianness(endiannes);
+        let infodst_body_length = 12;
+        let info_dst = InfoDestination {
+            guid_prefix: destination,
+        };
+        let dst_body =
+            SubMessageBody::Interpreter(InterpreterSubmessage::InfoDestination(info_dst, dst_flag));
+        let dst_header = SubMessageHeader::new(
+            SubMessageKind::INFO_DST as u8,
+            dst_flag.bits(),
+            infodst_body_length,
+        );
+        let dst_msg = SubMessage {
+            header: dst_header,
+            body: dst_body,
+        };
+        self.submessages.push(dst_msg);
     }
 
     pub fn acknack(
@@ -149,9 +174,9 @@ impl MessageBuilder {
         self.submessages.push(data_msg);
     }
 
-    pub fn build(self, guid_prefix: GuidPrefix) -> Message {
+    pub fn build(self, self_guid_prefix: GuidPrefix) -> Message {
         Message {
-            header: Header::new(guid_prefix),
+            header: Header::new(self_guid_prefix),
             submessages: self.submessages,
         }
     }
