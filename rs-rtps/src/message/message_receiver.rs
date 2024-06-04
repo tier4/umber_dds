@@ -249,11 +249,10 @@ impl MessageReceiver {
             return Err(MessageError("Invalid AckNack Submessage".to_string()));
         }
 
-        let writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);
+        let _writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);
         let reader_guid = GUID::new(self.source_guid_prefix, ackanck.reader_id);
-        // TODO: writer.handle_acknackに適切な引数を渡す。
         match writers.get_mut(&ackanck.writer_id) {
-            Some(w) => w.handle_acknack(),
+            Some(w) => w.handle_acknack(ackanck, reader_guid),
             None => (),
         };
         Ok(())

@@ -1,6 +1,8 @@
 use crate::message::{
     message_builder::MessageBuilder,
-    submessage::element::{Count, Locator, SequenceNumber, SerializedPayload, Timestamp},
+    submessage::element::{
+        acknack::AckNack, Count, Locator, SequenceNumber, SerializedPayload, Timestamp,
+    },
 };
 use crate::network::udp_sender::UdpSender;
 use crate::policy::ReliabilityQosKind;
@@ -302,8 +304,11 @@ impl Writer {
         }
     }
 
-    pub fn handle_acknack(&mut self) {
-        todo!(); // TODO
+    pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) {
+        if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
+            reader_proxy.acked_changes_set(acknack.reader_sn_state.base() - SequenceNumber(1));
+            reader_proxy.requested_changes_set(acknack.reader_sn_state.set());
+        }
     }
 
     pub fn matched_reader_add(
