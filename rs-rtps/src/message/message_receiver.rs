@@ -232,6 +232,19 @@ impl MessageReceiver {
         // rtps 2.3 spec 8.3.7. AckNack
 
         // validation
+        if ackanck.reader_sn_state.bitmap_base == SequenceNumber(0)
+            && ackanck.reader_sn_state.num_bits == 0
+        {
+            // CycloneDDS send bitmap_base = 0, num_bits = 0
+            // this is invalid AckNack but, WireShark call this Preemptive ACKNACK
+            // I think Preemptive ACKNACK is the ACKNACK message which sent before discover remote
+            // reader.
+            eprintln!(
+                "<{}>: handle Preemptive ACKNACK",
+                "MessageReceiver: Info".green(),
+            );
+            return Ok(());
+        }
         if !ackanck.is_valid() {
             return Err(MessageError("Invalid AckNack Submessage".to_string()));
         }
