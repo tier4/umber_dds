@@ -257,6 +257,7 @@ impl Reader {
             let reader_sn_state =
                 SequenceNumberSet::from_vec(missign_seq_num_set_base, missign_seq_num_set_set);
             let mut message_builder = MessageBuilder::new();
+            message_builder.info_dst(self.endianness, writer_proxy.remote_writer_guid.guid_prefix);
             message_builder.acknack(
                 self.endianness,
                 self_entity_id,
