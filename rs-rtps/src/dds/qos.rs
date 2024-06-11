@@ -270,7 +270,10 @@ pub mod policy {
         pub max_bloking_time: Duration,
     }
     impl Reliability {
-        pub fn default_datareader() -> Self {
+        // DDS v1.4 spec, 2.2.3 Supported QoS specifies
+        // default value of max_bloking_time is 100ms
+
+        pub fn default_besteffort() -> Self {
             Self {
                 kind: ReliabilityQosKind::BestEffort,
                 max_bloking_time: Duration {
@@ -279,7 +282,7 @@ pub mod policy {
                 },
             }
         }
-        pub fn default_datawriter() -> Self {
+        pub fn default_reliable() -> Self {
             Self {
                 kind: ReliabilityQosKind::Reliable,
                 max_bloking_time: Duration {
