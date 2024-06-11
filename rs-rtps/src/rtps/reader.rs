@@ -1,10 +1,10 @@
+use crate::dds::qos::policy::ReliabilityQosKind;
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
     element::{gap::Gap, heartbeat::Heartbeat, Count, Locator, SequenceNumber, SequenceNumberSet},
     submessage_flag::HeartbeatFlag,
 };
 use crate::network::udp_sender::UdpSender;
-use crate::policy::ReliabilityQosKind;
 use crate::rtps::cache::{CacheChange, HistoryCache};
 use crate::structure::{
     duration::Duration,

@@ -1,3 +1,4 @@
+use crate::dds::qos::policy::ReliabilityQosKind;
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
@@ -5,7 +6,6 @@ use crate::message::{
     },
 };
 use crate::network::udp_sender::UdpSender;
-use crate::policy::ReliabilityQosKind;
 use crate::rtps::cache::{
     CacheChange, ChangeForReaderStatusKind, ChangeKind, HistoryCache, InstantHandle,
 };
