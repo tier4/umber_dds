@@ -15,7 +15,6 @@ use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::time::Duration;
 
 use crate::message::message_receiver::*;
 use crate::message::submessage::element::Locator;

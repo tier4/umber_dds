@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
+use std::time::Duration as StdDuration;
 
 /// RTPS StatefulWriter
 pub struct Writer {
@@ -344,8 +345,8 @@ impl Writer {
         self.matched_readers.remove(&guid);
     }
 
-    pub fn heartbeat_period(&self) -> std::time::Duration {
-        std::time::Duration::new(
+    pub fn heartbeat_period(&self) -> StdDuration {
+        StdDuration::new(
             self.heartbeat_period.seconds as u64,
             self.heartbeat_period.fraction,
         )

@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
+use std::time::Duration as StdDuration;
 
 /// RTPS StatefulReader
 pub struct Reader {
@@ -297,8 +298,8 @@ impl Reader {
         }
     }
 
-    pub fn heartbeat_response_delay(&self) -> std::time::Duration {
-        std::time::Duration::new(
+    pub fn heartbeat_response_delay(&self) -> StdDuration {
+        StdDuration::new(
             self.heartbeat_response_delay.seconds as u64,
             self.heartbeat_response_delay.fraction,
         )

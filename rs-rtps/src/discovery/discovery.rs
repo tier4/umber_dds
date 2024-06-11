@@ -24,6 +24,7 @@ use crate::network::net_util::{
 };
 use crate::rtps::cache::HistoryCache;
 use crate::structure::{
+    duration::Duration,
     entity::RTPSEntity,
     entity_id::EntityId,
     guid::{GuidPrefix, GUID},
@@ -36,7 +37,7 @@ use enumflags2::make_bitflags;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::time::Duration as StdDuration;
 
 // SPDPbuiltinParticipantWriter
 // RTPS Best-Effort StatelessWriter
@@ -162,7 +163,7 @@ impl Discovery {
             );
 
         let mut spdp_send_timer: Timer<()> = Timer::default();
-        spdp_send_timer.set_timeout(Duration::new(3, 0), ());
+        spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
         poll.register(
             &mut spdp_send_timer,
             SPDP_SEND_TIMER,
@@ -207,7 +208,7 @@ impl Discovery {
             ),
             Locator::new_list_from_self_ipv4(usertraffic_multicast_port(domain_id) as u32),
             Some(0),
-            crate::structure::duration::Duration::new(20, 0),
+            Duration::new(20, 0),
         );
         let writer_proxy = WriterProxy::new(
             self.dp.guid(),
@@ -280,7 +281,7 @@ impl Discovery {
                                 .write_builtin_data(discoverd_writer_data.clone());
                             self.sedp_builtin_sub_writer
                                 .write_builtin_data(discoverd_reader_data.clone());
-                            self.spdp_send_timer.set_timeout(Duration::new(3, 0), ());
+                            self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
                         }
                         SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
                         Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
