@@ -1,4 +1,4 @@
-use crate::dds::qos::policy::ReliabilityQosKind;
+use crate::dds::{qos::policy::ReliabilityQosKind, topic::Topic};
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
     element::{gap::Gap, heartbeat::Heartbeat, Count, Locator, SequenceNumber, SequenceNumberSet},
@@ -40,6 +40,7 @@ pub struct Reader {
     // StatefulReader
     matched_writers: HashMap<GUID, WriterProxy>,
     // This implementation spesific
+    topic: Topic,
     endianness: Endianness,
     reader_ready_notifier: mio_channel::Sender<()>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
@@ -62,6 +63,7 @@ impl Reader {
             heartbeat_response_delay: ri.heartbeat_response_delay,
             reader_cache: ri.rhc,
             matched_writers: HashMap::new(),
+            topic: ri.topic,
             endianness: Endianness::LittleEndian,
             reader_ready_notifier: ri.reader_ready_notifier,
             set_reader_hb_timer_sender,
@@ -319,6 +321,7 @@ pub struct ReaderIngredients {
     pub heartbeat_response_delay: Duration,
     pub rhc: Arc<RwLock<HistoryCache>>,
     // This implementation spesific
+    pub topic: Topic,
     pub reader_ready_notifier: mio_channel::Sender<()>,
 }
 

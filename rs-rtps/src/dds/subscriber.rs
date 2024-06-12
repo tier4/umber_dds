@@ -109,6 +109,7 @@ impl InnerSubscriber {
             expectsinline_qos: false,
             heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),
+            topic: topic.clone(),
             reader_ready_notifier,
         };
         self.add_reader_sender.send(reader_ing).unwrap();
@@ -138,6 +139,7 @@ impl InnerSubscriber {
             expectsinline_qos: false,
             heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),
+            topic: topic.clone(),
             reader_ready_notifier,
         };
         self.add_reader_sender.send(reader_ing).unwrap();

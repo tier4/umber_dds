@@ -1,4 +1,4 @@
-use crate::dds::qos::policy::ReliabilityQosKind;
+use crate::dds::{qos::policy::ReliabilityQosKind, topic::Topic};
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
@@ -46,6 +46,7 @@ pub struct Writer {
     // StatefulWriter
     matched_readers: HashMap<GUID, ReaderProxy>,
     // This implementation spesific
+    topic: Topic,
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
     sender: Rc<UdpSender>,
@@ -69,6 +70,7 @@ impl Writer {
             data_max_size_serialized: wi.data_max_size_serialized,
             reader_locators: Vec::new(),
             matched_readers: HashMap::new(),
+            topic: wi.topic,
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
             sender,
@@ -374,6 +376,7 @@ pub struct WriterIngredients {
     pub nack_suppression_duration: Duration,
     pub data_max_size_serialized: i32,
     // This implementation spesific
+    pub topic: Topic,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
 }
 pub struct WriterCmd {

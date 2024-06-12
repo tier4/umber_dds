@@ -126,6 +126,7 @@ impl InnerPublisher {
             nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
             nack_suppression_duration: Duration::ZERO,
             data_max_size_serialized: 0,
+            topic: topic.clone(),
             writer_command_receiver,
         };
         self.add_writer_sender.send(writer_ing).unwrap();
@@ -159,6 +160,7 @@ impl InnerPublisher {
             nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
             nack_suppression_duration: Duration::ZERO,
             data_max_size_serialized: 0,
+            topic: topic.clone(),
             writer_command_receiver,
         };
         self.add_writer_sender.send(writer_ing).unwrap();
