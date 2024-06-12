@@ -435,7 +435,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         .next_element()?
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                     let parameter_id = ParameterId { value: pid };
-                    let _length: u16 = seq
+                    let length: u16 = seq
                         .next_element()?
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                     match parameter_id {
@@ -528,9 +528,32 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         }
                         ParameterId::PID_TYPE_NAME => {
                             type_name = seq.next_element()?;
+                            let pad_len = length - 4 - 1 - type_name.as_ref().unwrap().len() as u16;
+                            match pad_len {
+                                0 => (),
+                                1 => read_pad!(u8),
+                                2 => read_pad!(u16),
+                                3 => {
+                                    read_pad!(u16);
+                                    read_pad!(u8);
+                                }
+                                _ => unreachable!(),
+                            }
                         }
                         ParameterId::PID_TOPIC_NAME => {
                             topic_name = seq.next_element()?;
+                            let pad_len =
+                                length - 4 - 1 - topic_name.as_ref().unwrap().len() as u16;
+                            match pad_len {
+                                0 => (),
+                                1 => read_pad!(u8),
+                                2 => read_pad!(u16),
+                                3 => {
+                                    read_pad!(u16);
+                                    read_pad!(u8);
+                                }
+                                _ => unreachable!(),
+                            }
                         }
                         ParameterId::PID_DURABILITY => {
                             durability = seq.next_element()?;
@@ -738,15 +761,27 @@ impl Serialize for SubscriptionBuiltinTopicData {
         // topic_name
         if let Some(topic_name) = &self.topic_name {
             s.serialize_field("parameterId", &ParameterId::PID_TOPIC_NAME.value)?;
-            s.serialize_field::<u16>("parameterLength", &(topic_name.len() as u16))?;
+            let str_len = topic_name.len() as u16;
+            let serialized_str_len = str_len + 4 + 1; // 4 is length of string, 0 is null
+            let pad_len = (4 - serialized_str_len % 4) % 4;
+            s.serialize_field::<u16>("parameterLength", &(serialized_str_len + pad_len))?;
             s.serialize_field("topic_name", &topic_name)?;
+            for _ in 0..pad_len {
+                s.serialize_field::<u8>("padding", &0)?;
+            }
         }
 
         // type_name
         if let Some(type_name) = &self.type_name {
             s.serialize_field("parameterId", &ParameterId::PID_TYPE_NAME.value)?;
-            s.serialize_field::<u16>("parameterLength", &(type_name.len() as u16))?;
+            let str_len = type_name.len() as u16;
+            let serialized_str_len = str_len + 4 + 1; // 4 is length of string, 0 is null
+            let pad_len = (4 - serialized_str_len % 4) % 4;
+            s.serialize_field::<u16>("parameterLength", &(serialized_str_len + pad_len))?;
             s.serialize_field("type_name", &type_name)?;
+            for _ in 0..pad_len {
+                s.serialize_field::<u8>("padding", &0)?;
+            }
         }
 
         // durability
@@ -940,15 +975,27 @@ impl Serialize for PublicationBuiltinTopicData {
         // type_name
         if let Some(type_name) = &self.type_name {
             s.serialize_field("parameterId", &ParameterId::PID_TYPE_NAME.value)?;
-            s.serialize_field::<u16>("parameterLength", &(type_name.len() as u16))?;
+            let str_len = type_name.len() as u16;
+            let serialized_str_len = str_len + 4 + 1; // 4 is length of string, 0 is null
+            let pad_len = (4 - serialized_str_len % 4) % 4;
+            s.serialize_field::<u16>("parameterLength", &(serialized_str_len + pad_len))?;
             s.serialize_field("type_name", &type_name)?;
+            for _ in 0..pad_len {
+                s.serialize_field::<u8>("padding", &0)?;
+            }
         }
 
         // topic_name
         if let Some(topic_name) = &self.topic_name {
             s.serialize_field("parameterId", &ParameterId::PID_TOPIC_NAME.value)?;
-            s.serialize_field::<u16>("parameterLength", &(topic_name.len() as u16))?;
+            let str_len = topic_name.len() as u16;
+            let serialized_str_len = str_len + 4 + 1; // 4 is length of string, 0 is null
+            let pad_len = (4 - serialized_str_len % 4) % 4;
+            s.serialize_field::<u16>("parameterLength", &(serialized_str_len + pad_len))?;
             s.serialize_field("topic_name", &topic_name)?;
+            for _ in 0..pad_len {
+                s.serialize_field::<u8>("padding", &0)?;
+            }
         }
 
         // durability
