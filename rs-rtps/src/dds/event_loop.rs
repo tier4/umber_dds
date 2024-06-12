@@ -1,5 +1,9 @@
 use crate::dds::tokens::*;
-use crate::discovery::{discovery_db::DiscoveryDB, structure::builtin_endpoint::BuiltinEndpoint};
+use crate::discovery::{
+    discovery_db::DiscoveryDB,
+    structure::builtin_endpoint::BuiltinEndpoint,
+    structure::data::{DiscoveredReaderData, DiscoveredWriterData},
+};
 use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterIngredients};
 use crate::structure::{
@@ -30,6 +34,8 @@ pub struct EventLoop {
     message_receiver: MessageReceiver,
     add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
     add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
+    writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
+    reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
     set_reader_hb_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
     writers: HashMap<EntityId, Writer>,
@@ -48,6 +54,8 @@ impl EventLoop {
         participant_guidprefix: GuidPrefix,
         mut add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
         mut add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
+        writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
+        reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         discovery_db: DiscoveryDB,
         mut discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     ) -> EventLoop {
@@ -102,6 +110,8 @@ impl EventLoop {
             message_receiver,
             add_writer_receiver,
             add_reader_receiver,
+            writer_add_sender,
+            reader_add_sender,
             set_reader_hb_timer_sender,
             set_reader_hb_timer_receiver,
             writers: HashMap::new(),
@@ -142,7 +152,7 @@ impl EventLoop {
                         ADD_WRITER_TOKEN => {
                             while let Ok(writer_ing) = self.add_writer_receiver.try_recv() {
                                 let mut writer = Writer::new(writer_ing, self.sender.clone());
-                                if writer.guid().entity_id
+                                if writer.entity_id()
                                     == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
                                 {
                                     eprintln!(
@@ -177,6 +187,13 @@ impl EventLoop {
                                         PollOpt::edge(),
                                     )
                                     .unwrap();
+                                if writer.entity_id()
+                                    != EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
+                                {
+                                    self.writer_add_sender
+                                        .send((writer.entity_id(), writer.sedp_data()))
+                                        .unwrap();
+                                }
                                 self.writers.insert(writer.entity_id(), writer);
                             }
                         }
@@ -187,6 +204,12 @@ impl EventLoop {
                                     self.sender.clone(),
                                     self.set_reader_hb_timer_sender.clone(),
                                 );
+                                if reader.entity_id() != EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
+                                {
+                                    self.reader_add_sender
+                                        .send((reader.entity_id(), reader.sedp_data()))
+                                        .unwrap();
+                                }
                                 self.readers.insert(reader.entity_id(), reader);
                             }
                         }

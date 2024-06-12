@@ -1,4 +1,5 @@
 use crate::dds::{qos::policy::ReliabilityQosKind, topic::Topic};
+use crate::discovery::structure::data::DiscoveredReaderData;
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
     element::{gap::Gap, heartbeat::Heartbeat, Count, Locator, SequenceNumber, SequenceNumberSet},
@@ -11,7 +12,7 @@ use crate::structure::{
     entity::RTPSEntity,
     entity_id::EntityId,
     guid::{GuidPrefix, GUID},
-    proxy::WriterProxy,
+    proxy::{ReaderProxy, WriterProxy},
     topic_kind::TopicKind,
 };
 use colored::*;
@@ -76,6 +77,18 @@ impl Reader {
             ReliabilityQosKind::Reliable => true,
             ReliabilityQosKind::BestEffort => false,
         }
+    }
+
+    pub fn sedp_data(&self) -> DiscoveredReaderData {
+        let proxy = ReaderProxy::new(
+            self.guid,
+            self.expectsinline_qos,
+            self.unicast_locator_list.clone(),
+            self.multicast_locator_list.clone(),
+            Arc::new(RwLock::new(HistoryCache::new())),
+        );
+        let sub_data = self.topic.sub_builtin_topic_data();
+        DiscoveredReaderData::new(proxy, sub_data)
     }
 
     pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {

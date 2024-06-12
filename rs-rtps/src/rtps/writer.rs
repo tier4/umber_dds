@@ -1,4 +1,5 @@
 use crate::dds::{qos::policy::ReliabilityQosKind, topic::Topic};
+use crate::discovery::structure::data::DiscoveredWriterData;
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
@@ -11,7 +12,11 @@ use crate::rtps::cache::{
 };
 use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{
-    duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GUID, proxy::ReaderProxy,
+    duration::Duration,
+    entity::RTPSEntity,
+    entity_id::EntityId,
+    guid::GUID,
+    proxy::{ReaderProxy, WriterProxy},
     topic_kind::TopicKind,
 };
 use colored::*;
@@ -76,6 +81,18 @@ impl Writer {
             sender,
             hb_counter: 0,
         }
+    }
+
+    pub fn sedp_data(&self) -> DiscoveredWriterData {
+        let proxy = WriterProxy::new(
+            self.guid,
+            self.unicast_locator_list.clone(),
+            self.multicast_locator_list.clone(),
+            self.data_max_size_serialized,
+            Arc::new(RwLock::new(HistoryCache::new())),
+        );
+        let pub_data = self.topic.pub_builtin_topic_data();
+        DiscoveredWriterData::new(proxy, pub_data)
     }
 
     pub fn new_change(

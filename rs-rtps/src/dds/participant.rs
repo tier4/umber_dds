@@ -1,4 +1,8 @@
-use crate::discovery::{discovery::Discovery, discovery_db::DiscoveryDB};
+use crate::discovery::{
+    discovery::Discovery,
+    discovery_db::DiscoveryDB,
+    structure::data::{DiscoveredReaderData, DiscoveredWriterData},
+};
 use crate::network::net_util::*;
 use crate::rtps::reader::ReaderIngredients;
 use crate::rtps::writer::WriterIngredients;
@@ -42,19 +46,31 @@ impl DomainParticipant {
             mio_channel::channel::<thread::JoinHandle<()>>();
         let (discdb_update_sender, discdb_update_receiver) = mio_channel::channel::<GuidPrefix>();
         let discovery_db = DiscoveryDB::new();
+        let (writer_add_sender, writer_add_receiver) =
+            mio_channel::channel::<(EntityId, DiscoveredWriterData)>();
+        let (reader_add_sender, reader_add_receiver) =
+            mio_channel::channel::<(EntityId, DiscoveredReaderData)>();
         let dp = Self {
             inner: Arc::new(Mutex::new(DomainParticipantDisc::new(
                 domain_id,
                 disc_thread_receiver,
                 discovery_db.clone(),
                 discdb_update_receiver,
+                writer_add_sender,
+                reader_add_sender,
             ))),
         };
         let dp_clone = dp.clone();
         let discovery_handler = Builder::new()
             .name(String::from("discovery"))
             .spawn(|| {
-                let mut discovery = Discovery::new(dp_clone, discovery_db, discdb_update_sender);
+                let mut discovery = Discovery::new(
+                    dp_clone,
+                    discovery_db,
+                    discdb_update_sender,
+                    writer_add_receiver,
+                    reader_add_receiver,
+                );
                 discovery.discovery_loop();
             })
             .unwrap();
@@ -95,12 +111,16 @@ impl DomainParticipantDisc {
         disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
         discovery_db: DiscoveryDB,
         discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
+        writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
+        reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
     ) -> Self {
         Self {
             inner: Arc::new(DomainParticipantInner::new(
                 domain_id,
                 discovery_db,
                 discdb_update_receiver,
+                writer_add_sender,
+                reader_add_sender,
             )),
             disc_thread_receiver,
         }
@@ -150,6 +170,8 @@ impl DomainParticipantInner {
         domain_id: u16,
         discovery_db: DiscoveryDB,
         discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
+        writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
+        reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
     ) -> DomainParticipantInner {
         let mut socket_list: HashMap<mio_v06::Token, UdpSocket> = HashMap::new();
         let spdp_multi_socket = new_multicast(
@@ -209,6 +231,8 @@ impl DomainParticipantInner {
                 guid_prefix,
                 add_writer_receiver,
                 add_reader_receiver,
+                writer_add_sender,
+                reader_add_sender,
                 discovery_db,
                 discdb_update_receiver,
             );

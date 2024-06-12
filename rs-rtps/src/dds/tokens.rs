@@ -36,3 +36,5 @@ pub const SEDP_SUBSCRIPTIONS_DETECTOR: Token = Token(PTB + 14);
 pub const WRITER_HEARTBEAT_TIMER: Token = Token(PTB + 15);
 pub const SET_READER_HEARTBEAT_TIMER: Token = Token(PTB + 16);
 pub const READER_HEARTBEAT_TIMER: Token = Token(PTB + 17);
+pub const DISC_WRITER_ADD: Token = Token(PTB + 19);
+pub const DISC_READER_ADD: Token = Token(PTB + 20);

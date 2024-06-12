@@ -36,6 +36,7 @@ use colored::*;
 use enumflags2::make_bitflags;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration as StdDuration;
 
@@ -69,13 +70,19 @@ pub struct Discovery {
     sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
     sedp_builtin_sub_reader: DataReader<SDPBuiltinData>,
     spdp_send_timer: Timer<()>,
+    writers_data: HashMap<EntityId, DiscoveredWriterData>,
+    writer_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
+    readers_data: HashMap<EntityId, DiscoveredReaderData>,
+    reader_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
 }
 
 impl Discovery {
     pub fn new(
         dp: DomainParticipant,
         discovery_db: DiscoveryDB,
-        mut discdb_update_sender: mio_channel::Sender<GuidPrefix>,
+        discdb_update_sender: mio_channel::Sender<GuidPrefix>,
+        mut writer_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
+        mut reader_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
     ) -> Self {
         let poll = Poll::new().unwrap();
         let qos = QosBuilder::new()
@@ -171,6 +178,20 @@ impl Discovery {
             PollOpt::edge(),
         )
         .unwrap();
+        poll.register(
+            &mut writer_add_receiver,
+            DISC_WRITER_ADD,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
+        poll.register(
+            &mut reader_add_receiver,
+            DISC_READER_ADD,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
         Self {
             dp,
             discovery_db,
@@ -185,6 +206,10 @@ impl Discovery {
             sedp_builtin_sub_writer,
             sedp_builtin_sub_reader,
             spdp_send_timer,
+            writers_data: HashMap::new(),
+            writer_add_receiver,
+            readers_data: HashMap::new(),
+            reader_add_receiver,
         }
     }
 
@@ -210,65 +235,6 @@ impl Discovery {
             Some(0),
             Duration::new(20, 0),
         );
-        let writer_proxy = WriterProxy::new(
-            self.dp.guid(),
-            Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
-            Locator::new_list_from_self_ipv4(spdp_multicast_port(domain_id) as u32),
-            42,
-            Arc::new(RwLock::new(HistoryCache::new())),
-        );
-        let pub_data = PublicationBuiltinTopicData::new(
-            None,
-            None,
-            None, //Some(String::from("Test")),
-            None, // Some(String::from("Test")),
-            Some(Durability::default()),
-            Some(DurabilityService::default()),
-            Some(Deadline::default()),
-            Some(LatencyBudget::default()),
-            Some(Liveliness::default()),
-            Some(Reliability::default_besteffort()),
-            Some(Lifespan::default()),
-            Some(UserData::default()),
-            Some(TimeBasedFilter::default()),
-            Some(Ownership::default()),
-            Some(OwnershipStrength::default()),
-            Some(DestinationOrder::default()),
-            Some(Presentation::default()),
-            Some(Partition::default()),
-            Some(TopicData::default()),
-            Some(GroupData::default()),
-        );
-        let discoverd_writer_data = DiscoveredWriterData::new(writer_proxy, pub_data);
-        let reader_proxy = ReaderProxy::new(
-            self.dp.guid(),
-            false,
-            Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
-            Locator::new_list_from_self_ipv4(spdp_multicast_port(domain_id) as u32),
-            Arc::new(RwLock::new(HistoryCache::new())),
-        );
-        let sub_data = SubscriptionBuiltinTopicData::new(
-            None,
-            None,
-            None, //Some(String::from("Test")),
-            None, // Some(String::from("Test")),
-            Some(Durability::default()),
-            Some(Deadline::default()),
-            Some(LatencyBudget::default()),
-            Some(Liveliness::default()),
-            Some(Reliability::default_besteffort()),
-            Some(Ownership::default()),
-            Some(DestinationOrder::default()),
-            Some(UserData::default()),
-            Some(TimeBasedFilter::default()),
-            Some(Presentation::default()),
-            Some(Partition::default()),
-            Some(TopicData::default()),
-            Some(GroupData::default()),
-            Some(DurabilityService::default()),
-            Some(Lifespan::default()),
-        );
-        let discoverd_reader_data = DiscoveredReaderData::new(reader_proxy, sub_data);
         loop {
             self.poll.poll(&mut events, None).unwrap();
             for event in events.iter() {
@@ -277,13 +243,34 @@ impl Discovery {
                         SPDP_SEND_TIMER => {
                             self.spdp_builtin_participant_writer
                                 .write_builtin_data(data.clone());
-                            self.sedp_builtin_pub_writer
-                                .write_builtin_data(discoverd_writer_data.clone());
-                            self.sedp_builtin_sub_writer
-                                .write_builtin_data(discoverd_reader_data.clone());
-                            self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
+                            for (_eid, wd) in &self.writers_data {
+                                self.sedp_builtin_pub_writer.write_builtin_data(wd.clone());
+                            }
+                            for (_eid, rd) in &self.readers_data {
+                                self.sedp_builtin_sub_writer.write_builtin_data(rd.clone());
+                            }
                         }
                         SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
+                        DISC_WRITER_ADD => {
+                            while let Ok((eid, data)) = self.writer_add_receiver.try_recv() {
+                                self.writers_data.insert(eid, data);
+                                eprintln!(
+                                    "<{}>: add writer which has {:?} to writers",
+                                    "Discovery: Info".green(),
+                                    eid
+                                );
+                            }
+                        }
+                        DISC_READER_ADD => {
+                            while let Ok((eid, data)) = self.reader_add_receiver.try_recv() {
+                                self.readers_data.insert(eid, data);
+                                eprintln!(
+                                    "<{}>: add reader which has {:?} to readers",
+                                    "Discovery: Info".green(),
+                                    eid
+                                );
+                            }
+                        }
                         Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
                     },
                     TokenDec::Entity(eid) => {
