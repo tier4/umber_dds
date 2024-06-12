@@ -1,6 +1,9 @@
 use crate::dds::participant::DomainParticipant;
 use crate::dds::qos::QosPolicies;
 use crate::dds::typedesc::TypeDesc;
+use crate::discovery::structure::data::{
+    PublicationBuiltinTopicData, SubscriptionBuiltinTopicData,
+};
 use crate::structure::topic_kind::TopicKind;
 use std::sync::Arc;
 
@@ -43,6 +46,13 @@ impl Topic {
     pub fn kind(&self) -> TopicKind {
         self.inner.kind
     }
+
+    pub fn sub_builtin_topic_data(&self) -> SubscriptionBuiltinTopicData {
+        self.inner.sub_builtin_topic_data()
+    }
+    pub fn pub_builtin_topic_data(&self) -> PublicationBuiltinTopicData {
+        self.inner.pub_builtin_topic_data()
+    }
 }
 
 struct InnerTopic {
@@ -68,5 +78,53 @@ impl InnerTopic {
             my_qos_policies,
             kind,
         }
+    }
+
+    fn pub_builtin_topic_data(&self) -> PublicationBuiltinTopicData {
+        PublicationBuiltinTopicData::new(
+            None,
+            None,
+            Some(self.name.clone()),
+            Some(self.type_desc.name().to_string()),
+            self.my_qos_policies.durability,
+            None,
+            self.my_qos_policies.deadline,
+            self.my_qos_policies.latency_budget,
+            self.my_qos_policies.liveliness,
+            self.my_qos_policies.reliability,
+            self.my_qos_policies.lifespan,
+            None,
+            self.my_qos_policies.time_based_filter,
+            self.my_qos_policies.ownership,
+            None,
+            self.my_qos_policies.destination_order,
+            None,
+            None,
+            None,
+            None,
+        )
+    }
+    fn sub_builtin_topic_data(&self) -> SubscriptionBuiltinTopicData {
+        SubscriptionBuiltinTopicData::new(
+            None,
+            None,
+            Some(self.name.clone()),
+            Some(self.type_desc.name().to_string()),
+            self.my_qos_policies.durability,
+            self.my_qos_policies.deadline,
+            self.my_qos_policies.latency_budget,
+            self.my_qos_policies.liveliness,
+            self.my_qos_policies.reliability,
+            self.my_qos_policies.ownership,
+            self.my_qos_policies.destination_order,
+            None,
+            self.my_qos_policies.time_based_filter,
+            None,
+            None,
+            None,
+            None,
+            None,
+            self.my_qos_policies.lifespan,
+        )
     }
 }
