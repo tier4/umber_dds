@@ -226,11 +226,17 @@ impl Discovery {
             false,
             make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR}),
             Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
-            Locator::new_list_from_self_ipv4(spdp_multicast_port(domain_id) as u32),
+            vec![Locator::new_from_ipv4(
+                spdp_multicast_port(domain_id) as u32,
+                [239, 255, 0, 1],
+            )],
             Locator::new_list_from_self_ipv4(
                 usertraffic_unicast_port(domain_id, participant_id) as u32
             ),
-            Locator::new_list_from_self_ipv4(usertraffic_multicast_port(domain_id) as u32),
+            vec![Locator::new_from_ipv4(
+                usertraffic_multicast_port(domain_id) as u32,
+                [239, 255, 0, 1],
+            )],
             Some(0),
             Duration::new(20, 0),
         );
