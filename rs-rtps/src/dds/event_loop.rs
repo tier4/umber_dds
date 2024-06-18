@@ -189,6 +189,10 @@ impl EventLoop {
                                     .unwrap();
                                 if writer.entity_id()
                                     != EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
+                                    && writer.entity_id()
+                                        != EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER
+                                    && writer.entity_id()
+                                        != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER
                                 {
                                     self.writer_add_sender
                                         .send((writer.entity_id(), writer.sedp_data()))
@@ -205,6 +209,10 @@ impl EventLoop {
                                     self.set_reader_hb_timer_sender.clone(),
                                 );
                                 if reader.entity_id() != EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
+                                    && reader.entity_id()
+                                        != EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
+                                    && reader.entity_id()
+                                        != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
                                 {
                                     self.reader_add_sender
                                         .send((reader.entity_id(), reader.sedp_data()))
