@@ -4,7 +4,7 @@ use speedy::{Readable, Writable};
 use std::fmt;
 
 // spec 9.2.2
-#[derive(Debug, PartialEq, Readable, Writable, Clone, Copy, Eq, Hash, Serialize, Deserialize)]
+#[derive(PartialEq, Readable, Writable, Clone, Copy, Eq, Hash, Serialize, Deserialize)]
 pub struct EntityId {
     entity_key: [u8; 3],
     entity_kind: EntityKind,
@@ -135,6 +135,50 @@ impl EntityId {
         Self {
             entity_key: [e0 as u8, e1 as u8, e2 as u8],
             entity_kind: EntityKind { value: ek as u8 },
+        }
+    }
+}
+
+impl fmt::Debug for EntityId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Self::UNKNOW => write!(f, "EntityId {{ UNKNOW }}"),
+            Self::PARTICIPANT => write!(f, "EntityId {{ PARTICIPANT }}"),
+            Self::SED_PBUILTIN_TOPICS_ANNOUNCER => {
+                write!(f, "EntityId {{ SED_PBUILTIN_TOPICS_ANNOUNCER }}")
+            }
+            Self::SED_PBUILTIN_TOPICS_DETECTOR => {
+                write!(f, "EntityId {{ SED_PBUILTIN_TOPICS_DETECTOR }}")
+            }
+            Self::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER => {
+                write!(f, "EntityId {{ SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER }}")
+            }
+            Self::SEDP_BUILTIN_PUBLICATIONS_DETECTOR => {
+                write!(f, "EntityId {{ SEDP_BUILTIN_PUBLICATIONS_DETECTOR }}")
+            }
+            Self::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER => {
+                write!(f, "EntityId {{ SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER }}")
+            }
+            Self::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR => {
+                write!(f, "EntityId {{ SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR }}")
+            }
+            Self::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER => {
+                write!(f, "EntityId {{ SPDP_BUILTIN_PARTICIPANT_ANNOUNCER }}")
+            }
+            Self::SPDP_BUILTIN_PARTICIPANT_DETECTOR => {
+                write!(f, "EntityId {{ SPDP_BUILTIN_PARTICIPANT_DETECTOR }}")
+            }
+            Self::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER => {
+                write!(f, "EntityId {{ P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER }}")
+            }
+            Self::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER => {
+                write!(f, "EntityId {{ P2P_BUILTIN_PARTICIPANT_MESSAGE_READER }}")
+            }
+            _ => write!(
+                f,
+                "EntityId {{ entity_key: {:?}, entity_kind: {:?} }}",
+                self.entity_key, self.entity_kind
+            ),
         }
     }
 }
