@@ -193,6 +193,9 @@ impl Reader {
             ),
         );
     }
+    pub fn is_writer_match(&self, topic_name: &str, data_type: &str) -> bool {
+        self.topic.name() == topic_name && self.topic.type_desc() == data_type
+    }
     pub fn matched_writer_lookup(&mut self, guid: GUID) -> Option<WriterProxy> {
         match self.matched_writers.get_mut(&guid) {
             Some(proxy) => Some(proxy.clone()),
