@@ -254,6 +254,7 @@ impl Discovery {
                             for (_eid, rd) in &self.readers_data {
                                 self.sedp_builtin_sub_writer.write_builtin_data(rd.clone());
                             }
+                            self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
                         }
                         SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
                         DISC_WRITER_ADD => {
