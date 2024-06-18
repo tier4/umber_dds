@@ -2,6 +2,8 @@ use crate::dds::{
     datareader::DataReader, participant::DomainParticipant, qos::policy::*, qos::QosPolicies,
     topic::Topic,
 };
+use crate::message::submessage::element::Locator;
+use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
 use crate::rtps::{cache::HistoryCache, reader::ReaderIngredients};
 use crate::structure::{
     duration::Duration,
@@ -104,8 +106,14 @@ impl InnerSubscriber {
             ),
             topic_kind: topic.kind(),
             reliability_level,
-            unicast_locator_list: Vec::new(),
-            multicast_locator_list: Vec::new(),
+            unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
+                self.dp.domain_id(),
+                self.dp.participant_id(),
+            ) as u32),
+            multicast_locator_list: vec![Locator::new_from_ipv4(
+                usertraffic_multicast_port(self.dp.domain_id()) as u32,
+                [239, 255, 0, 1],
+            )],
             expectsinline_qos: false,
             heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),
@@ -134,8 +142,14 @@ impl InnerSubscriber {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
             topic_kind: topic.kind(),
             reliability_level,
-            unicast_locator_list: Vec::new(),
-            multicast_locator_list: Vec::new(),
+            unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
+                self.dp.domain_id(),
+                self.dp.participant_id(),
+            ) as u32),
+            multicast_locator_list: vec![Locator::new_from_ipv4(
+                usertraffic_multicast_port(self.dp.domain_id()) as u32,
+                [239, 255, 0, 1],
+            )],
             expectsinline_qos: false,
             heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),

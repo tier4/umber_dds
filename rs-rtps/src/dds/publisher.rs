@@ -2,6 +2,8 @@ use crate::dds::{
     datawriter::DataWriter, participant::DomainParticipant, qos::policy::*, qos::QosPolicies,
     topic::Topic,
 };
+use crate::message::submessage::element::Locator;
+use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
 use crate::rtps::writer::{WriterCmd, WriterIngredients};
 use crate::structure::{
     duration::Duration,
@@ -119,10 +121,16 @@ impl InnerPublisher {
             ),
             topic_kind: topic.kind(),
             reliability_level,
-            unicast_locator_list: Vec::new(),
-            multicast_locator_list: Vec::new(),
+            unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
+                self.dp.domain_id(),
+                self.dp.participant_id(),
+            ) as u32),
+            multicast_locator_list: vec![Locator::new_from_ipv4(
+                usertraffic_multicast_port(self.dp.domain_id()) as u32,
+                [239, 255, 0, 1],
+            )],
             push_mode: true,
-            heartbeat_period: Duration::new(20, 0),
+            heartbeat_period: Duration::new(5, 0),
             nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
             nack_suppression_duration: Duration::ZERO,
             data_max_size_serialized: 0,
@@ -153,8 +161,14 @@ impl InnerPublisher {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
             topic_kind: topic.kind(),
             reliability_level,
-            unicast_locator_list: Vec::new(),
-            multicast_locator_list: Vec::new(),
+            unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
+                self.dp.domain_id(),
+                self.dp.participant_id(),
+            ) as u32),
+            multicast_locator_list: vec![Locator::new_from_ipv4(
+                usertraffic_multicast_port(self.dp.domain_id()) as u32,
+                [239, 255, 0, 1],
+            )],
             push_mode: true,
             heartbeat_period,
             nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
