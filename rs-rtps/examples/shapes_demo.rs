@@ -1,5 +1,5 @@
 use clap::Parser;
-use rs_rtps::dds::{participant::DomainParticipant, qos::*, topic::Topic, typedesc::TypeDesc};
+use rs_rtps::dds::{participant::DomainParticipant, qos::*, topic::Topic};
 use rs_rtps::structure::topic_kind::TopicKind;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -24,7 +24,7 @@ fn main() {
     let qos = QosBuilder::new().build();
     let topic = Topic::new(
         "Square".to_string(),
-        TypeDesc::new("ShapeType".to_string()),
+        "ShapeType".to_string(),
         participant.clone(),
         qos,
         TopicKind::WithKey,

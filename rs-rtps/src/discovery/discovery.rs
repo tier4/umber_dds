@@ -7,7 +7,6 @@ use crate::dds::{
     subscriber::Subscriber,
     tokens::*,
     topic::Topic,
-    typedesc::TypeDesc,
 };
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
@@ -94,7 +93,7 @@ impl Discovery {
         // For SPDP
         let spdp_topic = Topic::new(
             "DCPSParticipant".to_string(),
-            TypeDesc::new("SPDPDiscoveredParticipantData".to_string()),
+            "SPDPDiscoveredParticipantData".to_string(),
             dp.clone(),
             qos,
             TopicKind::WithKey,
@@ -125,7 +124,7 @@ impl Discovery {
         // For SEDP
         let sedp_publication_topic = Topic::new(
             "DCPSPublication".to_string(),
-            TypeDesc::new("PublicationBuiltinTopicData".to_string()),
+            "PublicationBuiltinTopicData".to_string(),
             dp.clone(),
             qos,
             TopicKind::WithKey,
@@ -149,7 +148,7 @@ impl Discovery {
             );
         let sedp_subscription_topic = Topic::new(
             "DCPSSucscription".to_string(),
-            TypeDesc::new("SubscriptionBuiltinTopicData".to_string()),
+            "SubscriptionBuiltinTopicData".to_string(),
             dp.clone(),
             qos,
             TopicKind::WithKey,

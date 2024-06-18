@@ -1,6 +1,5 @@
 use crate::dds::participant::DomainParticipant;
 use crate::dds::qos::QosPolicies;
-use crate::dds::typedesc::TypeDesc;
 use crate::discovery::structure::data::{
     PublicationBuiltinTopicData, SubscriptionBuiltinTopicData,
 };
@@ -15,7 +14,7 @@ pub struct Topic {
 impl Topic {
     pub fn new(
         name: String,
-        type_desc: TypeDesc,
+        type_desc: String,
         my_domain_participant: DomainParticipant,
         my_qos_policies: QosPolicies,
         kind: TopicKind,
@@ -34,7 +33,7 @@ impl Topic {
     pub fn name(&self) -> String {
         self.inner.name.clone()
     }
-    pub fn type_desc(&self) -> TypeDesc {
+    pub fn type_desc(&self) -> String {
         self.inner.type_desc.clone()
     }
     pub fn my_domain_participant(&self) -> DomainParticipant {
@@ -57,7 +56,7 @@ impl Topic {
 
 struct InnerTopic {
     name: String,
-    type_desc: TypeDesc,
+    type_desc: String,
     my_domain_participant: DomainParticipant,
     my_qos_policies: QosPolicies,
     kind: TopicKind,
@@ -66,7 +65,7 @@ struct InnerTopic {
 impl InnerTopic {
     fn new(
         name: String,
-        type_desc: TypeDesc,
+        type_desc: String,
         my_domain_participant: DomainParticipant,
         my_qos_policies: QosPolicies,
         kind: TopicKind,
@@ -85,7 +84,7 @@ impl InnerTopic {
             None,
             None,
             Some(self.name.clone()),
-            Some(self.type_desc.name().to_string()),
+            Some(self.type_desc.clone()),
             self.my_qos_policies.durability,
             None,
             self.my_qos_policies.deadline,
@@ -109,7 +108,7 @@ impl InnerTopic {
             None,
             None,
             Some(self.name.clone()),
-            Some(self.type_desc.name().to_string()),
+            Some(self.type_desc.clone()),
             self.my_qos_policies.durability,
             self.my_qos_policies.deadline,
             self.my_qos_policies.latency_budget,

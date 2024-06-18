@@ -7,4 +7,3 @@ pub mod qos;
 pub mod subscriber;
 pub mod tokens;
 pub mod topic;
-pub mod typedesc;
