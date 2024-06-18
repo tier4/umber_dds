@@ -188,32 +188,71 @@ impl SDPBuiltinData {
         }
     }
 
-    fn to_readerroxy(&mut self, history_cache: Arc<RwLock<HistoryCache>>) -> ReaderProxy {
-        let remote_guid = self.remote_guid.unwrap();
+    pub fn topic_info(&self) -> Option<(String, String)> {
+        let name = match &self.topic_name {
+            Some(n) => n.clone(),
+            None => return None,
+        };
+        let data_type = match &self.type_name {
+            Some(d) => d.clone(),
+            None => return None,
+        };
+        Some((name, data_type))
+    }
+
+    pub fn to_readerpoxy(
+        &mut self,
+        history_cache: Arc<RwLock<HistoryCache>>,
+    ) -> Option<ReaderProxy> {
+        let remote_guid = match self.remote_guid {
+            Some(rg) => rg,
+            None => return None,
+        };
         let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
-        let unicast_locator_list = self.unicast_locator_list.take().unwrap();
-        let multicast_locator_list = self.multicast_locator_list.take().unwrap();
-        ReaderProxy::new(
+        let unicast_locator_list = match self.unicast_locator_list.take() {
+            Some(ull) => ull,
+            None => return None,
+        };
+        let multicast_locator_list = match self.multicast_locator_list.take() {
+            Some(mll) => mll,
+            None => return None,
+        };
+        Some(ReaderProxy::new(
             remote_guid,
             expects_inline_qos,
             unicast_locator_list,
             multicast_locator_list,
             history_cache,
-        )
+        ))
     }
 
-    fn to_writerproxy(&mut self, history_cache: Arc<RwLock<HistoryCache>>) -> WriterProxy {
-        let remote_guid = self.remote_guid.unwrap();
-        let unicast_locator_list = self.unicast_locator_list.take().unwrap();
-        let multicast_locator_list = self.multicast_locator_list.take().unwrap();
-        let data_max_size_serialized = self.data_max_size_serialized.unwrap();
-        WriterProxy::new(
+    pub fn to_writerproxy(
+        &mut self,
+        history_cache: Arc<RwLock<HistoryCache>>,
+    ) -> Option<WriterProxy> {
+        let remote_guid = match self.remote_guid {
+            Some(rg) => rg,
+            None => return None,
+        };
+        let unicast_locator_list = match self.unicast_locator_list.take() {
+            Some(ull) => ull,
+            None => return None,
+        };
+        let multicast_locator_list = match self.multicast_locator_list.take() {
+            Some(mll) => mll,
+            None => return None,
+        };
+        let data_max_size_serialized = match self.data_max_size_serialized {
+            Some(dmss) => dmss,
+            None => return None,
+        };
+        Some(WriterProxy::new(
             remote_guid,
             unicast_locator_list,
             multicast_locator_list,
             data_max_size_serialized,
             history_cache,
-        )
+        ))
     }
     // rtps 2.4 spec: 8.5.4.4 Data Types associated with built-in Endpoints used by the Simple Endpoint Discovery Protocol
     // An implementation of the protocol need not necessarily send all information contained in the DataTypes.
