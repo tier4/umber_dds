@@ -92,7 +92,7 @@ impl Reader {
     }
 
     fn print_self_info(&self) {
-        if cfg!(debug_assertion) {
+        if cfg!(debug_assertions) {
             eprintln!("<{}>: Reader info", "Reader: Info".green());
             eprintln!("\tguid: {:?}", self.guid);
             eprintln!("\tunicast locators");
