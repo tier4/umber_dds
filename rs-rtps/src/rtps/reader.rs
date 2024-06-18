@@ -91,6 +91,33 @@ impl Reader {
         DiscoveredReaderData::new(proxy, sub_data)
     }
 
+    fn print_self_info(&self) {
+        if cfg!(debug_assertion) {
+            eprintln!("<{}>: Reader info", "Reader: Info".green());
+            eprintln!("\tguid: {:?}", self.guid);
+            eprintln!("\tunicast locators");
+            for loc in &self.unicast_locator_list {
+                eprintln!("\t\t{:?}", loc)
+            }
+            eprintln!("\tmulticast locators");
+            for loc in &self.multicast_locator_list {
+                eprintln!("\t\t{:?}", loc)
+            }
+            eprintln!("\tmatched writers");
+            for (eid, reader) in self.matched_writers.iter() {
+                eprintln!("\t\treader guid: {:?}", eid);
+                eprintln!("\tunicast locators");
+                for loc in &reader.unicast_locator_list {
+                    eprintln!("\t\t{:?}", loc)
+                }
+                eprintln!("\tmulticast locators");
+                for loc in &reader.multicast_locator_list {
+                    eprintln!("\t\t{:?}", loc)
+                }
+            }
+        }
+    }
+
     pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if self.is_reliable() {

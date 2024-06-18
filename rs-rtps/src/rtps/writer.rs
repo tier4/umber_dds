@@ -149,6 +149,33 @@ impl Writer {
         self.entity_id().as_token()
     }
 
+    fn print_self_info(&self) {
+        if cfg!(debug_assertions) {
+            eprintln!("<{}>: Writer info", "Writer: Info".green(),);
+            eprintln!("\tguid: {:?}", self.guid);
+            eprintln!("\tunicast locators");
+            for loc in &self.unicast_locator_list {
+                eprintln!("\t\t{:?}", loc)
+            }
+            eprintln!("\tmulticast locators");
+            for loc in &self.multicast_locator_list {
+                eprintln!("\t\t{:?}", loc)
+            }
+            eprintln!("\tmatched readers");
+            for (eid, reader) in self.matched_readers.iter() {
+                eprintln!("\t\treader guid: {:?}", eid);
+                eprintln!("\t\tunicast locators");
+                for loc in &reader.unicast_locator_list {
+                    eprintln!("\t\t\t{:?}", loc)
+                }
+                eprintln!("\t\tmulticast locators");
+                for loc in &reader.multicast_locator_list {
+                    eprintln!("\t\t\t{:?}", loc)
+                }
+            }
+        }
+    }
+
     pub fn handle_writer_cmd(&mut self) {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
             // this is new_change
