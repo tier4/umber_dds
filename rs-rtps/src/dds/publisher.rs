@@ -151,7 +151,7 @@ impl InnerPublisher {
             mio_channel::sync_channel::<WriterCmd>(4);
         let mut heartbeat_period = Duration::ZERO;
         let reliability_level = if let Some(reliability) = qos.reliability {
-            heartbeat_period = Duration::new(20, 0);
+            heartbeat_period = Duration::new(5, 0);
             reliability.kind
         } else {
             ReliabilityQosKind::BestEffort // If qos don't specify reliability_level, the
