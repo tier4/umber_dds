@@ -323,7 +323,7 @@ impl Reader {
                 self_entity_id,
                 writer_guid.entity_id,
                 reader_sn_state,
-                0,
+                1,
                 false,
             );
             let message = message_builder.build(self_guid_prefix);
