@@ -161,6 +161,7 @@ impl Reader {
                     eprintln!("<{}>: dosen't write change to reader_cache, because change.sequence_number < expected_seq_num", "Reader: Warn".yellow());
                 }
             } else {
+                self.print_self_info();
                 eprintln!(
                     "<{}>: couldn't find writer_proxy which has guid {:?}",
                     "Reader: Warn".yellow(),

@@ -378,7 +378,7 @@ impl MessageReceiver {
                 if reader.is_writer_match(&topic_name, &data_type) {
                     eprintln!(
                         "<{}>: matched writer add to reader",
-                        "MessageReceiver: Info".blue()
+                        "MessageReceiver: Info".green()
                     );
                     reader.matched_writer_add(
                         writer_proxy.remote_writer_guid,
@@ -429,7 +429,7 @@ impl MessageReceiver {
                 if writer.is_reader_match(&topic_name, &data_type) {
                     eprintln!(
                         "<{}>: matched reader add to writer",
-                        "MessageReceiver: Info".blue()
+                        "MessageReceiver: Info".green()
                     );
                     writer.matched_reader_add(
                         reader_proxy.remote_reader_guid,

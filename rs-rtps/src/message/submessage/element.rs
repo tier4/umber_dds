@@ -139,7 +139,16 @@ impl SequenceNumberSet {
         12 + self.bitmap.len() as u16 * 4
     }
     pub fn is_valid(&self) -> bool {
-        // rtps spec 9.4.2.6 SequenceNumberSet
+        // there is two validation of SequenceNumberSet on rtps spec
+        // rtpc spec 8.3.7.1.3
+        // minimum(SequenceNumberSet) >= 1
+        // maximum(SequenceNumberSet) - minimum(SequenceNumberSet) < 256
+        //
+        // rtpc sepc 9.4.2.6
+        // bitmapBase >= 1
+        // 0 <= numBits <= 256
+        // there are M=(numBits+31)/32 longs containing the pertinent bits
+        // They both claim almost the same thing.
         self.bitmap_base >= SequenceNumber(1)
             && self.num_bits < 256
             && self.bitmap.len() as u32 == (self.num_bits + 31) / 32

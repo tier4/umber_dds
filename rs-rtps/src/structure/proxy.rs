@@ -208,8 +208,7 @@ impl WriterProxy {
     }
 
     pub fn available_changes_max(&self) -> SequenceNumber {
-        // もし、max_seq_num == SequenceNumber::MINになったら?
-        let mut max_seq_num = SequenceNumber::MIN;
+        let mut max_seq_num = SequenceNumber(0);
         for (sn, cfw) in &self.cache_state {
             match cfw.status {
                 ChangeFromWriterStatusKind::Received | ChangeFromWriterStatusKind::Lost => {

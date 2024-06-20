@@ -190,6 +190,7 @@ impl Writer {
             // register a_change to writer HistoryCache
             self.add_change_to_hc(a_change.clone());
             let self_guid_prefix = self.guid_prefix();
+            self.print_self_info();
             for (_guid, reader_proxy) in &mut self.matched_readers {
                 while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
                     reader_proxy.update_cache_state(
@@ -277,6 +278,7 @@ impl Writer {
         self.hb_counter += 1;
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
+        self.print_self_info();
         for (_guid, reader_proxy) in &mut self.matched_readers {
             let mut message_builder = MessageBuilder::new();
             message_builder.info_ts(Endianness::LittleEndian, time_stamp);
@@ -353,8 +355,19 @@ impl Writer {
 
     pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) {
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
+            eprintln!(
+                "<{}>: handle acknack from reader which has guid {:?}",
+                "Writer: Info".green(),
+                reader_guid
+            );
             reader_proxy.acked_changes_set(acknack.reader_sn_state.base() - SequenceNumber(1));
             reader_proxy.requested_changes_set(acknack.reader_sn_state.set());
+        } else {
+            eprintln!(
+                "<{}>: couldn't find reader_proxy which has guid {:?}",
+                "Writer: Warn".yellow(),
+                reader_guid
+            );
         }
     }
 

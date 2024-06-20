@@ -164,6 +164,7 @@ impl EventLoop {
                                     // ENTITYID_BUILT_IN_SDP_PARTICIPANT_READER
                                     // readerEntityId of SPDP message from Cyclone DDS:
                                     // ENTITYID_UNKNOW
+                                    // stpr 2.3 sepc, 9.6.1.4, Default multicast address
                                     writer.matched_reader_add(
                                         GUID::UNKNOW, // this is same to CycloneDDS
                                         false,
@@ -175,6 +176,12 @@ impl EventLoop {
                                     );
                                 }
                                 if writer.is_reliable() {
+                                    eprintln!(
+                                        "<{}>: set Writer Heartbeat timer({:?}, {:?})",
+                                        "EventLoop: Info".green(),
+                                        writer.heartbeat_period(),
+                                        writer.entity_id(),
+                                    );
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
                                 }
@@ -230,10 +237,21 @@ impl EventLoop {
                         }
                         WRITER_HEARTBEAT_TIMER => {
                             if let Some(eid) = self.writer_hb_timer.poll() {
+                                eprintln!(
+                                    "<{}>: fired Writer Heartbeat timer({:?})",
+                                    "EventLoop: Info".green(),
+                                    eid,
+                                );
                                 if let Some(writer) = self.writers.get_mut(&eid) {
                                     writer.send_heart_beat();
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
+                                    eprintln!(
+                                        "<{}>: set Writer Heartbeat timer({:?}, {:?})",
+                                        "EventLoop: Info".green(),
+                                        writer.heartbeat_period(),
+                                        writer.entity_id(),
+                                    );
                                 };
                             }
                         }
