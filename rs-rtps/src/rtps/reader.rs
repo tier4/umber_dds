@@ -227,8 +227,21 @@ impl Reader {
         heartbeat: Heartbeat,
     ) {
         if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
+            eprintln!(
+                "<{}>: handle heartbeat {{ first_sn: {}, last_sn: {} }} from writer which has {:?}",
+                "Reader: Info".green(),
+                heartbeat.first_sn.0,
+                heartbeat.last_sn.0,
+                writer_guid,
+            );
+
+            writer_proxy.add_unknown_sn(heartbeat.first_sn, heartbeat.last_sn);
+            eprintln!("<{}>: before handle heartbeat", "Reader: Info".green(),);
+            writer_proxy.print_cache_states();
             writer_proxy.missing_changes_update(heartbeat.last_sn);
             writer_proxy.lost_changes_update(heartbeat.first_sn);
+            eprintln!("<{}>: after handle heartbeat", "Reader: Info".green(),);
+            writer_proxy.print_cache_states();
         } else {
             eprintln!(
                 "<{}>: couldn't find reader which has {:?}",

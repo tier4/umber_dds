@@ -4,6 +4,7 @@ use crate::rtps::cache::{
     HistoryCache,
 };
 use crate::structure::{guid::GUID, parameter_id::ParameterId};
+use colored::*;
 use serde::{ser::SerializeStruct, Serialize};
 use std::cmp::{max, min};
 use std::collections::HashMap;
@@ -191,6 +192,33 @@ impl WriterProxy {
             data_max_size_serialized,
             history_cache,
             cache_state: HashMap::new(),
+        }
+    }
+
+    pub fn print_cache_states(&self) {
+        eprintln!("<{}>: cache_state", "WriterProxy: Info".green());
+        for (sn, cfw) in self.cache_state.iter() {
+            eprintln!(
+                "\tsn: {}, state: {:?}, is_relevant: {}",
+                sn.0, cfw.status, cfw.is_relevant
+            );
+        }
+    }
+
+    pub fn add_unknown_sn(&mut self, first_sn: SequenceNumber, last_sn: SequenceNumber) {
+        for i in first_sn.0..=last_sn.0 {
+            if !self.cache_state.contains_key(&SequenceNumber(i)) {
+                eprintln!(
+                    "<{}>: cache_state of sn: {} is set to UNKNOWN",
+                    "WriterProxy: Info".blue(),
+                    i
+                );
+                self.update_cache_state(
+                    SequenceNumber(i),
+                    true,
+                    ChangeFromWriterStatusKind::Uuknown,
+                );
+            }
         }
     }
 

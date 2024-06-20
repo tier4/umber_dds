@@ -46,7 +46,7 @@ pub enum ChangeForReaderStatusKind {
     Underway,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ChangeFromWriterStatusKind {
     Lost,
     Missing,
