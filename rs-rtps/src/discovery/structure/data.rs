@@ -937,8 +937,8 @@ impl Serialize for SubscriptionBuiltinTopicData {
 pub struct PublicationBuiltinTopicData {
     pub key: Option<()>,
     pub publication_key: Option<()>,
-    pub type_name: Option<String>,
     pub topic_name: Option<String>,
+    pub type_name: Option<String>,
     pub durability: Option<Durability>,
     pub durability_service: Option<DurabilityService>,
     pub deadline: Option<Deadline>,
@@ -960,8 +960,8 @@ impl PublicationBuiltinTopicData {
     pub fn new(
         key: Option<()>,
         publication_key: Option<()>,
-        type_name: Option<String>,
         topic_name: Option<String>,
+        type_name: Option<String>,
         durability: Option<Durability>,
         durability_service: Option<DurabilityService>,
         deadline: Option<Deadline>,
@@ -982,8 +982,8 @@ impl PublicationBuiltinTopicData {
         Self {
             key,
             publication_key,
-            type_name,
             topic_name,
+            type_name,
             durability,
             durability_service,
             deadline,
