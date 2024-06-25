@@ -524,17 +524,45 @@ impl MessageReceiver {
         for (eid, _reader) in readers.into_iter() {
             reader_eids += &format!("{:?}\n", eid);
         }
-        match readers.get_mut(&heartbeat.reader_id) {
-            Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
-            None => {
-                eprintln!(
+        if heartbeat.reader_id == EntityId::UNKNOW {
+            match heartbeat.writer_id {
+                EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER => {
+                    match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
+                        Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
+                        None => {
+                            unreachable!("not found SEDP_BUILTIN_PUBLICATIONS_DETECTOR");
+                        }
+                    };
+                }
+                EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER => {
+                    match readers.get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR) {
+                        Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
+                        None => {
+                            unreachable!("not found SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR");
+                        }
+                    };
+                }
+                writer_eid => {
+                    eprintln!(
+                        "<{}>: received heartbeat which readerEntityId is UNKNOWN. Couldn't find reader which matches writer {:?}",
+                        "MessageReceiver: Warn".yellow(),
+                        writer_eid,
+                    );
+                }
+            }
+        } else {
+            match readers.get_mut(&heartbeat.reader_id) {
+                Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
+                None => {
+                    eprintln!(
                     "<{}>: couldn't find reader which has {:?}\nthere are readers which has eid:\n{}",
                     "MessageReceiver: Warn".yellow(),
                     heartbeat.reader_id,
                     reader_eids
                 );
-            }
-        };
+                }
+            };
+        }
         Ok(())
     }
     fn handle_heartbeatfrag_submsg(
