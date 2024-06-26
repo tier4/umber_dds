@@ -122,35 +122,35 @@ impl Discovery {
         .unwrap();
 
         // For SEDP
+        let sedp_qos = QosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .build();
         let sedp_publication_topic = Topic::new(
             "DCPSPublication".to_string(),
             "PublicationBuiltinTopicData".to_string(),
             dp.clone(),
-            qos,
+            sedp_qos,
             TopicKind::WithKey,
         );
         let sedp_pub_writer_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER;
         let sedp_pub_reader_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR;
-        let sedp_qos = QosBuilder::new()
-            .reliability(Reliability::default_reliable())
-            .build();
         let sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData> = publisher
             .create_datawriter_with_entityid(
                 sedp_qos,
-                spdp_topic.clone(),
+                sedp_publication_topic.clone(),
                 sedp_pub_writer_entity_id,
             );
         let sedp_builtin_pub_reader: DataReader<SDPBuiltinData> = subscriber
             .create_datareader_with_entityid(
                 sedp_qos,
-                spdp_topic.clone(),
+                sedp_publication_topic.clone(),
                 sedp_pub_reader_entity_id,
             );
         let sedp_subscription_topic = Topic::new(
             "DCPSSucscription".to_string(),
             "SubscriptionBuiltinTopicData".to_string(),
             dp.clone(),
-            qos,
+            sedp_qos,
             TopicKind::WithKey,
         );
         let sedp_sub_writer_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER;
@@ -158,13 +158,13 @@ impl Discovery {
         let sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData> = publisher
             .create_datawriter_with_entityid(
                 sedp_qos,
-                spdp_topic.clone(),
+                sedp_subscription_topic.clone(),
                 sedp_sub_writer_entity_id,
             );
         let sedp_builtin_sub_reader: DataReader<SDPBuiltinData> = subscriber
             .create_datareader_with_entityid(
                 sedp_qos,
-                spdp_topic.clone(),
+                sedp_subscription_topic.clone(),
                 sedp_sub_reader_entity_id,
             );
 
