@@ -158,7 +158,11 @@ impl HistoryCache {
                 min = *c.0;
             }
         }
-        min
+        if min == SequenceNumber::MAX {
+            SequenceNumber(0)
+        } else {
+            min
+        }
     }
     pub fn get_seq_num_max(&self) -> SequenceNumber {
         let mut max = SequenceNumber::MIN;
@@ -167,6 +171,10 @@ impl HistoryCache {
                 max = *c.0;
             }
         }
-        max
+        if max == SequenceNumber::MIN {
+            SequenceNumber(0)
+        } else {
+            max
+        }
     }
 }
