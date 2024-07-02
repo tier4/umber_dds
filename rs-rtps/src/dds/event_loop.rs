@@ -38,11 +38,14 @@ pub struct EventLoop {
     reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
     set_reader_hb_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
+    set_writer_nack_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
+    set_writer_nack_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
     writers: HashMap<EntityId, Writer>,
     readers: HashMap<EntityId, Reader>,
     sender: Rc<UdpSender>,
     writer_hb_timer: Timer<EntityId>,
     reader_hb_timers: Vec<Timer<(EntityId, GUID)>>, // (reader EntityId, writer GUID)
+    writer_nack_timers: Vec<Timer<(EntityId, GUID)>>, // (writer EntityId, reader GUID)
     discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     discovery_db: DiscoveryDB,
 }
@@ -94,9 +97,18 @@ impl EventLoop {
         )
         .unwrap();
         let (set_reader_hb_timer_sender, mut set_reader_hb_timer_receiver) = mio_channel::channel();
+        let (set_writer_nack_timer_sender, mut set_writer_nack_timer_receiver) =
+            mio_channel::channel();
         poll.register(
             &mut set_reader_hb_timer_receiver,
             SET_READER_HEARTBEAT_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .unwrap();
+        poll.register(
+            &mut set_writer_nack_timer_receiver,
+            SET_WRITER_NACK_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
@@ -114,11 +126,14 @@ impl EventLoop {
             reader_add_sender,
             set_reader_hb_timer_sender,
             set_reader_hb_timer_receiver,
+            set_writer_nack_timer_sender,
+            set_writer_nack_timer_receiver,
             writers: HashMap::new(),
             readers: HashMap::new(),
             sender,
             writer_hb_timer,
             reader_hb_timers: Vec::new(),
+            writer_nack_timers: Vec::new(),
             discdb_update_receiver,
             discovery_db,
         }
@@ -151,7 +166,11 @@ impl EventLoop {
                         }
                         ADD_WRITER_TOKEN => {
                             while let Ok(writer_ing) = self.add_writer_receiver.try_recv() {
-                                let mut writer = Writer::new(writer_ing, self.sender.clone());
+                                let mut writer = Writer::new(
+                                    writer_ing,
+                                    self.sender.clone(),
+                                    self.set_writer_nack_timer_sender.clone(),
+                                );
                                 if writer.entity_id()
                                     == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
                                 {
@@ -284,6 +303,35 @@ impl EventLoop {
                                 }
                             }
                         }
+                        SET_WRITER_NACK_TIMER => {
+                            while let Ok((writer_entity_id, reader_guid)) =
+                                self.set_writer_nack_timer_receiver.try_recv()
+                            {
+                                if let Some(writer) = self.writers.get(&writer_entity_id) {
+                                    let mut writedr_an_timer = Timer::default();
+                                    eprintln!(
+                                        "<{}>: set Writer AckNack timer({:?}, ({:?}, {:?}))",
+                                        "EventLoop: Info".green(),
+                                        writer.nack_response_delay(),
+                                        writer_entity_id,
+                                        reader_guid
+                                    );
+                                    writedr_an_timer.set_timeout(
+                                        writer.nack_response_delay(),
+                                        (writer_entity_id, reader_guid),
+                                    );
+                                    self.poll
+                                        .register(
+                                            &mut writedr_an_timer,
+                                            WRITER_NACK_TIMER,
+                                            Ready::readable(),
+                                            PollOpt::edge(),
+                                        )
+                                        .unwrap();
+                                    self.writer_nack_timers.push(writedr_an_timer);
+                                }
+                            }
+                        }
                         READER_HEARTBEAT_TIMER => {
                             for rhb_timer in &mut self.reader_hb_timers {
                                 if let Some((reid, wguid)) = rhb_timer.poll() {
@@ -293,6 +341,19 @@ impl EventLoop {
                                     );
                                     if let Some(reader) = self.readers.get_mut(&reid) {
                                         reader.handle_hb_response_timeout(wguid);
+                                    }
+                                }
+                            }
+                        }
+                        WRITER_NACK_TIMER => {
+                            for wan_timer in &mut self.writer_nack_timers {
+                                if let Some((weid, rguid)) = wan_timer.poll() {
+                                    eprintln!(
+                                        "<{}>: fired Writer AcnNack timer",
+                                        "EventLoop: Info".green(),
+                                    );
+                                    if let Some(writer) = self.writers.get_mut(&weid) {
+                                        writer.handle_nack_response_timeout(rguid);
                                     }
                                 }
                             }

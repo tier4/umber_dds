@@ -54,12 +54,25 @@ pub struct Writer {
     topic: Topic,
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
+    set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
     sender: Rc<UdpSender>,
     hb_counter: Count,
+    an_state: AckNackState,
+}
+
+#[derive(PartialEq, Eq)]
+enum AckNackState {
+    Waiting,
+    Repairing,
+    MutsRepair,
 }
 
 impl Writer {
-    pub fn new(wi: WriterIngredients, sender: Rc<UdpSender>) -> Self {
+    pub fn new(
+        wi: WriterIngredients,
+        sender: Rc<UdpSender>,
+        set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
+    ) -> Self {
         Self {
             guid: wi.guid,
             topic_kind: wi.topic_kind,
@@ -78,8 +91,10 @@ impl Writer {
             topic: wi.topic,
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
+            set_writer_nack_sender,
             sender,
             hb_counter: 0,
+            an_state: AckNackState::Waiting,
         }
     }
 
@@ -362,6 +377,25 @@ impl Writer {
             );
             reader_proxy.acked_changes_set(acknack.reader_sn_state.base() - SequenceNumber(1));
             reader_proxy.requested_changes_set(acknack.reader_sn_state.set());
+            match self.an_state {
+                AckNackState::Waiting => {
+                    // Transistion T9
+                    if reader_proxy.requested_changes().len() != 0 {
+                        self.an_state = AckNackState::MutsRepair
+                    }
+                }
+                AckNackState::MutsRepair => {
+                    // Transistion T10
+                    if self.nack_response_delay == Duration::ZERO {
+                        self.handle_nack_response_timeout(reader_guid);
+                    } else {
+                        self.set_writer_nack_sender
+                            .send((self.entity_id(), reader_guid))
+                            .unwrap();
+                    }
+                }
+                AckNackState::Repairing => unreachable!(),
+            }
         } else {
             eprintln!(
                 "<{}>: couldn't find reader_proxy which has guid {:?}",
@@ -369,6 +403,85 @@ impl Writer {
                 reader_guid
             );
         }
+    }
+
+    pub fn handle_nack_response_timeout(&mut self, reader_guid: GUID) {
+        self.an_state = AckNackState::Repairing;
+        let self_guid_prefix = self.guid_prefix();
+        if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
+            while let Some(change) = reader_proxy.next_requested_change() {
+                reader_proxy.update_cache_state(
+                    change.seq_num,
+                    change.is_relevant,
+                    ChangeForReaderStatusKind::Underway,
+                );
+                if change.is_relevant {
+                    if let Some(aa_change) =
+                        self.writer_cache.read().unwrap().get_change(change.seq_num)
+                    {
+                        // build RTPS Message
+                        let mut message_builder = MessageBuilder::new();
+                        let time_stamp = Timestamp::now();
+                        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                        message_builder.data(
+                            Endianness::LittleEndian,
+                            reader_proxy.remote_reader_guid.entity_id,
+                            self.guid.entity_id,
+                            aa_change,
+                        );
+                        let message = message_builder.build(self_guid_prefix);
+                        let message_buf = message.write_to_vec_with_ctx(self.endianness).unwrap();
+
+                        // TODO:
+                        // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
+                        for uni_loc in &reader_proxy.unicast_locator_list {
+                            if uni_loc.kind == Locator::KIND_UDPV4 {
+                                let port = uni_loc.port;
+                                let addr = uni_loc.address;
+                                eprintln!(
+                                    "<{}>: send data message to {}.{}.{}.{}:{}",
+                                    "Writer: Info".green(),
+                                    addr[12],
+                                    addr[13],
+                                    addr[14],
+                                    addr[15],
+                                    port
+                                );
+                                self.sender.send_to(
+                                    &message_buf,
+                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                    port as u16,
+                                );
+                            }
+                        }
+                        for mul_loc in &reader_proxy.multicast_locator_list {
+                            if mul_loc.kind == Locator::KIND_UDPV4 {
+                                let port = mul_loc.port;
+                                let addr = mul_loc.address;
+                                eprintln!(
+                                    "<{}>: send data message to {}.{}.{}.{}:{}",
+                                    "Writer: Info".green(),
+                                    addr[12],
+                                    addr[13],
+                                    addr[14],
+                                    addr[15],
+                                    port
+                                );
+                                self.sender.send_to(
+                                    &message_buf,
+                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                    port as u16,
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    // TODO: send GAP
+                    todo!();
+                };
+            }
+        }
+        self.an_state = AckNackState::Waiting;
     }
 
     pub fn matched_reader_add(
@@ -411,6 +524,13 @@ impl Writer {
         StdDuration::new(
             self.heartbeat_period.seconds as u64,
             self.heartbeat_period.fraction,
+        )
+    }
+
+    pub fn nack_response_delay(&self) -> StdDuration {
+        StdDuration::new(
+            self.nack_response_delay.seconds as u64,
+            self.nack_response_delay.fraction,
         )
     }
 }

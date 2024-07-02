@@ -38,3 +38,5 @@ pub const SET_READER_HEARTBEAT_TIMER: Token = Token(PTB + 16);
 pub const READER_HEARTBEAT_TIMER: Token = Token(PTB + 17);
 pub const DISC_WRITER_ADD: Token = Token(PTB + 19);
 pub const DISC_READER_ADD: Token = Token(PTB + 20);
+pub const SET_WRITER_NACK_TIMER: Token = Token(PTB + 21);
+pub const WRITER_NACK_TIMER: Token = Token(PTB + 22);
