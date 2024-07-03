@@ -219,6 +219,8 @@ impl EventLoop {
                                         != EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER
                                     && writer.entity_id()
                                         != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER
+                                    && writer.entity_id()
+                                        != EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER
                                 {
                                     self.writer_add_sender
                                         .send((writer.entity_id(), writer.sedp_data()))
@@ -239,6 +241,8 @@ impl EventLoop {
                                         != EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
                                     && reader.entity_id()
                                         != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
+                                    && reader.entity_id()
+                                        != EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER
                                 {
                                     self.reader_add_sender
                                         .send((reader.entity_id(), reader.sedp_data()))
@@ -500,6 +504,52 @@ impl EventLoop {
                         {
                             eprintln!(
                                 "<{}>: sedp_reader.matched_writer_add(remote_sedp_sub_writer)",
+                                "EventLoop: Info".green()
+                            );
+                            reader.matched_writer_add(
+                                guid,
+                                spdp_data.metarraffic_unicast_locator_list.clone(),
+                                spdp_data.metarraffic_multicast_locator_list.clone(),
+                                0, // TODO: What value should I set?
+                            );
+                        }
+                    }
+                    if available_builtin_endpoint
+                        .contains(BuiltinEndpoint::BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER)
+                    {
+                        let guid = GUID::new(
+                            spdp_data.guid.guid_prefix,
+                            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
+                        );
+                        if let Some(writer) = self
+                            .writers
+                            .get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER)
+                        {
+                            eprintln!(
+                                "<{}>: p2p_msg_writer.matched_reader_add(remote_p2p_msg_reader)",
+                                "EventLoop: Info".green()
+                            );
+                            writer.matched_reader_add(
+                                guid,
+                                spdp_data.expects_inline_qos,
+                                spdp_data.metarraffic_unicast_locator_list.clone(),
+                                spdp_data.metarraffic_multicast_locator_list.clone(),
+                            );
+                        }
+                    }
+                    if available_builtin_endpoint
+                        .contains(BuiltinEndpoint::BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER)
+                    {
+                        let guid = GUID::new(
+                            spdp_data.guid.guid_prefix,
+                            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
+                        );
+                        if let Some(reader) = self
+                            .readers
+                            .get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER)
+                        {
+                            eprintln!(
+                                "<{}>: p2p_msg_reader.matched_writer_add(remote_p2p_msg_writer)",
                                 "EventLoop: Info".green()
                             );
                             reader.matched_writer_add(
