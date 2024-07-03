@@ -201,7 +201,7 @@ Behavior Moduleは以下のように構成されている。
 - 8.4.7から8.4.12まで2つのリファレンス実装をモデル化する。
 - 8.4.13ではParticipantsがそれぞれが保持しているWriterのlivelinessを宣言するために使われるWriter Liveliness Protocolを説明する。
 - 8.4.14ではfragmented dataを含む、いくつかの補足的な振る舞いを説明する。
-- 最後に、8.4.15は正い実装のためのガイドラインを提供する。
+- 最後に、8.4.15は正しい実装のためのガイドラインを提供する。
 
 ### 8.4.1.1 Example Behavior (日本語訳)
 specのFigure 8.14 – Example Behavior
@@ -271,7 +271,7 @@ interoperabilityのため、実装はすくなくともSimple Participant Discov
 Writerはdata sampleをそれらがHistoryCacheに追加された順番で送信しなければならない。
 
 #### 8.4.2.2.2 Writers must include in-line QoS values if requested by a Reader
-Writerはdin-line QoSと共にdata messageを受信するために、Readerの要求に従がわなければならない。
+Writerはin-line QoSと共にdata messageを受信するために、Readerの要求に従わなければならない。
 
 #### 8.4.2.2.3 Writers must send periodic HEARTBEAT Messages (reliable only)
 Writerは、利用可能なサンプルのシーケンス番号を含む定期的なHEARTBEAT Messageを送信することによって、データサンプルが利用可能であることを、マッチングする各Reliable Readerに定期的に通知しなければならない。もし、サンプルが存在しなければHEARTBEAT Messageを送信する必要はない。
@@ -765,6 +765,57 @@ The interpretation and meaning of a Submessage within a Message may depend on th
 within that same Message. "
 つまり、Message内に1つでも無効なSubmessageが含まれている場合、そのMessageを処理する意義は失われるため、RustDDSでは破棄していると思われる。
 
+## 8.4.2.3.4 Readers can only send an ACKNACK Message in response to a HEARTBEAT Message
+安定した状態において、ACKNACKメッセージはWriterからのHEARTBEATメッセージへの応答としてのみ送信することができる。optimizationとして、ReaderがWriterを最初に発見したときにACKNACKメッセージを送信することができる。WriterはこのようなPreemptive ACKNACKに応答する必要はない。
+
+> ChatGPT 4によると、Preemptive ACKNACKはReaderが存在することをWriterに通知し、データの送信を開始するように促すために使用されることが多い
+
+## 8.4.13 Writer Liveliness Protocol
+DDSの仕様はlivliness mechanismの存在を必要としている。RTPSはこの必要要件をWriter Liveliness Protocolにより実現する。Writer Liveliness Protocolは2つのParticipant間でParticipantが含んでいるWriterの生存を宣言するために交換する必要のある情報を定義している。
+
+すべての実装はinteroperableであるためにWriter Liveliness Protocolをサポートしなければならない。
+
+### 8.4.13.1 General Approach
+Writer Liveliness Protocolは事前に定義されたbuilt-inのEndpointを使用する。built-inのEndpointを使用するということは一度Participantが他のParticipantの存在を知れば、それは、リモートParticipantによって提供されるbuilt-in Endpointの存在を想定し、ローカルで一致するbuilt-in Endpointとの関連を確立することができます。
+
+built-in Endpoint間のコミュニケーションで使用されるProtocolはaplication-defined Endpointで使用されるものと同じである。
+
+### 8.4.13.2 Built-in Endpoints Required by the Writer Liveliness Protocol
+Writer Liveliness Protocolが必要とするbuilt-in EndpointはBuiltinParticipantMessageWriterとBuiltinParticipantMessageReaderである。それらのEndpointの名前はそれらが多目的であるという事実を反映している。それらのEndpointはlivelinessのために使用されるが、将来の他のデータのためにも使用される。
+
+RTPS Protocolは以下のEntityIdの値をそれらのbuilt-in Endpointのために予約している。
++ ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER
++ ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_READER
+
+それぞれのEntityIdインスタンスの実際の値はそれぞれPSMで定義されている
+
+### 8.4.13.3 BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader QoS
+interoperabilityのため、BuiltinParticipantMessageWriterとBuiltinParticipantMessageReaderの両方は以下のQOS valueを使用する。
++ reliability.kind = RELIABLE_RELIABILITY_QOS
++ durability.kind = TRANSIENT_LOCAL_DURABILITY
++ history.kind = KEEP_LAST_HISTORY_QOS
++ history.depth = 1
+
+### 8.4.13.4 Data Types Associated with Built-in Endpoints used by Writer Liveliness Protocol
+それぞれのRTPS EndpointはEndpointに関係するdata-objectのchangesを保存するHistoryCacheを持っている。こえはRTPS built-in Endpointに関してもまた真である。したがって、それぞれのRTPS built-in EndpointはいくつかのそのHistoryCacheに書かれるデータのlogical contentsを表すDataTypeに依存する。
+
+Figure 8.26はDCPSParticipantMessage Topicのためのthe RTPS built-in Endpointに関連付けられたParticipantMessageData datatypeを定義する
+
+| ParticipantMessageData |
+|------------------------|
+| + guid: GUID_t         |
+| + kind: octet[4]       |
+| + data: octet [0..*]   |
+
+Figure 8.26 - ParticipantMessageData
+
+### 8.4.13.5 Implementing Writer Liveliness Protocol Using the BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader
+Participantに所属するWriterのsubsetのlivelinessはsampleをBuiltinParticipantMessageWriterに書きこむことにより宣言される。もしParticipantが1つ以上のAUTOMATIC_LIVELINESS_QOSのlivelinessを持つWriterを含んでいる場合、このQoSを共有するWriterの中で最も短いlease Durationよりも速い速度で1つのサンプルが書き込まれます。似たように、もしParticipantが1つ以上のMANUAL_BY_PARTICIPANT_LIVELINESS_QOSのlivelinessを持つWriterを含んでいる場合、それらのWriterの中で最も短いlease Durationよりも速い速度でa separateが書き込まれる。二つのインスタンスは目的が直交しているため、あるParticipantが説明された二つのlivelinessの種類のWriterを持つ場合、二つの別々のインスタンスが定期的に書き込まれなければならない。インスタンスは、participantGuidPrefixとkindフィールドで構成されるDDSkey を使用して区別される。このプロトコルを通じて扱われる二つのタイプのliveliness QoSはそれぞれユニークなkindフィールドを生成し、結果としてHistoryCache内で二つの異なるインスタンスを形成する。
+
+両方のlivelinessのケースにおいて、participantGuidPrefixフィールドにはデータを書き込む（したがってそのWriterの生存性を主張する）ParticipantのGuidPrefix_tが含まれまれる。
+
+The DDS liveliness kind MANUAL_BY_TOPIC_LIVELINESS_QOSはBuiltinParticipantMessageWriterとBuiltinParticipantMessageReaderを使用して実装されない。これに関しては8.7.2.2.3で説明する。
+
 ## 8.4.15 Implementation Guidelines
 この章は正式なプロトコルの仕様ではない。この章の目的は高パフォーマンスなプロトコル実装のためのガイドラインを提供することである。
 
@@ -779,7 +830,7 @@ next_requested_change(SequenceNumber_t lowestRequestedChange and a fixed-length 
 似たテクニックがacked_changes_set() and unacked_changes()の実装にも使える。
 
 ## SPDPまとめ
-builtinのRTPS reader, RTPS writerを作る
+builtinのRTPS reader, RTPS writerを作る。このendpointはBestEffort。
 このreader, writerは“DCPSParticipant”Topicのデータをやり取りする。
 readerはspdpメッセージを受け取って、discovery_db()にremote Participantの情報を入れる
 すでに、discovery_db()に登録されているremote Participantからspdpメッセージを受け取ったらdiscovery_dbのそのparticpantのエントリーの最終更新時刻をアップデート
@@ -792,6 +843,7 @@ writerはspdpメッセージを定期的に、新たにネットワークに自�
 memo: SPDPのためのData submsgはWireshark上でDATA(p)と表示される。
 
 ### SEDPまとめ
+builtinのRTPS reader, RTPS writerを作る。このendpointはReliable。
 最初にSPDPメッセージを受け取ったとき、そのメッセージの送信元に対してユニキャストでSEDPメッセージを送信する。
 
 Endpointが変更されたときは、既知のParticipantに対して変更を知らせるためユニキャストでSEDPメッセージを送信する。
@@ -906,7 +958,7 @@ SEDP DDS built-in Entityは“DCPSSubscription,” “DCPSPublication,” と“
 DDS specificationによると、それらのbulit-in Entityのreliablility QoSは'reliable'にセットされる。
 したがって、SEDPはbuilt-in DDS DataWriter, DataReaderと一致するreliable RTPS Writer, Reader Endpointを結びつける。
 
-たとえば、図 8.29せ説明されているように、 the DDS built-in DataWriters for the “DCPSSubscription,” “DCPSPublication,”
+たとえば、図 8.29で説明されているように、 the DDS built-in DataWriters for the “DCPSSubscription,” “DCPSPublication,”
 and “DCPSTopic” Topics can be mapped to reliable RTPS StatefulWriters and the corresponding DDS built-in
 DataReaders to reliable RTPS StatefulReaders. 実際の実装ではstatefull refarence 実装を使う必要はない。
 interoperabilityのため、実装はbuilt-in Endpointが必要とするものと、8.4.2に挙げられているgeneral requirementsを満たす
