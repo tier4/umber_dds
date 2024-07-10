@@ -4,7 +4,7 @@ use crate::structure::entity_id::*;
 use enumflags2::BitFlags;
 use speedy::{Readable, Writable};
 
-#[derive(Readable, Writable)]
+#[derive(Readable, Writable, Clone)]
 pub struct Gap {
     pub reader_id: EntityId,
     pub writer_id: EntityId,

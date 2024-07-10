@@ -4,7 +4,7 @@ use crate::structure::entity_id::*;
 use enumflags2::BitFlags;
 use speedy::{Readable, Writable};
 
-#[derive(Readable)]
+#[derive(Readable, Clone)]
 pub struct Heartbeat {
     pub reader_id: EntityId,
     pub writer_id: EntityId,

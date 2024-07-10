@@ -171,7 +171,7 @@ impl fmt::Debug for SequenceNumberSet {
 
 pub type FragmentNumberSet = NumberSet<FragmentNumber>;
 
-#[derive(Readable, Writable)]
+#[derive(Readable, Writable, Clone)]
 pub struct NumberSet<T> {
     pub bitmap_base: T,
     pub num_bits: u32,
