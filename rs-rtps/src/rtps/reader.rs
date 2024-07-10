@@ -363,6 +363,14 @@ impl Reader {
             self.heartbeat_response_delay.fraction,
         )
     }
+    pub fn is_contain_writer(&self, writer_entity_id: EntityId) -> bool {
+        for (guid, _wp) in &self.matched_writers {
+            if guid.entity_id == writer_entity_id {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 pub struct ReaderIngredients {
