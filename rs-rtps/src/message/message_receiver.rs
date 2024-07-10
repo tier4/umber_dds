@@ -97,9 +97,6 @@ impl MessageReceiver {
                     return;
                 }
             };
-            if rtps_message.header.guid_prefix == self.own_guid_prefix {
-                return;
-            }
             eprintln!(
                 "<{}>: receive RTPS message form {:?}\n\t{}",
                 "MessageReceiver: Info".green(),
@@ -215,11 +212,7 @@ impl MessageReceiver {
                 self.have_timestamp = false;
             }
             InterpreterSubmessage::InfoDestination(info_dst, _flags) => {
-                if info_dst.guid_prefix != GuidPrefix::UNKNOW {
-                    self.dest_guid_prefix = info_dst.guid_prefix;
-                } else {
-                    self.dest_guid_prefix = self.own_guid_prefix;
-                }
+                self.dest_guid_prefix = info_dst.guid_prefix;
             }
         }
         Ok(())
@@ -232,6 +225,14 @@ impl MessageReceiver {
         writers: &mut HashMap<EntityId, Writer>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7. AckNack
+
+        if self.source_guid_prefix == self.own_guid_prefix
+            && self.dest_guid_prefix != GuidPrefix::UNKNOW
+        {
+            return Err(MessageError(
+                "message from same Participant & dest_guid_prefix is not UNKNOWN".to_string(),
+            ));
+        }
 
         // validation
         if ackanck.reader_sn_state.bitmap_base == SequenceNumber(0)
@@ -267,6 +268,14 @@ impl MessageReceiver {
         writers: &mut HashMap<EntityId, Writer>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.2 Data
+
+        if self.source_guid_prefix == self.own_guid_prefix
+            && self.dest_guid_prefix != GuidPrefix::UNKNOW
+        {
+            return Err(MessageError(
+                "message from same Participant & dest_guid_prefix is not UNKNOWN".to_string(),
+            ));
+        }
 
         // validation
         if data.writer_sn < SequenceNumber(0)
@@ -481,6 +490,14 @@ impl MessageReceiver {
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.4 Gap
 
+        if self.source_guid_prefix == self.own_guid_prefix
+            && self.dest_guid_prefix != GuidPrefix::UNKNOW
+        {
+            return Err(MessageError(
+                "message from same Participant & dest_guid_prefix is not UNKNOWN".to_string(),
+            ));
+        }
+
         // validation
         if !gap.is_valid(flag) {
             return Err(MessageError("Invalid Gap Submessage".to_string()));
@@ -512,6 +529,14 @@ impl MessageReceiver {
         readers: &mut HashMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.5 Heartbeat
+
+        if self.source_guid_prefix == self.own_guid_prefix
+            && self.dest_guid_prefix != GuidPrefix::UNKNOW
+        {
+            return Err(MessageError(
+                "message from same Participant & dest_guid_prefix is not UNKNOWN".to_string(),
+            ));
+        }
 
         // validation
         if !heartbeat.is_valid(flag) {
