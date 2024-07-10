@@ -458,21 +458,29 @@ impl MessageReceiver {
                 }
             };
         } else {
-            match readers.get_mut(&data.reader_id) {
-                Some(r) => r.add_change(self.source_guid_prefix, change),
-                None => {
-                    let mut reader_eids = String::new();
-                    for (eid, _reader) in readers.into_iter() {
-                        reader_eids += &format!("{:?}\n", eid);
+            if data.reader_id == EntityId::UNKNOW {
+                for (_eid, reader) in readers {
+                    if reader.is_contain_writer(data.writer_id) {
+                        reader.add_change(self.source_guid_prefix, change.clone())
                     }
-                    eprintln!(
+                }
+            } else {
+                match readers.get_mut(&data.reader_id) {
+                    Some(r) => r.add_change(self.source_guid_prefix, change),
+                    None => {
+                        let mut reader_eids = String::new();
+                        for (eid, _reader) in readers.into_iter() {
+                            reader_eids += &format!("{:?}\n", eid);
+                        }
+                        eprintln!(
                             "<{}>: couldn't find reader which has {:?}\nthere are readers which has eid:\n{:?}",
                             "MessageReceiver: Warn".yellow(),
                             data.reader_id,
                             reader_eids
                         );
-                }
-            };
+                    }
+                };
+            }
         }
         Ok(())
     }
@@ -505,21 +513,29 @@ impl MessageReceiver {
 
         let writer_guid = GUID::new(self.source_guid_prefix, gap.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, gap.reader_id);
-        match readers.get_mut(&gap.reader_id) {
-            Some(r) => r.handle_gap(writer_guid, gap),
-            None => {
-                let mut reader_eids = String::new();
-                for (eid, _reader) in readers.into_iter() {
-                    reader_eids += &format!("{:?}\n", eid);
+        if gap.reader_id == EntityId::UNKNOW {
+            for (_eid, reader) in readers {
+                if reader.is_contain_writer(gap.writer_id) {
+                    reader.handle_gap(writer_guid, gap.clone());
                 }
-                eprintln!(
+            }
+        } else {
+            match readers.get_mut(&gap.reader_id) {
+                Some(r) => r.handle_gap(writer_guid, gap),
+                None => {
+                    let mut reader_eids = String::new();
+                    for (eid, _reader) in readers.into_iter() {
+                        reader_eids += &format!("{:?}\n", eid);
+                    }
+                    eprintln!(
                     "<{}>: couldn't find reader which has {:?}\nthere are readers which has eid:\n{}",
                     "MessageReceiver: Warn".yellow(),
                     gap.reader_id,
                     reader_eids
                 );
-            }
-        };
+                }
+            };
+        }
         Ok(())
     }
     fn handle_heartbeat_submsg(
@@ -568,11 +584,11 @@ impl MessageReceiver {
                     };
                 }
                 writer_eid => {
-                    eprintln!(
-                        "<{}>: received heartbeat which readerEntityId is UNKNOWN. Couldn't find reader which matches writer {:?}",
-                        "MessageReceiver: Warn".yellow(),
-                        writer_eid,
-                    );
+                    for (_eid, reader) in readers {
+                        if reader.is_contain_writer(writer_eid) {
+                            reader.handle_heartbeat(writer_guid, flag, heartbeat.clone());
+                        }
+                    }
                 }
             }
         } else {
