@@ -362,15 +362,27 @@ impl EventLoop {
                     },
                     TokenDec::Entity(eid) => {
                         if eid.is_writer() {
-                            let writer = match self.writers.get_mut(&eid) {
-                                Some(w) => w,
-                                None => panic!("Unregisterd writer."),
-                            };
-                            writer.handle_writer_cmd();
+                            if let Some(writer) = self.writers.get_mut(&eid) {
+                                writer.handle_writer_cmd();
+                            } else {
+                                eprintln!(
+                                    "<{}>: writer_cmd to Unregisterd Writer. eid: {:?}",
+                                    "EventLoop: Err".red(),
+                                    eid
+                                );
+                            }
                         } else if eid.is_reader() {
-                            unimplemented!("Reader entity: {:?}", eid);
+                            eprintln!(
+                                "<{}>: receive reader_cmd from reader: {:?}, but reader_cmd not implimented",
+                                "EventLoop: Err".red(),
+                                eid
+                            );
                         } else {
-                            panic!("receive message from unknown entity: {:?}", eid);
+                            eprintln!(
+                                "<{}>: receive message from unknown entity: {:?}",
+                                "EventLoop: Err".red(),
+                                eid
+                            );
                         }
                     }
                 }

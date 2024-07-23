@@ -236,7 +236,7 @@ impl SDPBuiltinData {
             None => {
                 eprintln!(
                     "<{}>: couldn't gen WriterProxy, not found remote_guid",
-                    "SDPBuiltinData: Error".red()
+                    "SDPBuiltinData: Err".red()
                 );
                 return None;
             }
@@ -246,7 +246,7 @@ impl SDPBuiltinData {
             None => {
                 eprintln!(
                     "<{}>: couldn't gen WriterProxy, not found unicast_locator_list",
-                    "SDPBuiltinData: Error".red()
+                    "SDPBuiltinData: Err".red()
                 );
                 return None;
             }
@@ -1486,7 +1486,7 @@ mod test {
         let serialized = cdr::serialize::<_, _, PlCdrLe>(&data, Infinite).unwrap();
         let mut deseriarized = match deserialize::<SDPBuiltinData>(&serialized) {
             Ok(d) => d,
-            Err(e) => panic!("neko~~~~~: failed deserialize\n{}", e),
+            Err(e) => panic!("failed deserialize\n{}", e),
         };
         let new_data = deseriarized.to_spdp_discoverd_participant_data();
         eprintln!("domain_id: {}", new_data.domain_id);

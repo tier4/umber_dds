@@ -377,11 +377,19 @@ impl MessageReceiver {
             let writer_proxy =
                 match deserialized.to_writerproxy(Arc::new(RwLock::new(HistoryCache::new()))) {
                     Some(wp) => wp,
-                    None => panic!("failed generate writer_proxy form received DATA(w)"),
+                    None => {
+                        return Err(MessageError(format!(
+                            "failed generate writer_proxy form received DATA(w)",
+                        )));
+                    }
                 };
             let (topic_name, data_type) = match deserialized.topic_info() {
                 Some((tn, dt)) => (tn, dt),
-                None => panic!("falied to get topic_info from received DATA(w)"),
+                None => {
+                    return Err(MessageError(format!(
+                        "falied to get topic_info from received DATA(w)",
+                    )));
+                }
             };
             for (_eid, reader) in readers.iter_mut() {
                 if reader.is_writer_match(&topic_name, &data_type) {
@@ -428,11 +436,19 @@ impl MessageReceiver {
             let reader_proxy =
                 match deserialized.to_readerpoxy(Arc::new(RwLock::new(HistoryCache::new()))) {
                     Some(rp) => rp,
-                    None => panic!("failed generate reader_proxy form received DATA(r)"),
+                    None => {
+                        return Err(MessageError(format!(
+                            "failed generate reader_proxy form received DATA(r)",
+                        )));
+                    }
                 };
             let (topic_name, data_type) = match deserialized.topic_info() {
                 Some((tn, dt)) => (tn, dt),
-                None => panic!("falied to get topic_info from received DATA(p)"),
+                None => {
+                    return Err(MessageError(format!(
+                        "falied to get topic_info from received DATA(p)",
+                    )));
+                }
             };
             for (_eid, writer) in writers.iter_mut() {
                 if writer.is_reader_match(&topic_name, &data_type) {

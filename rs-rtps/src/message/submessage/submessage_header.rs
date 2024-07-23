@@ -60,7 +60,7 @@ impl SubMessageHeader {
         match self.flags & 0x01 {
             0 => false,
             1 => true,
-            _ => panic!("result of (flags & 0x01) isn't 0 or 1"),
+            _ => unreachable!("result of (flags & 0x01) isn't 0 or 1"),
         }
     }
 }
