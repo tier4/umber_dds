@@ -130,7 +130,7 @@ impl InnerPublisher {
                 [239, 255, 0, 1],
             )],
             push_mode: true,
-            heartbeat_period: Duration::new(5, 0),
+            heartbeat_period: Duration::new(2, 0),
             nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
             nack_suppression_duration: Duration::ZERO,
             data_max_size_serialized: 0,
@@ -151,7 +151,7 @@ impl InnerPublisher {
             mio_channel::sync_channel::<WriterCmd>(4);
         let mut heartbeat_period = Duration::ZERO;
         let reliability_level = if let Some(reliability) = qos.reliability {
-            heartbeat_period = Duration::new(5, 0);
+            heartbeat_period = Duration::new(2, 0);
             reliability.kind
         } else {
             ReliabilityQosKind::BestEffort // If qos don't specify reliability_level, the
