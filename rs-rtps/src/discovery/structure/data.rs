@@ -10,6 +10,7 @@ use crate::structure::{
     proxy::{ReaderProxy, WriterProxy},
     vendor_id::VendorId,
 };
+use colored::*;
 use enumflags2::BitFlags;
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::{ser::SerializeStruct, Serialize};
@@ -650,7 +651,20 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         ParameterId::PID_SENTINEL => {
                             break;
                         }
-                        _ => unimplemented!("deserialization of ParameterId: 0x{:04X}", pid),
+                        _ => {
+                            let mut l = length;
+                            while l > 0 {
+                                l -= 1;
+                                let _something: u8 = seq
+                                    .next_element()?
+                                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                            }
+                            eprintln!(
+                                "<{}>: unimplemented ParameterId: 0x{:04X} received",
+                                "SDPBuiltinData: Info".green(),
+                                pid
+                            );
+                        }
                     }
                 }
 
