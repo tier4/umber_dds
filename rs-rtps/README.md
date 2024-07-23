@@ -5,9 +5,11 @@ RustでRTPS/DDSを実装
 
 - [x] DataWriter.write()でData submessageが乗ったパケットを送信できるようにする
 - [x] DataReader.read()でData submessageが乗ったパケットを受信して受け取れるようにする
-- [ ] besteffortでほかのノードをDiscoveryしてPub/Subできるところまで実装
+- [x] besteffortでほかのノードをDiscoveryしてPub/Subできるところまで実装
     - [x] 自実装間
-    - [ ] FastDDS, CycloneDDsとの相互通信
+    - [x] FastDDSとの相互通信
+    - [ ] CycloneDDSとの相互通信
+    - [x] RustDDSとの相互通信
 
 ## TODO
 - [x] QosPoliciesを実装
@@ -26,7 +28,7 @@ RustでRTPS/DDSを実装
     - [ ] Best-Effort StatelessReader Behavior
     - [ ] Reliable StatelessReader Behavior
 - [x] UDP senderの実装
-- [ ] Discovery Moduleを実装
+- [x] Discovery Moduleを実装
 - [x] HistoryCacheを実装
     - [x] DataWriterにHistoryCacheを実装
     - [x] DataReaderにHistoryCacheを実装
@@ -44,3 +46,5 @@ RustでRTPS/DDSを実装
 + history cache, message builder, message serializerを実装し、datawriter.write(hoge)でhogeをdata submessageにのせて送信可能になった。(HeartBeatは未実装なのでdata submessageだけのmessageしか送れない)
 
 + 自実装間での相互通信が可能になった
+
++ FastDDS, RustDDS間での相互通信が可能になった
