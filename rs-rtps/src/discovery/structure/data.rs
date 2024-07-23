@@ -233,19 +233,37 @@ impl SDPBuiltinData {
     ) -> Option<WriterProxy> {
         let remote_guid = match self.remote_guid {
             Some(rg) => rg,
-            None => return None,
+            None => {
+                eprintln!(
+                    "<{}>: couldn't gen WriterProxy, not found remote_guid",
+                    "SDPBuiltinData: Error".red()
+                );
+                return None;
+            }
         };
         let unicast_locator_list = match self.unicast_locator_list.take() {
             Some(ull) => ull,
-            None => return None,
+            None => {
+                eprintln!(
+                    "<{}>: couldn't gen WriterProxy, not found unicast_locator_list",
+                    "SDPBuiltinData: Error".red()
+                );
+                return None;
+            }
         };
         let multicast_locator_list = match self.multicast_locator_list.take() {
             Some(mll) => mll,
-            None => return None,
+            None => {
+                eprintln!(
+                    "<{}>: couldn't gen WriterProxy, not found multicast_locator_list",
+                    "SDPBuiltinData: Error".red()
+                );
+                return None;
+            }
         };
         let data_max_size_serialized = match self.data_max_size_serialized {
             Some(dmss) => dmss,
-            None => return None,
+            None => 0, // TODO: Which value should I set?
         };
         Some(WriterProxy::new(
             remote_guid,
