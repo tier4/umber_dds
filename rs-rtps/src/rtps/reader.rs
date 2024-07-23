@@ -320,8 +320,8 @@ impl Reader {
             message_builder.info_dst(self.endianness, writer_proxy.remote_writer_guid.guid_prefix);
             message_builder.acknack(
                 self.endianness,
-                self_entity_id,
                 writer_guid.entity_id,
+                self_entity_id,
                 reader_sn_state,
                 1,
                 false,
