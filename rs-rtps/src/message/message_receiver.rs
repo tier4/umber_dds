@@ -316,18 +316,27 @@ impl MessageReceiver {
             || data.reader_id == EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
         {
             // if msg is for SPDP
-            let mut deserialized = match deserialize::<SDPBuiltinData>(
-                &data.serialized_payload.as_ref().unwrap().to_bytes(),
-            ) {
-                Ok(d) => d,
-                Err(e) => {
-                    return Err(MessageError(format!(
-                        "failed deserialize reseived spdp data message: {:?}",
-                        e
-                    )));
-                }
+            let mut deserialized =
+                match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
+                    Some(sp) => sp.to_bytes(),
+                    None => {
+                        return Err(MessageError(
+                            "received spdp message without serializedPayload".to_string(),
+                        ))
+                    }
+                }) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        return Err(MessageError(format!(
+                            "failed deserialize reseived spdp data message: {:?}",
+                            e
+                        )));
+                    }
+                };
+            let new_data = match deserialized.to_spdp_discoverd_participant_data() {
+                Some(nd) => nd,
+                None => return Err(MessageError("received incomplete spdp message".to_string())),
             };
-            let new_data = deserialized.to_spdp_discoverd_participant_data();
             let guid_prefix = new_data.guid.guid_prefix;
             eprintln!(
                 "<{}>: handle SPDP message from: {:?}",
@@ -359,17 +368,23 @@ impl MessageReceiver {
             || data.reader_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
         {
             // if msg is for SEDP
-            let mut deserialized = match deserialize::<SDPBuiltinData>(
-                &data.serialized_payload.as_ref().unwrap().to_bytes(),
-            ) {
-                Ok(d) => d,
-                Err(e) => {
-                    return Err(MessageError(format!(
-                        "failed deserialize reseived sedp(w) data message: {:?}",
-                        e
-                    )));
-                }
-            };
+            let mut deserialized =
+                match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
+                    Some(sp) => sp.to_bytes(),
+                    None => {
+                        return Err(MessageError(
+                            "received sedp message without serializedPayload".to_string(),
+                        ))
+                    }
+                }) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        return Err(MessageError(format!(
+                            "failed deserialize reseived sedp(w) data message: {:?}",
+                            e
+                        )));
+                    }
+                };
             eprintln!(
                 "<{}>: successed for deserialize sedp(w)",
                 "MessageReceiver: Info".green()
@@ -418,17 +433,23 @@ impl MessageReceiver {
             || data.reader_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
         {
             // if msg is for SEDP
-            let mut deserialized = match deserialize::<SDPBuiltinData>(
-                &data.serialized_payload.as_ref().unwrap().to_bytes(),
-            ) {
-                Ok(d) => d,
-                Err(e) => {
-                    return Err(MessageError(format!(
-                        "failed deserialize reseived sedp(r) data message: {:?}",
-                        e
-                    )));
-                }
-            };
+            let mut deserialized =
+                match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
+                    Some(sp) => sp.to_bytes(),
+                    None => {
+                        return Err(MessageError(
+                            "received sedp message without serializedPayload".to_string(),
+                        ))
+                    }
+                }) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        return Err(MessageError(format!(
+                            "failed deserialize reseived sedp(r) data message: {:?}",
+                            e
+                        )));
+                    }
+                };
             eprintln!(
                 "<{}>: successed for deserialize sedp(r)",
                 "MessageReceiver: Info".green()

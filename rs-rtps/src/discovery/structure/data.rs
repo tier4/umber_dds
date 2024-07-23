@@ -151,28 +151,53 @@ impl SDPBuiltinData {
         }
     }
 
-    pub fn to_spdp_discoverd_participant_data(&mut self) -> SPDPdiscoveredParticipantData {
-        let domain_id = self.domain_id.unwrap(); // set this participant's domain_id is domain_id
-                                                 // is none
+    pub fn to_spdp_discoverd_participant_data(&mut self) -> Option<SPDPdiscoveredParticipantData> {
+        let domain_id = match self.domain_id {
+            Some(did) => did,
+            None => return None,
+        }; // TODO: set  domain_id of this participant if domain_id is none
         let domain_tag = self.domain_tag.take().unwrap_or(String::from(""));
-        let protocol_version = self.protocol_version.take().unwrap();
-        let guid = self.guid.unwrap();
-        let vendor_id = self.vendor_id.unwrap();
+        let protocol_version = match self.protocol_version.take() {
+            Some(pv) => pv,
+            None => return None,
+        };
+        let guid = match self.guid {
+            Some(g) => g,
+            None => return None,
+        };
+        let vendor_id = match self.vendor_id {
+            Some(vid) => vid,
+            None => return None,
+        };
         let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
-        let available_builtin_endpoint = self.available_builtin_endpoint.unwrap();
-        let metarraffic_unicast_locator_list =
-            self.metarraffic_unicast_locator_list.take().unwrap();
+        let available_builtin_endpoint = match self.available_builtin_endpoint {
+            Some(abe) => abe,
+            None => return None,
+        };
+        let metarraffic_unicast_locator_list = match self.metarraffic_unicast_locator_list.take() {
+            Some(mull) => mull,
+            None => return None,
+        };
         let metarraffic_multicast_locator_list =
-            self.metarraffic_multicast_locator_list.take().unwrap();
-        let default_unicast_locator_list = self.default_unicast_locator_list.take().unwrap();
-        let default_multicast_locator_list = self.default_multicast_locator_list.take().unwrap();
+            match self.metarraffic_multicast_locator_list.take() {
+                Some(mmll) => mmll,
+                None => return None,
+            };
+        let default_unicast_locator_list = match self.default_unicast_locator_list.take() {
+            Some(dull) => dull,
+            None => return None,
+        };
+        let default_multicast_locator_list = match self.default_multicast_locator_list.take() {
+            Some(dmll) => dmll,
+            None => return None,
+        };
         let manual_liveliness_count = self.manual_liveliness_count;
         let lease_duration = self.lease_duration.unwrap_or(Duration {
             seconds: 100,
             fraction: 0,
         });
 
-        SPDPdiscoveredParticipantData {
+        Some(SPDPdiscoveredParticipantData {
             domain_id,
             domain_tag,
             protocol_version,
@@ -186,7 +211,7 @@ impl SDPBuiltinData {
             default_multicast_locator_list,
             manual_liveliness_count,
             lease_duration,
-        }
+        })
     }
 
     pub fn topic_info(&self) -> Option<(String, String)> {
@@ -1488,7 +1513,9 @@ mod test {
             Ok(d) => d,
             Err(e) => panic!("failed deserialize\n{}", e),
         };
-        let new_data = deseriarized.to_spdp_discoverd_participant_data();
+        let new_data = deseriarized
+            .to_spdp_discoverd_participant_data()
+            .expect("couldn't get spdp data from SDPBuiltinData");
         eprintln!("domain_id: {}", new_data.domain_id);
         eprintln!("domain_tag: {}", new_data.domain_tag);
         eprintln!("protocol_version: {:?}", new_data.protocol_version);

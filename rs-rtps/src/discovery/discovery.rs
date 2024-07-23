@@ -296,20 +296,21 @@ impl Discovery {
     fn handle_participant_discovery(&mut self) {
         let vd = self.spdp_builtin_participant_reader.take();
         for mut d in vd {
-            let spdp_data = d.to_spdp_discoverd_participant_data();
-            if spdp_data.domain_id != self.dp.domain_id() {
-                continue;
-            } else {
-                let guid_prefix = spdp_data.guid.guid_prefix;
-                eprintln!("<{}>: discovery_db wite", "Discovery: Info".green());
-                self.discovery_db.write(
-                    spdp_data.guid.guid_prefix,
-                    Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
-                    spdp_data,
-                );
-                self.discdb_update_sender
-                    .send(guid_prefix)
-                    .expect("couldn't send update notification to discdb_update_sender");
+            if let Some(spdp_data) = d.to_spdp_discoverd_participant_data() {
+                if spdp_data.domain_id != self.dp.domain_id() {
+                    continue;
+                } else {
+                    let guid_prefix = spdp_data.guid.guid_prefix;
+                    eprintln!("<{}>: discovery_db wite", "Discovery: Info".green());
+                    self.discovery_db.write(
+                        spdp_data.guid.guid_prefix,
+                        Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
+                        spdp_data,
+                    );
+                    self.discdb_update_sender
+                        .send(guid_prefix)
+                        .expect("couldn't send update notification to discdb_update_sender");
+                }
             }
         }
     }
