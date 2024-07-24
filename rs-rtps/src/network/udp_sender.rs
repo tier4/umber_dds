@@ -3,6 +3,7 @@ use std::net::UdpSocket;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr}; // RustDDS use mio::net::UdpSocket here. I dont'n know why they don't use
                                               // std::net::UdpSocket so, I use std::net::UdpSocket.
 use crate::network::net_util;
+use colored::*;
 use std::io;
 
 pub struct UdpSender {
@@ -12,6 +13,7 @@ pub struct UdpSender {
 
 impl UdpSender {
     pub fn new(sender_port: u16) -> io::Result<Self> {
+        // if 0.0.0.0 is binded to sender socket, source IP is decided automatic
         let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), sender_port);
         let unicast_socket = UdpSocket::bind(addr)
             .expect(&format!("couldn't bind 0.0.0.0:{} to socket", sender_port));
@@ -22,6 +24,7 @@ impl UdpSender {
 
         let local_interfaces = net_util::get_local_interfaces();
         let mut multicast_sockets: Vec<UdpSocket> = Vec::new();
+        // The DDS implementation sends multicast datagrams to all interfaces because it cannot determine which interfaces the nodes joined to the multicast group are connected to and which they are not.
         for li in local_interfaces {
             let raw_socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))
                 .expect("couldn't open raw_socket");
@@ -49,11 +52,28 @@ impl UdpSender {
         })
     }
 
-    pub fn send_to(&self, data: &[u8], addr: Ipv4Addr, port: u16) {
+    pub fn send_to_unicast(&self, data: &[u8], addr: Ipv4Addr, port: u16) {
+        if let Err(e) = self.unicast_socket.send_to(data, (addr, port)) {
+            eprintln!(
+                "<{}>: couldn't send data to {}:{} because '{:?}'",
+                "UdpSender: Err".red(),
+                addr,
+                port,
+                e
+            );
+        }
+    }
+
+    pub fn send_to_multicast(&self, data: &[u8], multicast_group: Ipv4Addr, port: u16) {
         for msocket in &self.multicast_sockets {
-            match msocket.send_to(data, (addr, port)) {
-                Ok(_n) => (),
-                Err(_) => panic!("udp send failed."),
+            if let Err(e) = msocket.send_to(data, (multicast_group, port)) {
+                eprintln!(
+                    "<{}>: couldn't send data to {}:{} because '{:?}'",
+                    "UdpSender: Err".red(),
+                    multicast_group,
+                    port,
+                    e
+                );
             }
         }
     }

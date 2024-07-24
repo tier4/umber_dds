@@ -250,7 +250,7 @@ impl Writer {
                                         addr[15],
                                         port
                                     );
-                                    self.sender.send_to(
+                                    self.sender.send_to_unicast(
                                         &message_buf,
                                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                         port as u16,
@@ -270,7 +270,7 @@ impl Writer {
                                         addr[15],
                                         port
                                     );
-                                    self.sender.send_to(
+                                    self.sender.send_to_multicast(
                                         &message_buf,
                                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                         port as u16,
@@ -327,7 +327,7 @@ impl Writer {
                         addr[15],
                         port
                     );
-                    self.sender.send_to(
+                    self.sender.send_to_unicast(
                         &message_buf,
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,
@@ -347,7 +347,7 @@ impl Writer {
                         addr[15],
                         port
                     );
-                    self.sender.send_to(
+                    self.sender.send_to_multicast(
                         &message_buf,
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,
@@ -461,7 +461,7 @@ impl Writer {
                                     addr[15],
                                     port
                                 );
-                                self.sender.send_to(
+                                self.sender.send_to_unicast(
                                     &message_buf,
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
@@ -481,7 +481,7 @@ impl Writer {
                                     addr[15],
                                     port
                                 );
-                                self.sender.send_to(
+                                self.sender.send_to_multicast(
                                     &message_buf,
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
