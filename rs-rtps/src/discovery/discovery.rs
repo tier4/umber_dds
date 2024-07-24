@@ -11,8 +11,7 @@ use crate::dds::{
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
-    DiscoveredReaderData, DiscoveredWriterData, PublicationBuiltinTopicData, SDPBuiltinData,
-    SPDPdiscoveredParticipantData, SubscriptionBuiltinTopicData,
+    DiscoveredReaderData, DiscoveredWriterData, SDPBuiltinData, SPDPdiscoveredParticipantData,
 };
 use crate::message::{
     message_header::ProtocolVersion,
@@ -21,22 +20,15 @@ use crate::message::{
 use crate::network::net_util::{
     spdp_multicast_port, spdp_unicast_port, usertraffic_multicast_port, usertraffic_unicast_port,
 };
-use crate::rtps::cache::HistoryCache;
 use crate::structure::{
-    duration::Duration,
-    entity::RTPSEntity,
-    entity_id::EntityId,
-    guid::{GuidPrefix, GUID},
-    proxy::{ReaderProxy, WriterProxy},
-    topic_kind::TopicKind,
-    vendor_id::VendorId,
+    duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GuidPrefix,
+    topic_kind::TopicKind, vendor_id::VendorId,
 };
 use colored::*;
 use enumflags2::make_bitflags;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use std::time::Duration as StdDuration;
 
 // SPDPbuiltinParticipantWriter

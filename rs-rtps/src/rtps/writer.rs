@@ -34,7 +34,7 @@ pub struct Writer {
     // Entity
     guid: GUID,
     // Endpoint
-    topic_kind: TopicKind,
+    _topic_kind: TopicKind,
     reliability_level: ReliabilityQosKind,
     unicast_locator_list: Vec<Locator>,
     multicast_locator_list: Vec<Locator>,
@@ -42,7 +42,7 @@ pub struct Writer {
     push_mode: bool,
     heartbeat_period: Duration,
     nack_response_delay: Duration,
-    nack_suppression_duration: Duration,
+    _nack_suppression_duration: Duration,
     last_change_sequence_number: SequenceNumber,
     writer_cache: Arc<RwLock<HistoryCache>>,
     data_max_size_serialized: i32,
@@ -75,14 +75,14 @@ impl Writer {
     ) -> Self {
         Self {
             guid: wi.guid,
-            topic_kind: wi.topic_kind,
+            _topic_kind: wi.topic_kind,
             reliability_level: wi.reliability_level,
             unicast_locator_list: wi.unicast_locator_list,
             multicast_locator_list: wi.multicast_locator_list,
             push_mode: wi.push_mode,
             heartbeat_period: wi.heartbeat_period,
             nack_response_delay: wi.nack_response_delay,
-            nack_suppression_duration: wi.nack_suppression_duration,
+            _nack_suppression_duration: wi.nack_suppression_duration,
             last_change_sequence_number: SequenceNumber(0),
             writer_cache: Arc::new(RwLock::new(HistoryCache::new())),
             data_max_size_serialized: wi.data_max_size_serialized,

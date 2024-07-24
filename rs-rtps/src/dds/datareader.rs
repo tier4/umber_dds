@@ -10,9 +10,9 @@ use std::sync::{Arc, RwLock};
 
 pub struct DataReader<D: for<'de> Deserialize<'de>> {
     data_phantom: PhantomData<D>,
-    qos: QosPolicies,
-    topic: Topic,
-    subscriber: Subscriber,
+    _qos: QosPolicies,
+    _topic: Topic,
+    _subscriber: Subscriber,
     rhc: Arc<RwLock<HistoryCache>>,
     reader_ready_receiver: mio_channel::Receiver<()>,
 }
@@ -27,9 +27,9 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     ) -> Self {
         DataReader {
             data_phantom: PhantomData::<D>,
-            qos,
-            topic,
-            subscriber,
+            _qos: qos,
+            _topic: topic,
+            _subscriber: subscriber,
             rhc,
             reader_ready_receiver,
         }

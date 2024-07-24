@@ -328,12 +328,11 @@ impl Locator {
 
     pub fn new_list_from_self_ipv4(port: u32) -> Vec<Self> {
         let addrs = get_local_interfaces();
-        let mut address = [0; 4];
         let mut locators = Vec::new();
         for a in addrs {
             match a {
                 IpAddr::V4(v4a) => {
-                    address = v4a.octets();
+                    let address = v4a.octets();
                     assert_ne!([0; 4], address);
 
                     let mut addr: [u8; 16] = [0; 16];

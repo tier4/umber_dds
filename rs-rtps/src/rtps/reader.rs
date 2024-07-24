@@ -2,7 +2,7 @@ use crate::dds::{qos::policy::ReliabilityQosKind, topic::Topic};
 use crate::discovery::structure::data::DiscoveredReaderData;
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
-    element::{gap::Gap, heartbeat::Heartbeat, Count, Locator, SequenceNumber, SequenceNumberSet},
+    element::{gap::Gap, heartbeat::Heartbeat, Locator, SequenceNumber, SequenceNumberSet},
     submessage_flag::HeartbeatFlag,
 };
 use crate::network::udp_sender::UdpSender;
@@ -30,7 +30,7 @@ pub struct Reader {
     // Entity
     guid: GUID,
     // Endpoint
-    topic_kind: TopicKind,
+    _topic_kind: TopicKind,
     reliability_level: ReliabilityQosKind,
     unicast_locator_list: Vec<Locator>,
     multicast_locator_list: Vec<Locator>,
@@ -56,7 +56,7 @@ impl Reader {
     ) -> Self {
         Self {
             guid: ri.guid,
-            topic_kind: ri.topic_kind,
+            _topic_kind: ri.topic_kind,
             reliability_level: ri.reliability_level,
             unicast_locator_list: ri.unicast_locator_list,
             multicast_locator_list: ri.multicast_locator_list,

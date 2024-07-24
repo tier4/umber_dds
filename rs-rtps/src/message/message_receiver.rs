@@ -221,7 +221,7 @@ impl MessageReceiver {
     fn handle_acknack_submsg(
         &self,
         ackanck: AckNack,
-        flag: BitFlags<AckNackFlag>,
+        _flag: BitFlags<AckNackFlag>,
         writers: &mut HashMap<EntityId, Writer>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7. AckNack
@@ -522,8 +522,8 @@ impl MessageReceiver {
         Ok(())
     }
     fn handle_datafrag_submsg(
-        data_frag: DataFrag,
-        flag: BitFlags<DataFragFlag>,
+        _data_frag: DataFrag,
+        _flag: BitFlags<DataFragFlag>,
     ) -> Result<(), MessageError> {
         Ok(())
     }
@@ -644,14 +644,14 @@ impl MessageReceiver {
         Ok(())
     }
     fn handle_heartbeatfrag_submsg(
-        heartbeat_frag: HeartbeatFrag,
-        flag: BitFlags<HeartbeatFragFlag>,
+        _heartbeat_frag: HeartbeatFrag,
+        _flag: BitFlags<HeartbeatFragFlag>,
     ) -> Result<(), MessageError> {
         Ok(())
     }
     fn handle_nackfrag_submsg(
-        nack_frag: NackFrag,
-        flag: BitFlags<NackFragFlag>,
+        _nack_frag: NackFrag,
+        _flag: BitFlags<NackFragFlag>,
     ) -> Result<(), MessageError> {
         Ok(())
     }

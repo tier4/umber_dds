@@ -6,12 +6,7 @@ use crate::discovery::{
 };
 use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterIngredients};
-use crate::structure::{
-    entity::RTPSEntity,
-    entity_id::EntityId,
-    guid::*,
-    proxy::{ReaderProxy, WriterProxy},
-};
+use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
 use bytes::BytesMut;
 use colored::*;
 use mio_extras::{channel as mio_channel, timer::Timer};

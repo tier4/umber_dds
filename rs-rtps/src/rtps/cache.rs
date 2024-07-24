@@ -77,7 +77,7 @@ impl ChangeForReader {
 
 #[derive(Clone)]
 pub struct ChangeFromWriter {
-    pub seq_num: SequenceNumber,
+    pub _seq_num: SequenceNumber,
     pub is_relevant: bool,
     pub status: ChangeFromWriterStatusKind,
 }
@@ -89,7 +89,7 @@ impl ChangeFromWriter {
         is_relevant: bool,
     ) -> Self {
         Self {
-            seq_num,
+            _seq_num: seq_num,
             status,
             is_relevant,
         }

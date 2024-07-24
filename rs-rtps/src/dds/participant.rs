@@ -175,7 +175,7 @@ struct DomainParticipantInner {
     pub my_guid: GUID,
     add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
     add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
-    thread: thread::JoinHandle<()>,
+    ev_loop_handler: Option<thread::JoinHandle<()>>,
     entity_key_generator: AtomicU32,
 }
 
@@ -237,21 +237,24 @@ impl DomainParticipantInner {
 
         let my_guid = GUID::new_participant_guid();
 
-        let new_thread = thread::spawn(move || {
-            let guid_prefix = my_guid.guid_prefix;
-            let ev_loop = EventLoop::new(
-                domain_id,
-                socket_list,
-                guid_prefix,
-                add_writer_receiver,
-                add_reader_receiver,
-                writer_add_sender,
-                reader_add_sender,
-                discovery_db,
-                discdb_update_receiver,
-            );
-            ev_loop.event_loop();
-        });
+        let ev_loop_handler = thread::Builder::new()
+            .name("EventLoop".to_string())
+            .spawn(move || {
+                let guid_prefix = my_guid.guid_prefix;
+                let ev_loop = EventLoop::new(
+                    domain_id,
+                    socket_list,
+                    guid_prefix,
+                    add_writer_receiver,
+                    add_reader_receiver,
+                    writer_add_sender,
+                    reader_add_sender,
+                    discovery_db,
+                    discdb_update_receiver,
+                );
+                ev_loop.event_loop();
+            })
+            .expect("couldn't spawn EventLoop thread");
 
         Self {
             domain_id,
@@ -259,7 +262,7 @@ impl DomainParticipantInner {
             my_guid,
             add_writer_sender,
             add_reader_sender,
-            thread: new_thread,
+            ev_loop_handler: Some(ev_loop_handler),
             entity_key_generator: AtomicU32::new(0x0300),
         }
     }
@@ -294,5 +297,13 @@ impl DomainParticipantInner {
             .fetch_add(1, Ordering::Relaxed)
             .to_be_bytes();
         [a, b, c]
+    }
+}
+
+impl Drop for DomainParticipantInner {
+    fn drop(&mut self) {
+        if let Some(handler) = self.ev_loop_handler.take() {
+            handler.join().unwrap();
+        }
     }
 }
