@@ -119,7 +119,7 @@ impl Discovery {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("couldn't register spdp_builtin_participant_reader to poll");
 
         // For SEDP
         let sedp_qos = QosBuilder::new()
@@ -176,21 +176,21 @@ impl Discovery {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("couldn't register spdp_send_timer to poll");
         poll.register(
             &mut writer_add_receiver,
             DISC_WRITER_ADD,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("couldn't register writer_add_receiver to poll");
         poll.register(
             &mut reader_add_receiver,
             DISC_READER_ADD,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("couldn't register reader_add_receiver to poll");
         Self {
             dp,
             discovery_db,

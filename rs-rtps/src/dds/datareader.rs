@@ -42,7 +42,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         d
     }
     fn get_change(&self) -> Vec<D> {
-        let hc = self.rhc.read().unwrap();
+        let hc = self.rhc.read().expect("couldn't read ReaderHistoryCache");
         let data = hc.get_changes();
         let mut v: Vec<D> = Vec::new();
         for d in data {
@@ -57,7 +57,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         v
     }
     fn remove_changes(&self) {
-        let mut hc = self.rhc.write().unwrap();
+        let mut hc = self.rhc.write().expect("couldn't write ReaderHistoryCache");
         hc.remove_changes();
     }
     pub fn get_qos() {}

@@ -120,7 +120,9 @@ impl InnerSubscriber {
             topic: topic.clone(),
             reader_ready_notifier,
         };
-        self.add_reader_sender.send(reader_ing).unwrap();
+        self.add_reader_sender
+            .send(reader_ing)
+            .expect("couldn't send channel 'add_reader_sender'");
         DataReader::<D>::new(qos, topic, subscriber, history_cache, reader_ready_receiver)
     }
 
@@ -156,7 +158,9 @@ impl InnerSubscriber {
             topic: topic.clone(),
             reader_ready_notifier,
         };
-        self.add_reader_sender.send(reader_ing).unwrap();
+        self.add_reader_sender
+            .send(reader_ing)
+            .expect("couldn't send add_reader_sender");
         DataReader::<D>::new(qos, topic, subscriber, history_cache, reader_ready_receiver)
     }
 }

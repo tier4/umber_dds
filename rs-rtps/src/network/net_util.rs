@@ -1,7 +1,8 @@
 use bytes::BytesMut;
+use colored::*;
 use if_addrs::get_if_addrs;
-use std::net::IpAddr;
 use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr};
 
 const PB: u16 = 7400;
 const DG: u16 = 250;
@@ -33,11 +34,22 @@ pub fn usertraffic_unicast_port(domain_id: u16, participant_id: u16) -> u16 {
 }
 
 pub fn get_local_interfaces() -> Vec<IpAddr> {
-    let local_interface = get_if_addrs().unwrap(); // TODO: errer handling
-    let local_addrs: Vec<IpAddr> = local_interface
-        .iter()
-        .filter(|s| !s.is_loopback())
-        .map(|s| s.ip())
-        .collect();
-    local_addrs
+    match get_if_addrs() {
+        Ok(local_interface) => {
+            let local_addrs: Vec<IpAddr> = local_interface
+                .iter()
+                .filter(|s| !s.is_loopback())
+                .map(|s| s.ip())
+                .collect();
+            local_addrs
+        }
+        Err(e) => {
+            eprintln!(
+                "<{}>: couldn't get local interface address because {:?}, use only loopback",
+                "net_ulit: Err".red(),
+                e
+            );
+            vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))]
+        }
+    }
 }

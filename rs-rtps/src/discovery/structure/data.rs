@@ -611,7 +611,10 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         }
                         ParameterId::PID_TYPE_NAME => {
                             type_name = seq.next_element()?;
-                            let pad_len = length - 4 - 1 - type_name.as_ref().unwrap().len() as u16;
+                            let pad_len = length
+                                - 4
+                                - 1
+                                - type_name.as_ref().expect("couldn't get type_name").len() as u16;
                             match pad_len {
                                 0 => (),
                                 1 => read_pad!(u8),
@@ -625,8 +628,11 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         }
                         ParameterId::PID_TOPIC_NAME => {
                             topic_name = seq.next_element()?;
-                            let pad_len =
-                                length - 4 - 1 - topic_name.as_ref().unwrap().len() as u16;
+                            let pad_len = length
+                                - 4
+                                - 1
+                                - topic_name.as_ref().expect("couldn't get topic_name").len()
+                                    as u16;
                             match pad_len {
                                 0 => (),
                                 1 => read_pad!(u8),
@@ -1508,7 +1514,8 @@ mod test {
                 fraction: 0,
             },
         );
-        let serialized = cdr::serialize::<_, _, PlCdrLe>(&data, Infinite).unwrap();
+        let serialized =
+            cdr::serialize::<_, _, PlCdrLe>(&data, Infinite).expect("couldn't serialize message");
         let mut deseriarized = match deserialize::<SDPBuiltinData>(&serialized) {
             Ok(d) => d,
             Err(e) => panic!("failed deserialize\n{}", e),

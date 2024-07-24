@@ -21,12 +21,12 @@ impl DiscoveryDB {
         timestamp: Timestamp,
         data: SPDPdiscoveredParticipantData,
     ) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
         inner.write(guid_prefix, timestamp, data)
     }
 
     pub fn read(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
         inner.read(guid_prefix)
     }
 }

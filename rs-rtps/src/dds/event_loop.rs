@@ -65,7 +65,7 @@ impl EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
             poll.register(lister, *token, Ready::readable(), PollOpt::edge())
-                .unwrap();
+                .expect("coludn't register lister to poll");
         }
         poll.register(
             &mut add_writer_receiver,
@@ -73,14 +73,14 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("coludn't register add_writer_receiver to poll");
         poll.register(
             &mut add_reader_receiver,
             ADD_READER_TOKEN,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("coludn't register add_reader_receiver to poll");
         let mut writer_hb_timer = Timer::default();
         poll.register(
             &mut writer_hb_timer,
@@ -88,14 +88,14 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("coludn't register writer_hb_timer to poll");
         poll.register(
             &mut discdb_update_receiver,
             DISCOVERY_DB_UPDATE,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("coludn't register discdb_update_receiver to poll");
         let (set_reader_hb_timer_sender, mut set_reader_hb_timer_receiver) = mio_channel::channel();
         let (set_writer_nack_timer_sender, mut set_writer_nack_timer_receiver) =
             mio_channel::channel();
@@ -105,14 +105,14 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("coludn't register set_reader_hb_timer_receiver to poll");
         poll.register(
             &mut set_writer_nack_timer_receiver,
             SET_WRITER_NACK_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .unwrap();
+        .expect("coludn't register set_writer_nack_timer_receiver to poll");
         let message_receiver = MessageReceiver::new(participant_guidprefix);
         let sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
@@ -147,22 +147,24 @@ impl EventLoop {
                 match TokenDec::decode(event.token()) {
                     TokenDec::ReservedToken(token) => match token {
                         DISCOVERY_MULTI_TOKEN | DISCOVERY_UNI_TOKEN => {
-                            let udp_sock = self.sockets.get_mut(&event.token()).unwrap();
-                            let packets = EventLoop::receiv_packet(udp_sock);
-                            self.message_receiver.handle_packet(
-                                packets,
-                                &mut self.writers,
-                                &mut self.readers,
-                            );
+                            if let Some(udp_sock) = self.sockets.get_mut(&event.token()) {
+                                let packets = EventLoop::receiv_packet(udp_sock);
+                                self.message_receiver.handle_packet(
+                                    packets,
+                                    &mut self.writers,
+                                    &mut self.readers,
+                                );
+                            }
                         }
                         USERTRAFFIC_MULTI_TOKEN | USERTRAFFIC_UNI_TOKEN => {
-                            let udp_sock = self.sockets.get_mut(&event.token()).unwrap();
-                            let packets = EventLoop::receiv_packet(udp_sock);
-                            self.message_receiver.handle_packet(
-                                packets,
-                                &mut self.writers,
-                                &mut self.readers,
-                            );
+                            if let Some(udp_sock) = self.sockets.get_mut(&event.token()) {
+                                let packets = EventLoop::receiv_packet(udp_sock);
+                                self.message_receiver.handle_packet(
+                                    packets,
+                                    &mut self.writers,
+                                    &mut self.readers,
+                                );
+                            }
                         }
                         ADD_WRITER_TOKEN => {
                             while let Ok(writer_ing) = self.add_writer_receiver.try_recv() {
@@ -212,7 +214,9 @@ impl EventLoop {
                                         Ready::readable(),
                                         PollOpt::edge(),
                                     )
-                                    .unwrap();
+                                    .expect(
+                                        "coludn't register writer.writer_command_receiver to poll",
+                                    );
                                 if writer.entity_id()
                                     != EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
                                     && writer.entity_id()
@@ -222,7 +226,7 @@ impl EventLoop {
                                 {
                                     self.writer_add_sender
                                         .send((writer.entity_id(), writer.sedp_data()))
-                                        .unwrap();
+                                        .expect("coludn't send channel 'writer_add_sender'");
                                 }
                                 self.writers.insert(writer.entity_id(), writer);
                             }
@@ -242,7 +246,7 @@ impl EventLoop {
                                 {
                                     self.reader_add_sender
                                         .send((reader.entity_id(), reader.sedp_data()))
-                                        .unwrap();
+                                        .expect("coludn't send channle 'reader_add_sender'");
                                 }
                                 self.readers.insert(reader.entity_id(), reader);
                             }
@@ -298,7 +302,7 @@ impl EventLoop {
                                             Ready::readable(),
                                             PollOpt::edge(),
                                         )
-                                        .unwrap();
+                                        .expect("coludn't register reader_hb_timer to poll");
                                     self.reader_hb_timers.push(reader_hb_timer);
                                 }
                             }
@@ -327,7 +331,7 @@ impl EventLoop {
                                             Ready::readable(),
                                             PollOpt::edge(),
                                         )
-                                        .unwrap();
+                                        .expect("coludn't register writedr_an_timer to poll");
                                     self.writer_nack_timers.push(writedr_an_timer);
                                 }
                             }

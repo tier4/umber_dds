@@ -36,7 +36,10 @@ pub struct DomainParticipant {
 
 impl RTPSEntity for DomainParticipant {
     fn guid(&self) -> GUID {
-        self.inner.lock().unwrap().guid()
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .guid()
     }
 }
 
@@ -73,30 +76,41 @@ impl DomainParticipant {
                 );
                 discovery.discovery_loop();
             })
-            .unwrap();
-        disc_thread_sender.send(discovery_handler).unwrap();
+            .expect("couldn't spawn discovery thread");
+        disc_thread_sender
+            .send(discovery_handler)
+            .expect("couldn't send channel 'disc_thread_sender'");
         dp
     }
     pub fn create_publisher(&self, qos: QosPolicies) -> Publisher {
         self.inner
             .lock()
-            .unwrap()
+            .expect("couldn't lock DomainParticipantDisc")
             .create_publisher(self.clone(), qos)
     }
     pub fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
         self.inner
             .lock()
-            .unwrap()
+            .expect("couldn't lock DomainParticipantDisc")
             .create_subscriber(self.clone(), qos)
     }
     pub fn domain_id(&self) -> u16 {
-        self.inner.lock().unwrap().domain_id()
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .domain_id()
     }
     pub fn participant_id(&self) -> u16 {
-        self.inner.lock().unwrap().participant_id()
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .participant_id()
     }
     pub fn gen_entity_key(&self) -> [u8; 3] {
-        self.inner.lock().unwrap().gen_entity_key()
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .gen_entity_key()
     }
 }
 

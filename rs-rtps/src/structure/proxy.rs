@@ -51,7 +51,10 @@ impl ReaderProxy {
     }
 
     pub fn acked_changes_set(&mut self, commited_seq_num: SequenceNumber) {
-        let hc = self.history_cache.read().unwrap();
+        let hc = self
+            .history_cache
+            .read()
+            .expect("couldn't read history_cache");
         for (k, v) in &hc.changes {
             if v.sequence_number <= commited_seq_num {
                 self.cache_state.insert(

@@ -123,13 +123,15 @@ impl Reader {
         if self.is_reliable() {
             self.reader_cache
                 .write()
-                .unwrap()
+                .expect("couldn't write reader_cache")
                 .add_change(change.clone());
             eprintln!(
                 "<{}>: reliable reader, add change to reader_cache",
                 "Reader: Info".green()
             );
-            self.reader_ready_notifier.send(()).unwrap();
+            self.reader_ready_notifier
+                .send(())
+                .expect("couldn't send channel 'reader_ready_notifier'");
             if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
                 writer_proxy.received_chage_set(change.sequence_number);
             }
@@ -138,21 +140,29 @@ impl Reader {
                 let flag;
                 let expected_seq_num;
                 {
-                    let writer_proxy = self.matched_writers.get(&writer_guid).unwrap();
+                    let writer_proxy = self
+                        .matched_writers
+                        .get(&writer_guid)
+                        .expect("couldn't get writer_proxy");
                     expected_seq_num = writer_proxy.available_changes_max() + SequenceNumber(1);
                     flag = change.sequence_number >= expected_seq_num;
                 }
                 if flag {
                     self.reader_cache
                         .write()
-                        .unwrap()
+                        .expect("couldn't write reader_cache")
                         .add_change(change.clone());
                     eprintln!(
                         "<{}>: besteffort reader, add change to reader_cache",
                         "Reader: Info".green()
                     );
-                    self.reader_ready_notifier.send(()).unwrap();
-                    let writer_proxy_mut = self.matched_writers.get_mut(&writer_guid).unwrap();
+                    self.reader_ready_notifier
+                        .send(())
+                        .expect("couldn't send reader_ready_notifier");
+                    let writer_proxy_mut = self
+                        .matched_writers
+                        .get_mut(&writer_guid)
+                        .expect("couldn't get writer_proxy_mut");
                     writer_proxy_mut.received_chage_set(change.sequence_number);
                     if change.sequence_number > expected_seq_num {
                         writer_proxy_mut.lost_changes_update(change.sequence_number);
@@ -267,7 +277,7 @@ impl Reader {
                 );
                 self.set_reader_hb_timer_sender
                     .send((self.entity_id(), writer_guid))
-                    .unwrap();
+                    .expect("couldn't send channel 'set_reader_hb_timer_sender'");
             }
         } else if !hb_flag.contains(HeartbeatFlag::Liveliness) {
             // to may_send_ack
@@ -295,7 +305,7 @@ impl Reader {
                         );
                         self.set_reader_hb_timer_sender
                             .send((self.entity_id(), writer_guid))
-                            .unwrap();
+                            .expect("couldn't send channel 'set_reader_hb_timer_sender'");
                     }
                 }
             }
@@ -327,7 +337,9 @@ impl Reader {
                 false,
             );
             let message = message_builder.build(self_guid_prefix);
-            let message_buf = message.write_to_vec_with_ctx(self.endianness).unwrap();
+            let message_buf = message
+                .write_to_vec_with_ctx(self.endianness)
+                .expect("couldn't serialize message");
             for uni_loc in &writer_proxy.unicast_locator_list {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;

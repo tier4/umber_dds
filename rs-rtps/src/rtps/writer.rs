@@ -152,7 +152,7 @@ impl Writer {
             rl.unsent_changes = self
                 .writer_cache
                 .read()
-                .unwrap()
+                .expect("couldn't read writer_cache")
                 .changes
                 .values()
                 .cloned()
@@ -217,7 +217,7 @@ impl Writer {
                         if let Some(aa_change) = self
                             .writer_cache
                             .read()
-                            .unwrap()
+                            .expect("couldn't read writer_cache")
                             .get_change(change_for_reader.seq_num)
                         {
                             // build RTPS Message
@@ -231,8 +231,9 @@ impl Writer {
                                 aa_change,
                             );
                             let message = message_builder.build(self_guid_prefix);
-                            let message_buf =
-                                message.write_to_vec_with_ctx(self.endianness).unwrap();
+                            let message_buf = message
+                                .write_to_vec_with_ctx(self.endianness)
+                                .expect("couldn't serialize message");
 
                             // TODO:
                             // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
@@ -289,7 +290,10 @@ impl Writer {
 
     pub fn send_heart_beat(&mut self) {
         let time_stamp = Timestamp::now();
-        let writer_cache = self.writer_cache.read().unwrap();
+        let writer_cache = self
+            .writer_cache
+            .read()
+            .expect("couldn't read writer_cache");
         self.hb_counter += 1;
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
@@ -307,7 +311,9 @@ impl Writer {
                 false,
             );
             let msg = message_builder.build(self_guid_prefix);
-            let message_buf = msg.write_to_vec_with_ctx(self.endianness).unwrap();
+            let message_buf = msg
+                .write_to_vec_with_ctx(self.endianness)
+                .expect("couldn't serialize message");
             for uni_loc in &reader_proxy.unicast_locator_list {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
@@ -353,7 +359,10 @@ impl Writer {
 
     fn add_change_to_hc(&mut self, change: CacheChange) {
         // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
-        self.writer_cache.write().unwrap().add_change(change);
+        self.writer_cache
+            .write()
+            .expect("couldn't write writer_cache")
+            .add_change(change);
         for (_guid, reader_proxy) in &mut self.matched_readers {
             reader_proxy.update_cache_state(
                 self.last_change_sequence_number,
@@ -391,7 +400,7 @@ impl Writer {
                     } else {
                         self.set_writer_nack_sender
                             .send((self.entity_id(), reader_guid))
-                            .unwrap();
+                            .expect("couldn't send channel 'set_writer_nack_sender'");
                     }
                 }
                 AckNackState::Repairing => unreachable!(),
@@ -416,8 +425,11 @@ impl Writer {
                     ChangeForReaderStatusKind::Underway,
                 );
                 if change.is_relevant {
-                    if let Some(aa_change) =
-                        self.writer_cache.read().unwrap().get_change(change.seq_num)
+                    if let Some(aa_change) = self
+                        .writer_cache
+                        .read()
+                        .expect("couldn't read writer_cache")
+                        .get_change(change.seq_num)
                     {
                         // build RTPS Message
                         let mut message_builder = MessageBuilder::new();
@@ -430,7 +442,9 @@ impl Writer {
                             aa_change,
                         );
                         let message = message_builder.build(self_guid_prefix);
-                        let message_buf = message.write_to_vec_with_ctx(self.endianness).unwrap();
+                        let message_buf = message
+                            .write_to_vec_with_ctx(self.endianness)
+                            .expect("couldn't serialize message");
 
                         // TODO:
                         // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
