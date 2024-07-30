@@ -351,11 +351,19 @@ Implementationsをモデル化するために使用されるすべての追加�
 
 再送無しバージョン
 
-![rtps_reliable_communication_ok](https://github.com/tier4/T4RustDDS/assets/58660268/53dd5418-4f96-41eb-82a5-ad461c9ed1ab)
+![rtps_reliable_communication_ok_v2](https://github.com/user-attachments/assets/06b5d509-2e59-44ec-bdef-c177b7fa5409)
 
 再送有りバージョン
 
-![rtps_reliable_communication_resend](https://github.com/tier4/T4RustDDS/assets/58660268/24bcdf7c-3469-4ca9-b97f-db1c2cad24af)
+![rtps_reliable_communication_resend_v2](https://github.com/user-attachments/assets/ef280b86-3071-4463-b0bb-66d4f14cc5e1)
+
+#### 各ステートマシンのトランジションの対応関係
+
+Reliable Stateful Reader
+![reliable_stateful_reader](https://github.com/user-attachments/assets/989d7260-14f5-4702-b15d-a4ebc4263d6a)
+
+Reliable Stateful Writer
+![reliable_stateful_writer](https://github.com/user-attachments/assets/90cbd2c8-c1ba-48a0-8bd6-4c7a65621f3d)
 
 ### 8.4.7.1 RTPS Writer
 DataWriterからRTPS Writerへ情報を渡すために,RTPS WriterはHistoryCacheを持っている。
@@ -841,6 +849,9 @@ discovery_dbは定期的にチェックして最終更新時刻からleaseDurati
 writerはspdpメッセージを定期的に、新たにネットワークに自身の存在を伝えるためにマルチキャストで、既知のParticipantに対して自身の生存を伝えるためにユニキャストで送信する。
 
 memo: SPDPのためのData submsgはWireshark上でDATA(p)と表示される。
+
+## 8.4.15.5 Sending to unknown readerId
+Message Moduleで説明したように、readerIdが特定されていない(ENTITYID_UNKNOWN)RTPS Messageを送信することができる。これはMessageをMulticastごしに送信するときに必要となるが、同一Participantの複数のReaderにUnicastを通じて1つのMessageを送信するときにも使用される。実装は帯域使用量を最小化するためにこの機能の使用が推奨されている。
 
 ### SEDPまとめ
 builtinのRTPS reader, RTPS writerを作る。このendpointはReliable。

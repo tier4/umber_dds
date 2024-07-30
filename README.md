@@ -19,7 +19,7 @@ TODO:
 rtps解析のためのdocker環境
 
 ## ShapesDemo
-既存実装の解析のためのrtpsを使ったデモ
+既存実装の解析のためのrtpsを使ったデモ (FastDDS)
 
 ## 既存実装の解析
 - RustDDSのshape_demoのコンパイル
