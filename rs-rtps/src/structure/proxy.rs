@@ -48,6 +48,19 @@ impl ReaderProxy {
         }
     }
 
+    pub fn add_unsent_sn(&mut self, unsents: Vec<SequenceNumber>) {
+        for sn in unsents {
+            if !self.cache_state.contains_key(&sn) {
+                eprintln!(
+                    "<{}>: cache_state of sn: {} is set to UNSENT",
+                    "ReaderProxy: Info".blue(),
+                    sn.0
+                );
+                self.update_cache_state(sn, true, ChangeForReaderStatusKind::Unsent);
+            }
+        }
+    }
+
     pub fn update_cache_state(
         &mut self,
         seq_num: SequenceNumber,
