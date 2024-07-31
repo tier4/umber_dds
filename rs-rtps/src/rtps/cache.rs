@@ -37,7 +37,7 @@ impl CacheChange {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ChangeForReaderStatusKind {
     Unsent,
     Unacknowledged,
@@ -54,7 +54,7 @@ pub enum ChangeFromWriterStatusKind {
     Uuknown,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ChangeForReader {
     pub seq_num: SequenceNumber,
     pub status: ChangeForReaderStatusKind,

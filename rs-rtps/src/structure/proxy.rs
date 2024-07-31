@@ -37,6 +37,17 @@ impl ReaderProxy {
             cache_state: HashMap::new(),
         }
     }
+
+    pub fn print_cache_states(&self) {
+        println!("<{}>: cache_state", "ReaderProxy: Info".green());
+        for (sn, cfr) in self.cache_state.iter() {
+            println!(
+                "\tsn: {}, state: {:?}, is_relevant: {}",
+                sn.0, cfr.status, cfr.is_relevant
+            );
+        }
+    }
+
     pub fn update_cache_state(
         &mut self,
         seq_num: SequenceNumber,
