@@ -384,8 +384,10 @@ impl Writer {
                 "Writer: Info".green(),
                 reader_guid
             );
+            reader_proxy.add_unsent_sn(acknack.reader_sn_state.set());
             reader_proxy.acked_changes_set(acknack.reader_sn_state.base() - SequenceNumber(1));
             reader_proxy.requested_changes_set(acknack.reader_sn_state.set());
+            reader_proxy.print_cache_states();
             match self.an_state {
                 AckNackState::Waiting => {
                     // Transistion T9
@@ -453,7 +455,7 @@ impl Writer {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
                                 eprintln!(
-                                    "<{}>: send data message to {}.{}.{}.{}:{}",
+                                    "<{}>: resend data message to {}.{}.{}.{}:{}",
                                     "Writer: Info".green(),
                                     addr[12],
                                     addr[13],
@@ -473,7 +475,7 @@ impl Writer {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
                                 eprintln!(
-                                    "<{}>: send data message to {}.{}.{}.{}:{}",
+                                    "<{}>: resend data message to {}.{}.{}.{}:{}",
                                     "Writer: Info".green(),
                                     addr[12],
                                     addr[13],
