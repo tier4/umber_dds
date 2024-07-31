@@ -119,7 +119,7 @@ impl ReaderProxy {
         let mut requested_changes = Vec::new();
         for (_sn, change_for_reader) in &self.cache_state {
             match change_for_reader.status {
-                ChangeForReaderStatusKind::Unsent => {
+                ChangeForReaderStatusKind::Requested => {
                     requested_changes.push(change_for_reader.clone())
                 }
                 _ => (),
