@@ -39,9 +39,9 @@ impl ReaderProxy {
     }
 
     pub fn print_cache_states(&self) {
-        println!("<{}>: cache_state", "ReaderProxy: Info".green());
+        eprintln!("<{}>: cache_state", "ReaderProxy: Info".green());
         for (sn, cfr) in self.cache_state.iter() {
-            println!(
+            eprintln!(
                 "\tsn: {}, state: {:?}, is_relevant: {}",
                 sn.0, cfr.status, cfr.is_relevant
             );
