@@ -240,17 +240,13 @@ impl Discovery {
                         SPDP_SEND_TIMER => {
                             self.spdp_builtin_participant_writer
                                 .write_builtin_data(data.clone());
-                            for (_eid, wd) in &self.writers_data {
-                                self.sedp_builtin_pub_writer.write_builtin_data(wd.clone());
-                            }
-                            for (_eid, rd) in &self.readers_data {
-                                self.sedp_builtin_sub_writer.write_builtin_data(rd.clone());
-                            }
                             self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
                         }
                         SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
                         DISC_WRITER_ADD => {
                             while let Ok((eid, data)) = self.writer_add_receiver.try_recv() {
+                                self.sedp_builtin_pub_writer
+                                    .write_builtin_data(data.clone());
                                 self.writers_data.insert(eid, data);
                                 eprintln!(
                                     "<{}>: add writer which has {:?} to writers",
@@ -261,6 +257,8 @@ impl Discovery {
                         }
                         DISC_READER_ADD => {
                             while let Ok((eid, data)) = self.reader_add_receiver.try_recv() {
+                                self.sedp_builtin_sub_writer
+                                    .write_builtin_data(data.clone());
                                 self.readers_data.insert(eid, data);
                                 eprintln!(
                                     "<{}>: add reader which has {:?} to readers",
