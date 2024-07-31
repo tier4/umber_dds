@@ -43,9 +43,9 @@ fn main() {
             loop {
                 datawriter.write(shape.clone());
                 println!("send: {:?}", shape);
-                shape.x = (shape.x + 1) % 255;
-                shape.y = (shape.y + 1) % 255;
-                std::thread::sleep(Duration::from_millis(1000));
+                shape.x = (shape.x + 5) % 255;
+                shape.y = (shape.y + 5) % 255;
+                std::thread::sleep(Duration::from_millis(100));
             }
         }
         's' | 'S' => {
