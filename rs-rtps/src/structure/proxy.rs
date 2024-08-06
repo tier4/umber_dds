@@ -232,23 +232,6 @@ impl WriterProxy {
         }
     }
 
-    pub fn add_unknown_sn(&mut self, first_sn: SequenceNumber, last_sn: SequenceNumber) {
-        for i in first_sn.0..=last_sn.0 {
-            if !self.cache_state.contains_key(&SequenceNumber(i)) {
-                eprintln!(
-                    "<{}>: cache_state of sn: {} is set to UNKNOWN",
-                    "WriterProxy: Info".blue(),
-                    i
-                );
-                self.update_cache_state(
-                    SequenceNumber(i),
-                    true,
-                    ChangeFromWriterStatusKind::Uuknown,
-                );
-            }
-        }
-    }
-
     pub fn update_cache_state(
         &mut self,
         seq_num: SequenceNumber,
@@ -299,21 +282,35 @@ impl WriterProxy {
         }
         missing_changes
     }
-    pub fn missing_changes_update(&mut self, last_available_seq_num: SequenceNumber) {
-        for (sn, cfw) in &mut self.cache_state {
-            match cfw.status {
-                ChangeFromWriterStatusKind::Uuknown => {
-                    if *sn <= last_available_seq_num {
-                        cfw.status = ChangeFromWriterStatusKind::Missing;
+    pub fn missing_changes_update(
+        &mut self,
+        first_available_seq_num: SequenceNumber,
+        last_available_seq_num: SequenceNumber,
+    ) {
+        for sn in first_available_seq_num.0..=last_available_seq_num.0 {
+            if let Some(cfw) = self.cache_state.get_mut(&SequenceNumber(sn)) {
+                match cfw.status {
+                    ChangeFromWriterStatusKind::Uuknown => {
+                        if SequenceNumber(sn) <= last_available_seq_num {
+                            cfw.status = ChangeFromWriterStatusKind::Missing;
+                        }
                     }
+                    _ => (),
                 }
-                _ => (),
+            } else {
+                self.update_cache_state(
+                    SequenceNumber(sn),
+                    true,
+                    ChangeFromWriterStatusKind::Missing,
+                );
             }
         }
     }
     pub fn received_chage_set(&mut self, seq_num: SequenceNumber) {
         if let Some(cfw) = self.cache_state.get_mut(&seq_num) {
             cfw.status = ChangeFromWriterStatusKind::Received;
+        } else {
+            self.update_cache_state(seq_num, true, ChangeFromWriterStatusKind::Received);
         }
     }
 }

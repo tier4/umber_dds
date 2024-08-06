@@ -245,13 +245,8 @@ impl Reader {
                 writer_guid,
             );
 
-            writer_proxy.add_unknown_sn(heartbeat.first_sn, heartbeat.last_sn);
-            eprintln!("<{}>: before handle heartbeat", "Reader: Info".green(),);
-            writer_proxy.print_cache_states();
-            writer_proxy.missing_changes_update(heartbeat.last_sn);
+            writer_proxy.missing_changes_update(heartbeat.first_sn, heartbeat.last_sn);
             writer_proxy.lost_changes_update(heartbeat.first_sn);
-            eprintln!("<{}>: after handle heartbeat", "Reader: Info".green(),);
-            writer_proxy.print_cache_states();
         } else {
             eprintln!(
                 "<{}>: couldn't find reader which has {:?}",
