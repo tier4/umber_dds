@@ -1,115 +1,330 @@
-#[derive(Clone, Copy)]
-pub struct QosPolicies {
+// DDS 1.4 spec: 2.3.3 DCPS PSM : IDL
+// How to impl builder: https://keens.github.io/blog/2017/02/09/rustnochottoyarisuginabuilderpata_n/
+
+#[derive(Clone)]
+pub struct DomainParticipantQosPolicies {
+    pub user_data: Option<policy::UserData>,
+    pub entity_factory: Option<policy::EntityFactory>,
+}
+
+#[derive(Clone)]
+pub struct TopicQosPolicies {
+    pub topic_data: Option<policy::TopicData>,
     pub durability: Option<policy::Durability>,
-    pub presentation: Option<policy::Presentation>,
+    pub durability_service: Option<policy::DurabilityService>,
     pub deadline: Option<policy::Deadline>,
     pub latency_budget: Option<policy::LatencyBudget>,
-    pub ownership: Option<policy::Ownership>,
     pub liveliness: Option<policy::Liveliness>,
-    pub time_based_filter: Option<policy::TimeBasedFilter>,
     pub reliability: Option<policy::Reliability>,
     pub destination_order: Option<policy::DestinationOrder>,
     pub history: Option<policy::History>,
     pub resource_limits: Option<policy::ResourceLimits>,
+    pub transport_priority: Option<policy::TransportPriority>,
     pub lifespan: Option<policy::Lifespan>,
+    pub ownership: Option<policy::Ownership>,
 }
 
-// How to impl builder: https://keens.github.io/blog/2017/02/09/rustnochottoyarisuginabuilderpata_n/
+#[derive(Clone)]
+pub struct DataWriterQosPolicies {
+    pub durability: Option<policy::Durability>,
+    pub durability_service: Option<policy::DurabilityService>,
+    pub deadline: Option<policy::Deadline>,
+    pub latency_budget: Option<policy::LatencyBudget>,
+    pub liveliness: Option<policy::Liveliness>,
+    pub reliability: Option<policy::Reliability>,
+    pub destination_order: Option<policy::DestinationOrder>,
+    pub history: Option<policy::History>,
+    pub resource_limits: Option<policy::ResourceLimits>,
+    pub transport_priority: Option<policy::TransportPriority>,
+    pub lifespan: Option<policy::Lifespan>,
+    pub user_data: Option<policy::UserData>,
+    pub ownership: Option<policy::Ownership>,
+    pub ownership_strength: Option<policy::OwnershipStrength>,
+    pub writer_data_lifecycle: Option<policy::WriterDataLifecycle>,
+}
+
+#[derive(Clone)]
+pub struct PublisherQosPolicies {
+    pub presentation: Option<policy::Presentation>,
+    pub partition: Option<policy::Partition>,
+    pub group_data: Option<policy::GroupData>,
+    pub entity_factory: Option<policy::EntityFactory>,
+}
+
+#[derive(Clone)]
+pub struct DataReadedrQosPolicies {
+    pub durability: Option<policy::Durability>,
+    pub deadline: Option<policy::Deadline>,
+    pub latency_budget: Option<policy::LatencyBudget>,
+    pub liveliness: Option<policy::Liveliness>,
+    pub reliability: Option<policy::Reliability>,
+    pub destination_order: Option<policy::DestinationOrder>,
+    pub history: Option<policy::History>,
+    pub resource_limits: Option<policy::ResourceLimits>,
+    pub user_data: Option<policy::UserData>,
+    pub ownership: Option<policy::Ownership>,
+    pub time_based_filter: Option<policy::TimeBasedFilter>,
+    pub reader_data_lifecycle: Option<policy::ReaderDataLifecycle>,
+}
+
+#[derive(Clone)]
+pub struct SubscriberQosPolicies {
+    pub presentation: Option<policy::Presentation>,
+    pub partition: Option<policy::Partition>,
+    pub group_data: Option<policy::GroupData>,
+    pub entity_factory: Option<policy::EntityFactory>,
+}
+
+macro_rules! builder_method {
+    ($name:ident, $policy_name:ident) => {
+        pub fn $name(mut self, $name: policy::$policy_name) -> Self {
+            self.$name = Some($name);
+            self
+        }
+    };
+}
+
 #[derive(Default)]
-pub struct QosBuilder {
-    durability: Option<policy::Durability>,
-    presentation: Option<policy::Presentation>,
-    deadline: Option<policy::Deadline>,
-    latency_budget: Option<policy::LatencyBudget>,
-    ownership: Option<policy::Ownership>,
-    liveliness: Option<policy::Liveliness>,
-    time_based_filter: Option<policy::TimeBasedFilter>,
-    reliability: Option<policy::Reliability>,
-    destination_order: Option<policy::DestinationOrder>,
-    history: Option<policy::History>,
-    resource_limits: Option<policy::ResourceLimits>,
-    lifespan: Option<policy::Lifespan>,
+pub struct DomainParticipantQosBuilder {
+    pub user_data: Option<policy::UserData>,
+    pub entity_factory: Option<policy::EntityFactory>,
 }
 
-impl QosBuilder {
+impl DomainParticipantQosBuilder {
     pub fn new() -> Self {
-        QosBuilder::default()
+        Self::default()
     }
 
-    pub fn durability(mut self, durability: policy::Durability) -> Self {
-        self.durability = Some(durability);
-        self
+    builder_method!(user_data, UserData);
+    builder_method!(entity_factory, EntityFactory);
+
+    pub fn build(self) -> DomainParticipantQosPolicies {
+        DomainParticipantQosPolicies {
+            user_data: self.user_data,
+            entity_factory: self.entity_factory,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct TopicQosBuilder {
+    pub topic_data: Option<policy::TopicData>,
+    pub durability: Option<policy::Durability>,
+    pub durability_service: Option<policy::DurabilityService>,
+    pub deadline: Option<policy::Deadline>,
+    pub latency_budget: Option<policy::LatencyBudget>,
+    pub liveliness: Option<policy::Liveliness>,
+    pub reliability: Option<policy::Reliability>,
+    pub destination_order: Option<policy::DestinationOrder>,
+    pub history: Option<policy::History>,
+    pub resource_limits: Option<policy::ResourceLimits>,
+    pub transport_priority: Option<policy::TransportPriority>,
+    pub lifespan: Option<policy::Lifespan>,
+    pub ownership: Option<policy::Ownership>,
+}
+
+impl TopicQosBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn presentation(mut self, presentation: policy::Presentation) -> Self {
-        self.presentation = Some(presentation);
-        self
-    }
+    builder_method!(topic_data, TopicData);
+    builder_method!(durability, Durability);
+    builder_method!(durability_service, DurabilityService);
+    builder_method!(deadline, Deadline);
+    builder_method!(latency_budget, LatencyBudget);
+    builder_method!(liveliness, Liveliness);
+    builder_method!(reliability, Reliability);
+    builder_method!(destination_order, DestinationOrder);
+    builder_method!(history, History);
+    builder_method!(resource_limits, ResourceLimits);
+    builder_method!(transport_priority, TransportPriority);
+    builder_method!(lifespan, Lifespan);
+    builder_method!(ownership, Ownership);
 
-    pub fn deadline(mut self, deadline: policy::Deadline) -> Self {
-        self.deadline = Some(deadline);
-        self
-    }
-
-    pub fn latency_budget(mut self, latency_budget: policy::LatencyBudget) -> Self {
-        self.latency_budget = Some(latency_budget);
-        self
-    }
-
-    pub fn ownership(mut self, ownership: policy::Ownership) -> Self {
-        self.ownership = Some(ownership);
-        self
-    }
-
-    pub fn liveliness(mut self, liveliness: policy::Liveliness) -> Self {
-        self.liveliness = Some(liveliness);
-        self
-    }
-
-    pub fn time_based_filter(mut self, time_based_filter: policy::TimeBasedFilter) -> Self {
-        self.time_based_filter = Some(time_based_filter);
-        self
-    }
-
-    pub fn reliability(mut self, reliability: policy::Reliability) -> Self {
-        self.reliability = Some(reliability);
-        self
-    }
-
-    pub fn destination_order(mut self, destination_order: policy::DestinationOrder) -> Self {
-        self.destination_order = Some(destination_order);
-        self
-    }
-
-    pub fn history(mut self, history: policy::History) -> Self {
-        self.history = Some(history);
-        self
-    }
-
-    pub fn resource_limits(mut self, resource_limits: policy::ResourceLimits) -> Self {
-        self.resource_limits = Some(resource_limits);
-        self
-    }
-
-    pub fn lifespan(mut self, lifespan: policy::Lifespan) -> Self {
-        self.lifespan = Some(lifespan);
-        self
-    }
-
-    pub fn build(self) -> QosPolicies {
-        QosPolicies {
+    pub fn build(self) -> TopicQosPolicies {
+        TopicQosPolicies {
+            topic_data: self.topic_data,
             durability: self.durability,
-            presentation: self.presentation,
+            durability_service: self.durability_service,
             deadline: self.deadline,
             latency_budget: self.latency_budget,
-            ownership: self.ownership,
             liveliness: self.liveliness,
-            time_based_filter: self.time_based_filter,
             reliability: self.reliability,
             destination_order: self.destination_order,
             history: self.history,
             resource_limits: self.resource_limits,
+            transport_priority: self.transport_priority,
             lifespan: self.lifespan,
+            ownership: self.ownership,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct DataWriterQosBuilder {
+    pub durability: Option<policy::Durability>,
+    pub durability_service: Option<policy::DurabilityService>,
+    pub deadline: Option<policy::Deadline>,
+    pub latency_budget: Option<policy::LatencyBudget>,
+    pub liveliness: Option<policy::Liveliness>,
+    pub reliability: Option<policy::Reliability>,
+    pub destination_order: Option<policy::DestinationOrder>,
+    pub history: Option<policy::History>,
+    pub resource_limits: Option<policy::ResourceLimits>,
+    pub transport_priority: Option<policy::TransportPriority>,
+    pub lifespan: Option<policy::Lifespan>,
+    pub user_data: Option<policy::UserData>,
+    pub ownership: Option<policy::Ownership>,
+    pub ownership_strength: Option<policy::OwnershipStrength>,
+    pub writer_data_lifecycle: Option<policy::WriterDataLifecycle>,
+}
+
+impl DataWriterQosBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    builder_method!(durability, Durability);
+    builder_method!(durability_service, DurabilityService);
+    builder_method!(deadline, Deadline);
+    builder_method!(latency_budget, LatencyBudget);
+    builder_method!(liveliness, Liveliness);
+    builder_method!(reliability, Reliability);
+    builder_method!(destination_order, DestinationOrder);
+    builder_method!(history, History);
+    builder_method!(resource_limits, ResourceLimits);
+    builder_method!(transport_priority, TransportPriority);
+    builder_method!(lifespan, Lifespan);
+    builder_method!(user_data, UserData);
+    builder_method!(ownership, Ownership);
+    builder_method!(ownership_strength, OwnershipStrength);
+    builder_method!(writer_data_lifecycle, WriterDataLifecycle);
+
+    pub fn build(self) -> DataWriterQosPolicies {
+        DataWriterQosPolicies {
+            durability: self.durability,
+            durability_service: self.durability_service,
+            deadline: self.deadline,
+            latency_budget: self.latency_budget,
+            liveliness: self.liveliness,
+            reliability: self.reliability,
+            destination_order: self.destination_order,
+            history: self.history,
+            resource_limits: self.resource_limits,
+            transport_priority: self.transport_priority,
+            lifespan: self.lifespan,
+            user_data: self.user_data,
+            ownership: self.ownership,
+            ownership_strength: self.ownership_strength,
+            writer_data_lifecycle: self.writer_data_lifecycle,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct PublisherQosBuilder {
+    pub presentation: Option<policy::Presentation>,
+    pub partition: Option<policy::Partition>,
+    pub group_data: Option<policy::GroupData>,
+    pub entity_factory: Option<policy::EntityFactory>,
+}
+
+impl PublisherQosBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    builder_method!(presentation, Presentation);
+    builder_method!(partition, Partition);
+    builder_method!(group_data, GroupData);
+    builder_method!(entity_factory, EntityFactory);
+
+    pub fn build(self) -> PublisherQosPolicies {
+        PublisherQosPolicies {
+            presentation: self.presentation,
+            partition: self.partition,
+            group_data: self.group_data,
+            entity_factory: self.entity_factory,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct DataReadedrQosBuilder {
+    pub durability: Option<policy::Durability>,
+    pub deadline: Option<policy::Deadline>,
+    pub latency_budget: Option<policy::LatencyBudget>,
+    pub liveliness: Option<policy::Liveliness>,
+    pub reliability: Option<policy::Reliability>,
+    pub destination_order: Option<policy::DestinationOrder>,
+    pub history: Option<policy::History>,
+    pub resource_limits: Option<policy::ResourceLimits>,
+    pub user_data: Option<policy::UserData>,
+    pub ownership: Option<policy::Ownership>,
+    pub time_based_filter: Option<policy::TimeBasedFilter>,
+    pub reader_data_lifecycle: Option<policy::ReaderDataLifecycle>,
+}
+
+impl DataReadedrQosBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    builder_method!(durability, Durability);
+    builder_method!(deadline, Deadline);
+    builder_method!(latency_budget, LatencyBudget);
+    builder_method!(reliability, Reliability);
+    builder_method!(destination_order, DestinationOrder);
+    builder_method!(history, History);
+    builder_method!(resource_limits, ResourceLimits);
+    builder_method!(user_data, UserData);
+    builder_method!(ownership, Ownership);
+    builder_method!(time_based_filter, TimeBasedFilter);
+    builder_method!(reader_data_lifecycle, ReaderDataLifecycle);
+
+    pub fn build(self) -> DataReadedrQosPolicies {
+        DataReadedrQosPolicies {
+            durability: self.durability,
+            deadline: self.deadline,
+            latency_budget: self.latency_budget,
+            liveliness: self.liveliness,
+            reliability: self.reliability,
+            destination_order: self.destination_order,
+            history: self.history,
+            resource_limits: self.resource_limits,
+            user_data: self.user_data,
+            ownership: self.ownership,
+            time_based_filter: self.time_based_filter,
+            reader_data_lifecycle: self.reader_data_lifecycle,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct SubscriberQosBuilder {
+    pub presentation: Option<policy::Presentation>,
+    pub partition: Option<policy::Partition>,
+    pub group_data: Option<policy::GroupData>,
+    pub entity_factory: Option<policy::EntityFactory>,
+}
+
+impl SubscriberQosBuilder {
+    pub fn new() -> Self {
+        SubscriberQosBuilder::default()
+    }
+
+    builder_method!(presentation, Presentation);
+    builder_method!(partition, Partition);
+    builder_method!(group_data, GroupData);
+    builder_method!(entity_factory, EntityFactory);
+
+    pub fn build(self) -> SubscriberQosPolicies {
+        SubscriberQosPolicies {
+            presentation: self.presentation,
+            partition: self.partition,
+            group_data: self.group_data,
+            entity_factory: self.entity_factory,
         }
     }
 }
@@ -409,6 +624,32 @@ pub mod policy {
         pub fn serialized_size(&self) -> u16 {
             4 + self.value.len() as u16
         }
+    }
+
+    #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+    pub struct WriterDataLifecycle {
+        pub autodispose_unregistered_instance: bool,
+    }
+
+    #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+    pub struct ReaderDataLifecycle {
+        pub autopurge_nowriter_samples_delay: Duration,
+        pub autopurge_dispose_samples_delay: Duration,
+    }
+    impl Default for ReaderDataLifecycle {
+        fn default() -> Self {
+            todo!()
+        }
+    }
+
+    #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+    pub struct TransportPriority {
+        pub value: i32,
+    }
+
+    #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+    pub struct EntityFactory {
+        pub autoenable_created_entites: bool,
     }
 }
 
