@@ -384,7 +384,6 @@ impl Writer {
                 "Writer: Info".green(),
                 reader_guid
             );
-            reader_proxy.add_unsent_sn(acknack.reader_sn_state.set());
             reader_proxy.acked_changes_set(acknack.reader_sn_state.base() - SequenceNumber(1));
             reader_proxy.requested_changes_set(acknack.reader_sn_state.set());
             reader_proxy.print_cache_states();

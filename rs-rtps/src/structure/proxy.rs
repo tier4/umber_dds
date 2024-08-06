@@ -48,19 +48,6 @@ impl ReaderProxy {
         }
     }
 
-    pub fn add_unsent_sn(&mut self, unsents: Vec<SequenceNumber>) {
-        for sn in unsents {
-            if !self.cache_state.contains_key(&sn) {
-                eprintln!(
-                    "<{}>: cache_state of sn: {} is set to UNSENT",
-                    "ReaderProxy: Info".blue(),
-                    sn.0
-                );
-                self.update_cache_state(sn, true, ChangeForReaderStatusKind::Unsent);
-            }
-        }
-    }
-
     pub fn update_cache_state(
         &mut self,
         seq_num: SequenceNumber,
@@ -129,10 +116,10 @@ impl ReaderProxy {
     }
     pub fn requested_changes_set(&mut self, req_seq_num_set: Vec<SequenceNumber>) {
         for seq_num in req_seq_num_set {
-            for (sn, change_for_reader) in &mut self.cache_state {
-                if *sn == seq_num {
-                    change_for_reader.status = ChangeForReaderStatusKind::Requested;
-                }
+            if let Some(cfr) = self.cache_state.get_mut(&seq_num) {
+                cfr.status = ChangeForReaderStatusKind::Requested;
+            } else {
+                self.update_cache_state(seq_num, true, ChangeForReaderStatusKind::Requested);
             }
         }
     }
