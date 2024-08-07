@@ -1,5 +1,8 @@
 use crate::dds::{
-    datareader::DataReader, participant::DomainParticipant, qos::policy::*, qos::QosPolicies,
+    datareader::DataReader,
+    participant::DomainParticipant,
+    qos::policy::*,
+    qos::{DataReadedrQosBuilder, DataReadedrQosPolicies, SubscriberQosPolicies},
     topic::Topic,
 };
 use crate::message::submessage::element::Locator;
@@ -17,35 +20,72 @@ use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct Subscriber {
-    inner: Arc<InnerSubscriber>,
+    inner: Arc<RwLock<InnerSubscriber>>,
 }
 
 impl Subscriber {
     pub fn new(
         guid: GUID,
-        qos: QosPolicies,
+        qos: SubscriberQosPolicies,
         dp: DomainParticipant,
         add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     ) -> Self {
+        let default_dr_qos = DataReadedrQosBuilder::new().build();
         Self {
-            inner: Arc::new(InnerSubscriber::new(guid, qos, dp, add_reader_sender)),
+            inner: Arc::new(RwLock::new(InnerSubscriber::new(
+                guid,
+                qos,
+                default_dr_qos,
+                dp,
+                add_reader_sender,
+            ))),
         }
     }
     pub fn create_datareader<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: QosPolicies,
+        qos: DataReadedrQosPolicies,
         topic: Topic,
     ) -> DataReader<D> {
-        self.inner.create_datareader(qos, topic, self.clone())
+        self.inner
+            .read()
+            .expect("couldn't read lock InnerSubscriber")
+            .create_datareader(qos, topic, self.clone())
     }
     pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: QosPolicies,
+        qos: DataReadedrQosPolicies,
         topic: Topic,
         entity_id: EntityId,
     ) -> DataReader<D> {
         self.inner
+            .read()
+            .expect("couldn't read lock InnerSubscriber")
             .create_datareader_with_entityid(qos, topic, self.clone(), entity_id)
+    }
+
+    pub fn get_qos(&self) -> SubscriberQosPolicies {
+        self.inner
+            .read()
+            .expect("couldn't read lock InnerSubscriber")
+            .get_qos()
+    }
+    pub fn set_qos(&mut self, qos: SubscriberQosPolicies) {
+        self.inner
+            .write()
+            .expect("couldn't write lock InnerSubscriber")
+            .set_qos(qos)
+    }
+    pub fn get_default_datareader_qos(&self) -> DataReadedrQosPolicies {
+        self.inner
+            .read()
+            .expect("couldn't read lock InnerSubscriber")
+            .get_default_datareader_qos()
+    }
+    pub fn set_default_datareader_qos(&mut self, qos: DataReadedrQosPolicies) {
+        self.inner
+            .write()
+            .expect("couldn't write lock InnerSubscriber")
+            .set_default_datareader_qos(qos)
     }
 }
 
@@ -55,7 +95,8 @@ struct InnerSubscriber {
     // The DDS Specification defines Publisher and Subscriber entities.
     // These two entities have GUIDs that are defined exactly
     // as described for Endpoints in clause 8.2.4.3 above.
-    qos: QosPolicies,
+    qos: SubscriberQosPolicies,
+    default_dr_qos: DataReadedrQosPolicies,
     dp: DomainParticipant,
     add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
 }
@@ -63,29 +104,31 @@ struct InnerSubscriber {
 impl InnerSubscriber {
     pub fn new(
         guid: GUID,
-        qos: QosPolicies,
+        qos: SubscriberQosPolicies,
+        default_dr_qos: DataReadedrQosPolicies,
         dp: DomainParticipant,
         add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     ) -> Self {
         Self {
             guid,
             qos,
+            default_dr_qos,
             dp,
             add_reader_sender,
         }
     }
 
-    pub fn get_qos(&self) -> QosPolicies {
-        self.qos
+    pub fn get_qos(&self) -> SubscriberQosPolicies {
+        self.qos.clone()
     }
 
-    pub fn set_qos(&mut self, qos: QosPolicies) {
+    pub fn set_qos(&mut self, qos: SubscriberQosPolicies) {
         self.qos = qos
     }
 
     pub fn create_datareader<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: QosPolicies,
+        qos: DataReadedrQosPolicies,
         topic: Topic,
         subscriber: Subscriber,
     ) -> DataReader<D> {
@@ -128,7 +171,7 @@ impl InnerSubscriber {
 
     pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: QosPolicies,
+        qos: DataReadedrQosPolicies,
         topic: Topic,
         subscriber: Subscriber,
         entity_id: EntityId,
@@ -162,5 +205,12 @@ impl InnerSubscriber {
             .send(reader_ing)
             .expect("couldn't send add_reader_sender");
         DataReader::<D>::new(qos, topic, subscriber, history_cache, reader_ready_receiver)
+    }
+
+    pub fn get_default_datareader_qos(&self) -> DataReadedrQosPolicies {
+        self.default_dr_qos.clone()
+    }
+    pub fn set_default_datareader_qos(&mut self, qos: DataReadedrQosPolicies) {
+        self.default_dr_qos = qos;
     }
 }

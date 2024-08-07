@@ -1,5 +1,5 @@
 use crate::dds::participant::DomainParticipant;
-use crate::dds::qos::QosPolicies;
+use crate::dds::qos::TopicQosPolicies;
 use crate::discovery::structure::data::{
     PublicationBuiltinTopicData, SubscriptionBuiltinTopicData,
 };
@@ -16,7 +16,7 @@ impl Topic {
         name: String,
         type_desc: String,
         my_domain_participant: DomainParticipant,
-        my_qos_policies: QosPolicies,
+        my_qos_policies: TopicQosPolicies,
         kind: TopicKind,
     ) -> Self {
         Self {
@@ -39,7 +39,7 @@ impl Topic {
     pub fn my_domain_participant(&self) -> DomainParticipant {
         self.inner.my_domain_participant.clone()
     }
-    pub fn my_qos_policies(&self) -> QosPolicies {
+    pub fn my_qos_policies(&self) -> TopicQosPolicies {
         self.inner.my_qos_policies.clone()
     }
     pub fn kind(&self) -> TopicKind {
@@ -58,7 +58,7 @@ struct InnerTopic {
     name: String,
     type_desc: String,
     my_domain_participant: DomainParticipant,
-    my_qos_policies: QosPolicies,
+    my_qos_policies: TopicQosPolicies,
     kind: TopicKind,
 }
 
@@ -67,7 +67,7 @@ impl InnerTopic {
         name: String,
         type_desc: String,
         my_domain_participant: DomainParticipant,
-        my_qos_policies: QosPolicies,
+        my_qos_policies: TopicQosPolicies,
         kind: TopicKind,
     ) -> Self {
         Self {
@@ -93,7 +93,7 @@ impl InnerTopic {
             self.my_qos_policies.reliability,
             self.my_qos_policies.lifespan,
             None,
-            self.my_qos_policies.time_based_filter,
+            None,
             self.my_qos_policies.ownership,
             None,
             self.my_qos_policies.destination_order,
@@ -117,7 +117,7 @@ impl InnerTopic {
             self.my_qos_policies.ownership,
             self.my_qos_policies.destination_order,
             None,
-            self.my_qos_policies.time_based_filter,
+            None,
             None,
             None,
             None,

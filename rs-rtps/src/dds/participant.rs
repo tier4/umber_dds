@@ -9,7 +9,13 @@ use crate::rtps::writer::WriterIngredients;
 use crate::structure::entity::RTPSEntity;
 use crate::{
     dds::{
-        event_loop::EventLoop, publisher::Publisher, qos::QosPolicies, subscriber::Subscriber,
+        event_loop::EventLoop,
+        publisher::Publisher,
+        qos::{
+            PublisherQosBuilder, PublisherQosPolicies, SubscriberQosBuilder, SubscriberQosPolicies,
+            TopicQosBuilder, TopicQosPolicies,
+        },
+        subscriber::Subscriber,
         tokens::*,
     },
     network::udp_listinig_socket::*,
@@ -22,10 +28,9 @@ use mio_extras::channel as mio_channel;
 use mio_v06::net::UdpSocket;
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
-use std::sync::Mutex;
 use std::sync::{
     atomic::{AtomicU32, Ordering},
-    Arc,
+    Arc, Mutex, RwLock,
 };
 use std::thread::{self, Builder};
 
@@ -82,13 +87,13 @@ impl DomainParticipant {
             .expect("couldn't send channel 'disc_thread_sender'");
         dp
     }
-    pub fn create_publisher(&self, qos: QosPolicies) -> Publisher {
+    pub fn create_publisher(&self, qos: PublisherQosPolicies) -> Publisher {
         self.inner
             .lock()
             .expect("couldn't lock DomainParticipantDisc")
             .create_publisher(self.clone(), qos)
     }
-    pub fn create_subscriber(&self, qos: QosPolicies) -> Subscriber {
+    pub fn create_subscriber(&self, qos: SubscriberQosPolicies) -> Subscriber {
         self.inner
             .lock()
             .expect("couldn't lock DomainParticipantDisc")
@@ -112,10 +117,46 @@ impl DomainParticipant {
             .expect("couldn't lock DomainParticipantDisc")
             .gen_entity_key()
     }
+    pub fn get_default_publisher_qos(&self) -> PublisherQosPolicies {
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .get_default_publisher_qos()
+    }
+    pub fn set_default_publisher_qos(&mut self, qos: PublisherQosPolicies) {
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .set_default_publisher_qos(qos);
+    }
+    pub fn get_default_subscriber_qos(&self) -> SubscriberQosPolicies {
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .get_default_subscriber_qos()
+    }
+    pub fn set_default_subscriber_qos(&mut self, qos: SubscriberQosPolicies) {
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .set_default_subscriber_qos(qos);
+    }
+    pub fn get_default_topic_qos(&self) -> TopicQosPolicies {
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .get_default_topic_qos()
+    }
+    pub fn set_default_topic_qos(&mut self, qos: TopicQosPolicies) {
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .set_default_topic_qos(qos);
+    }
 }
 
 struct DomainParticipantDisc {
-    inner: Arc<DomainParticipantInner>,
+    inner: Arc<RwLock<DomainParticipantInner>>,
     disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
 }
 
@@ -129,30 +170,85 @@ impl DomainParticipantDisc {
         reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
     ) -> Self {
         Self {
-            inner: Arc::new(DomainParticipantInner::new(
+            inner: Arc::new(RwLock::new(DomainParticipantInner::new(
                 domain_id,
                 discovery_db,
                 discdb_update_receiver,
                 writer_add_sender,
                 reader_add_sender,
-            )),
+            ))),
             disc_thread_receiver,
         }
     }
-    pub fn create_publisher(&self, dp: DomainParticipant, qos: QosPolicies) -> Publisher {
-        self.inner.create_publisher(dp, qos)
+    pub fn create_publisher(&self, dp: DomainParticipant, qos: PublisherQosPolicies) -> Publisher {
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .create_publisher(dp, qos)
     }
-    pub fn create_subscriber(&self, dp: DomainParticipant, qos: QosPolicies) -> Subscriber {
-        self.inner.create_subscriber(dp, qos)
+    pub fn create_subscriber(
+        &self,
+        dp: DomainParticipant,
+        qos: SubscriberQosPolicies,
+    ) -> Subscriber {
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .create_subscriber(dp, qos)
     }
     pub fn domain_id(&self) -> u16 {
-        self.inner.domain_id
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .domain_id
     }
     pub fn participant_id(&self) -> u16 {
-        self.inner.participant_id
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .participant_id
     }
     pub fn gen_entity_key(&self) -> [u8; 3] {
-        self.inner.gen_entity_key()
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .gen_entity_key()
+    }
+    pub fn get_default_publisher_qos(&self) -> PublisherQosPolicies {
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .get_default_publisher_qos()
+    }
+    pub fn set_default_publisher_qos(&mut self, qos: PublisherQosPolicies) {
+        self.inner
+            .write()
+            .expect("couldn't write lock DomainParticipantInnet")
+            .set_default_publisher_qos(qos);
+    }
+    pub fn get_default_subscriber_qos(&self) -> SubscriberQosPolicies {
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .get_default_subscriber_qos()
+    }
+    pub fn set_default_subscriber_qos(&mut self, qos: SubscriberQosPolicies) {
+        self.inner
+            .write()
+            .expect("couldn't write lock DomainParticipantInnet")
+            .set_default_subscriber_qos(qos);
+    }
+    pub fn get_default_topic_qos(&self) -> TopicQosPolicies {
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .get_default_topic_qos()
+    }
+    pub fn set_default_topic_qos(&mut self, qos: TopicQosPolicies) {
+        self.inner
+            .write()
+            .expect("couldn't write lock DomainParticipantInnet")
+            .set_default_topic_qos(qos);
     }
 }
 impl Drop for DomainParticipantDisc {
@@ -165,7 +261,10 @@ impl Drop for DomainParticipantDisc {
 
 impl RTPSEntity for DomainParticipantDisc {
     fn guid(&self) -> GUID {
-        self.inner.my_guid
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .my_guid
     }
 }
 
@@ -177,6 +276,9 @@ struct DomainParticipantInner {
     add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     ev_loop_handler: Option<thread::JoinHandle<()>>,
     entity_key_generator: AtomicU32,
+    default_publisher_qos: PublisherQosPolicies,
+    default_subscriber_qos: SubscriberQosPolicies,
+    default_topic_qos: TopicQosPolicies,
 }
 
 impl DomainParticipantInner {
@@ -255,6 +357,9 @@ impl DomainParticipantInner {
                 ev_loop.event_loop();
             })
             .expect("couldn't spawn EventLoop thread");
+        let default_topic_qos = TopicQosBuilder::new().build();
+        let default_publisher_qos = PublisherQosBuilder::new().build();
+        let default_subscriber_qos = SubscriberQosBuilder::new().build();
 
         Self {
             domain_id,
@@ -264,25 +369,22 @@ impl DomainParticipantInner {
             add_reader_sender,
             ev_loop_handler: Some(ev_loop_handler),
             entity_key_generator: AtomicU32::new(0x0300),
+            default_publisher_qos,
+            default_subscriber_qos,
+            default_topic_qos,
         }
     }
 
-    fn create_publisher(&self, dp: DomainParticipant, qos: QosPolicies) -> Publisher {
+    fn create_publisher(&self, dp: DomainParticipant, qos: PublisherQosPolicies) -> Publisher {
         // add_writer用のチャネルを生やして、senderはpubにreceiverは自分
         let guid = GUID::new(
             self.my_guid.guid_prefix,
             EntityId::new_with_entity_kind(self.gen_entity_key(), EntityKind::PUBLISHER),
         );
-        Publisher::new(
-            guid,
-            qos.clone(),
-            qos.clone(),
-            dp,
-            self.add_writer_sender.clone(),
-        )
+        Publisher::new(guid, qos.clone(), dp, self.add_writer_sender.clone())
     }
 
-    fn create_subscriber(&self, dp: DomainParticipant, qos: QosPolicies) -> Subscriber {
+    fn create_subscriber(&self, dp: DomainParticipant, qos: SubscriberQosPolicies) -> Subscriber {
         let guid = GUID::new(
             self.my_guid.guid_prefix,
             EntityId::new_with_entity_kind(self.gen_entity_key(), EntityKind::SUBSCRIBER),
@@ -297,6 +399,25 @@ impl DomainParticipantInner {
             .fetch_add(1, Ordering::Relaxed)
             .to_be_bytes();
         [a, b, c]
+    }
+
+    pub fn get_default_publisher_qos(&self) -> PublisherQosPolicies {
+        self.default_publisher_qos.clone()
+    }
+    pub fn set_default_publisher_qos(&mut self, qos: PublisherQosPolicies) {
+        self.default_publisher_qos = qos;
+    }
+    pub fn get_default_subscriber_qos(&self) -> SubscriberQosPolicies {
+        self.default_subscriber_qos.clone()
+    }
+    pub fn set_default_subscriber_qos(&mut self, qos: SubscriberQosPolicies) {
+        self.default_subscriber_qos = qos;
+    }
+    pub fn get_default_topic_qos(&self) -> TopicQosPolicies {
+        self.default_topic_qos.clone()
+    }
+    pub fn set_default_topic_qos(&mut self, qos: TopicQosPolicies) {
+        self.default_topic_qos = qos;
     }
 }
 

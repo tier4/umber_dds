@@ -3,7 +3,10 @@ use crate::dds::{
     datawriter::DataWriter,
     participant::DomainParticipant,
     publisher::Publisher,
-    qos::{policy::*, QosBuilder},
+    qos::{
+        policy::*, DataReadedrQosBuilder, DataWriterQosBuilder, PublisherQosBuilder,
+        SubscriberQosBuilder, TopicQosBuilder,
+    },
     subscriber::Subscriber,
     tokens::*,
     topic::Topic,
@@ -76,32 +79,35 @@ impl Discovery {
         mut reader_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
     ) -> Self {
         let poll = Poll::new().unwrap();
-        let qos = QosBuilder::new()
-            .reliability(Reliability::default_reliable())
-            .build();
-        let publisher = dp.create_publisher(qos);
-        let subscriber = dp.create_subscriber(qos);
+        let pub_qos = PublisherQosBuilder::new().build();
+        let sub_qos = SubscriberQosBuilder::new().build();
+        let publisher = dp.create_publisher(pub_qos);
+        let subscriber = dp.create_subscriber(sub_qos);
 
         // For SPDP
+        let topic_qos = TopicQosBuilder::new().build();
         let spdp_topic = Topic::new(
             "DCPSParticipant".to_string(),
             "SPDPDiscoveredParticipantData".to_string(),
             dp.clone(),
-            qos,
+            topic_qos,
             TopicKind::WithKey,
         );
-        let spdp_qos = QosBuilder::new()
+        let spdp_writer_qos = DataWriterQosBuilder::new()
+            .reliability(Reliability::default_besteffort())
+            .build();
+        let spdp_reader_qos = DataReadedrQosBuilder::new()
             .reliability(Reliability::default_besteffort())
             .build();
         let spdp_writer_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER;
         let spdp_reader_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR;
         let spdp_builtin_participant_writer = publisher.create_datawriter_with_entityid(
-            spdp_qos,
+            spdp_writer_qos,
             spdp_topic.clone(),
             spdp_writer_entity_id,
         );
         let mut spdp_builtin_participant_reader = subscriber.create_datareader_with_entityid(
-            spdp_qos,
+            spdp_reader_qos,
             spdp_topic.clone(),
             spdp_reader_entity_id,
         );
@@ -114,27 +120,33 @@ impl Discovery {
         .expect("couldn't register spdp_builtin_participant_reader to poll");
 
         // For SEDP
-        let sedp_qos = QosBuilder::new()
+        let sedp_writer_qos = DataWriterQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .build();
+        let sedp_reader_qos = DataReadedrQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .build();
+        let sedp_topic_qos = TopicQosBuilder::new()
             .reliability(Reliability::default_reliable())
             .build();
         let sedp_publication_topic = Topic::new(
             "DCPSPublication".to_string(),
             "PublicationBuiltinTopicData".to_string(),
             dp.clone(),
-            sedp_qos,
+            sedp_topic_qos.clone(),
             TopicKind::WithKey,
         );
         let sedp_pub_writer_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER;
         let sedp_pub_reader_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR;
         let sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData> = publisher
             .create_datawriter_with_entityid(
-                sedp_qos,
+                sedp_writer_qos.clone(),
                 sedp_publication_topic.clone(),
                 sedp_pub_writer_entity_id,
             );
         let sedp_builtin_pub_reader: DataReader<SDPBuiltinData> = subscriber
             .create_datareader_with_entityid(
-                sedp_qos,
+                sedp_reader_qos.clone(),
                 sedp_publication_topic.clone(),
                 sedp_pub_reader_entity_id,
             );
@@ -142,20 +154,20 @@ impl Discovery {
             "DCPSSucscription".to_string(),
             "SubscriptionBuiltinTopicData".to_string(),
             dp.clone(),
-            sedp_qos,
+            sedp_topic_qos,
             TopicKind::WithKey,
         );
         let sedp_sub_writer_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER;
         let sedp_sub_reader_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR;
         let sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData> = publisher
             .create_datawriter_with_entityid(
-                sedp_qos,
+                sedp_writer_qos,
                 sedp_subscription_topic.clone(),
                 sedp_sub_writer_entity_id,
             );
         let sedp_builtin_sub_reader: DataReader<SDPBuiltinData> = subscriber
             .create_datareader_with_entityid(
-                sedp_qos,
+                sedp_reader_qos,
                 sedp_subscription_topic.clone(),
                 sedp_sub_reader_entity_id,
             );

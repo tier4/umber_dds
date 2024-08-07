@@ -1,4 +1,4 @@
-use crate::dds::{publisher::Publisher, qos::QosPolicies, topic::Topic};
+use crate::dds::{publisher::Publisher, qos::DataWriterQosPolicies, topic::Topic};
 use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
 use crate::rtps::writer::*;
 use mio_extras::channel as mio_channel;
@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 
 pub struct DataWriter<D: Serialize> {
     data_phantom: PhantomData<D>,
-    qos: QosPolicies,
+    qos: DataWriterQosPolicies,
     topic: Topic,
     publisher: Publisher,
     // my_guid: GUID, // In RustDDS, DataWriter has guid to drop corresponding RTPSWriter
@@ -18,7 +18,7 @@ pub struct DataWriter<D: Serialize> {
 impl<D: Serialize> DataWriter<D> {
     pub fn new(
         writer_command_sender: mio_channel::SyncSender<WriterCmd>,
-        qos: QosPolicies,
+        qos: DataWriterQosPolicies,
         topic: Topic,
         publisher: Publisher,
     ) -> Self {
@@ -30,8 +30,12 @@ impl<D: Serialize> DataWriter<D> {
             writer_command_sender,
         }
     }
-    pub fn get_qos() {}
-    pub fn set_qos() {}
+    pub fn get_qos(&self) -> DataWriterQosPolicies {
+        self.qos.clone()
+    }
+    pub fn set_qos(&mut self, qos: DataWriterQosPolicies) {
+        self.qos = qos;
+    }
     pub fn write(&self, data: D) {
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
