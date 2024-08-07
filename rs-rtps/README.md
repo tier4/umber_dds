@@ -5,11 +5,36 @@ RustでRTPS/DDSを実装
 
 - [x] DataWriter.write()でData submessageが乗ったパケットを送信できるようにする
 - [x] DataReader.read()でData submessageが乗ったパケットを受信して受け取れるようにする
+- [ ] QoSのサポート
 - [x] besteffortでほかのノードをDiscoveryしてPub/Subできるところまで実装
     - [x] 自実装間
     - [x] FastDDSとの相互通信
     - [ ] CycloneDDSとの相互通信
     - [x] RustDDSとの相互通信
+
+## Usage
+### shapes_deme
+ビルド
+```
+cargo build --examples
+```
+
+`-m`でPublisher/Subscriberを指定できる。
+Publisherであれば、"p" or "P"。Subscriberであれば、"s" or "S"を指定。
+
+`-t`でReliable/BestEffortを指定できる。。
+Reliableであれば、"r" or "R"。BestEffortであれば、"b" or "B"を指定。
+なにも指定しなければ、BestEffortで起動する。
+
+reliableなpublisherとして起動
+```
+./target/debug/examples/shapes_demo -m p -r b
+```
+
+besteffortなsubscriberとして起動
+```
+./target/debug/examples/shapes_demo -m s
+```
 
 ## TODO
 - [x] QosPoliciesを実装
