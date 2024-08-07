@@ -2,7 +2,7 @@ use crate::dds::{
     datareader::DataReader,
     participant::DomainParticipant,
     qos::policy::*,
-    qos::{DataReadedrQosBuilder, DataReadedrQosPolicies, SubscriberQosPolicies},
+    qos::{DataReadedrQos, DataReadedrQosBuilder, DataReadedrQosPolicies, SubscriberQosPolicies},
     topic::Topic,
 };
 use crate::message::submessage::element::Locator;
@@ -43,7 +43,7 @@ impl Subscriber {
     }
     pub fn create_datareader<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: DataReadedrQosPolicies,
+        qos: DataReadedrQos,
         topic: Topic,
     ) -> DataReader<D> {
         self.inner
@@ -53,7 +53,7 @@ impl Subscriber {
     }
     pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: DataReadedrQosPolicies,
+        qos: DataReadedrQos,
         topic: Topic,
         entity_id: EntityId,
     ) -> DataReader<D> {
@@ -128,13 +128,17 @@ impl InnerSubscriber {
 
     pub fn create_datareader<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: DataReadedrQosPolicies,
+        qos: DataReadedrQos,
         topic: Topic,
         subscriber: Subscriber,
     ) -> DataReader<D> {
+        let dr_qos = match qos {
+            DataReadedrQos::Default => self.default_dr_qos.clone(),
+            DataReadedrQos::Policies(q) => q,
+        };
         let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
-        let reliability_level = if let Some(reliability) = qos.reliability {
+        let reliability_level = if let Some(reliability) = dr_qos.reliability {
             reliability.kind
         } else {
             ReliabilityQosKind::BestEffort
@@ -166,19 +170,29 @@ impl InnerSubscriber {
         self.add_reader_sender
             .send(reader_ing)
             .expect("couldn't send channel 'add_reader_sender'");
-        DataReader::<D>::new(qos, topic, subscriber, history_cache, reader_ready_receiver)
+        DataReader::<D>::new(
+            dr_qos,
+            topic,
+            subscriber,
+            history_cache,
+            reader_ready_receiver,
+        )
     }
 
     pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: DataReadedrQosPolicies,
+        qos: DataReadedrQos,
         topic: Topic,
         subscriber: Subscriber,
         entity_id: EntityId,
     ) -> DataReader<D> {
+        let dr_qos = match qos {
+            DataReadedrQos::Default => self.default_dr_qos.clone(),
+            DataReadedrQos::Policies(q) => q,
+        };
         let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
-        let reliability_level = if let Some(reliability) = qos.reliability {
+        let reliability_level = if let Some(reliability) = dr_qos.reliability {
             reliability.kind
         } else {
             ReliabilityQosKind::BestEffort
@@ -204,7 +218,13 @@ impl InnerSubscriber {
         self.add_reader_sender
             .send(reader_ing)
             .expect("couldn't send add_reader_sender");
-        DataReader::<D>::new(qos, topic, subscriber, history_cache, reader_ready_receiver)
+        DataReader::<D>::new(
+            dr_qos,
+            topic,
+            subscriber,
+            history_cache,
+            reader_ready_receiver,
+        )
     }
 
     pub fn get_default_datareader_qos(&self) -> DataReadedrQosPolicies {

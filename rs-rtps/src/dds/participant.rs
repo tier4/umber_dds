@@ -12,16 +12,19 @@ use crate::{
         event_loop::EventLoop,
         publisher::Publisher,
         qos::{
-            PublisherQosBuilder, PublisherQosPolicies, SubscriberQosBuilder, SubscriberQosPolicies,
-            TopicQosBuilder, TopicQosPolicies,
+            PublisherQos, PublisherQosBuilder, PublisherQosPolicies, SubscriberQos,
+            SubscriberQosBuilder, SubscriberQosPolicies, TopicQos, TopicQosBuilder,
+            TopicQosPolicies,
         },
         subscriber::Subscriber,
         tokens::*,
+        topic::Topic,
     },
     network::udp_listinig_socket::*,
     structure::{
         entity_id::{EntityId, EntityKind},
         guid::*,
+        topic_kind::TopicKind,
     },
 };
 use mio_extras::channel as mio_channel;
@@ -87,17 +90,29 @@ impl DomainParticipant {
             .expect("couldn't send channel 'disc_thread_sender'");
         dp
     }
-    pub fn create_publisher(&self, qos: PublisherQosPolicies) -> Publisher {
+    pub fn create_publisher(&self, qos: PublisherQos) -> Publisher {
         self.inner
             .lock()
             .expect("couldn't lock DomainParticipantDisc")
             .create_publisher(self.clone(), qos)
     }
-    pub fn create_subscriber(&self, qos: SubscriberQosPolicies) -> Subscriber {
+    pub fn create_subscriber(&self, qos: SubscriberQos) -> Subscriber {
         self.inner
             .lock()
             .expect("couldn't lock DomainParticipantDisc")
             .create_subscriber(self.clone(), qos)
+    }
+    pub fn create_topic(
+        &self,
+        name: String,
+        type_desc: String,
+        kind: TopicKind,
+        qos: TopicQos,
+    ) -> Topic {
+        self.inner
+            .lock()
+            .expect("couldn't lock DomainParticipantDisc")
+            .create_topic(self.clone(), name, type_desc, kind, qos)
     }
     pub fn domain_id(&self) -> u16 {
         self.inner
@@ -180,21 +195,30 @@ impl DomainParticipantDisc {
             disc_thread_receiver,
         }
     }
-    pub fn create_publisher(&self, dp: DomainParticipant, qos: PublisherQosPolicies) -> Publisher {
+    pub fn create_publisher(&self, dp: DomainParticipant, qos: PublisherQos) -> Publisher {
         self.inner
             .read()
             .expect("couldn't read lock DomainParticipantInnet")
             .create_publisher(dp, qos)
     }
-    pub fn create_subscriber(
-        &self,
-        dp: DomainParticipant,
-        qos: SubscriberQosPolicies,
-    ) -> Subscriber {
+    pub fn create_subscriber(&self, dp: DomainParticipant, qos: SubscriberQos) -> Subscriber {
         self.inner
             .read()
             .expect("couldn't read lock DomainParticipantInnet")
             .create_subscriber(dp, qos)
+    }
+    pub fn create_topic(
+        &self,
+        dp: DomainParticipant,
+        name: String,
+        type_desc: String,
+        kind: TopicKind,
+        qos: TopicQos,
+    ) -> Topic {
+        self.inner
+            .read()
+            .expect("couldn't read lock DomainParticipantInnet")
+            .create_topic(dp, name, type_desc, kind, qos)
     }
     pub fn domain_id(&self) -> u16 {
         self.inner
@@ -375,21 +399,57 @@ impl DomainParticipantInner {
         }
     }
 
-    fn create_publisher(&self, dp: DomainParticipant, qos: PublisherQosPolicies) -> Publisher {
+    fn create_publisher(&self, dp: DomainParticipant, qos: PublisherQos) -> Publisher {
         // add_writer用のチャネルを生やして、senderはpubにreceiverは自分
         let guid = GUID::new(
             self.my_guid.guid_prefix,
             EntityId::new_with_entity_kind(self.gen_entity_key(), EntityKind::PUBLISHER),
         );
-        Publisher::new(guid, qos.clone(), dp, self.add_writer_sender.clone())
+        match qos {
+            PublisherQos::Default => Publisher::new(
+                guid,
+                self.default_publisher_qos.clone(),
+                dp,
+                self.add_writer_sender.clone(),
+            ),
+            PublisherQos::Policies(q) => {
+                Publisher::new(guid, q, dp, self.add_writer_sender.clone())
+            }
+        }
     }
 
-    fn create_subscriber(&self, dp: DomainParticipant, qos: SubscriberQosPolicies) -> Subscriber {
+    fn create_subscriber(&self, dp: DomainParticipant, qos: SubscriberQos) -> Subscriber {
         let guid = GUID::new(
             self.my_guid.guid_prefix,
             EntityId::new_with_entity_kind(self.gen_entity_key(), EntityKind::SUBSCRIBER),
         );
-        Subscriber::new(guid, qos, dp, self.add_reader_sender.clone())
+        match qos {
+            SubscriberQos::Default => Subscriber::new(
+                guid,
+                self.default_subscriber_qos.clone(),
+                dp,
+                self.add_reader_sender.clone(),
+            ),
+            SubscriberQos::Policies(q) => {
+                Subscriber::new(guid, q, dp, self.add_reader_sender.clone())
+            }
+        }
+    }
+
+    fn create_topic(
+        &self,
+        dp: DomainParticipant,
+        name: String,
+        type_desc: String,
+        kind: TopicKind,
+        qos: TopicQos,
+    ) -> Topic {
+        match qos {
+            TopicQos::Default => {
+                Topic::new(name, type_desc, dp, self.default_topic_qos.clone(), kind)
+            }
+            TopicQos::Policies(q) => Topic::new(name, type_desc, dp, q, kind),
+        }
     }
 
     pub fn gen_entity_key(&self) -> [u8; 3] {

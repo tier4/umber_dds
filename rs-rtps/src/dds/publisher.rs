@@ -2,7 +2,7 @@ use crate::dds::{
     datawriter::DataWriter,
     participant::DomainParticipant,
     qos::policy::*,
-    qos::{DataWriterQosBuilder, DataWriterQosPolicies, PublisherQosPolicies},
+    qos::{DataWriterQos, DataWriterQosBuilder, DataWriterQosPolicies, PublisherQosPolicies},
     topic::Topic,
 };
 use crate::message::submessage::element::Locator;
@@ -54,7 +54,7 @@ impl Publisher {
 
     pub fn create_datawriter<D: serde::Serialize>(
         &self,
-        qos: DataWriterQosPolicies,
+        qos: DataWriterQos,
         topic: Topic,
     ) -> DataWriter<D> {
         self.inner
@@ -65,7 +65,7 @@ impl Publisher {
 
     pub fn create_datawriter_with_entityid<D: serde::Serialize>(
         &self,
-        qos: DataWriterQosPolicies,
+        qos: DataWriterQos,
         topic: Topic,
         entity_id: EntityId,
     ) -> DataWriter<D> {
@@ -136,13 +136,17 @@ impl InnerPublisher {
     }
     pub fn create_datawriter<D: serde::Serialize>(
         &self,
-        qos: DataWriterQosPolicies,
+        qos: DataWriterQos,
         topic: Topic,
         outter: Publisher,
     ) -> DataWriter<D> {
+        let dw_qos = match qos {
+            DataWriterQos::Default => self.default_dw_qos.clone(),
+            DataWriterQos::Policies(q) => q,
+        };
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
-        let reliability_level = if let Some(reliability) = qos.reliability {
+        let reliability_level = if let Some(reliability) = dw_qos.reliability {
             reliability.kind
         } else {
             ReliabilityQosKind::BestEffort // If qos don't specify reliability_level, the
@@ -177,19 +181,23 @@ impl InnerPublisher {
         self.add_writer_sender
             .send(writer_ing)
             .expect("couldn't send channel 'add_writer_sender'");
-        DataWriter::<D>::new(writer_command_sender, qos, topic, outter)
+        DataWriter::<D>::new(writer_command_sender, dw_qos, topic, outter)
     }
     pub fn create_datawriter_with_entityid<D: serde::Serialize>(
         &self,
-        qos: DataWriterQosPolicies,
+        qos: DataWriterQos,
         topic: Topic,
         outter: Publisher,
         entity_id: EntityId,
     ) -> DataWriter<D> {
+        let dw_qos = match qos {
+            DataWriterQos::Default => self.default_dw_qos.clone(),
+            DataWriterQos::Policies(q) => q,
+        };
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
         let mut heartbeat_period = Duration::ZERO;
-        let reliability_level = if let Some(reliability) = qos.reliability {
+        let reliability_level = if let Some(reliability) = dw_qos.reliability {
             heartbeat_period = Duration::new(2, 0);
             reliability.kind
         } else {
@@ -219,7 +227,7 @@ impl InnerPublisher {
         self.add_writer_sender
             .send(writer_ing)
             .expect("couldn't send channel 'add_writer_sender'");
-        DataWriter::<D>::new(writer_command_sender, qos, topic, outter)
+        DataWriter::<D>::new(writer_command_sender, dw_qos, topic, outter)
     }
     pub fn get_participant(&self) -> DomainParticipant {
         self.dp.clone()

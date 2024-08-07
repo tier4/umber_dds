@@ -2,9 +2,21 @@
 // How to impl builder: https://keens.github.io/blog/2017/02/09/rustnochottoyarisuginabuilderpata_n/
 
 #[derive(Clone)]
+pub enum DomainParticipantQos {
+    Default,
+    Policies(DomainParticipantQosPolicies),
+}
+
+#[derive(Clone)]
 pub struct DomainParticipantQosPolicies {
     pub user_data: Option<policy::UserData>,
     pub entity_factory: Option<policy::EntityFactory>,
+}
+
+#[derive(Clone)]
+pub enum TopicQos {
+    Default,
+    Policies(TopicQosPolicies),
 }
 
 #[derive(Clone)]
@@ -22,6 +34,12 @@ pub struct TopicQosPolicies {
     pub transport_priority: Option<policy::TransportPriority>,
     pub lifespan: Option<policy::Lifespan>,
     pub ownership: Option<policy::Ownership>,
+}
+
+#[derive(Clone)]
+pub enum DataWriterQos {
+    Default,
+    Policies(DataWriterQosPolicies),
 }
 
 #[derive(Clone)]
@@ -44,11 +62,23 @@ pub struct DataWriterQosPolicies {
 }
 
 #[derive(Clone)]
+pub enum PublisherQos {
+    Default,
+    Policies(PublisherQosPolicies),
+}
+
+#[derive(Clone)]
 pub struct PublisherQosPolicies {
     pub presentation: Option<policy::Presentation>,
     pub partition: Option<policy::Partition>,
     pub group_data: Option<policy::GroupData>,
     pub entity_factory: Option<policy::EntityFactory>,
+}
+
+#[derive(Clone)]
+pub enum DataReadedrQos {
+    Default,
+    Policies(DataReadedrQosPolicies),
 }
 
 #[derive(Clone)]
@@ -65,6 +95,12 @@ pub struct DataReadedrQosPolicies {
     pub ownership: Option<policy::Ownership>,
     pub time_based_filter: Option<policy::TimeBasedFilter>,
     pub reader_data_lifecycle: Option<policy::ReaderDataLifecycle>,
+}
+
+#[derive(Clone)]
+pub enum SubscriberQos {
+    Default,
+    Policies(SubscriberQosPolicies),
 }
 
 #[derive(Clone)]
