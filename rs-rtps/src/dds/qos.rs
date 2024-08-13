@@ -674,7 +674,10 @@ pub mod policy {
     }
     impl Default for ReaderDataLifecycle {
         fn default() -> Self {
-            todo!()
+            Self {
+                autopurge_dispose_samples_delay: Duration::INFINITE,
+                autopurge_nowriter_samples_delay: Duration::INFINITE,
+            }
         }
     }
 
