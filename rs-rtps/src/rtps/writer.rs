@@ -3,7 +3,8 @@ use crate::discovery::structure::data::DiscoveredWriterData;
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
-        acknack::AckNack, Count, Locator, SequenceNumber, SerializedPayload, Timestamp,
+        acknack::AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, SerializedPayload,
+        Timestamp,
     },
 };
 use crate::network::udp_sender::UdpSender;
@@ -278,10 +279,67 @@ impl Writer {
                                 }
                             }
                         } else {
-                            todo!(); // TODO: send GAP
+                            unreachable!();
                         }
                     } else {
-                        unreachable!();
+                        // build RTPS Message
+                        let mut message_builder = MessageBuilder::new();
+                        // let time_stamp = Timestamp::now();
+                        // message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                        let gap_start = change_for_reader.seq_num;
+                        message_builder.gap(
+                            Endianness::LittleEndian,
+                            self.guid.entity_id,
+                            reader_proxy.remote_reader_guid.entity_id,
+                            gap_start,
+                            SequenceNumberSet::from_vec(gap_start + SequenceNumber(1), vec![]),
+                        );
+                        let message = message_builder.build(self_guid_prefix);
+                        let message_buf = message
+                            .write_to_vec_with_ctx(self.endianness)
+                            .expect("couldn't serialize message");
+                        // TODO:
+                        // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
+                        for uni_loc in &reader_proxy.unicast_locator_list {
+                            if uni_loc.kind == Locator::KIND_UDPV4 {
+                                let port = uni_loc.port;
+                                let addr = uni_loc.address;
+                                eprintln!(
+                                    "<{}>: send data message to {}.{}.{}.{}:{}",
+                                    "Writer: Info".green(),
+                                    addr[12],
+                                    addr[13],
+                                    addr[14],
+                                    addr[15],
+                                    port
+                                );
+                                self.sender.send_to_unicast(
+                                    &message_buf,
+                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                    port as u16,
+                                );
+                            }
+                        }
+                        for mul_loc in &reader_proxy.multicast_locator_list {
+                            if mul_loc.kind == Locator::KIND_UDPV4 {
+                                let port = mul_loc.port;
+                                let addr = mul_loc.address;
+                                eprintln!(
+                                    "<{}>: send data message to {}.{}.{}.{}:{}",
+                                    "Writer: Info".green(),
+                                    addr[12],
+                                    addr[13],
+                                    addr[14],
+                                    addr[15],
+                                    port
+                                );
+                                self.sender.send_to_multicast(
+                                    &message_buf,
+                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                    port as u16,
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -489,10 +547,69 @@ impl Writer {
                                 );
                             }
                         }
+                    } else {
+                        todo!(); // TODO: send Heartbeat
+                                 // rtps spec, 8.4.2.2.4 Writers must eventually respond to a negative acknowledgment (reliable only)
                     }
                 } else {
-                    // TODO: send GAP
-                    todo!();
+                    // build RTPS Message
+                    let mut message_builder = MessageBuilder::new();
+                    // let time_stamp = Timestamp::now();
+                    // message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                    let gap_start = change.seq_num;
+                    message_builder.gap(
+                        Endianness::LittleEndian,
+                        self.guid.entity_id,
+                        reader_proxy.remote_reader_guid.entity_id,
+                        gap_start,
+                        SequenceNumberSet::from_vec(gap_start + SequenceNumber(1), vec![]),
+                    );
+                    let message = message_builder.build(self_guid_prefix);
+                    let message_buf = message
+                        .write_to_vec_with_ctx(self.endianness)
+                        .expect("couldn't serialize message");
+                    // TODO:
+                    // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
+                    for uni_loc in &reader_proxy.unicast_locator_list {
+                        if uni_loc.kind == Locator::KIND_UDPV4 {
+                            let port = uni_loc.port;
+                            let addr = uni_loc.address;
+                            eprintln!(
+                                "<{}>: send gap message to {}.{}.{}.{}:{}",
+                                "Writer: Info".green(),
+                                addr[12],
+                                addr[13],
+                                addr[14],
+                                addr[15],
+                                port
+                            );
+                            self.sender.send_to_unicast(
+                                &message_buf,
+                                Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                port as u16,
+                            );
+                        }
+                    }
+                    for mul_loc in &reader_proxy.multicast_locator_list {
+                        if mul_loc.kind == Locator::KIND_UDPV4 {
+                            let port = mul_loc.port;
+                            let addr = mul_loc.address;
+                            eprintln!(
+                                "<{}>: send gap data message to {}.{}.{}.{}:{}",
+                                "Writer: Info".green(),
+                                addr[12],
+                                addr[13],
+                                addr[14],
+                                addr[15],
+                                port
+                            );
+                            self.sender.send_to_multicast(
+                                &message_buf,
+                                Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                port as u16,
+                            );
+                        }
+                    }
                 };
             }
         }
