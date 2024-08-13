@@ -2,11 +2,11 @@ use super::element::*;
 use super::{
     submessage::{
         element::{
-            acknack::AckNack, data::Data, heartbeat::Heartbeat, infodst::InfoDestination,
+            acknack::AckNack, data::Data, gap::Gap, heartbeat::Heartbeat, infodst::InfoDestination,
             infots::InfoTimestamp,
         },
         submessage_flag::{
-            AckNackFlag, DataFlag, HeartbeatFlag, InfoDestionationFlag, InfoTimestampFlag,
+            AckNackFlag, DataFlag, GapFlag, HeartbeatFlag, InfoDestionationFlag, InfoTimestampFlag,
         },
         submessage_header::SubMessageHeader,
         EntitySubmessage, InterpreterSubmessage, SubMessage, SubMessageBody, SubMessageKind,
@@ -172,6 +172,27 @@ impl MessageBuilder {
             body: data_body,
         };
         self.submessages.push(data_msg);
+    }
+
+    pub fn gap(
+        &mut self,
+        endiannes: Endianness,
+        writer_id: EntityId,
+        reader_id: EntityId,
+        gap_start: SequenceNumber,
+        gap_list: SequenceNumberSet,
+    ) {
+        let gap_body_length = 16 + gap_list.size();
+        let gap = Gap::new(reader_id, writer_id, gap_start, gap_list);
+        let gap_flag = GapFlag::from_enndianness(endiannes);
+        let gap_body = SubMessageBody::Entity(EntitySubmessage::Gap(gap, gap_flag));
+        let gap_header =
+            SubMessageHeader::new(SubMessageKind::GAP as u8, gap_flag.bits(), gap_body_length);
+        let gap_msg = SubMessage {
+            header: gap_header,
+            body: gap_body,
+        };
+        self.submessages.push(gap_msg);
     }
 
     pub fn build(self, self_guid_prefix: GuidPrefix) -> Message {
