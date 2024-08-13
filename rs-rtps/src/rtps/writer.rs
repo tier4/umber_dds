@@ -227,8 +227,8 @@ impl Writer {
                             message_builder.info_ts(Endianness::LittleEndian, time_stamp);
                             message_builder.data(
                                 Endianness::LittleEndian,
-                                reader_proxy.remote_reader_guid.entity_id,
                                 self.guid.entity_id,
+                                reader_proxy.remote_reader_guid.entity_id,
                                 aa_change,
                             );
                             let message = message_builder.build(self_guid_prefix);
@@ -496,8 +496,8 @@ impl Writer {
                         message_builder.info_ts(Endianness::LittleEndian, time_stamp);
                         message_builder.data(
                             Endianness::LittleEndian,
-                            reader_proxy.remote_reader_guid.entity_id,
                             self.guid.entity_id,
+                            reader_proxy.remote_reader_guid.entity_id,
                             aa_change,
                         );
                         let message = message_builder.build(self_guid_prefix);
