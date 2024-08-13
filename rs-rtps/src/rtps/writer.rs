@@ -476,6 +476,7 @@ impl Writer {
     pub fn handle_nack_response_timeout(&mut self, reader_guid: GUID) {
         self.an_state = AckNackState::Repairing;
         let self_guid_prefix = self.guid_prefix();
+        let self_entity_id = self.entity_id();
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
             while let Some(change) = reader_proxy.next_requested_change() {
                 reader_proxy.update_cache_state(
@@ -548,8 +549,69 @@ impl Writer {
                             }
                         }
                     } else {
-                        todo!(); // TODO: send Heartbeat
-                                 // rtps spec, 8.4.2.2.4 Writers must eventually respond to a negative acknowledgment (reliable only)
+                        // rtps spec, 8.4.2.2.4 Writers must eventually respond to a negative acknowledgment (reliable only)
+                        // send Heartbeat because, the sample is no longer avilable
+                        self.hb_counter += 1;
+                        let time_stamp = Timestamp::now();
+                        let writer_cache = self
+                            .writer_cache
+                            .read()
+                            .expect("couldn't read writer_cache");
+                        let mut message_builder = MessageBuilder::new();
+                        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                        message_builder.heartbeat(
+                            self.endianness,
+                            self_entity_id,
+                            reader_proxy.remote_reader_guid.entity_id,
+                            change.seq_num + SequenceNumber(1),
+                            writer_cache.get_seq_num_max(),
+                            self.hb_counter - 1,
+                            false,
+                        );
+                        let msg = message_builder.build(self_guid_prefix);
+                        let message_buf = msg
+                            .write_to_vec_with_ctx(self.endianness)
+                            .expect("couldn't serialize message");
+                        for uni_loc in &reader_proxy.unicast_locator_list {
+                            if uni_loc.kind == Locator::KIND_UDPV4 {
+                                let port = uni_loc.port;
+                                let addr = uni_loc.address;
+                                eprintln!(
+                                    "<{}>: send heartbeat message to {}.{}.{}.{}:{}",
+                                    "Writer: Info".green(),
+                                    addr[12],
+                                    addr[13],
+                                    addr[14],
+                                    addr[15],
+                                    port
+                                );
+                                self.sender.send_to_unicast(
+                                    &message_buf,
+                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                    port as u16,
+                                );
+                            }
+                        }
+                        for mul_loc in &reader_proxy.multicast_locator_list {
+                            if mul_loc.kind == Locator::KIND_UDPV4 {
+                                let port = mul_loc.port;
+                                let addr = mul_loc.address;
+                                eprintln!(
+                                    "<{}>: send heartbeat message to {}.{}.{}.{}:{}",
+                                    "Writer: Info".green(),
+                                    addr[12],
+                                    addr[13],
+                                    addr[14],
+                                    addr[15],
+                                    port
+                                );
+                                self.sender.send_to_multicast(
+                                    &message_buf,
+                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                    port as u16,
+                                );
+                            }
+                        }
                     }
                 } else {
                     // build RTPS Message
