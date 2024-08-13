@@ -222,7 +222,7 @@ impl Reader {
             let mut seq_num = gap.gap_start;
             while seq_num < gap.gap_list.base() {
                 writer_proxy.irrelevant_change_set(seq_num);
-                seq_num -= SequenceNumber(1);
+                seq_num += SequenceNumber(1);
             }
             for seq_num in gap.gap_list.set() {
                 writer_proxy.irrelevant_change_set(seq_num);
