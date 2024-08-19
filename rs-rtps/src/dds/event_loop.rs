@@ -254,7 +254,7 @@ impl EventLoop {
                             self.handle_participant_discovery();
                         }
                         WRITER_HEARTBEAT_TIMER => {
-                            if let Some(eid) = self.writer_hb_timer.poll() {
+                            while let Some(eid) = self.writer_hb_timer.poll() {
                                 eprintln!(
                                     "<{}>: fired Writer Heartbeat timer({:?})",
                                     "EventLoop: Info".green(),
