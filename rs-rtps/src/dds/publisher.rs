@@ -146,12 +146,7 @@ impl InnerPublisher {
         };
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
-        let reliability_level = if let Some(reliability) = dw_qos.reliability {
-            reliability.kind
-        } else {
-            ReliabilityQosKind::BestEffort // If qos don't specify reliability_level, the
-                                           // reliability_level of Writer is set to BestEffort
-        };
+        let reliability_level = dw_qos.reliability.kind;
         let writer_ing = WriterIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
@@ -196,13 +191,10 @@ impl InnerPublisher {
         };
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
-        let mut heartbeat_period = Duration::ZERO;
-        let reliability_level = if let Some(reliability) = dw_qos.reliability {
-            heartbeat_period = Duration::new(2, 0);
-            reliability.kind
-        } else {
-            ReliabilityQosKind::BestEffort // If qos don't specify reliability_level, the
-                                           // reliability_level of Writer is set to BestEffort
+        let reliability_level = dw_qos.reliability.kind;
+        let heartbeat_period = match reliability_level {
+            ReliabilityQosKind::Reliable => Duration::new(2, 0),
+            ReliabilityQosKind::BestEffort => Duration::ZERO,
         };
         let writer_ing = WriterIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),

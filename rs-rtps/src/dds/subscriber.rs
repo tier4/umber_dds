@@ -138,11 +138,7 @@ impl InnerSubscriber {
         };
         let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
-        let reliability_level = if let Some(reliability) = dr_qos.reliability {
-            reliability.kind
-        } else {
-            ReliabilityQosKind::BestEffort
-        };
+        let reliability_level = dr_qos.reliability.kind;
         let reader_ing = ReaderIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
@@ -192,11 +188,7 @@ impl InnerSubscriber {
         };
         let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
-        let reliability_level = if let Some(reliability) = dr_qos.reliability {
-            reliability.kind
-        } else {
-            ReliabilityQosKind::BestEffort
-        };
+        let reliability_level = dr_qos.reliability.kind;
         let reader_ing = ReaderIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
             topic_kind: topic.kind(),
