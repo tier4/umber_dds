@@ -1,5 +1,5 @@
 use crate::structure::entity_id::*;
-use rand;
+use rand::{self, rngs::SmallRng, Rng};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
@@ -22,9 +22,9 @@ impl GUID {
         }
     }
 
-    pub fn new_participant_guid() -> Self {
+    pub fn new_participant_guid(small_rng: &mut SmallRng) -> Self {
         Self {
-            guid_prefix: GuidPrefix::new(),
+            guid_prefix: GuidPrefix::new(small_rng),
             entity_id: EntityId::PARTICIPANT,
         }
     }
@@ -42,8 +42,9 @@ impl GuidPrefix {
     // sprc 9.3.1.5
     // guid_prefix[0] = venderId[0]
     // guid_prefix[1] = venderId[1]
-    pub fn new() -> Self {
-        let mut bytes: [u8; 12] = rand::random();
+    pub fn new(small_rng: &mut SmallRng) -> Self {
+        let mut bytes: [u8; 12] = small_rng.gen();
+
         // spec 8.2.4.2 The GUIDs of RTPS Participants
         // The implementation is free to chose the prefix,
         // as long as every Participant in the Domain has a unique GUID.

@@ -1,8 +1,9 @@
 use clap::{Arg, Command};
+use rand::SeedableRng;
 use rs_rtps::dds::{participant::DomainParticipant, qos::*};
 use rs_rtps::structure::topic_kind::TopicKind;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct Shape {
@@ -43,8 +44,14 @@ fn main() {
         } else {
             false
         };
+
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap();
+    let mut small_rng = rand::rngs::SmallRng::seed_from_u64(now.as_nanos() as u64);
+
     let domain_id = 0;
-    let participant = DomainParticipant::new(domain_id);
+    let participant = DomainParticipant::new(domain_id, &mut small_rng);
     let topic_qos = TopicQosBuilder::new()
         .reliability(if is_reliable {
             policy::Reliability::default_reliable()

@@ -1453,16 +1453,20 @@ mod test {
     use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
     use cdr::{Infinite, PlCdrLe};
     use enumflags2::make_bitflags;
+    use rand::rngs::SmallRng;
+    use rand::SeedableRng;
 
     #[test]
     fn test_serialize() {
+        let mut small_rng = SmallRng::seed_from_u64(0);
+
         // 現状シリアライズ結果を既存実装のキャプチャと目視で比較しかできない
         // TODO: シリアライズ済のバイナリをソースに埋めて、シリアライズ結果と比較
         let data = SPDPdiscoveredParticipantData::new(
             0,
             "hoge".to_string(),
             ProtocolVersion::PROTOCOLVERSION,
-            GUID::new_participant_guid(),
+            GUID::new_participant_guid(&mut small_rng),
             VendorId::TIER4,
             false,
             make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER}),
@@ -1494,13 +1498,15 @@ mod test {
 
     #[test]
     fn test_deserialize() {
+        let mut small_rng = SmallRng::seed_from_u64(0);
+
         // 現状エラーを吐かずにデシリアライズできるかしかtestできてない。
         // TODO: デシリアライズしたdataとシリアライズ元のdataを比較
         let data = SPDPdiscoveredParticipantData::new(
             0,
             "hoge".to_string(),
             ProtocolVersion::PROTOCOLVERSION,
-            GUID::new_participant_guid(),
+            GUID::new_participant_guid(&mut small_rng),
             VendorId::TIER4,
             false,
             make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER}),

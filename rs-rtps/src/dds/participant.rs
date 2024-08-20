@@ -29,6 +29,7 @@ use crate::{
 };
 use mio_extras::channel as mio_channel;
 use mio_v06::net::UdpSocket;
+use rand::rngs::SmallRng;
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
 use std::sync::{
@@ -52,7 +53,7 @@ impl RTPSEntity for DomainParticipant {
 }
 
 impl DomainParticipant {
-    pub fn new(domain_id: u16) -> Self {
+    pub fn new(domain_id: u16, small_rng: &mut SmallRng) -> Self {
         let (disc_thread_sender, disc_thread_receiver) =
             mio_channel::channel::<thread::JoinHandle<()>>();
         let (discdb_update_sender, discdb_update_receiver) = mio_channel::channel::<GuidPrefix>();
@@ -69,6 +70,7 @@ impl DomainParticipant {
                 discdb_update_receiver,
                 writer_add_sender,
                 reader_add_sender,
+                small_rng,
             ))),
         };
         let dp_clone = dp.clone();
@@ -183,6 +185,7 @@ impl DomainParticipantDisc {
         discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
         writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
+        small_rng: &mut SmallRng,
     ) -> Self {
         Self {
             inner: Arc::new(RwLock::new(DomainParticipantInner::new(
@@ -191,6 +194,7 @@ impl DomainParticipantDisc {
                 discdb_update_receiver,
                 writer_add_sender,
                 reader_add_sender,
+                small_rng,
             ))),
             disc_thread_receiver,
         }
@@ -312,6 +316,7 @@ impl DomainParticipantInner {
         discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
         writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
+        small_rng: &mut SmallRng,
     ) -> DomainParticipantInner {
         let mut socket_list: HashMap<mio_v06::Token, UdpSocket> = HashMap::new();
         let spdp_multi_socket = new_multicast(
@@ -361,7 +366,7 @@ impl DomainParticipantInner {
         let (add_reader_sender, add_reader_receiver) =
             mio_channel::sync_channel::<ReaderIngredients>(10);
 
-        let my_guid = GUID::new_participant_guid();
+        let my_guid = GUID::new_participant_guid(small_rng);
 
         let ev_loop_handler = thread::Builder::new()
             .name("EventLoop".to_string())
