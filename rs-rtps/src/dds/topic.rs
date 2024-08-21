@@ -104,18 +104,27 @@ impl InnerTopic {
         )
     }
     fn sub_builtin_topic_data(&self) -> SubscriptionBuiltinTopicData {
+        /*
+         * if SubscriptionBuiltinTopicData include Some QoS Policy,
+         * FastDDS throw error and couldn't match.
+         * ```
+         * QObject::connect: Cannot queue arguments of type 'QTextCursor'
+         * (Make sure 'QTextCursor' is registered using qRegisterMetaType().)
+         * ```
+         * TOOD: survey this problem
+         */
         SubscriptionBuiltinTopicData::new(
             None,
             None,
             Some(self.name.clone()),
             Some(self.type_desc.clone()),
-            Some(self.my_qos_policies.durability),
-            Some(self.my_qos_policies.deadline),
-            Some(self.my_qos_policies.latency_budget),
-            Some(self.my_qos_policies.liveliness),
+            None, // Some(self.my_qos_policies.durability),
+            None, // Some(self.my_qos_policies.deadline),
+            None, // Some(self.my_qos_policies.latency_budget),
+            None, // Some(self.my_qos_policies.liveliness),
             Some(self.my_qos_policies.reliability),
-            Some(self.my_qos_policies.ownership),
-            Some(self.my_qos_policies.destination_order),
+            None, // Some(self.my_qos_policies.ownership),
+            None, // Some(self.my_qos_policies.destination_order),
             None,
             None,
             None,
@@ -123,7 +132,7 @@ impl InnerTopic {
             None,
             None,
             None,
-            Some(self.my_qos_policies.lifespan),
+            None, // Some(self.my_qos_policies.lifespan),
         )
     }
 }
