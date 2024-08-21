@@ -11,24 +11,26 @@ panic = 'abort'
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 # hoge
 [dependencies]
-byteorder = "1.4.3"
-bytes = "1.4.0"
-enumflags2 = {version = "0.7.7", features = ["serde"]}
-mio_v06 = { package = "mio", version = "0.6.23"}
-mio_v08 = { package = "mio", version = "0.8.11", features = ["os-poll", "net"]}
+byteorder = { version = "1.4.3", default-features = false }
+bytes = { version = "1.7", default-features = false }
+enumflags2 = { version = "0.7.7", default-features = false, features = [
+    "serde",
+] }
+mio_v06 = { package = "mio", version = "0.6.23" }
+mio_v08 = { package = "mio", version = "0.8.11", features = ["os-poll", "net"] }
 mio-extras = "2.0.6"
-rand = "0.8.5"
-serde = { version = "1.0.163", features = ["derive"] }
-socket2 = "0.4.7"
-speedy = "0.8.5"
-colored = "2.1.0"
-if-addrs = "0.10.1"
+rand = { version = "0.8", default-features = false, features = ["small_rng"] }
+serde = { version = "1.0", features = ["derive"] }
+socket2 = "0.5"
+speedy = "0.8"
+colored = "2.1"
+if-addrs = "0.13"
 cdr = "0.2.4"
 chrono = "0.4.31"
-thiserror = "1.0.57"
+thiserror = "1.0"
 serde_repr = "0.1.18"
 
 [dev-dependencies]
-clap = { version = "4.5.7", features = ["derive"] }
-clap_derive = "4.5.5"
-serde_derive = "1.0.203"
+clap = { version = "4.5", features = ["derive"] }
+clap_derive = "4.5"
+serde_derive = "1.0"
