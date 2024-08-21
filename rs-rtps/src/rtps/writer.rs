@@ -449,18 +449,19 @@ impl Writer {
                 AckNackState::Waiting => {
                     // Transistion T9
                     if reader_proxy.requested_changes().len() != 0 {
-                        self.an_state = AckNackState::MutsRepair
+                        if self.nack_response_delay == Duration::ZERO {
+                            // Transistion T11
+                            self.handle_nack_response_timeout(reader_guid);
+                        } else {
+                            self.set_writer_nack_sender
+                                .send((self.entity_id(), reader_guid))
+                                .expect("couldn't send channel 'set_writer_nack_sender'");
+                            self.an_state = AckNackState::MutsRepair
+                        }
                     }
                 }
                 AckNackState::MutsRepair => {
                     // Transistion T10
-                    if self.nack_response_delay == Duration::ZERO {
-                        self.handle_nack_response_timeout(reader_guid);
-                    } else {
-                        self.set_writer_nack_sender
-                            .send((self.entity_id(), reader_guid))
-                            .expect("couldn't send channel 'set_writer_nack_sender'");
-                    }
                 }
                 AckNackState::Repairing => unreachable!(),
             }
