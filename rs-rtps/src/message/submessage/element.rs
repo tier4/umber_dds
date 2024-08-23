@@ -17,7 +17,6 @@ use crate::structure::parameter_id::ParameterId;
 use byteorder::ReadBytesExt;
 use bytes::{BufMut, Bytes, BytesMut};
 use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
-use chrono::Local;
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
 use std::cmp::{max, min};
@@ -268,7 +267,7 @@ impl Timestamp {
     };
 
     pub fn now() -> Option<Self> {
-        let now = Local::now().timestamp_nanos_opt()?;
+        let now = crate::helper::now()?;
         Some(Self {
             seconds: (now / 1_000_000_000) as u32,
             fraction: (now % 1_000_000_000) as u32,
