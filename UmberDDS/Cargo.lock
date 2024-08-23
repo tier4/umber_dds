@@ -461,31 +461,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 
 [[package]]
-name = "rs-rtps"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "bytes",
- "cdr",
- "chrono",
- "clap",
- "clap_derive",
- "colored",
- "enumflags2",
- "if-addrs",
- "mio 0.6.23",
- "mio 0.8.11",
- "mio-extras",
- "rand",
- "serde",
- "serde_derive",
- "serde_repr",
- "socket2",
- "speedy",
- "thiserror",
-]
-
-[[package]]
 name = "serde"
 version = "1.0.208"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -597,6 +572,31 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "umberdds"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "cdr",
+ "chrono",
+ "clap",
+ "clap_derive",
+ "colored",
+ "enumflags2",
+ "if-addrs",
+ "mio 0.6.23",
+ "mio 0.8.11",
+ "mio-extras",
+ "rand",
+ "serde",
+ "serde_derive",
+ "serde_repr",
+ "socket2",
+ "speedy",
+ "thiserror",
 ]
 
 [[package]]

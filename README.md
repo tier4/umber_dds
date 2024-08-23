@@ -1,13 +1,13 @@
 # T4RustDDS
 DDSをrustで実装するプロジェクト
 
-## RSRTPS
+## UmberDDS
 このプロジェクトの本体
 DDSのRust実装
 
 TODO:
-- RTPSのパケットを受信
-- ShapesDemoの受信側を実装
+- 各QoSの対応
+- documentの整備
 
 ## RustDDS
 参考にする既存実装

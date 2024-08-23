@@ -1,4 +1,4 @@
-# rs-rtps
+# UmberDDS
 RustでRTPS/DDSを実装
 
 最初はStatelessでbesteffortな実装のみに絞って実装する
