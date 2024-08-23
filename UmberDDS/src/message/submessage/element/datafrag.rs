@@ -1,9 +1,9 @@
+use crate::error::{IoError, IoResult};
 use crate::message::submessage::{element::*, submessage_flag::DataFragFlag};
 use crate::structure::entity_id::*;
 use bytes::Bytes;
 use enumflags2::BitFlags;
 use speedy::{Endianness, Error, Readable};
-use std::io;
 
 pub struct DataFrag {
     pub reader_id: EntityId,
@@ -24,35 +24,50 @@ pub struct DataFrag {
 }
 
 impl DataFrag {
-    pub fn deserialize(buffer: &Bytes, flags: BitFlags<DataFragFlag>) -> io::Result<Self> {
-        let mut cursor = io::Cursor::new(&buffer);
+    pub fn deserialize(buffer: &Bytes, flags: BitFlags<DataFragFlag>) -> IoResult<Self> {
+        let mut readed_byte = 0;
         let endiannes = if flags.contains(DataFragFlag::Endianness) {
             Endianness::LittleEndian
         } else {
             Endianness::BigEndian
         };
-        let map_speedy_err = |p: Error| io::Error::new(io::ErrorKind::Other, p);
+        let map_speedy_err = |p: Error| IoError::SpeedyError(p);
 
-        let _extra_flags = u16::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
-        let octets_to_inline_qos = u16::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
-        let reader_id = EntityId::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
-        let writer_id = EntityId::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
-        let writer_sn = SequenceNumber::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
+        let _extra_flags =
+            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+                .map_err(map_speedy_err)?;
+        readed_byte += 2;
+        let octets_to_inline_qos =
+            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+                .map_err(map_speedy_err)?;
+        readed_byte += 2;
+        let reader_id =
+            EntityId::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+                .map_err(map_speedy_err)?;
+        readed_byte += 4;
+        let writer_id =
+            EntityId::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+                .map_err(map_speedy_err)?;
+        readed_byte += 4;
+        let writer_sn =
+            SequenceNumber::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+                .map_err(map_speedy_err)?;
+        readed_byte += 8;
         let fragment_starting_num =
-            FragmentNumber::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
+            FragmentNumber::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
+        readed_byte += 4;
         let fragments_in_submessage =
-            u16::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
+            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
-        let data_size = u64::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
+        readed_byte += 2;
+        let data_size = u64::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
             .map_err(map_speedy_err)?;
-        let fragment_size = u16::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
+        readed_byte += 8;
+        let fragment_size =
+            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+                .map_err(map_speedy_err)?;
+        readed_byte += 2;
         let is_exist_inline_qos = flags.contains(DataFragFlag::InlineQos);
 
         // between octets_to_inline_qos and inline_qos in rtps n2.3, there are
@@ -60,21 +75,26 @@ impl DataFrag {
         // (2), data_size (8), fragment_size (2) = 32 octets
         let rtps_v23_datafrag_header_size: u16 = 32;
         let extra_octets = octets_to_inline_qos - rtps_v23_datafrag_header_size;
-        cursor.set_position(cursor.position() + u64::from(extra_octets));
+        readed_byte += u64::from(extra_octets) as usize;
 
         let inline_qos = if is_exist_inline_qos {
-            Some(
-                ParameterList::read_from_stream_buffered_with_ctx(endiannes, &mut cursor)
-                    .map_err(map_speedy_err)?,
+            let param_list = ParameterList::read_from_buffer_with_ctx(
+                endiannes,
+                &mut buffer.slice(readed_byte..),
             )
+            .map_err(map_speedy_err)?;
+            let param_list_byte = param_list
+                .write_to_vec_with_ctx(endiannes)
+                .map_err(map_speedy_err)?;
+            readed_byte += param_list_byte.len();
+            Some(param_list)
         } else {
             None
         };
         // TODO: Validity checks
         //
         let serialized_payload =
-            SerializedPayload::from_bytes(&buffer.clone().split_off(cursor.position() as usize))
-                .unwrap();
+            SerializedPayload::from_bytes(&buffer.clone().split_off(readed_byte)).unwrap();
 
         Ok(Self {
             reader_id,

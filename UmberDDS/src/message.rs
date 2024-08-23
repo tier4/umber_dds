@@ -3,6 +3,7 @@ pub mod message_header;
 pub mod message_receiver;
 pub mod submessage;
 
+use crate::error::{IoError, IoResult};
 use crate::message::submessage::element::{
     acknack::AckNack, data::Data, datafrag::DataFrag, gap::Gap, heartbeat::Heartbeat,
     heartbeatfrag::HeartbeatFrag, infodst::InfoDestination, inforeply::InfoReply,
@@ -14,7 +15,7 @@ use crate::message::{
 };
 use bytes::Bytes;
 use enumflags2::BitFlags;
-use speedy::{Context, Readable, Writable, Writer};
+use speedy::{Context, Error, Readable, Writable, Writer};
 
 pub struct Message {
     pub header: Header,
@@ -22,16 +23,19 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn new(rtps_msg_buf: Bytes) -> std::io::Result<Message> {
+    pub fn new(rtps_msg_buf: Bytes) -> IoResult<Message> {
+        let map_speedy_err = |p: Error| IoError::SpeedyError(p);
+
         let rtps_header_buf = rtps_msg_buf.slice(..20);
-        let rtps_header = Header::read_from_buffer(&rtps_header_buf)?;
+        let rtps_header = Header::read_from_buffer(&rtps_header_buf).map_err(map_speedy_err)?;
         let mut rtps_body_buf = rtps_msg_buf.slice(20..);
         let mut submessages: Vec<SubMessage> = Vec::new();
         let sub_header_lenght = 4;
         while !rtps_body_buf.is_empty() {
             let submessage_header_buf = rtps_body_buf.split_to(sub_header_lenght);
             // TODO: Message Receiverが従うルール (spec 8.3.4.1)に沿った実装に変更
-            let submessage_header = SubMessageHeader::read_from_buffer(&submessage_header_buf)?;
+            let submessage_header = SubMessageHeader::read_from_buffer(&submessage_header_buf)
+                .map_err(map_speedy_err)?;
             // RTPS spec 2.3, section 9.4.5.1.3
             let submessage_body_len = if submessage_header.get_content_len() == 0 {
                 match submessage_header.get_submessagekind() {
@@ -71,7 +75,8 @@ impl Message {
                         submessage_header.get_flags(),
                     );
                     SubMessageBody::Entity(EntitySubmessage::HeartBeat(
-                        Heartbeat::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
+                        Heartbeat::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                            .map_err(map_speedy_err)?,
                         flags,
                     ))
                 }
@@ -80,7 +85,8 @@ impl Message {
                         submessage_header.get_flags(),
                     );
                     SubMessageBody::Entity(EntitySubmessage::HeartbeatFrag(
-                        HeartbeatFrag::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
+                        HeartbeatFrag::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                            .map_err(map_speedy_err)?,
                         flags,
                     ))
                 }
@@ -88,7 +94,8 @@ impl Message {
                     let flags =
                         BitFlags::<GapFlag>::from_bits_truncate(submessage_header.get_flags());
                     SubMessageBody::Entity(EntitySubmessage::Gap(
-                        Gap::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
+                        Gap::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                            .map_err(map_speedy_err)?,
                         flags,
                     ))
                 }
@@ -96,7 +103,8 @@ impl Message {
                     let flags =
                         BitFlags::<AckNackFlag>::from_bits_truncate(submessage_header.get_flags());
                     SubMessageBody::Entity(EntitySubmessage::AckNack(
-                        AckNack::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
+                        AckNack::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                            .map_err(map_speedy_err)?,
                         flags,
                     ))
                 }
@@ -104,7 +112,8 @@ impl Message {
                     let flags =
                         BitFlags::<NackFragFlag>::from_bits_truncate(submessage_header.get_flags());
                     SubMessageBody::Entity(EntitySubmessage::NackFrag(
-                        NackFrag::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
+                        NackFrag::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                            .map_err(map_speedy_err)?,
                         flags,
                     ))
                 }
@@ -114,7 +123,8 @@ impl Message {
                         submessage_header.get_flags(),
                     );
                     SubMessageBody::Interpreter(InterpreterSubmessage::InfoSource(
-                        InfoSource::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
+                        InfoSource::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                            .map_err(map_speedy_err)?,
                         flags,
                     ))
                 }
@@ -123,7 +133,8 @@ impl Message {
                         submessage_header.get_flags(),
                     );
                     SubMessageBody::Interpreter(InterpreterSubmessage::InfoDestination(
-                        InfoDestination::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
+                        InfoDestination::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                            .map_err(map_speedy_err)?,
                         flags,
                     ))
                 }
@@ -134,10 +145,10 @@ impl Message {
                     let ts = if flags.contains(InfoTimestampFlag::Invalidate) {
                         None
                     } else {
-                        Some(Timestamp::read_from_buffer_with_ctx(
-                            e,
-                            &submessage_body_buf,
-                        )?)
+                        Some(
+                            Timestamp::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                                .map_err(map_speedy_err)?,
+                        )
                     };
                     SubMessageBody::Interpreter(InterpreterSubmessage::InfoTimestamp(
                         InfoTimestamp { timestamp: ts },
@@ -149,7 +160,8 @@ impl Message {
                         submessage_header.get_flags(),
                     );
                     SubMessageBody::Interpreter(InterpreterSubmessage::InfoReply(
-                        InfoReply::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
+                        InfoReply::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                            .map_err(map_speedy_err)?,
                         flags,
                     ))
                 }
@@ -158,7 +170,8 @@ impl Message {
                         submessage_header.get_flags(),
                     );
                     SubMessageBody::Interpreter(InterpreterSubmessage::InfoReplyIp4(
-                        InfoReplyIp4::read_from_buffer_with_ctx(e, &submessage_body_buf)?,
+                        InfoReplyIp4::read_from_buffer_with_ctx(e, &submessage_body_buf)
+                            .map_err(map_speedy_err)?,
                         flags,
                     ))
                 }

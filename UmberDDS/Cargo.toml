@@ -22,7 +22,10 @@ mio-extras = "2.0.6"
 rand = { version = "0.8", default-features = false, features = ["small_rng"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 socket2 = "0.5"
-speedy = "0.8"
+speedy = { git = "https://github.com/ytakano/speedy.git", default-features = false, features = [
+    "speedy-derive",
+    "alloc",
+] }
 colored = "2.1"
 if-addrs = "0.13"
 cdr = "0.2.4"

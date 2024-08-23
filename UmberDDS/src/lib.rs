@@ -4,6 +4,7 @@ pub mod dds;
 mod rtps;
 use serde::{Deserialize, Serialize};
 mod discovery;
+mod error;
 pub mod helper;
 mod message;
 pub mod structure;

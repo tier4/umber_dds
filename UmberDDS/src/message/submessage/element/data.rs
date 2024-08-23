@@ -1,8 +1,8 @@
+use crate::error::{IoError, IoResult};
 use crate::message::submessage::{element::*, submessage_flag::DataFlag};
 use crate::structure::entity_id::*;
 use enumflags2::BitFlags;
 use speedy::{Context, Endianness, Error, Readable, Writer};
-use std::io;
 
 pub struct Data {
     pub reader_id: EntityId,
@@ -29,27 +29,35 @@ impl Data {
         }
     }
 
-    pub fn deserialize_data(buffer: &Bytes, flags: BitFlags<DataFlag>) -> std::io::Result<Self> {
-        let mut cursor = io::Cursor::new(&buffer);
+    pub fn deserialize_data(buffer: &Bytes, flags: BitFlags<DataFlag>) -> IoResult<Self> {
+        let mut readed_byte = 0;
         let endiannes = if flags.contains(DataFlag::Endianness) {
             Endianness::LittleEndian
         } else {
             Endianness::BigEndian
         };
-        let map_speedy_err = |p: Error| io::Error::new(io::ErrorKind::Other, p);
+        let map_speedy_err = |p: Error| IoError::SpeedyError(p);
 
-        let _extra_flags = u16::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
+        let _extra_flags =
+            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+                .map_err(map_speedy_err)?;
+        readed_byte += 2;
         let octets_to_inline_qos =
-            u16::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
+            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
-        let reader_id = EntityId::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
-        let writer_id = EntityId::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
-            .map_err(map_speedy_err)?;
+        readed_byte += 2;
+        let reader_id =
+            EntityId::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+                .map_err(map_speedy_err)?;
+        readed_byte += 4;
+        let writer_id =
+            EntityId::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+                .map_err(map_speedy_err)?;
+        readed_byte += 4;
         let writer_sn =
-            SequenceNumber::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
+            SequenceNumber::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
+        readed_byte += 8;
         let is_exist_inline_qos = flags.contains(DataFlag::InlineQos);
         let is_exist_serialized_data =
             flags.contains(DataFlag::Data) || flags.contains(DataFlag::Key);
@@ -58,20 +66,26 @@ impl Data {
         // reader_id (4), writer_id (4), writer_sn (8) = 16 octets
         let rtps_v23_data_header_size: u16 = 16;
         let extra_octes = octets_to_inline_qos - rtps_v23_data_header_size;
-        cursor.set_position(cursor.position() + u64::from(extra_octes));
+        readed_byte += u64::from(extra_octes) as usize;
 
         let inline_qos = if is_exist_inline_qos {
-            Some(
-                ParameterList::read_from_stream_unbuffered_with_ctx(endiannes, &mut cursor)
-                    .map_err(map_speedy_err)?,
+            let param_list = ParameterList::read_from_buffer_with_ctx(
+                endiannes,
+                &mut buffer.slice(readed_byte..),
             )
+            .map_err(map_speedy_err)?;
+            let param_list_byte = param_list
+                .write_to_vec_with_ctx(endiannes)
+                .map_err(map_speedy_err)?;
+            readed_byte += param_list_byte.len();
+            Some(param_list)
         } else {
             None
         };
 
         let serialized_payload = if is_exist_serialized_data {
             Some(SerializedPayload::from_bytes(
-                &buffer.clone().split_off(cursor.position() as usize),
+                &buffer.clone().split_off(readed_byte),
             )?)
         } else {
             None
