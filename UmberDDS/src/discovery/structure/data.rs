@@ -517,6 +517,10 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                     let pid: u16 = seq
                         .next_element()?
                         .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                    if pid == 0 {
+                        // pid 0 is PID_PAD
+                        continue;
+                    }
                     let parameter_id = ParameterId { value: pid };
                     let length: u16 = seq
                         .next_element()?
@@ -611,38 +615,9 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         }
                         ParameterId::PID_TYPE_NAME => {
                             type_name = seq.next_element()?;
-                            let pad_len = length
-                                - 4
-                                - 1
-                                - type_name.as_ref().expect("couldn't get type_name").len() as u16;
-                            match pad_len {
-                                0 => (),
-                                1 => read_pad!(u8),
-                                2 => read_pad!(u16),
-                                3 => {
-                                    read_pad!(u16);
-                                    read_pad!(u8);
-                                }
-                                _ => unreachable!(),
-                            }
                         }
                         ParameterId::PID_TOPIC_NAME => {
                             topic_name = seq.next_element()?;
-                            let pad_len = length
-                                - 4
-                                - 1
-                                - topic_name.as_ref().expect("couldn't get topic_name").len()
-                                    as u16;
-                            match pad_len {
-                                0 => (),
-                                1 => read_pad!(u8),
-                                2 => read_pad!(u16),
-                                3 => {
-                                    read_pad!(u16);
-                                    read_pad!(u8);
-                                }
-                                _ => unreachable!(),
-                            }
                         }
                         ParameterId::PID_DURABILITY => {
                             durability = seq.next_element()?;
@@ -710,7 +685,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             }
                             eprintln!(
                                 "<{}>: unimplemented ParameterId: 0x{:04X} received",
-                                "SDPBuiltinData: Info".green(),
+                                "SDPBuiltinData: Warn".yellow(),
                                 pid
                             );
                         }
