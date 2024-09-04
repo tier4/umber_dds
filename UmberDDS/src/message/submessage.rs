@@ -2,8 +2,8 @@ pub mod element;
 pub mod submessage_flag;
 pub mod submessage_header;
 use crate::message::submessage::submessage_header::*;
+use alloc::{fmt, fmt::Debug};
 use speedy::{Context, Writable, Writer};
-use std::{fmt, fmt::Debug};
 
 use crate::message::submessage::element::{
     acknack::AckNack, data::Data, datafrag::DataFrag, gap::Gap, heartbeat::Heartbeat,

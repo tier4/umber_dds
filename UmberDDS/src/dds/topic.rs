@@ -4,7 +4,7 @@ use crate::discovery::structure::data::{
     PublicationBuiltinTopicData, SubscriptionBuiltinTopicData,
 };
 use crate::structure::topic_kind::TopicKind;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 #[derive(Clone)]
 pub struct Topic {

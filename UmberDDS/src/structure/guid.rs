@@ -3,7 +3,7 @@ use rand::{self, rngs::SmallRng, Rng};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct GUID {
     pub guid_prefix: GuidPrefix,
     pub entity_id: EntityId,
@@ -30,7 +30,9 @@ impl GUID {
     }
 }
 
-#[derive(Readable, Writable, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(
+    Readable, Writable, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord,
+)]
 pub struct GuidPrefix {
     pub guid_prefix: [u8; 12],
 }

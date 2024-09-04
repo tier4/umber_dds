@@ -8,3 +8,5 @@ mod error;
 pub mod helper;
 mod message;
 pub mod structure;
+
+extern crate alloc;

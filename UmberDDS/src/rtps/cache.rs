@@ -1,6 +1,6 @@
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload};
 use crate::structure::guid::GUID;
-use std::collections::HashMap;
+use alloc::collections::BTreeMap;
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct CacheChange {
@@ -109,7 +109,7 @@ pub enum ChangeKind {
 pub struct InstantHandle {/* TODO */}
 
 pub struct HistoryCache {
-    pub changes: HashMap<SequenceNumber, CacheChange>,
+    pub changes: BTreeMap<SequenceNumber, CacheChange>,
     pub min_seq_num: Option<SequenceNumber>,
     pub max_seq_num: Option<SequenceNumber>,
 }
@@ -117,7 +117,7 @@ pub struct HistoryCache {
 impl HistoryCache {
     pub fn new() -> Self {
         Self {
-            changes: HashMap::new(),
+            changes: BTreeMap::new(),
             min_seq_num: None,
             max_seq_num: None,
         }
@@ -147,7 +147,7 @@ impl HistoryCache {
         }
     }
     pub fn remove_changes(&mut self) {
-        self.changes = HashMap::new();
+        self.changes = BTreeMap::new();
         self.min_seq_num = None;
         self.max_seq_num = None;
     }

@@ -7,13 +7,13 @@ use crate::discovery::{
 use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterIngredients};
 use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
+use alloc::collections::BTreeMap;
+use alloc::rc::Rc;
 use bytes::BytesMut;
 use colored::*;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
-use std::collections::HashMap;
-use std::rc::Rc;
 
 use crate::message::message_receiver::*;
 use crate::message::submessage::element::Locator;
@@ -25,7 +25,7 @@ const MESSAGE_BUFFER_ALLOCATION_CHUNK: usize = 256 * 1024;
 pub struct EventLoop {
     domain_id: u16,
     poll: Poll,
-    sockets: HashMap<Token, UdpSocket>,
+    sockets: BTreeMap<Token, UdpSocket>,
     message_receiver: MessageReceiver,
     add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
     add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
@@ -35,8 +35,8 @@ pub struct EventLoop {
     set_reader_hb_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
     set_writer_nack_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
     set_writer_nack_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
-    writers: HashMap<EntityId, Writer>,
-    readers: HashMap<EntityId, Reader>,
+    writers: BTreeMap<EntityId, Writer>,
+    readers: BTreeMap<EntityId, Reader>,
     sender: Rc<UdpSender>,
     writer_hb_timer: Timer<EntityId>,
     reader_hb_timers: Vec<Timer<(EntityId, GUID)>>, // (reader EntityId, writer GUID)
@@ -48,7 +48,7 @@ pub struct EventLoop {
 impl EventLoop {
     pub fn new(
         domain_id: u16,
-        mut sockets: HashMap<Token, UdpSocket>,
+        mut sockets: BTreeMap<Token, UdpSocket>,
         participant_guidprefix: GuidPrefix,
         mut add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
         mut add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
@@ -123,8 +123,8 @@ impl EventLoop {
             set_reader_hb_timer_receiver,
             set_writer_nack_timer_sender,
             set_writer_nack_timer_receiver,
-            writers: HashMap::new(),
-            readers: HashMap::new(),
+            writers: BTreeMap::new(),
+            readers: BTreeMap::new(),
             sender,
             writer_hb_timer,
             reader_hb_timers: Vec::new(),

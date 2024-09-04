@@ -12,10 +12,12 @@ use crate::rtps::{
 };
 use crate::structure::entity_id::EntityId;
 use crate::structure::{guid::*, vendor_id::*};
+use alloc::collections::BTreeMap;
+use alloc::fmt;
+use alloc::sync::Arc;
 use colored::*;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use std::{error, fmt};
+use std::error;
+use std::sync::RwLock;
 
 #[derive(Debug, Clone)]
 struct MessageError(String);
@@ -73,8 +75,8 @@ impl MessageReceiver {
     pub fn handle_packet(
         &mut self,
         messages: Vec<UdpMessage>,
-        mut writers: &mut HashMap<EntityId, Writer>,
-        mut readers: &mut HashMap<EntityId, Reader>,
+        mut writers: &mut BTreeMap<EntityId, Writer>,
+        mut readers: &mut BTreeMap<EntityId, Reader>,
     ) {
         for message in messages {
             // Is DDSPING
@@ -110,8 +112,8 @@ impl MessageReceiver {
     fn handle_parsed_packet(
         &mut self,
         rtps_msg: Message,
-        mut writers: &mut HashMap<EntityId, Writer>,
-        mut readers: &mut HashMap<EntityId, Reader>,
+        mut writers: &mut BTreeMap<EntityId, Writer>,
+        mut readers: &mut BTreeMap<EntityId, Reader>,
     ) {
         self.reset();
         self.dest_guid_prefix = self.own_guid_prefix;
@@ -137,8 +139,8 @@ impl MessageReceiver {
     fn handle_entity_submessage(
         &mut self,
         entity_subm: EntitySubmessage,
-        mut writers: &mut HashMap<EntityId, Writer>,
-        mut readers: &mut HashMap<EntityId, Reader>,
+        mut writers: &mut BTreeMap<EntityId, Writer>,
+        mut readers: &mut BTreeMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
         match entity_subm {
             EntitySubmessage::AckNack(acknack, flags) => {
@@ -222,7 +224,7 @@ impl MessageReceiver {
         &self,
         ackanck: AckNack,
         _flag: BitFlags<AckNackFlag>,
-        writers: &mut HashMap<EntityId, Writer>,
+        writers: &mut BTreeMap<EntityId, Writer>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7. AckNack
 
@@ -264,8 +266,8 @@ impl MessageReceiver {
         &mut self,
         data: Data,
         flag: BitFlags<DataFlag>,
-        readers: &mut HashMap<EntityId, Reader>,
-        writers: &mut HashMap<EntityId, Writer>,
+        readers: &mut BTreeMap<EntityId, Reader>,
+        writers: &mut BTreeMap<EntityId, Writer>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.2 Data
 
@@ -531,7 +533,7 @@ impl MessageReceiver {
         &self,
         gap: Gap,
         flag: BitFlags<GapFlag>,
-        readers: &mut HashMap<EntityId, Reader>,
+        readers: &mut BTreeMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.4 Gap
 
@@ -579,7 +581,7 @@ impl MessageReceiver {
         &self,
         heartbeat: Heartbeat,
         flag: BitFlags<HeartbeatFlag>,
-        readers: &mut HashMap<EntityId, Reader>,
+        readers: &mut BTreeMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.5 Heartbeat
 

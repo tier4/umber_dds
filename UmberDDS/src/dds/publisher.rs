@@ -14,8 +14,9 @@ use crate::structure::{
     entity_id::{EntityId, EntityKind},
     guid::GUID,
 };
+use alloc::sync::Arc;
 use mio_extras::channel as mio_channel;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 #[derive(Clone)]
 pub struct Publisher {

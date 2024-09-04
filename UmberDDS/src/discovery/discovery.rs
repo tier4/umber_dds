@@ -28,11 +28,11 @@ use crate::structure::{
     duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GuidPrefix,
     topic_kind::TopicKind, vendor_id::VendorId,
 };
+use alloc::collections::BTreeMap;
 use colored::*;
 use enumflags2::make_bitflags;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
-use std::collections::HashMap;
 use std::time::Duration as StdDuration;
 
 // SPDPbuiltinParticipantWriter
@@ -65,9 +65,9 @@ pub struct Discovery {
     sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
     sedp_builtin_sub_reader: DataReader<SDPBuiltinData>,
     spdp_send_timer: Timer<()>,
-    writers_data: HashMap<EntityId, DiscoveredWriterData>,
+    writers_data: BTreeMap<EntityId, DiscoveredWriterData>,
     writer_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
-    readers_data: HashMap<EntityId, DiscoveredReaderData>,
+    readers_data: BTreeMap<EntityId, DiscoveredReaderData>,
     reader_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
 }
 
@@ -214,9 +214,9 @@ impl Discovery {
             sedp_builtin_sub_writer,
             sedp_builtin_sub_reader,
             spdp_send_timer,
-            writers_data: HashMap::new(),
+            writers_data: BTreeMap::new(),
             writer_add_receiver,
-            readers_data: HashMap::new(),
+            readers_data: BTreeMap::new(),
             reader_add_receiver,
         }
     }

@@ -4,11 +4,12 @@ use crate::rtps::cache::{
     HistoryCache,
 };
 use crate::structure::{guid::GUID, parameter_id::ParameterId};
+use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
 use colored::*;
+use core::cmp::{max, min};
 use serde::{ser::SerializeStruct, Serialize};
-use std::cmp::{max, min};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 #[derive(Clone)]
 pub struct ReaderProxy {
@@ -17,7 +18,7 @@ pub struct ReaderProxy {
     pub unicast_locator_list: Vec<Locator>,
     pub multicast_locator_list: Vec<Locator>,
     history_cache: Arc<RwLock<HistoryCache>>,
-    cache_state: HashMap<SequenceNumber, ChangeForReader>,
+    cache_state: BTreeMap<SequenceNumber, ChangeForReader>,
 }
 
 impl ReaderProxy {
@@ -34,7 +35,7 @@ impl ReaderProxy {
             unicast_locator_list,
             multicast_locator_list,
             history_cache,
-            cache_state: HashMap::new(),
+            cache_state: BTreeMap::new(),
         }
     }
 
@@ -188,7 +189,7 @@ pub struct WriterProxy {
     pub multicast_locator_list: Vec<Locator>,
     pub data_max_size_serialized: i32, // in rtps 2.3 spec, Figure 8.30: long
     history_cache: Arc<RwLock<HistoryCache>>,
-    cache_state: HashMap<SequenceNumber, ChangeFromWriter>,
+    cache_state: BTreeMap<SequenceNumber, ChangeFromWriter>,
 }
 
 impl WriterProxy {
@@ -205,7 +206,7 @@ impl WriterProxy {
             multicast_locator_list,
             data_max_size_serialized,
             history_cache,
-            cache_state: HashMap::new(),
+            cache_state: BTreeMap::new(),
         }
     }
 

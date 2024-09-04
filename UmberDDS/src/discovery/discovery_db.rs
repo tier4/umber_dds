@@ -1,8 +1,9 @@
 use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
 use crate::message::submessage::element::Timestamp;
 use crate::structure::guid::GuidPrefix;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
+use std::sync::Mutex;
 
 #[derive(Clone)]
 pub struct DiscoveryDB {
@@ -32,13 +33,13 @@ impl DiscoveryDB {
 }
 
 struct DiscoveryDBInner {
-    data: HashMap<GuidPrefix, (Timestamp, SPDPdiscoveredParticipantData)>,
+    data: BTreeMap<GuidPrefix, (Timestamp, SPDPdiscoveredParticipantData)>,
 }
 
 impl DiscoveryDBInner {
     fn new() -> Self {
         Self {
-            data: HashMap::new(),
+            data: BTreeMap::new(),
         }
     }
 
