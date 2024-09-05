@@ -76,14 +76,20 @@ fn main() {
     );
 
     let poll = Poll::new().unwrap();
-    let mut timer = Timer::default();
-    timer.set_timeout(Duration::new(30, 0), ());
+    let mut end_timer = Timer::default();
+    end_timer.set_timeout(Duration::new(30, 0), ());
 
-    const TIMER: Token = Token(0);
-    const DATAREADER: Token = Token(1);
+    const END_TIMER: Token = Token(0);
+    const WRITE_TIMER: Token = Token(1);
+    const DATAREADER: Token = Token(2);
 
-    poll.register(&mut timer, TIMER, Ready::readable(), PollOpt::edge())
-        .unwrap();
+    poll.register(
+        &mut end_timer,
+        END_TIMER,
+        Ready::readable(),
+        PollOpt::edge(),
+    )
+    .unwrap();
 
     let entity;
 
@@ -142,17 +148,38 @@ fn main() {
         Entity::Datareader(dr) => (Some(dr), None),
         Entity::Datawriter(dw) => (None, Some(dw)),
     };
+
+    let mut write_timer = Timer::default();
+    poll.register(
+        &mut write_timer,
+        WRITE_TIMER,
+        Ready::readable(),
+        PollOpt::edge(),
+    )
+    .unwrap();
+    if datawriter.is_some() {
+        write_timer.set_timeout(Duration::new(2, 0), ());
+    }
     loop {
         let mut events = Events::with_capacity(128);
         poll.poll(&mut events, None).unwrap();
         for event in events.iter() {
             match event.token() {
-                TIMER => {
+                END_TIMER => {
                     if datareader.is_some() {
                         std::process::exit(-1);
                     } else {
                         std::process::exit(0);
                     }
+                }
+                WRITE_TIMER => {
+                    if let Some(dw) = &datawriter {
+                        dw.write(shape.clone());
+                        println!("send: {:?}", shape);
+                        shape.x = (shape.x + 5) % 255;
+                        shape.y = (shape.y + 5) % 255;
+                    }
+                    write_timer.set_timeout(Duration::new(2, 0), ());
                 }
                 DATAREADER => {
                     if let Some(dr) = &datareader {
@@ -168,13 +195,6 @@ fn main() {
                 }
                 _ => unreachable!(),
             }
-        }
-        if let Some(dw) = &datawriter {
-            dw.write(shape.clone());
-            println!("send: {:?}", shape);
-            shape.x = (shape.x + 5) % 255;
-            shape.y = (shape.y + 5) % 255;
-            std::thread::sleep(Duration::from_millis(100));
         }
     }
 }
