@@ -1,9 +1,9 @@
 use crate::dds::{publisher::Publisher, qos::DataWriterQosPolicies, topic::Topic};
 use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
 use crate::rtps::writer::*;
+use core::marker::PhantomData;
 use mio_extras::channel as mio_channel;
 use serde::Serialize;
-use std::marker::PhantomData;
 
 pub struct DataWriter<D: Serialize> {
     data_phantom: PhantomData<D>,

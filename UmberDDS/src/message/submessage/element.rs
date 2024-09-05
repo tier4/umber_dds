@@ -14,17 +14,17 @@ pub mod nackfrag;
 use crate::network::net_util::get_local_interfaces;
 use crate::structure::duration::Duration;
 use crate::structure::parameter_id::ParameterId;
+use alloc::fmt;
 use byteorder::ReadBytesExt;
 use bytes::{BufMut, Bytes, BytesMut};
 use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
+use core::cmp::{max, min};
+use core::net::IpAddr;
+use core::ops::{Add, AddAssign};
+use core::ops::{Sub, SubAssign};
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
-use std::cmp::{max, min};
-use std::fmt;
 use std::io;
-use std::net::IpAddr;
-use std::ops::{Add, AddAssign};
-use std::ops::{Sub, SubAssign};
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
 

@@ -20,15 +20,16 @@ use crate::structure::{
     proxy::{ReaderProxy, WriterProxy},
     topic_kind::TopicKind,
 };
+use alloc::collections::BTreeMap;
+use alloc::rc::Rc;
+use alloc::sync::Arc;
 use colored::*;
+use core::net::Ipv4Addr;
+use core::time::Duration as CoreDuration;
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
-use std::collections::HashMap;
-use std::net::Ipv4Addr;
-use std::rc::Rc;
-use std::sync::{Arc, RwLock};
-use std::time::Duration as StdDuration;
+use std::sync::RwLock;
 
 /// RTPS StatefulWriter
 pub struct Writer {
@@ -50,7 +51,7 @@ pub struct Writer {
     // StatelessWriter
     reader_locators: Vec<ReaderLocator>,
     // StatefulWriter
-    matched_readers: HashMap<GUID, ReaderProxy>,
+    matched_readers: BTreeMap<GUID, ReaderProxy>,
     // This implementation spesific
     topic: Topic,
     endianness: Endianness,
@@ -88,7 +89,7 @@ impl Writer {
             writer_cache: Arc::new(RwLock::new(HistoryCache::new())),
             data_max_size_serialized: wi.data_max_size_serialized,
             reader_locators: Vec::new(),
-            matched_readers: HashMap::new(),
+            matched_readers: BTreeMap::new(),
             topic: wi.topic,
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
@@ -715,15 +716,15 @@ impl Writer {
         self.matched_readers.remove(&guid);
     }
 
-    pub fn heartbeat_period(&self) -> StdDuration {
-        StdDuration::new(
+    pub fn heartbeat_period(&self) -> CoreDuration {
+        CoreDuration::new(
             self.heartbeat_period.seconds as u64,
             self.heartbeat_period.fraction,
         )
     }
 
-    pub fn nack_response_delay(&self) -> StdDuration {
-        StdDuration::new(
+    pub fn nack_response_delay(&self) -> CoreDuration {
+        CoreDuration::new(
             self.nack_response_delay.seconds as u64,
             self.nack_response_delay.fraction,
         )

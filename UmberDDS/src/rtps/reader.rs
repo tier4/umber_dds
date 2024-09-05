@@ -15,15 +15,16 @@ use crate::structure::{
     proxy::{ReaderProxy, WriterProxy},
     topic_kind::TopicKind,
 };
+use alloc::collections::BTreeMap;
+use alloc::rc::Rc;
+use alloc::sync::Arc;
 use colored::*;
+use core::net::Ipv4Addr;
+use core::time::Duration as StdDuration;
 use enumflags2::BitFlags;
 use mio_extras::channel as mio_channel;
 use speedy::{Endianness, Writable};
-use std::collections::HashMap;
-use std::net::Ipv4Addr;
-use std::rc::Rc;
-use std::sync::{Arc, RwLock};
-use std::time::Duration as StdDuration;
+use std::sync::RwLock;
 
 /// RTPS StatefulReader
 pub struct Reader {
@@ -39,7 +40,7 @@ pub struct Reader {
     heartbeat_response_delay: Duration,
     reader_cache: Arc<RwLock<HistoryCache>>,
     // StatefulReader
-    matched_writers: HashMap<GUID, WriterProxy>,
+    matched_writers: BTreeMap<GUID, WriterProxy>,
     // This implementation spesific
     topic: Topic,
     endianness: Endianness,
@@ -63,7 +64,7 @@ impl Reader {
             expectsinline_qos: ri.expectsinline_qos,
             heartbeat_response_delay: ri.heartbeat_response_delay,
             reader_cache: ri.rhc,
-            matched_writers: HashMap::new(),
+            matched_writers: BTreeMap::new(),
             topic: ri.topic,
             endianness: Endianness::LittleEndian,
             reader_ready_notifier: ri.reader_ready_notifier,

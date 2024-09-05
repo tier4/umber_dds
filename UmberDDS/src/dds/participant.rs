@@ -27,15 +27,14 @@ use crate::{
         topic_kind::TopicKind,
     },
 };
+use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
+use core::net::Ipv4Addr;
+use core::sync::atomic::{AtomicU32, Ordering};
 use mio_extras::channel as mio_channel;
 use mio_v06::net::UdpSocket;
 use rand::rngs::SmallRng;
-use std::collections::HashMap;
-use std::net::Ipv4Addr;
-use std::sync::{
-    atomic::{AtomicU32, Ordering},
-    Arc, Mutex, RwLock,
-};
+use std::sync::{Mutex, RwLock};
 use std::thread::{self, Builder};
 
 #[derive(Clone)]
@@ -318,7 +317,7 @@ impl DomainParticipantInner {
         reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         small_rng: &mut SmallRng,
     ) -> DomainParticipantInner {
-        let mut socket_list: HashMap<mio_v06::Token, UdpSocket> = HashMap::new();
+        let mut socket_list: BTreeMap<mio_v06::Token, UdpSocket> = BTreeMap::new();
         let spdp_multi_socket = new_multicast(
             "0.0.0.0",
             spdp_multicast_port(domain_id),

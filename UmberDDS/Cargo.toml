@@ -36,7 +36,7 @@ serde_repr = "0.1.18"
 [dev-dependencies]
 clap = { version = "4.5", features = ["derive"] }
 clap_derive = "4.5"
-serde_derive = "1.0"
+serde_derive = "1"
 
 [features]
 default = ["std"]

@@ -1,12 +1,13 @@
 use crate::dds::{qos::DataReadedrQosPolicies, subscriber::Subscriber, topic::Topic};
 use crate::discovery::structure::cdr::deserialize;
 use crate::rtps::cache::HistoryCache;
+use alloc::sync::Arc;
+use core::marker::PhantomData;
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
 use serde::Deserialize;
 use std::io;
-use std::marker::PhantomData;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 pub struct DataReader<D: for<'de> Deserialize<'de>> {
     data_phantom: PhantomData<D>,

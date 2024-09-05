@@ -1,5 +1,5 @@
+use core::cmp::{Ord, Ordering, PartialOrd};
 use serde::{Deserialize, Serialize};
-use std::cmp::{Ord, Ordering, PartialOrd};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Duration {
