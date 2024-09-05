@@ -219,7 +219,7 @@ impl WriterProxy {
         }
     }
 
-    pub fn update_cache_state(
+    fn update_cache_state(
         &mut self,
         seq_num: SequenceNumber,
         is_relevant: bool,

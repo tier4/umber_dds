@@ -121,6 +121,7 @@ impl Reader {
     pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if self.is_reliable() {
+            // Reliable Reader Behavior
             self.reader_cache
                 .write()
                 .expect("couldn't write reader_cache")
@@ -136,6 +137,7 @@ impl Reader {
                 writer_proxy.received_chage_set(change.sequence_number);
             }
         } else {
+            // BestEffort Reader Behavior
             if self.matched_writer_lookup(writer_guid).is_some() {
                 let flag;
                 let expected_seq_num;
@@ -168,7 +170,7 @@ impl Reader {
                         writer_proxy_mut.lost_changes_update(change.sequence_number);
                     }
                 } else {
-                    eprintln!("<{}>: dosen't write change to reader_cache, because change.sequence_number < expected_seq_num", "Reader: Warn".yellow());
+                    eprintln!("<{}>: dosen't write change to reader_cache, because change.sequence_number < expected_seq_num. This Reader is BestEffort, so resned won't execute.", "Reader: Warn".yellow());
                 }
             } else {
                 self.print_self_info();
@@ -314,13 +316,23 @@ impl Reader {
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
         if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
-            let missign_seq_num_set_base = writer_proxy.available_changes_max() + SequenceNumber(1);
-            let mut missign_seq_num_set_set = Vec::new();
+            let mut missign_seq_num_set = Vec::new();
             for change in writer_proxy.missing_changes() {
-                missign_seq_num_set_set.push(change);
+                missign_seq_num_set.push(change);
             }
+            // rtps 2.3 spec 8.4.12.2.4 say, "missing_seq_num_set.base := the_writer_proxy.available_changes_max() + 1;",
+            // but this have problem.
+            // for instance, when droped SeqNum(1) and received SeqNum(2), base is set to SeqNum(2)
+            // and set is [SeqNum(1)]. Bitmap can't represent value which is smaller than base.
+            // So, On RustDDS, when there is some missing SeqNum, base is set to the smallest
+            // SeqNum on the set.
+            let missign_seq_num_set_base = if missign_seq_num_set.is_empty() {
+                writer_proxy.available_changes_max() + SequenceNumber(1)
+            } else {
+                *missign_seq_num_set.iter().min().unwrap()
+            };
             let reader_sn_state =
-                SequenceNumberSet::from_vec(missign_seq_num_set_base, missign_seq_num_set_set);
+                SequenceNumberSet::from_vec(missign_seq_num_set_base, missign_seq_num_set);
             let mut message_builder = MessageBuilder::new();
             message_builder.info_dst(self.endianness, writer_proxy.remote_writer_guid.guid_prefix);
             message_builder.acknack(
