@@ -1,49 +1,77 @@
-# T4RustDDS
-DDSをrustで実装するプロジェクト
+# UmberDDS: Rust implementation of Data Distribution Service
 
-## UmberDDS
-このプロジェクトの本体
-DDSのRust実装
+In traditional DDS, the format of the exchanged data is defined using IDL, and DataWriter and DataReader are automatically generated from the IDL.
+However, in UmberDDS, the format of the exchanged data is defined as a struct that implements `serde::{Serialize, Deserialize}`, and the DataWriter and DataReader use the generic types `DataWriter<D: Serialize>` and `DataReader<D: Deserialize>`.
 
-TODO:
-- 各QoSの対応
-- documentの整備
-
-## RustDDS
-参考にする既存実装
-
-## rtps-rs
-参考にする既存実装
-
-## dds-docker
-rtps解析のためのdocker環境
-
-## ShapesDemo
-既存実装の解析のためのrtpsを使ったデモ (FastDDS)
-
-## 既存実装の解析
-- RustDDSのshape_demoのコンパイル
+## Usage
+### examples/shapes_deme
 ```
-$ cargo build --example=shapes_demo
-```
-- ShpeDemoのコンパイル
-```
-$ colcon build
+# build examples
+cargo build --examples
 ```
 
-dds-dockerでDockerコンテナを起動して
-1. ShapeDemoのPublisher側を起動
-- ShapesDemoデレクトリで
+You can choose to start either a Publisher or a Subscriber using `-m`.
+To start the Publisher, use `-m p` or `-m P`. To start the Subscriber, use `-m s` or `-m S`.
+
+You can specify the reliability of the entity with `-r`.
+To specify Reliable, use `-r r` or `-r R`. To specify BestEffort, use `-r b` or `-r B`.
+The default is BestEffort.
+
+reliable publisher
 ```
-$ source ./install/setup.bash
-$ ShapeDemo
+./target/debug/examples/shapes_demo -m p -r b
 ```
-- Publish
-2. RustDDSのサブスクライバー側を起動
-RustDDSディレクトリで`./target/debug/examples/shapes_demo -S -t Square`もしくは、デバッガ上で起動
+
+besteffort subscriber
 ```
-$ gdb ./target/debug/examples/shapes_demo
-(gdb) r -S -t Square
+./target/debug/examples/shapes_demo -m s
 ```
+
+## Interoperability
+- [x] FastDDS
+- [x] RustDDS
+- [ ] CycloneDDS
+
+## Progress
+
+- [x] RTPS Discovery Module
+- [x] RTPS MessageReveiver Module
+- [ ] RTPS Behavior Module
+    - [x] Best-Effort StatefulWriter Behavior
+    - [x] Reliable StatefulWriter Behavior
+    - [ ] Best-Effort StatelessReader Behavior
+    - [ ] Reliable StatelessReader Behavior
+- [ ] RTPS Writer Liveliness Protocol
+- [ ] Logging
+- [ ] Topics kinds: with_key and no_key
+
+### Supporting QoS
+
+Unsuporting QoS can be set, but it dosn't effect behavior of UmberDDS.
+
+- [ ] Reliability
+    - [x] kind (Reliability, BestEffort)
+    - [ ] max_bloking_time
+- [ ] DurabilityService
+- [ ] Durability
+- [ ] Presentaion
+- [ ] Deadline
+- [ ] LatencyBudget
+- [ ] Ownership
+- [ ] OwnershipStrength
+- [ ] Liveliness
+- [ ] TimeBasedFilter
+- [ ] DestinationOrder
+- [ ] History
+- [ ] ResourceLimits
+- [ ] Lifespan
+- [ ] Partition
+- [ ] UserData
+- [ ] TopicData
+- [ ] GrupData
+- [ ] WriterDataLifecycle
+- [ ] ReaderDataLifecycle
+- [ ] TransportPrioriry
+- [ ] EntityFactory
 
 

@@ -68,6 +68,48 @@ Topicは1つのデータタイプと紐付けられる。そのため、Topicと
 ## QOS
 https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386
 
+### History
+サンプルの値が（1回以上）変更された場合、そのサンプルが1つ以上の既存のSubscriberに正常に伝達される前に、サービスがどのように動作するかを指定する。このQoSポリシーは、サービスが最新の値のみを配信するべきか、すべての中間値を配信しようとするべきか、またはその中間の動作を行うべきかを制御する。Publishing側では、このポリシーは既存のDataReader entityに代わってDataWriterが保持すべきサンプルを制御する。サンプルが書き込まれた後に発見されたDataReader entityに関する動作は、DURABILITY QoSポリシーによって制御される。Subscribing側では、このポリシーはアプリケーションがサービスからサンプルを「take」するまで、保持すべきサンプルを制御する。
+
+デフォルトはKEEP_LAST, depth = 1
+
+#### KEEP_LAST & depth
+Publishing側では、サービスはDataWriterが管理する各データインスタンス（キーによって識別される）について、最新の'depth'サンプルのみを保持しようとする。Subscribing側では、DataReaderは各インスタンス（キーによって識別される）について、受信した最新の'depth'サンプルのみを保持しようとする。それらのサンプルは、アプリケーションがDataReaderのtake操作を通じて'take'するまで保持される。もし、'depth'に1以外の値が指定されている場合、RESOURCE_LIMITS QoS policyの設定と一致させるべきである。
+
+#### KEEP_ALL
+Publishing側では、サービスはDataWriterが管理する各データインスタンス（キーによって識別される）のすべてのサンプル（書き込まれた各値を表す）を、すべてのSubscriberに配信できるまで保持しようとする。Subscribing側では、サービスはDataReaderが管理する各データインスタンス（キーによって識別される）のすべてのサンプルを保持しようとする。これらのサンプルは、アプリケーションがtake操作を通じてサービスから「取得」するまで保持される。'dept'の設定の影響はなく、その値がLENGTH_UNLIMITEDであることを暗示する。
+
+### DURABILITY
+このポリシーは書き込み時にデータを`outlive`すべきかを制御する
+
+#### VOLATILE
+サービスは任意のdata-instanceのsampleをインタンスの書き込み時にDataWriterに知られていないDataReaderのために保持する必要はない。
+すなわち、サービスは既に存在しているsubscribersにのみデータを供給しようと試みる。
+
+#### TRANSIENT_LOAL, TRANSIENT
+サービスはいくつかのsampleを保持しようと試みる。そのため、後で参加したDataReaderにそれらを輸送することができる可能性がある。
+特定のsampleが保持されるかは、HISTORY, RESOURCE_LIMITSの他のQosに依存する。
+
+TRANSIENT_LOCALにおいて、サービスはデータを書きこむDataWriterのメモリ上のデータのみを保持する必要があり、そのデータはDataWriterが生きのびるのに必要ない。
+
+TRANSIENTにおいて、サービスはdataをメモリのみに保存し、permanent storageに保存する必要はない。しかし、dataはDataWriterのライフサイクルに結びついておらず、一般的にはDataWriterが終了してもデータは残ります。
+
+TRANSIENT kindのサポートはoptionalである。
+
+#### PERSISTENT [Optional]
+dataはpermanent storageに保存される。そのため、system sessionが生き延びることができる。
+
+### DURABILITY_SERVICE
+
+#### service_cleanup_delay
+data-instanceにおいて、いつサービスが全ての情報を削除できるようになるかを制御
+
+#### history_kind, history_depth
+durability service内部のldataを保存する偽物のDataReaderのHISTORY QoSを制御する。
+
+#### max_samples, max_instances, max_samples_per_instance
+暗示されたdurability serviceのデータを保存するDataReaderのRESOURDCE_LIMIT QoSをコントロールする。
+
 ## GUID
 ```
 struct GUID {
@@ -136,6 +178,13 @@ rtps 2.3 spec 9.6.1.1 Discovery traffic
 > expression.
 domainId, participantIdは同一ノード上のParticipantのport番号がかぶるのを防ぐためのもの。
 participantIdは同一ノード上の同一ドメインのParticipantの中で一意でないといけない。
+
+### (FastDDS doc) 3.2 Domain
+アプリケーションがdomainに加入するにはdomainIdを持ったDomainParticipantのインスタンスを作成しなければならない。DomainParticipantインスタンスの作成はDomainParticipantFactory singletonを通じて行なわれる。
+
+### (FastDDS doc) 3.2.1. DomainParticipant
+Publisher, Subscriber and Topicのfactoryとしても振る舞う。
+DomainParticipantQosで指定されるQosの値で振る舞いを変更できる。QoSの値はDomainParticipantの生成時か、後でset_qos()でセットできる。
 
 ### Participant数の制限
 rtps 2.3 spec 9.6.1.1 Discovery traffic

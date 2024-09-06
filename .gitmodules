@@ -1,12 +1,9 @@
-[submodule "dds-analysis-docker"]
-	path = dds-analysis-docker
+[submodule "refarence/dds-analysis-docker"]
+	path = refarence/dds-analysis-docker
 	url = git@github.com:tier4/dds-analysis-docker.git
-[submodule "rtps-rs"]
-	path = rtps-rs
-	url = https://github.com/Klapeyron/rtps-rs.git
-[submodule "RustDDS"]
-	path = RustDDS
+[submodule "refarence/RustDDS"]
+	path = refarence/RustDDS
 	url = https://github.com/jhelovuo/RustDDS.git
-[submodule "ShapesDemo"]
-	path = ShapesDemo
+[submodule "refarence/ShapesDemo"]
+	path = refarence/ShapesDemo
 	url = https://github.com/eProsima/ShapesDemo.git
