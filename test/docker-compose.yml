@@ -1,0 +1,53 @@
+services:
+    umberdds:
+        build:
+            context: umberdds
+            dockerfile: Dockerfile
+        image: umberdds_img
+        container_name: umberdds
+        networks:
+            docker-pcap:
+                ipv4_address: 192.168.209.2
+        tty: true
+        command: /bin/bash
+        volumes:
+            - ./umberdds:/home
+            - ../target:/home/UmberDDS/target
+    otherdds:
+        build:
+            context: otherdds
+            dockerfile: Dockerfile
+        image: otherdds_img
+        container_name: otherdds
+        networks:
+            docker-pcap:
+                ipv4_address: 192.168.209.3
+        tty: true
+        command: /bin/bash
+        volumes:
+            - ./otherdds:/home
+            - ../refarence/RustDDS:/home/RustDDS
+    otherdds2:
+        build:
+           context: otherdds2
+           dockerfile: Dockerfile
+        image: otherdds2_img
+        container_name: otherdds2
+        networks:
+            docker-pcap:
+                ipv4_address: 192.168.209.4
+        tty: true
+        command: /bin/bash
+        environment:
+            DISPLAY: $DISPLAY
+        user: foo
+        volumes:
+            - ./otherdds2:/home
+            - ../refarence/RustDDS:/home/RustDDS
+            - ../refarence/ShapesDemo:/home/ShapesDemo
+            - /tmp/.X11-unix:/tmp/.X11-unix
+
+networks:
+    docker-pcap:
+        name: docker-pcap-test
+        external: true

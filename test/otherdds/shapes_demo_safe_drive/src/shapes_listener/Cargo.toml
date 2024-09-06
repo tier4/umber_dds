@@ -1,0 +1,13 @@
+[package]
+name = "shapes_listener"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+safe_drive = "0.4"
+shapes_interfaces= { path = "/home/msgs/shapes_interfaces" }
+
+[package.metadata.ros]
+msg = ["shapes_interfaces"]
+msg_dir = "/home/msgs"
+safe_drive_version = "0.4"
