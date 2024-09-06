@@ -64,7 +64,7 @@ impl Sub for SequenceNumber {
 }
 impl SubAssign for SequenceNumber {
     fn sub_assign(&mut self, other: Self) {
-        *self = *self + other;
+        *self = *self - other;
     }
 }
 
