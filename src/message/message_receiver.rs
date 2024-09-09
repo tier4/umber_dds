@@ -10,8 +10,7 @@ use crate::rtps::{
     reader::Reader,
     writer::Writer,
 };
-use crate::structure::entity_id::EntityId;
-use crate::structure::{guid::*, vendor_id::*};
+use crate::structure::{EntityId, GuidPrefix, VendorId, GUID};
 use alloc::collections::BTreeMap;
 use alloc::fmt;
 use alloc::sync::Arc;

@@ -47,7 +47,7 @@ impl<D: Serialize> DataWriter<D> {
             .expect("couldn't send message");
     }
 
-    pub fn write_builtin_data(&self, data: D) {
+    pub(crate) fn write_builtin_data(&self, data: D) {
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
         let writer_cmd = WriterCmd {

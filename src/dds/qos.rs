@@ -372,7 +372,7 @@ impl SubscriberQosBuilder {
 }
 
 pub mod policy {
-    use crate::structure::duration::Duration;
+    use crate::structure::Duration;
     use serde::{Deserialize, Serialize};
     use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -738,7 +738,7 @@ pub mod policy {
 
 mod test {
     use super::policy;
-    use crate::structure::duration::Duration;
+    use crate::structure::Duration;
     use cdr::{Infinite, PlCdrLe};
 
     #[test]

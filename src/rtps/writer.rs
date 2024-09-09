@@ -1,10 +1,9 @@
-use crate::dds::{qos::policy::ReliabilityQosKind, topic::Topic};
+use crate::dds::{qos::policy::ReliabilityQosKind, Topic};
 use crate::discovery::structure::data::DiscoveredWriterData;
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
-        acknack::AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, SerializedPayload,
-        Timestamp,
+        AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, SerializedPayload, Timestamp,
     },
 };
 use crate::network::udp_sender::UdpSender;
@@ -12,14 +11,7 @@ use crate::rtps::cache::{
     CacheChange, ChangeForReaderStatusKind, ChangeKind, HistoryCache, InstantHandle,
 };
 use crate::rtps::reader_locator::ReaderLocator;
-use crate::structure::{
-    duration::Duration,
-    entity::RTPSEntity,
-    entity_id::EntityId,
-    guid::GUID,
-    proxy::{ReaderProxy, WriterProxy},
-    topic_kind::TopicKind,
-};
+use crate::structure::{Duration, EntityId, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID};
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use alloc::sync::Arc;

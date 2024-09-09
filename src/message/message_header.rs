@@ -1,4 +1,4 @@
-use crate::structure::{guid::*, vendor_id::*};
+use crate::structure::{GuidPrefix, VendorId};
 use serde::Deserialize;
 use speedy::{Readable, Writable};
 

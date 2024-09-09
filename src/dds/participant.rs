@@ -6,7 +6,7 @@ use crate::discovery::{
 use crate::network::net_util::*;
 use crate::rtps::reader::ReaderIngredients;
 use crate::rtps::writer::WriterIngredients;
-use crate::structure::entity::RTPSEntity;
+use crate::structure::RTPSEntity;
 use crate::{
     dds::{
         event_loop::EventLoop,
@@ -21,11 +21,7 @@ use crate::{
         topic::Topic,
     },
     network::udp_listinig_socket::*,
-    structure::{
-        entity_id::{EntityId, EntityKind},
-        guid::*,
-        topic_kind::TopicKind,
-    },
+    structure::{EntityId, EntityKind, GuidPrefix, TopicKind, GUID},
 };
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;

@@ -4,10 +4,8 @@ use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
-use umberdds::dds::{
-    datareader::DataReader, datawriter::DataWriter, participant::DomainParticipant, qos::*,
-};
-use umberdds::structure::topic_kind::TopicKind;
+use umberdds::dds::{qos::*, DataReader, DataWriter, DomainParticipant};
+use umberdds::structure::TopicKind;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct Shape {

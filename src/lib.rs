@@ -8,8 +8,8 @@
 //! use rand::SeedableRng;
 //! use serde::{Deserialize, Serialize};
 //! use std::time::{Duration, SystemTime};
-//! use umberdds::dds::{participant::DomainParticipant, qos::*};
-//! use umberdds::structure::topic_kind::TopicKind;
+//! use umberdds::dds::{DomainParticipant, qos::*};
+//! use umberdds::structure::TopicKind;
 //!
 //! #[derive(Serialize, Deserialize, Clone, Debug)]
 //! struct Hello {
@@ -82,8 +82,8 @@
 //! use rand::SeedableRng;
 //! use serde::{Deserialize, Serialize};
 //! use std::time::SystemTime;
-//! use umberdds::dds::{participant::DomainParticipant, qos::*};
-//! use umberdds::structure::topic_kind::TopicKind;
+//! use umberdds::dds::{DomainParticipant, qos::*};
+//! use umberdds::structure::TopicKind;
 //!
 //! #[derive(Serialize, Deserialize, Clone, Debug)]
 //! struct Hello {
@@ -148,7 +148,7 @@
 //! }
 //! ```
 
-pub mod network;
+mod network;
 use network::net_util;
 pub mod dds;
 mod rtps;

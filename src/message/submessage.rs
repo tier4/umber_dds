@@ -6,9 +6,8 @@ use alloc::{fmt, fmt::Debug};
 use speedy::{Context, Writable, Writer};
 
 use crate::message::submessage::element::{
-    acknack::AckNack, data::Data, datafrag::DataFrag, gap::Gap, heartbeat::Heartbeat,
-    heartbeatfrag::HeartbeatFrag, infodst::InfoDestination, inforeply::InfoReply,
-    inforeply_ip4::InfoReplyIp4, infosrc::InfoSource, infots::InfoTimestamp, nackfrag::NackFrag,
+    AckNack, Data, DataFrag, Gap, Heartbeat, HeartbeatFrag, InfoDestination, InfoReply,
+    InfoReplyIp4, InfoSource, InfoTimestamp, NackFrag,
 };
 use crate::message::submessage::submessage_flag::*;
 use enumflags2::BitFlags;

@@ -1,6 +1,6 @@
 use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
 use crate::message::submessage::element::Timestamp;
-use crate::structure::guid::GuidPrefix;
+use crate::structure::GuidPrefix;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use std::sync::Mutex;

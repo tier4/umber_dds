@@ -7,12 +7,7 @@ use crate::dds::{
 use crate::message::submessage::element::Locator;
 use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
 use crate::rtps::{cache::HistoryCache, reader::ReaderIngredients};
-use crate::structure::{
-    duration::Duration,
-    entity::RTPSEntity,
-    entity_id::{EntityId, EntityKind},
-    guid::GUID,
-};
+use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
 use alloc::sync::Arc;
 use mio_extras::channel as mio_channel;
 use serde::Deserialize;

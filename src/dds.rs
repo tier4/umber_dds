@@ -1,9 +1,16 @@
-pub mod datareader;
-pub mod datawriter;
-pub mod event_loop;
-pub mod participant;
-pub mod publisher;
+//!  Data Distribution Service (DDS) APIs
+
+mod datareader;
+mod datawriter;
+mod event_loop;
+mod participant;
+mod publisher;
 pub mod qos;
-pub mod subscriber;
-pub mod tokens;
-pub mod topic;
+mod subscriber;
+pub(crate) mod tokens;
+mod topic;
+
+pub use {
+    datareader::DataReader, datawriter::DataWriter, participant::DomainParticipant,
+    publisher::Publisher, subscriber::Subscriber, topic::Topic,
+};

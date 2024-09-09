@@ -1,19 +1,14 @@
-use crate::dds::{qos::policy::ReliabilityQosKind, topic::Topic};
+use crate::dds::{qos::policy::ReliabilityQosKind, Topic};
 use crate::discovery::structure::data::DiscoveredReaderData;
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
-    element::{gap::Gap, heartbeat::Heartbeat, Locator, SequenceNumber, SequenceNumberSet},
+    element::{Gap, Heartbeat, Locator, SequenceNumber, SequenceNumberSet},
     submessage_flag::HeartbeatFlag,
 };
 use crate::network::udp_sender::UdpSender;
 use crate::rtps::cache::{CacheChange, HistoryCache};
 use crate::structure::{
-    duration::Duration,
-    entity::RTPSEntity,
-    entity_id::EntityId,
-    guid::{GuidPrefix, GUID},
-    proxy::{ReaderProxy, WriterProxy},
-    topic_kind::TopicKind,
+    Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
 };
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;

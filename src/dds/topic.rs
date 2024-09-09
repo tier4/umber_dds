@@ -3,7 +3,7 @@ use crate::dds::qos::TopicQosPolicies;
 use crate::discovery::structure::data::{
     PublicationBuiltinTopicData, SubscriptionBuiltinTopicData,
 };
-use crate::structure::topic_kind::TopicKind;
+use crate::structure::TopicKind;
 use alloc::sync::Arc;
 
 #[derive(Clone)]

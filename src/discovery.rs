@@ -1,14 +1,10 @@
 use crate::dds::{
-    datareader::DataReader,
-    datawriter::DataWriter,
-    participant::DomainParticipant,
-    publisher::Publisher,
     qos::{
         policy::*, DataReadedrQos, DataReadedrQosBuilder, DataWriterQos, DataWriterQosBuilder,
         PublisherQos, SubscriberQos, TopicQos, TopicQosBuilder,
     },
-    subscriber::Subscriber,
     tokens::*,
+    DataReader, DataWriter, DomainParticipant, Publisher, Subscriber,
 };
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
@@ -22,10 +18,7 @@ use crate::message::{
 use crate::network::net_util::{
     spdp_multicast_port, spdp_unicast_port, usertraffic_multicast_port, usertraffic_unicast_port,
 };
-use crate::structure::{
-    duration::Duration, entity::RTPSEntity, entity_id::EntityId, guid::GuidPrefix,
-    topic_kind::TopicKind, vendor_id::VendorId,
-};
+use crate::structure::{Duration, EntityId, GuidPrefix, RTPSEntity, TopicKind, VendorId};
 use alloc::collections::BTreeMap;
 use colored::*;
 use enumflags2::make_bitflags;

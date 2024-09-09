@@ -5,9 +5,8 @@ pub mod submessage;
 
 use crate::error::{IoError, IoResult};
 use crate::message::submessage::element::{
-    acknack::AckNack, data::Data, datafrag::DataFrag, gap::Gap, heartbeat::Heartbeat,
-    heartbeatfrag::HeartbeatFrag, infodst::InfoDestination, inforeply::InfoReply,
-    inforeply_ip4::InfoReplyIp4, infosrc::InfoSource, infots::InfoTimestamp, nackfrag::NackFrag,
+    AckNack, Data, DataFrag, Gap, Heartbeat, HeartbeatFrag, InfoDestination, InfoReply,
+    InfoReplyIp4, InfoSource, InfoTimestamp, NackFrag,
 };
 use crate::message::{
     message_header::*,

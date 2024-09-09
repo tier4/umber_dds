@@ -6,7 +6,7 @@ use crate::discovery::{
 };
 use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterIngredients};
-use crate::structure::{entity::RTPSEntity, entity_id::EntityId, guid::*};
+use crate::structure::{EntityId, GuidPrefix, RTPSEntity, GUID};
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use bytes::BytesMut;

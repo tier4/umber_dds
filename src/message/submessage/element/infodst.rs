@@ -1,4 +1,4 @@
-use crate::structure::guid::*;
+use crate::structure::GuidPrefix;
 use speedy::{Readable, Writable};
 
 #[derive(Readable, Writable)]

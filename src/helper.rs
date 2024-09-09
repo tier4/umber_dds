@@ -1,3 +1,5 @@
+//! helper for no_std support
+
 static mut NOW: fn() -> Option<i64> = default_now;
 
 #[cfg(feature = "std")]

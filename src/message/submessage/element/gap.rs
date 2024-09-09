@@ -1,6 +1,6 @@
 use crate::message::submessage::element::*;
 use crate::message::submessage_flag::GapFlag;
-use crate::structure::entity_id::*;
+use crate::structure::EntityId;
 use enumflags2::BitFlags;
 use speedy::{Readable, Writable};
 

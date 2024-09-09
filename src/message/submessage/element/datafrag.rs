@@ -1,6 +1,6 @@
 use crate::error::{IoError, IoResult};
 use crate::message::submessage::{element::*, submessage_flag::DataFragFlag};
-use crate::structure::entity_id::*;
+use crate::structure::EntityId;
 use bytes::Bytes;
 use enumflags2::BitFlags;
 use speedy::{Endianness, Error, Readable};

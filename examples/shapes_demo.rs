@@ -2,8 +2,8 @@ use clap::{Arg, Command};
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
-use umberdds::dds::{participant::DomainParticipant, qos::*};
-use umberdds::structure::topic_kind::TopicKind;
+use umberdds::dds::{qos::*, DomainParticipant};
+use umberdds::structure::TopicKind;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct Shape {

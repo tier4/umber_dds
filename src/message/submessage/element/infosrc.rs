@@ -1,5 +1,5 @@
 use crate::message::message_header::*;
-use crate::structure::{guid::*, vendor_id::*};
+use crate::structure::{GuidPrefix, VendorId};
 use speedy::{Readable, Writable};
 
 #[derive(Readable, Writable)]

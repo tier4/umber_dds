@@ -1,10 +1,7 @@
 use super::element::*;
 use super::{
     submessage::{
-        element::{
-            acknack::AckNack, data::Data, gap::Gap, heartbeat::Heartbeat, infodst::InfoDestination,
-            infots::InfoTimestamp,
-        },
+        element::{AckNack, Data, Gap, Heartbeat, InfoDestination, InfoTimestamp},
         submessage_flag::{
             AckNackFlag, DataFlag, GapFlag, HeartbeatFlag, InfoDestionationFlag, InfoTimestampFlag,
         },
@@ -14,7 +11,7 @@ use super::{
     Header, Message,
 };
 use crate::rtps::cache::CacheChange;
-use crate::structure::{entity_id::EntityId, guid::GuidPrefix};
+use crate::structure::{EntityId, GuidPrefix};
 use speedy::Endianness;
 
 pub struct MessageBuilder {

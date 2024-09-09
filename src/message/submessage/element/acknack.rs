@@ -1,5 +1,5 @@
 use crate::message::submessage::element::*;
-use crate::structure::entity_id::*;
+use crate::structure::EntityId;
 use speedy::{Readable, Writable};
 
 #[derive(Readable, Writable)]

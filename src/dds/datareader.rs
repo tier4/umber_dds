@@ -42,6 +42,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         self.remove_changes();
         d
     }
+
     fn get_change(&self) -> Vec<D> {
         let hc = self.rhc.read().expect("couldn't read ReaderHistoryCache");
         let data = hc.get_changes();

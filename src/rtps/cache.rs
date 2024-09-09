@@ -1,5 +1,5 @@
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload};
-use crate::structure::guid::GUID;
+use crate::structure::GUID;
 use alloc::collections::BTreeMap;
 
 #[derive(PartialEq, Eq, Clone)]

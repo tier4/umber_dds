@@ -3,13 +3,7 @@ use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator};
 use crate::rtps::cache::HistoryCache;
-use crate::structure::duration::Duration;
-use crate::structure::{
-    guid::GUID,
-    parameter_id::ParameterId,
-    proxy::{ReaderProxy, WriterProxy},
-    vendor_id::VendorId,
-};
+use crate::structure::{Duration, ParameterId, ReaderProxy, VendorId, WriterProxy, GUID};
 use colored::*;
 use enumflags2::BitFlags;
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};

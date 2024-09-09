@@ -1,4 +1,4 @@
-use crate::structure::entity_id::EntityId;
+use crate::structure::EntityId;
 use mio_v06::Token;
 
 pub enum TokenDec {
