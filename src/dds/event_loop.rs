@@ -50,12 +50,12 @@ impl EventLoop {
         domain_id: u16,
         mut sockets: BTreeMap<Token, UdpSocket>,
         participant_guidprefix: GuidPrefix,
-        mut add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
-        mut add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
+        add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
+        add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
         writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         discovery_db: DiscoveryDB,
-        mut discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
+        discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
@@ -63,46 +63,45 @@ impl EventLoop {
                 .expect("coludn't register lister to poll");
         }
         poll.register(
-            &mut add_writer_receiver,
+            &add_writer_receiver,
             ADD_WRITER_TOKEN,
             Ready::readable(),
             PollOpt::edge(),
         )
         .expect("coludn't register add_writer_receiver to poll");
         poll.register(
-            &mut add_reader_receiver,
+            &add_reader_receiver,
             ADD_READER_TOKEN,
             Ready::readable(),
             PollOpt::edge(),
         )
         .expect("coludn't register add_reader_receiver to poll");
-        let mut writer_hb_timer = Timer::default();
+        let writer_hb_timer = Timer::default();
         poll.register(
-            &mut writer_hb_timer,
+            &writer_hb_timer,
             WRITER_HEARTBEAT_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
         .expect("coludn't register writer_hb_timer to poll");
         poll.register(
-            &mut discdb_update_receiver,
+            &discdb_update_receiver,
             DISCOVERY_DB_UPDATE,
             Ready::readable(),
             PollOpt::edge(),
         )
         .expect("coludn't register discdb_update_receiver to poll");
-        let (set_reader_hb_timer_sender, mut set_reader_hb_timer_receiver) = mio_channel::channel();
-        let (set_writer_nack_timer_sender, mut set_writer_nack_timer_receiver) =
-            mio_channel::channel();
+        let (set_reader_hb_timer_sender, set_reader_hb_timer_receiver) = mio_channel::channel();
+        let (set_writer_nack_timer_sender, set_writer_nack_timer_receiver) = mio_channel::channel();
         poll.register(
-            &mut set_reader_hb_timer_receiver,
+            &set_reader_hb_timer_receiver,
             SET_READER_HEARTBEAT_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
         .expect("coludn't register set_reader_hb_timer_receiver to poll");
         poll.register(
-            &mut set_writer_nack_timer_receiver,
+            &set_writer_nack_timer_receiver,
             SET_WRITER_NACK_TIMER,
             Ready::readable(),
             PollOpt::edge(),
@@ -204,7 +203,7 @@ impl EventLoop {
                                 let token = writer.entity_token();
                                 self.poll
                                     .register(
-                                        &mut writer.writer_command_receiver,
+                                        &writer.writer_command_receiver,
                                         token,
                                         Ready::readable(),
                                         PollOpt::edge(),
@@ -292,7 +291,7 @@ impl EventLoop {
                                     );
                                     self.poll
                                         .register(
-                                            &mut reader_hb_timer,
+                                            &reader_hb_timer,
                                             WRITER_HEARTBEAT_TIMER,
                                             Ready::readable(),
                                             PollOpt::edge(),
@@ -321,7 +320,7 @@ impl EventLoop {
                                     );
                                     self.poll
                                         .register(
-                                            &mut writedr_an_timer,
+                                            &writedr_an_timer,
                                             WRITER_NACK_TIMER,
                                             Ready::readable(),
                                             PollOpt::edge(),

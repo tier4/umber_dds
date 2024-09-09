@@ -116,25 +116,20 @@ impl<C: Context> Writable<C> for Heartbeat {
         writer.write_value(&self.first_sn)?;
         writer.write_value(&self.last_sn)?;
         writer.write_value(&self.count)?;
-        match self.current_gsn {
-            Some(cgsn) => writer.write_value(&cgsn)?,
-            None => (),
+        if let Some(cgsn) = self.current_gsn {
+            writer.write_value(&cgsn)?
         }
-        match self.first_gsn {
-            Some(fgsn) => writer.write_value(&fgsn)?,
-            None => (),
+        if let Some(fgsn) = self.first_gsn {
+            writer.write_value(&fgsn)?
         }
-        match self.last_gsn {
-            Some(lgsn) => writer.write_value(&lgsn)?,
-            None => (),
+        if let Some(lgsn) = self.last_gsn {
+            writer.write_value(&lgsn)?
         }
-        match self.writer_set {
-            Some(ws) => writer.write_value(&ws)?,
-            None => (),
+        if let Some(ws) = self.writer_set {
+            writer.write_value(&ws)?
         }
-        match self.secure_writer_set {
-            Some(sws) => writer.write_value(&sws)?,
-            None => (),
+        if let Some(sws) = self.secure_writer_set {
+            writer.write_value(&sws)?
         }
         Ok(())
     }

@@ -10,7 +10,7 @@ fn new_listening_socket(addr: &str, port: u16, reuse_addr: bool) -> io::Result<U
 
     let address = SocketAddr::new(
         addr.parse()
-            .expect(&format!("could't parce '{}' to IP Address", addr)),
+            .unwrap_or_else(|_| panic!("could't parce '{}' to IP Address", addr)),
         port,
     );
 

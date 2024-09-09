@@ -1,6 +1,4 @@
-use speedy;
 use std::io;
-use thiserror;
 
 pub type IoResult<T> = std::result::Result<T, IoError>;
 

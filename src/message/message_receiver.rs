@@ -75,17 +75,19 @@ impl MessageReceiver {
     pub fn handle_packet(
         &mut self,
         messages: Vec<UdpMessage>,
-        mut writers: &mut BTreeMap<EntityId, Writer>,
-        mut readers: &mut BTreeMap<EntityId, Reader>,
+        writers: &mut BTreeMap<EntityId, Writer>,
+        readers: &mut BTreeMap<EntityId, Reader>,
     ) {
         for message in messages {
             // Is DDSPING
             let msg = message.message;
-            if msg.len() < 20 {
-                if msg.len() >= 16 && msg[0..4] == b"RTPS"[..] && msg[9..16] == b"DDSPING"[..] {
-                    eprintln!("<{}>: Received DDSPING", "MessageReceiver: Info".green());
-                    return;
-                }
+            if msg.len() < 20
+                && msg.len() >= 16
+                && msg[0..4] == b"RTPS"[..]
+                && msg[9..16] == b"DDSPING"[..]
+            {
+                eprintln!("<{}>: Received DDSPING", "MessageReceiver: Info".green());
+                return;
             }
             let msg_buf = msg.freeze();
             let rtps_message = match Message::new(msg_buf) {
@@ -105,15 +107,15 @@ impl MessageReceiver {
                 rtps_message.header.guid_prefix,
                 rtps_message.summary()
             );
-            self.handle_parsed_packet(rtps_message, &mut writers, &mut readers);
+            self.handle_parsed_packet(rtps_message, writers, readers);
         }
     }
 
     fn handle_parsed_packet(
         &mut self,
         rtps_msg: Message,
-        mut writers: &mut BTreeMap<EntityId, Writer>,
-        mut readers: &mut BTreeMap<EntityId, Reader>,
+        writers: &mut BTreeMap<EntityId, Writer>,
+        readers: &mut BTreeMap<EntityId, Reader>,
     ) {
         self.reset();
         self.dest_guid_prefix = self.own_guid_prefix;
@@ -121,7 +123,7 @@ impl MessageReceiver {
         for submsg in rtps_msg.submessages {
             match submsg.body {
                 SubMessageBody::Entity(e) => {
-                    if let Err(e) = self.handle_entity_submessage(e, &mut writers, &mut readers) {
+                    if let Err(e) = self.handle_entity_submessage(e, writers, readers) {
                         eprintln!("<{}>: {:?}", "MessageReceiver: Err".red(), e);
                         return;
                     }
@@ -139,15 +141,15 @@ impl MessageReceiver {
     fn handle_entity_submessage(
         &mut self,
         entity_subm: EntitySubmessage,
-        mut writers: &mut BTreeMap<EntityId, Writer>,
-        mut readers: &mut BTreeMap<EntityId, Reader>,
+        writers: &mut BTreeMap<EntityId, Writer>,
+        readers: &mut BTreeMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
         match entity_subm {
             EntitySubmessage::AckNack(acknack, flags) => {
-                self.handle_acknack_submsg(acknack, flags, &mut writers)
+                self.handle_acknack_submsg(acknack, flags, writers)
             }
             EntitySubmessage::Data(data, flags) => {
-                self.handle_data_submsg(data, flags, &mut readers, &mut writers)
+                self.handle_data_submsg(data, flags, readers, writers)
             }
             EntitySubmessage::DataFrag(data_frag, flags) => {
                 Self::handle_datafrag_submsg(data_frag, flags)
@@ -256,9 +258,8 @@ impl MessageReceiver {
 
         let _writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);
         let reader_guid = GUID::new(self.source_guid_prefix, ackanck.reader_id);
-        match writers.get_mut(&ackanck.writer_id) {
-            Some(w) => w.handle_acknack(ackanck, reader_guid),
-            None => (),
+        if let Some(w) = writers.get_mut(&ackanck.writer_id) {
+            w.handle_acknack(ackanck, reader_guid)
         };
         Ok(())
     }
@@ -395,17 +396,17 @@ impl MessageReceiver {
                 match deserialized.to_writerproxy(Arc::new(RwLock::new(HistoryCache::new()))) {
                     Some(wp) => wp,
                     None => {
-                        return Err(MessageError(format!(
-                            "failed generate writer_proxy form received DATA(w)",
-                        )));
+                        return Err(MessageError(
+                            "failed generate writer_proxy form received DATA(w)".to_string(),
+                        ));
                     }
                 };
             let (topic_name, data_type) = match deserialized.topic_info() {
                 Some((tn, dt)) => (tn, dt),
                 None => {
-                    return Err(MessageError(format!(
-                        "falied to get topic_info from received DATA(w)",
-                    )));
+                    return Err(MessageError(
+                        "falied to get topic_info from received DATA(w)".to_string(),
+                    ));
                 }
             };
             for (_eid, reader) in readers.iter_mut() {
@@ -460,17 +461,17 @@ impl MessageReceiver {
                 match deserialized.to_readerpoxy(Arc::new(RwLock::new(HistoryCache::new()))) {
                     Some(rp) => rp,
                     None => {
-                        return Err(MessageError(format!(
-                            "failed generate reader_proxy form received DATA(r)",
-                        )));
+                        return Err(MessageError(
+                            "failed generate reader_proxy form received DATA(r)".to_string(),
+                        ));
                     }
                 };
             let (topic_name, data_type) = match deserialized.topic_info() {
                 Some((tn, dt)) => (tn, dt),
                 None => {
-                    return Err(MessageError(format!(
-                        "falied to get topic_info from received DATA(p)",
-                    )));
+                    return Err(MessageError(
+                        "falied to get topic_info from received DATA(p)".to_string(),
+                    ));
                 }
             };
             for (_eid, writer) in writers.iter_mut() {
@@ -496,30 +497,28 @@ impl MessageReceiver {
                     );
                 }
             };
-        } else {
-            if data.reader_id == EntityId::UNKNOW {
-                for (_eid, reader) in readers {
-                    if reader.is_contain_writer(data.writer_id) {
-                        reader.add_change(self.source_guid_prefix, change.clone())
-                    }
+        } else if data.reader_id == EntityId::UNKNOW {
+            for reader in readers.values_mut() {
+                if reader.is_contain_writer(data.writer_id) {
+                    reader.add_change(self.source_guid_prefix, change.clone())
                 }
-            } else {
-                match readers.get_mut(&data.reader_id) {
-                    Some(r) => r.add_change(self.source_guid_prefix, change),
-                    None => {
-                        let mut reader_eids = String::new();
-                        for (eid, _reader) in readers.into_iter() {
-                            reader_eids += &format!("{:?}\n", eid);
-                        }
-                        eprintln!(
+            }
+        } else {
+            match readers.get_mut(&data.reader_id) {
+                Some(r) => r.add_change(self.source_guid_prefix, change),
+                None => {
+                    let mut reader_eids = String::new();
+                    for (eid, _reader) in readers.iter_mut() {
+                        reader_eids += &format!("{:?}\n", eid);
+                    }
+                    eprintln!(
                             "<{}>: couldn't find reader which has {:?}\nthere are readers which has eid:\n{:?}",
                             "MessageReceiver: Warn".yellow(),
                             data.reader_id,
                             reader_eids
                         );
-                    }
-                };
-            }
+                }
+            };
         }
         Ok(())
     }
@@ -553,7 +552,7 @@ impl MessageReceiver {
         let writer_guid = GUID::new(self.source_guid_prefix, gap.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, gap.reader_id);
         if gap.reader_id == EntityId::UNKNOW {
-            for (_eid, reader) in readers {
+            for reader in readers.values_mut() {
                 if reader.is_contain_writer(gap.writer_id) {
                     reader.handle_gap(writer_guid, gap.clone());
                 }
@@ -563,7 +562,7 @@ impl MessageReceiver {
                 Some(r) => r.handle_gap(writer_guid, gap),
                 None => {
                     let mut reader_eids = String::new();
-                    for (eid, _reader) in readers.into_iter() {
+                    for (eid, _reader) in readers.iter_mut() {
                         reader_eids += &format!("{:?}\n", eid);
                     }
                     eprintln!(
@@ -601,7 +600,7 @@ impl MessageReceiver {
         let writer_guid = GUID::new(self.source_guid_prefix, heartbeat.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, heartbeat.reader_id);
         let mut reader_eids = String::new();
-        for (eid, _reader) in readers.into_iter() {
+        for (eid, _reader) in readers.iter_mut() {
             reader_eids += &format!("{:?}\n", eid);
         }
         if heartbeat.reader_id == EntityId::UNKNOW {
@@ -623,7 +622,7 @@ impl MessageReceiver {
                     };
                 }
                 writer_eid => {
-                    for (_eid, reader) in readers {
+                    for reader in readers.values_mut() {
                         if reader.is_contain_writer(writer_eid) {
                             reader.handle_heartbeat(writer_guid, flag, heartbeat.clone());
                         }

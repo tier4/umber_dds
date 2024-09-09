@@ -34,6 +34,7 @@ pub enum SubMessageBody {
 }
 
 #[allow(non_camel_case_types)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum SubMessageKind {
     PAD = 0x01,
     ACKNACK = 0x06,

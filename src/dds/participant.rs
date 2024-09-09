@@ -1,7 +1,7 @@
 use crate::discovery::{
-    discovery::Discovery,
     discovery_db::DiscoveryDB,
     structure::data::{DiscoveredReaderData, DiscoveredWriterData},
+    Discovery,
 };
 use crate::network::net_util::*;
 use crate::rtps::reader::ReaderIngredients;

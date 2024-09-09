@@ -211,10 +211,9 @@ impl Reader {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type
     }
     pub fn matched_writer_lookup(&mut self, guid: GUID) -> Option<WriterProxy> {
-        match self.matched_writers.get_mut(&guid) {
-            Some(proxy) => Some(proxy.clone()),
-            None => None,
-        }
+        self.matched_writers
+            .get_mut(&guid)
+            .map(|proxy| proxy.clone())
     }
     pub fn matched_writer_remove(&mut self, guid: GUID) {
         self.matched_writers.remove(&guid);
@@ -280,7 +279,7 @@ impl Reader {
         } else if !hb_flag.contains(HeartbeatFlag::Liveliness) {
             // to may_send_ack
             if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
-                if writer_proxy.missing_changes().len() == 0 {
+                if writer_proxy.missing_changes().is_empty() {
                     // to waiting
                     // Transition: T3
                     // nothing to do
@@ -384,7 +383,7 @@ impl Reader {
         )
     }
     pub fn is_contain_writer(&self, writer_entity_id: EntityId) -> bool {
-        for (guid, _wp) in &self.matched_writers {
+        for guid in self.matched_writers.keys() {
             if guid.entity_id == writer_entity_id {
                 return true;
             }

@@ -308,7 +308,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_tuple(usize::max_value(), visitor)
+        self.deserialize_tuple(usize::MAX, visitor)
     }
 
     fn deserialize_enum<V>(

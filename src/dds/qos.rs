@@ -138,8 +138,8 @@ impl DomainParticipantQosBuilder {
 
     pub fn build(self) -> DomainParticipantQosPolicies {
         DomainParticipantQosPolicies {
-            user_data: self.user_data.unwrap_or(UserData::default()),
-            entity_factory: self.entity_factory.unwrap_or(EntityFactory::default()),
+            user_data: self.user_data.unwrap_or_default(),
+            entity_factory: self.entity_factory.unwrap_or_default(),
         }
     }
 }
@@ -182,27 +182,21 @@ impl TopicQosBuilder {
 
     pub fn build(self) -> TopicQosPolicies {
         TopicQosPolicies {
-            topic_data: self.topic_data.unwrap_or(TopicData::default()),
-            durability: self.durability.unwrap_or(Durability::default()),
-            durability_service: self
-                .durability_service
-                .unwrap_or(DurabilityService::default()),
-            deadline: self.deadline.unwrap_or(Deadline::default()),
-            latency_budget: self.latency_budget.unwrap_or(LatencyBudget::default()),
-            liveliness: self.liveliness.unwrap_or(Liveliness::default()),
+            topic_data: self.topic_data.unwrap_or_default(),
+            durability: self.durability.unwrap_or_default(),
+            durability_service: self.durability_service.unwrap_or_default(),
+            deadline: self.deadline.unwrap_or_default(),
+            latency_budget: self.latency_budget.unwrap_or_default(),
+            liveliness: self.liveliness.unwrap_or_default(),
             reliability: self
                 .reliability
                 .unwrap_or(Reliability::default_besteffort()),
-            destination_order: self
-                .destination_order
-                .unwrap_or(DestinationOrder::default()),
-            history: self.history.unwrap_or(History::default()),
-            resource_limits: self.resource_limits.unwrap_or(ResourceLimits::default()),
-            transport_priority: self
-                .transport_priority
-                .unwrap_or(TransportPriority::default()),
-            lifespan: self.lifespan.unwrap_or(Lifespan::default()),
-            ownership: self.ownership.unwrap_or(Ownership::default()),
+            destination_order: self.destination_order.unwrap_or_default(),
+            history: self.history.unwrap_or_default(),
+            resource_limits: self.resource_limits.unwrap_or_default(),
+            transport_priority: self.transport_priority.unwrap_or_default(),
+            lifespan: self.lifespan.unwrap_or_default(),
+            ownership: self.ownership.unwrap_or_default(),
         }
     }
 }
@@ -249,31 +243,21 @@ impl DataWriterQosBuilder {
 
     pub fn build(self) -> DataWriterQosPolicies {
         DataWriterQosPolicies {
-            durability: self.durability.unwrap_or(Durability::default()),
-            durability_service: self
-                .durability_service
-                .unwrap_or(DurabilityService::default()),
-            deadline: self.deadline.unwrap_or(Deadline::default()),
-            latency_budget: self.latency_budget.unwrap_or(LatencyBudget::default()),
-            liveliness: self.liveliness.unwrap_or(Liveliness::default()),
+            durability: self.durability.unwrap_or_default(),
+            durability_service: self.durability_service.unwrap_or_default(),
+            deadline: self.deadline.unwrap_or_default(),
+            latency_budget: self.latency_budget.unwrap_or_default(),
+            liveliness: self.liveliness.unwrap_or_default(),
             reliability: self.reliability.unwrap_or(Reliability::default_reliable()),
-            destination_order: self
-                .destination_order
-                .unwrap_or(DestinationOrder::default()),
-            history: self.history.unwrap_or(History::default()),
-            resource_limits: self.resource_limits.unwrap_or(ResourceLimits::default()),
-            transport_priority: self
-                .transport_priority
-                .unwrap_or(TransportPriority::default()),
-            lifespan: self.lifespan.unwrap_or(Lifespan::default()),
-            user_data: self.user_data.unwrap_or(UserData::default()),
-            ownership: self.ownership.unwrap_or(Ownership::default()),
-            ownership_strength: self
-                .ownership_strength
-                .unwrap_or(OwnershipStrength::default()),
-            writer_data_lifecycle: self
-                .writer_data_lifecycle
-                .unwrap_or(WriterDataLifecycle::default()),
+            destination_order: self.destination_order.unwrap_or_default(),
+            history: self.history.unwrap_or_default(),
+            resource_limits: self.resource_limits.unwrap_or_default(),
+            transport_priority: self.transport_priority.unwrap_or_default(),
+            lifespan: self.lifespan.unwrap_or_default(),
+            user_data: self.user_data.unwrap_or_default(),
+            ownership: self.ownership.unwrap_or_default(),
+            ownership_strength: self.ownership_strength.unwrap_or_default(),
+            writer_data_lifecycle: self.writer_data_lifecycle.unwrap_or_default(),
         }
     }
 }
@@ -298,10 +282,10 @@ impl PublisherQosBuilder {
 
     pub fn build(self) -> PublisherQosPolicies {
         PublisherQosPolicies {
-            presentation: self.presentation.unwrap_or(Presentation::default()),
-            partition: self.partition.unwrap_or(Partition::default()),
-            group_data: self.group_data.unwrap_or(GroupData::default()),
-            entity_factory: self.entity_factory.unwrap_or(EntityFactory::default()),
+            presentation: self.presentation.unwrap_or_default(),
+            partition: self.partition.unwrap_or_default(),
+            group_data: self.group_data.unwrap_or_default(),
+            entity_factory: self.entity_factory.unwrap_or_default(),
         }
     }
 }
@@ -341,24 +325,20 @@ impl DataReadedrQosBuilder {
 
     pub fn build(self) -> DataReadedrQosPolicies {
         DataReadedrQosPolicies {
-            durability: self.durability.unwrap_or(Durability::default()),
-            deadline: self.deadline.unwrap_or(Deadline::default()),
-            latency_budget: self.latency_budget.unwrap_or(LatencyBudget::default()),
-            liveliness: self.liveliness.unwrap_or(Liveliness::default()),
+            durability: self.durability.unwrap_or_default(),
+            deadline: self.deadline.unwrap_or_default(),
+            latency_budget: self.latency_budget.unwrap_or_default(),
+            liveliness: self.liveliness.unwrap_or_default(),
             reliability: self
                 .reliability
                 .unwrap_or(Reliability::default_besteffort()),
-            destination_order: self
-                .destination_order
-                .unwrap_or(DestinationOrder::default()),
-            history: self.history.unwrap_or(History::default()),
-            resource_limits: self.resource_limits.unwrap_or(ResourceLimits::default()),
-            user_data: self.user_data.unwrap_or(UserData::default()),
-            ownership: self.ownership.unwrap_or(Ownership::default()),
-            time_based_filter: self.time_based_filter.unwrap_or(TimeBasedFilter::default()),
-            reader_data_lifecycle: self
-                .reader_data_lifecycle
-                .unwrap_or(ReaderDataLifecycle::default()),
+            destination_order: self.destination_order.unwrap_or_default(),
+            history: self.history.unwrap_or_default(),
+            resource_limits: self.resource_limits.unwrap_or_default(),
+            user_data: self.user_data.unwrap_or_default(),
+            ownership: self.ownership.unwrap_or_default(),
+            time_based_filter: self.time_based_filter.unwrap_or_default(),
+            reader_data_lifecycle: self.reader_data_lifecycle.unwrap_or_default(),
         }
     }
 }
@@ -383,10 +363,10 @@ impl SubscriberQosBuilder {
 
     pub fn build(self) -> SubscriberQosPolicies {
         SubscriberQosPolicies {
-            presentation: self.presentation.unwrap_or(Presentation::default()),
-            partition: self.partition.unwrap_or(Partition::default()),
-            group_data: self.group_data.unwrap_or(GroupData::default()),
-            entity_factory: self.entity_factory.unwrap_or(EntityFactory::default()),
+            presentation: self.presentation.unwrap_or_default(),
+            partition: self.partition.unwrap_or_default(),
+            group_data: self.group_data.unwrap_or_default(),
+            entity_factory: self.entity_factory.unwrap_or_default(),
         }
     }
 }

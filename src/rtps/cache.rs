@@ -126,10 +126,7 @@ impl HistoryCache {
         self.changes.insert(change.sequence_number, change);
     }
     pub fn get_change(&self, seq_num: SequenceNumber) -> Option<CacheChange> {
-        match self.changes.get(&seq_num) {
-            Some(c) => Some(c.clone()),
-            None => None,
-        }
+        self.changes.get(&seq_num).cloned()
     }
 
     pub fn get_changes(&self) -> Vec<Option<SerializedPayload>> {
@@ -139,7 +136,7 @@ impl HistoryCache {
         let mut to_del = Vec::new();
         for (k, v) in self.changes.iter() {
             if *v == change {
-                to_del.push(k.clone());
+                to_del.push(*k);
             }
         }
         for k in to_del {

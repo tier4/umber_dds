@@ -33,23 +33,23 @@ impl EntityId {
     }
 
     pub fn is_reader(&self) -> bool {
-        match self.entity_kind {
+        matches!(
+            self.entity_kind,
             EntityKind::READER_WITH_KEY_BUILT_IN
-            | EntityKind::READER_NO_KEY_BUILT_IN
-            | EntityKind::READER_NO_KEY_USER_DEFIND
-            | EntityKind::READER_WITH_KEY_USER_DEFIND => true,
-            _ => false,
-        }
+                | EntityKind::READER_NO_KEY_BUILT_IN
+                | EntityKind::READER_NO_KEY_USER_DEFIND
+                | EntityKind::READER_WITH_KEY_USER_DEFIND
+        )
     }
 
     pub fn is_writer(&self) -> bool {
-        match self.entity_kind {
+        matches!(
+            self.entity_kind,
             EntityKind::WRITER_WITH_KEY_BUILT_IN
-            | EntityKind::WRITER_NO_KEY_BUILT_IN
-            | EntityKind::WRITER_NO_KEY_USER_DEFIND
-            | EntityKind::WRITER_WITH_KEY_USER_DEFIND => true,
-            _ => false,
-        }
+                | EntityKind::WRITER_NO_KEY_BUILT_IN
+                | EntityKind::WRITER_NO_KEY_USER_DEFIND
+                | EntityKind::WRITER_WITH_KEY_USER_DEFIND
+        )
     }
 
     pub fn entity_kind(&self) -> EntityKind {

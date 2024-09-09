@@ -33,40 +33,38 @@ impl DataFrag {
         };
         let map_speedy_err = |p: Error| IoError::SpeedyError(p);
 
-        let _extra_flags =
-            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
-                .map_err(map_speedy_err)?;
+        let _extra_flags = u16::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
+            .map_err(map_speedy_err)?;
         readed_byte += 2;
         let octets_to_inline_qos =
-            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+            u16::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
         readed_byte += 2;
         let reader_id =
-            EntityId::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+            EntityId::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
         readed_byte += 4;
         let writer_id =
-            EntityId::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+            EntityId::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
         readed_byte += 4;
         let writer_sn =
-            SequenceNumber::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+            SequenceNumber::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
         readed_byte += 8;
         let fragment_starting_num =
-            FragmentNumber::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+            FragmentNumber::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
         readed_byte += 4;
         let fragments_in_submessage =
-            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+            u16::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
         readed_byte += 2;
-        let data_size = u64::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
+        let data_size = u64::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
             .map_err(map_speedy_err)?;
         readed_byte += 8;
-        let fragment_size =
-            u16::read_from_buffer_with_ctx(endiannes, &mut buffer.slice(readed_byte..))
-                .map_err(map_speedy_err)?;
+        let fragment_size = u16::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
+            .map_err(map_speedy_err)?;
         readed_byte += 2;
         let is_exist_inline_qos = flags.contains(DataFragFlag::InlineQos);
 
@@ -78,11 +76,9 @@ impl DataFrag {
         readed_byte += u64::from(extra_octets) as usize;
 
         let inline_qos = if is_exist_inline_qos {
-            let param_list = ParameterList::read_from_buffer_with_ctx(
-                endiannes,
-                &mut buffer.slice(readed_byte..),
-            )
-            .map_err(map_speedy_err)?;
+            let param_list =
+                ParameterList::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
+                    .map_err(map_speedy_err)?;
             let param_list_byte = param_list
                 .write_to_vec_with_ctx(endiannes)
                 .map_err(map_speedy_err)?;

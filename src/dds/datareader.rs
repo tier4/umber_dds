@@ -37,7 +37,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     }
 
     pub fn take(&self) -> Vec<D> {
-        while let Ok(_) = self.reader_ready_receiver.try_recv() {}
+        while self.reader_ready_receiver.try_recv().is_ok() {}
         let d = self.get_change();
         self.remove_changes();
         d
@@ -46,13 +46,10 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         let hc = self.rhc.read().expect("couldn't read ReaderHistoryCache");
         let data = hc.get_changes();
         let mut v: Vec<D> = Vec::new();
-        for d in data {
-            match d {
-                Some(cd) => match deserialize::<D>(&cd.to_bytes()) {
-                    Ok(neko) => v.push(neko),
-                    Err(_e) => (),
-                },
-                None => (),
+        for d in data.into_iter().flatten() {
+            match deserialize::<D>(&d.to_bytes()) {
+                Ok(neko) => v.push(neko),
+                Err(_e) => (),
             }
         }
         v

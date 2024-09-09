@@ -41,7 +41,7 @@ pub struct SequenceNumber(pub i64); // The precise definition of SequenceNumber 
                                     // we convert to the correct format. This is the reason we
                                     // implement the serializer and deserializer manually.
 impl SequenceNumber {
-    pub const SEQUENCENUMBER_UNKNOWN: Self = Self((std::u32::MAX as i64) << 32);
+    pub const SEQUENCENUMBER_UNKNOWN: Self = Self((u32::MAX as i64) << 32);
     pub const MAX: Self = Self(i64::MAX);
     pub const MIN: Self = Self(i64::MIN);
 }
@@ -118,12 +118,8 @@ impl SequenceNumberSet {
             num_bits = max(num_bits, offset_from_base as u32 + 1);
             let line = offset_from_base / 32;
             let offset_in_line = offset_from_base % 32;
-            if bitmap.len() < line as usize + 1 {
-                for _ in 0..(line + 1 - bitmap.len() as i64) {
-                    bitmap.push(0);
-                }
-            }
-            bitmap[line as usize] = bitmap[line as usize] | 1 << (31 - offset_in_line);
+            bitmap.resize(line as usize + 1, 0);
+            bitmap[line as usize] |= 1 << (31 - offset_in_line);
         }
         Self {
             bitmap_base: base,
@@ -289,7 +285,7 @@ impl Sub for Timestamp {
         };
         let seconds = lsec - rsec;
 
-        return Duration::new(seconds, fraction);
+        Duration::new(seconds, fraction)
     }
 }
 

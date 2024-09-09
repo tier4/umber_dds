@@ -24,9 +24,7 @@ impl Duration {
 
 impl PartialOrd for Duration {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let left = (self.seconds as i64) * 1_000_000_000 + (self.fraction as i64);
-        let right = (other.seconds as i64) * 1_000_000_000 + (other.fraction as i64);
-        Some(left.cmp(&right))
+        Some(self.cmp(other))
     }
 }
 

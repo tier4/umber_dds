@@ -286,10 +286,7 @@ impl SDPBuiltinData {
                 return None;
             }
         };
-        let data_max_size_serialized = match self.data_max_size_serialized {
-            Some(dmss) => dmss,
-            None => 0, // TODO: Which value should I set?
-        };
+        let data_max_size_serialized = self.data_max_size_serialized.unwrap_or(0); // TODO: Which default value should I set?
         Some(WriterProxy::new(
             remote_guid,
             unicast_locator_list,

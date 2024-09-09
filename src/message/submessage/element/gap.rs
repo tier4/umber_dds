@@ -89,13 +89,11 @@ impl<C: Context> Writable<C> for Gap {
         writer.write_value(&self.writer_id)?;
         writer.write_value(&self.gap_start)?;
         writer.write_value(&self.gap_list)?;
-        match self.gap_start_gsn {
-            Some(gs_gsn) => writer.write_value(&gs_gsn)?,
-            None => (),
+        if let Some(gs_gsn) = self.gap_start_gsn {
+            writer.write_value(&gs_gsn)?
         }
-        match self.gap_end_gsn {
-            Some(ge_gsn) => writer.write_value(&ge_gsn)?,
-            None => (),
+        if let Some(ge_gsn) = self.gap_end_gsn {
+            writer.write_value(&ge_gsn)?
         }
         Ok(())
     }

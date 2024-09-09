@@ -97,7 +97,7 @@ where
     }
 
     fn add_usize_as_u32(&mut self, v: usize) -> Result<()> {
-        if v > std::u32::MAX as usize {
+        if v > u32::MAX as usize {
             return Err(Error::NumberOutOfRange);
         }
 

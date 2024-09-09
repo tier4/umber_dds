@@ -11,7 +11,7 @@ impl TokenDec {
         if Token(0x40) <= token && Token(0x60) > token {
             Self::ReservedToken(token)
         } else {
-            let n: usize = token.try_into().unwrap();
+            let n: usize = token.into();
             Self::Entity(EntityId::from_usize(n))
         }
     }

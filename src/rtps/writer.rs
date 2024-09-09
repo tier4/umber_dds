@@ -208,7 +208,7 @@ impl Writer {
             self.add_change_to_hc(a_change.clone());
             let self_guid_prefix = self.guid_prefix();
             self.print_self_info();
-            for (_guid, reader_proxy) in &mut self.matched_readers {
+            for reader_proxy in self.matched_readers.values_mut() {
                 while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
                     reader_proxy.update_cache_state(
                         change_for_reader.seq_num,
@@ -357,7 +357,7 @@ impl Writer {
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
         self.print_self_info();
-        for (_guid, reader_proxy) in &mut self.matched_readers {
+        for reader_proxy in self.matched_readers.values_mut() {
             let mut message_builder = MessageBuilder::new();
             message_builder.info_ts(Endianness::LittleEndian, time_stamp);
             message_builder.heartbeat(
@@ -422,7 +422,7 @@ impl Writer {
             .write()
             .expect("couldn't write writer_cache")
             .add_change(change);
-        for (_guid, reader_proxy) in &mut self.matched_readers {
+        for reader_proxy in self.matched_readers.values_mut() {
             reader_proxy.update_cache_state(
                 self.last_change_sequence_number,
                 /* TODO: if DDS_FILTER(reader_proxy, change) { false } else { true }, */
@@ -449,7 +449,7 @@ impl Writer {
             match self.an_state {
                 AckNackState::Waiting => {
                     // Transistion T9
-                    if reader_proxy.requested_changes().len() != 0 {
+                    if !reader_proxy.requested_changes().is_empty() {
                         if self.nack_response_delay == Duration::ZERO {
                             // Transistion T11
                             self.handle_nack_response_timeout(reader_guid);
@@ -707,10 +707,7 @@ impl Writer {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type
     }
     pub fn matched_reader_loolup(&self, guid: GUID) -> Option<ReaderProxy> {
-        match self.matched_readers.get(&guid) {
-            Some(prxy) => Some(prxy.clone()),
-            None => None,
-        }
+        self.matched_readers.get(&guid).cloned()
     }
     pub fn matched_reader_remove(&mut self, guid: GUID) {
         self.matched_readers.remove(&guid);

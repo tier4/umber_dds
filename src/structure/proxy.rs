@@ -82,12 +82,9 @@ impl ReaderProxy {
             next_seq_num = min(next_seq_num, change.seq_num);
         }
 
-        for change in self.requested_changes() {
-            if change.seq_num == next_seq_num {
-                return Some(change);
-            }
-        }
-        None
+        self.requested_changes()
+            .into_iter()
+            .find(|change| change.seq_num == next_seq_num)
     }
     pub fn next_unsent_change(&self) -> Option<ChangeForReader> {
         let mut next_seq_num = SequenceNumber::MAX;
@@ -96,21 +93,15 @@ impl ReaderProxy {
             next_seq_num = min(next_seq_num, change.seq_num);
         }
 
-        for change in self.unsent_changes() {
-            if change.seq_num == next_seq_num {
-                return Some(change);
-            }
-        }
-        None
+        self.unsent_changes()
+            .into_iter()
+            .find(|change| change.seq_num == next_seq_num)
     }
     pub fn requested_changes(&self) -> Vec<ChangeForReader> {
         let mut requested_changes = Vec::new();
-        for (_sn, change_for_reader) in &self.cache_state {
-            match change_for_reader.status {
-                ChangeForReaderStatusKind::Requested => {
-                    requested_changes.push(change_for_reader.clone())
-                }
-                _ => (),
+        for change_for_reader in self.cache_state.values() {
+            if let ChangeForReaderStatusKind::Requested = change_for_reader.status {
+                requested_changes.push(change_for_reader.clone())
             }
         }
         requested_changes
@@ -126,22 +117,18 @@ impl ReaderProxy {
     }
     pub fn unsent_changes(&self) -> Vec<ChangeForReader> {
         let mut unsent_changes = Vec::new();
-        for (_sn, change_for_reader) in &self.cache_state {
-            match change_for_reader.status {
-                ChangeForReaderStatusKind::Unsent => unsent_changes.push(change_for_reader.clone()),
-                _ => (),
+        for change_for_reader in self.cache_state.values() {
+            if let ChangeForReaderStatusKind::Unsent = change_for_reader.status {
+                unsent_changes.push(change_for_reader.clone())
             }
         }
         unsent_changes
     }
     pub fn unacked_changes(&self) -> Vec<ChangeForReader> {
         let mut unacked_changes = Vec::new();
-        for (_sn, change_for_reader) in &self.cache_state {
-            match change_for_reader.status {
-                ChangeForReaderStatusKind::Unsent => {
-                    unacked_changes.push(change_for_reader.clone())
-                }
-                _ => (),
+        for change_for_reader in self.cache_state.values() {
+            if let ChangeForReaderStatusKind::Unsent = change_for_reader.status {
+                unacked_changes.push(change_for_reader.clone())
             }
         }
         unacked_changes
@@ -263,9 +250,8 @@ impl WriterProxy {
     pub fn missing_changes(&self) -> Vec<SequenceNumber> {
         let mut missing_changes = Vec::new();
         for (sn, cfw) in &self.cache_state {
-            match cfw.status {
-                ChangeFromWriterStatusKind::Missing => missing_changes.push(*sn),
-                _ => (),
+            if let ChangeFromWriterStatusKind::Missing = cfw.status {
+                missing_changes.push(*sn)
             }
         }
         missing_changes
@@ -277,13 +263,10 @@ impl WriterProxy {
     ) {
         for sn in first_available_seq_num.0..=last_available_seq_num.0 {
             if let Some(cfw) = self.cache_state.get_mut(&SequenceNumber(sn)) {
-                match cfw.status {
-                    ChangeFromWriterStatusKind::Uuknown => {
-                        if SequenceNumber(sn) <= last_available_seq_num {
-                            cfw.status = ChangeFromWriterStatusKind::Missing;
-                        }
+                if let ChangeFromWriterStatusKind::Uuknown = cfw.status {
+                    if SequenceNumber(sn) <= last_available_seq_num {
+                        cfw.status = ChangeFromWriterStatusKind::Missing;
                     }
-                    _ => (),
                 }
             } else {
                 self.update_cache_state(
