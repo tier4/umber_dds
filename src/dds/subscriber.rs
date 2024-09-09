@@ -13,6 +13,9 @@ use mio_extras::channel as mio_channel;
 use serde::Deserialize;
 use std::sync::RwLock;
 
+/// DDS Subscriber
+///
+/// factory of DataReader
 #[derive(Clone)]
 pub struct Subscriber {
     inner: Arc<RwLock<InnerSubscriber>>,

@@ -13,6 +13,9 @@ use alloc::sync::Arc;
 use mio_extras::channel as mio_channel;
 use std::sync::RwLock;
 
+/// DDS Publisher
+///
+/// factory of DataWriter
 #[derive(Clone)]
 pub struct Publisher {
     inner: Arc<RwLock<InnerPublisher>>,

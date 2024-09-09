@@ -9,6 +9,7 @@ use serde::Deserialize;
 use std::io;
 use std::sync::RwLock;
 
+/// DDS DataReader
 pub struct DataReader<D: for<'de> Deserialize<'de>> {
     data_phantom: PhantomData<D>,
     _qos: DataReadedrQosPolicies,
@@ -19,7 +20,7 @@ pub struct DataReader<D: for<'de> Deserialize<'de>> {
 }
 
 impl<D: for<'de> Deserialize<'de>> DataReader<D> {
-    pub fn new(
+    pub(crate) fn new(
         qos: DataReadedrQosPolicies,
         topic: Topic,
         subscriber: Subscriber,
@@ -36,6 +37,11 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         }
     }
 
+    /// get available data received from DataWriter
+    ///
+    /// this function is blocking
+    ///
+    /// DataReader implement mio::Evented, so you can gegister DataReader to mio v0.6's Poll.
     pub fn take(&self) -> Vec<D> {
         while self.reader_ready_receiver.try_recv().is_ok() {}
         let d = self.get_change();

@@ -1,26 +1,37 @@
+//! set of DDS QoS policies for each Entity and its builder
+
 // DDS 1.4 spec: 2.3.3 DCPS PSM : IDL
 // How to impl builder: https://keens.github.io/blog/2017/02/09/rustnochottoyarisuginabuilderpata_n/
 
 use policy::*;
 
+/// for setting QoS on a DomainParticipant
 #[derive(Clone)]
 pub enum DomainParticipantQos {
+    /// represent default QoS of DomainParticipant.
     Default,
     Policies(DomainParticipantQosPolicies),
 }
 
+/// A collection of QoS policies for configuring the behavior of a DataReader
 #[derive(Clone)]
 pub struct DomainParticipantQosPolicies {
     pub user_data: UserData,
     pub entity_factory: EntityFactory,
 }
 
+/// for setting QoS on a Topic
 #[derive(Clone)]
 pub enum TopicQos {
+    /// represent default QoS of Topic.
+    ///
+    /// it can get `DomainParticipant::get_defaul_topict_qos()` and
+    /// change `DomainParticipant::set_default_topic_qos()`
     Default,
     Policies(TopicQosPolicies),
 }
 
+/// A collection of QoS policies for configuring the behavior of a Topic
 #[derive(Clone)]
 pub struct TopicQosPolicies {
     pub topic_data: TopicData,
@@ -38,12 +49,18 @@ pub struct TopicQosPolicies {
     pub ownership: Ownership,
 }
 
+/// for setting QoS on a DataWriter
 #[derive(Clone)]
 pub enum DataWriterQos {
+    /// represent default QoS of DataWriter.
+    ///
+    /// it can get `Publisher::get_default_datawriter_qos()` and
+    /// change `Publisher::set_default_datawriter_qos()`
     Default,
     Policies(DataWriterQosPolicies),
 }
 
+/// A collection of QoS policies for configuring the behavior of a DataWriter
 #[derive(Clone)]
 pub struct DataWriterQosPolicies {
     pub durability: Durability,
@@ -63,12 +80,18 @@ pub struct DataWriterQosPolicies {
     pub writer_data_lifecycle: WriterDataLifecycle,
 }
 
+/// for setting QoS on a Publisher
 #[derive(Clone)]
 pub enum PublisherQos {
+    /// represent default QoS of Publisher.
+    ///
+    /// it can get `DomainParticipant::get_default_publisher_qos()` and
+    /// change `DomainParticipant::set_default_publisher_qos()`
     Default,
     Policies(PublisherQosPolicies),
 }
 
+/// A collection of QoS policies for configuring the behavior of a Publisher
 #[derive(Clone)]
 pub struct PublisherQosPolicies {
     pub presentation: Presentation,
@@ -77,12 +100,18 @@ pub struct PublisherQosPolicies {
     pub entity_factory: EntityFactory,
 }
 
+/// for setting QoS on a DataReadedr
 #[derive(Clone)]
 pub enum DataReadedrQos {
+    /// represent default QoS of DataReadedr.
+    ///
+    /// it can get `Subscriber::get_default_datareader_qos()` and
+    /// change `Subscriber::set_default_datareader_qos()`
     Default,
     Policies(DataReadedrQosPolicies),
 }
 
+/// A collection of QoS policies for configuring the behavior of a DataReader
 #[derive(Clone)]
 pub struct DataReadedrQosPolicies {
     pub durability: Durability,
@@ -99,12 +128,18 @@ pub struct DataReadedrQosPolicies {
     pub reader_data_lifecycle: ReaderDataLifecycle,
 }
 
+/// for setting QoS on a Subscriber
 #[derive(Clone)]
 pub enum SubscriberQos {
+    /// represent default QoS of Subscriber.
+    ///
+    /// it can get `DomainParticipant::get_default_subscriber_qos()` and
+    /// change `DomainParticipant::set_default_subscriber_qos()`
     Default,
     Policies(SubscriberQosPolicies),
 }
 
+/// A collection of QoS policies for configuring the behavior of a Subscriber
 #[derive(Clone)]
 pub struct SubscriberQosPolicies {
     pub presentation: Presentation,
@@ -122,10 +157,11 @@ macro_rules! builder_method {
     };
 }
 
+/// Builder of DomainParticipantQosPolicies
 #[derive(Default)]
 pub struct DomainParticipantQosBuilder {
-    pub user_data: Option<UserData>,
-    pub entity_factory: Option<EntityFactory>,
+    user_data: Option<UserData>,
+    entity_factory: Option<EntityFactory>,
 }
 
 impl DomainParticipantQosBuilder {
@@ -144,21 +180,22 @@ impl DomainParticipantQosBuilder {
     }
 }
 
+/// Builder of TopicQosPolicies
 #[derive(Default)]
 pub struct TopicQosBuilder {
-    pub topic_data: Option<TopicData>,
-    pub durability: Option<Durability>,
-    pub durability_service: Option<DurabilityService>,
-    pub deadline: Option<Deadline>,
-    pub latency_budget: Option<LatencyBudget>,
-    pub liveliness: Option<Liveliness>,
-    pub reliability: Option<Reliability>,
-    pub destination_order: Option<DestinationOrder>,
-    pub history: Option<History>,
-    pub resource_limits: Option<ResourceLimits>,
-    pub transport_priority: Option<TransportPriority>,
-    pub lifespan: Option<Lifespan>,
-    pub ownership: Option<Ownership>,
+    topic_data: Option<TopicData>,
+    durability: Option<Durability>,
+    durability_service: Option<DurabilityService>,
+    deadline: Option<Deadline>,
+    latency_budget: Option<LatencyBudget>,
+    liveliness: Option<Liveliness>,
+    reliability: Option<Reliability>,
+    destination_order: Option<DestinationOrder>,
+    history: Option<History>,
+    resource_limits: Option<ResourceLimits>,
+    transport_priority: Option<TransportPriority>,
+    lifespan: Option<Lifespan>,
+    ownership: Option<Ownership>,
 }
 
 impl TopicQosBuilder {
@@ -201,23 +238,24 @@ impl TopicQosBuilder {
     }
 }
 
+/// Builder of DataWriterQosPolicies
 #[derive(Default)]
 pub struct DataWriterQosBuilder {
-    pub durability: Option<Durability>,
-    pub durability_service: Option<DurabilityService>,
-    pub deadline: Option<Deadline>,
-    pub latency_budget: Option<LatencyBudget>,
-    pub liveliness: Option<Liveliness>,
-    pub reliability: Option<Reliability>,
-    pub destination_order: Option<DestinationOrder>,
-    pub history: Option<History>,
-    pub resource_limits: Option<ResourceLimits>,
-    pub transport_priority: Option<TransportPriority>,
-    pub lifespan: Option<Lifespan>,
-    pub user_data: Option<UserData>,
-    pub ownership: Option<Ownership>,
-    pub ownership_strength: Option<OwnershipStrength>,
-    pub writer_data_lifecycle: Option<WriterDataLifecycle>,
+    durability: Option<Durability>,
+    durability_service: Option<DurabilityService>,
+    deadline: Option<Deadline>,
+    latency_budget: Option<LatencyBudget>,
+    liveliness: Option<Liveliness>,
+    reliability: Option<Reliability>,
+    destination_order: Option<DestinationOrder>,
+    history: Option<History>,
+    resource_limits: Option<ResourceLimits>,
+    transport_priority: Option<TransportPriority>,
+    lifespan: Option<Lifespan>,
+    user_data: Option<UserData>,
+    ownership: Option<Ownership>,
+    ownership_strength: Option<OwnershipStrength>,
+    writer_data_lifecycle: Option<WriterDataLifecycle>,
 }
 
 impl DataWriterQosBuilder {
@@ -262,12 +300,13 @@ impl DataWriterQosBuilder {
     }
 }
 
+/// Builder of PublisherQosPolicies
 #[derive(Default)]
 pub struct PublisherQosBuilder {
-    pub presentation: Option<Presentation>,
-    pub partition: Option<Partition>,
-    pub group_data: Option<GroupData>,
-    pub entity_factory: Option<EntityFactory>,
+    presentation: Option<Presentation>,
+    partition: Option<Partition>,
+    group_data: Option<GroupData>,
+    entity_factory: Option<EntityFactory>,
 }
 
 impl PublisherQosBuilder {
@@ -290,20 +329,21 @@ impl PublisherQosBuilder {
     }
 }
 
+/// Builder of DataReadedrQosPolicies
 #[derive(Default)]
 pub struct DataReadedrQosBuilder {
-    pub durability: Option<Durability>,
-    pub deadline: Option<Deadline>,
-    pub latency_budget: Option<LatencyBudget>,
-    pub liveliness: Option<Liveliness>,
-    pub reliability: Option<Reliability>,
-    pub destination_order: Option<DestinationOrder>,
-    pub history: Option<History>,
-    pub resource_limits: Option<ResourceLimits>,
-    pub user_data: Option<UserData>,
-    pub ownership: Option<Ownership>,
-    pub time_based_filter: Option<TimeBasedFilter>,
-    pub reader_data_lifecycle: Option<ReaderDataLifecycle>,
+    durability: Option<Durability>,
+    deadline: Option<Deadline>,
+    latency_budget: Option<LatencyBudget>,
+    liveliness: Option<Liveliness>,
+    reliability: Option<Reliability>,
+    destination_order: Option<DestinationOrder>,
+    history: Option<History>,
+    resource_limits: Option<ResourceLimits>,
+    user_data: Option<UserData>,
+    ownership: Option<Ownership>,
+    time_based_filter: Option<TimeBasedFilter>,
+    reader_data_lifecycle: Option<ReaderDataLifecycle>,
 }
 
 impl DataReadedrQosBuilder {
@@ -343,12 +383,13 @@ impl DataReadedrQosBuilder {
     }
 }
 
+/// Builder of SubscriberQosPolicies
 #[derive(Default)]
 pub struct SubscriberQosBuilder {
-    pub presentation: Option<Presentation>,
-    pub partition: Option<Partition>,
-    pub group_data: Option<GroupData>,
-    pub entity_factory: Option<EntityFactory>,
+    presentation: Option<Presentation>,
+    partition: Option<Partition>,
+    group_data: Option<GroupData>,
+    entity_factory: Option<EntityFactory>,
 }
 
 impl SubscriberQosBuilder {
@@ -372,6 +413,10 @@ impl SubscriberQosBuilder {
 }
 
 pub mod policy {
+    //! DDS QoS policies
+    //!
+    //! For more details on each QoS policy, please refer to the DDS specification.
+    //! DDS v1.4 spec, 2.2.3 Supported QoS (<https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386>)
     use crate::structure::Duration;
     use serde::{Deserialize, Serialize};
     use serde_repr::{Deserialize_repr, Serialize_repr};

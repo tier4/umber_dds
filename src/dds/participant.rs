@@ -33,6 +33,9 @@ use rand::rngs::SmallRng;
 use std::sync::{Mutex, RwLock};
 use std::thread::{self, Builder};
 
+/// DDS DomainParticipant
+///
+/// factory for the Publisher, Subscriber and Topic.
 #[derive(Clone)]
 pub struct DomainParticipant {
     inner: Arc<Mutex<DomainParticipantDisc>>,
@@ -123,7 +126,7 @@ impl DomainParticipant {
             .expect("couldn't lock DomainParticipantDisc")
             .participant_id()
     }
-    pub fn gen_entity_key(&self) -> [u8; 3] {
+    pub(crate) fn gen_entity_key(&self) -> [u8; 3] {
         self.inner
             .lock()
             .expect("couldn't lock DomainParticipantDisc")

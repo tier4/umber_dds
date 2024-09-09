@@ -6,6 +6,7 @@ use crate::discovery::structure::data::{
 use crate::structure::TopicKind;
 use alloc::sync::Arc;
 
+/// DDS Topic
 #[derive(Clone)]
 pub struct Topic {
     inner: Arc<InnerTopic>,
