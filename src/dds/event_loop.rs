@@ -27,13 +27,21 @@ pub struct EventLoop {
     poll: Poll,
     sockets: BTreeMap<Token, UdpSocket>,
     message_receiver: MessageReceiver,
-    add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
-    add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
-    writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
-    reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
+    // receive writer ingredients from publisher
+    create_writer_receiver: mio_channel::Receiver<WriterIngredients>,
+    // receive writer ingredients from subscriber
+    create_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
+    // notify new writer to discovery module
+    notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
+    // notify new reader to discovery module
+    notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
+    // to distribute to reader
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
+    // receive heartbeat_response_delay timer from reader
     set_reader_hb_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
+    // to distribute to writer
     set_writer_nack_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
+    // receive nack_response_delay timer from writer
     set_writer_nack_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
     writers: BTreeMap<EntityId, Writer>,
     readers: BTreeMap<EntityId, Reader>,
@@ -41,6 +49,7 @@ pub struct EventLoop {
     writer_hb_timer: Timer<EntityId>,
     reader_hb_timers: Vec<Timer<(EntityId, GUID)>>, // (reader EntityId, writer GUID)
     writer_nack_timers: Vec<Timer<(EntityId, GUID)>>, // (writer EntityId, reader GUID)
+    // receive discovery_db update notification from Discovery
     discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     discovery_db: DiscoveryDB,
 }
@@ -50,10 +59,10 @@ impl EventLoop {
         domain_id: u16,
         mut sockets: BTreeMap<Token, UdpSocket>,
         participant_guidprefix: GuidPrefix,
-        add_writer_receiver: mio_channel::Receiver<WriterIngredients>,
-        add_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
-        writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
-        reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
+        create_writer_receiver: mio_channel::Receiver<WriterIngredients>,
+        create_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
+        notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
+        notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         discovery_db: DiscoveryDB,
         discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     ) -> EventLoop {
@@ -63,19 +72,19 @@ impl EventLoop {
                 .expect("coludn't register lister to poll");
         }
         poll.register(
-            &add_writer_receiver,
+            &create_writer_receiver,
             ADD_WRITER_TOKEN,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register add_writer_receiver to poll");
+        .expect("coludn't register create_writer_receiver to poll");
         poll.register(
-            &add_reader_receiver,
+            &create_reader_receiver,
             ADD_READER_TOKEN,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register add_reader_receiver to poll");
+        .expect("coludn't register create_reader_receiver to poll");
         let writer_hb_timer = Timer::default();
         poll.register(
             &writer_hb_timer,
@@ -114,10 +123,10 @@ impl EventLoop {
             poll,
             sockets,
             message_receiver,
-            add_writer_receiver,
-            add_reader_receiver,
-            writer_add_sender,
-            reader_add_sender,
+            create_writer_receiver,
+            create_reader_receiver,
+            notify_new_writer_sender,
+            notify_new_reader_sender,
             set_reader_hb_timer_sender,
             set_reader_hb_timer_receiver,
             set_writer_nack_timer_sender,
@@ -161,7 +170,7 @@ impl EventLoop {
                             }
                         }
                         ADD_WRITER_TOKEN => {
-                            while let Ok(writer_ing) = self.add_writer_receiver.try_recv() {
+                            while let Ok(writer_ing) = self.create_writer_receiver.try_recv() {
                                 let mut writer = Writer::new(
                                     writer_ing,
                                     self.sender.clone(),
@@ -218,15 +227,15 @@ impl EventLoop {
                                     && writer.entity_id()
                                         != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER
                                 {
-                                    self.writer_add_sender
+                                    self.notify_new_writer_sender
                                         .send((writer.entity_id(), writer.sedp_data()))
-                                        .expect("coludn't send channel 'writer_add_sender'");
+                                        .expect("coludn't send channel 'notify_new_writer_sender'");
                                 }
                                 self.writers.insert(writer.entity_id(), writer);
                             }
                         }
                         ADD_READER_TOKEN => {
-                            while let Ok(reader_ing) = self.add_reader_receiver.try_recv() {
+                            while let Ok(reader_ing) = self.create_reader_receiver.try_recv() {
                                 let reader = Reader::new(
                                     reader_ing,
                                     self.sender.clone(),
@@ -238,9 +247,9 @@ impl EventLoop {
                                     && reader.entity_id()
                                         != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
                                 {
-                                    self.reader_add_sender
+                                    self.notify_new_reader_sender
                                         .send((reader.entity_id(), reader.sedp_data()))
-                                        .expect("coludn't send channle 'reader_add_sender'");
+                                        .expect("coludn't send channle 'notify_new_reader_sender'");
                                 }
                                 self.readers.insert(reader.entity_id(), reader);
                             }

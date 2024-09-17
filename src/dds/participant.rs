@@ -56,9 +56,9 @@ impl DomainParticipant {
             mio_channel::channel::<thread::JoinHandle<()>>();
         let (discdb_update_sender, discdb_update_receiver) = mio_channel::channel::<GuidPrefix>();
         let discovery_db = DiscoveryDB::new();
-        let (writer_add_sender, writer_add_receiver) =
+        let (notify_new_writer_sender, notify_new_writer_receiver) =
             mio_channel::channel::<(EntityId, DiscoveredWriterData)>();
-        let (reader_add_sender, reader_add_receiver) =
+        let (notify_new_reader_sender, notify_new_reader_receiver) =
             mio_channel::channel::<(EntityId, DiscoveredReaderData)>();
         let dp = Self {
             inner: Arc::new(Mutex::new(DomainParticipantDisc::new(
@@ -66,8 +66,8 @@ impl DomainParticipant {
                 disc_thread_receiver,
                 discovery_db.clone(),
                 discdb_update_receiver,
-                writer_add_sender,
-                reader_add_sender,
+                notify_new_writer_sender,
+                notify_new_reader_sender,
                 small_rng,
             ))),
         };
@@ -79,8 +79,8 @@ impl DomainParticipant {
                     dp_clone,
                     discovery_db,
                     discdb_update_sender,
-                    writer_add_receiver,
-                    reader_add_receiver,
+                    notify_new_writer_receiver,
+                    notify_new_reader_receiver,
                 );
                 discovery.discovery_loop();
             })
@@ -181,8 +181,8 @@ impl DomainParticipantDisc {
         disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
         discovery_db: DiscoveryDB,
         discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
-        writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
-        reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
+        notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
+        notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         small_rng: &mut SmallRng,
     ) -> Self {
         Self {
@@ -190,8 +190,8 @@ impl DomainParticipantDisc {
                 domain_id,
                 discovery_db,
                 discdb_update_receiver,
-                writer_add_sender,
-                reader_add_sender,
+                notify_new_writer_sender,
+                notify_new_reader_sender,
                 small_rng,
             ))),
             disc_thread_receiver,
@@ -298,8 +298,8 @@ struct DomainParticipantInner {
     domain_id: u16,
     participant_id: u16,
     pub my_guid: GUID,
-    add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
-    add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
+    create_writer_sender: mio_channel::SyncSender<WriterIngredients>,
+    create_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     ev_loop_handler: Option<thread::JoinHandle<()>>,
     entity_key_generator: AtomicU32,
     default_publisher_qos: PublisherQosPolicies,
@@ -312,8 +312,8 @@ impl DomainParticipantInner {
         domain_id: u16,
         discovery_db: DiscoveryDB,
         discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
-        writer_add_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
-        reader_add_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
+        notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
+        notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         small_rng: &mut SmallRng,
     ) -> DomainParticipantInner {
         let mut socket_list: BTreeMap<mio_v06::Token, UdpSocket> = BTreeMap::new();
@@ -336,9 +336,15 @@ impl DomainParticipantInner {
             Err(e) => panic!("{:?}", e),
         };
 
+        // rtps 2.3 spec, 9.6.1.1
+        // The domainId and participantId identifiers are used to avoid port conflicts among Participants on the same node.
+        // Each Participant on the same node and in the same domain must use a unique participantId. In the case of multicast,
+        // all Participants in the same domain share the same port number, so the participantId identifier is not used in the port number expression.
         let mut participant_id = 0;
         let mut discovery_uni: Option<UdpSocket> = None;
         while discovery_uni.is_none() && participant_id < 120 {
+            // To simplify the configuration of the SPDP, participantId values ideally start at 0 and are incremented
+            // for each additional Participant on the same node and in the same domain.
             match new_unicast("0.0.0.0", spdp_unicast_port(domain_id, participant_id)) {
                 Ok(s) => discovery_uni = Some(s),
                 Err(_e) => participant_id += 1,
@@ -359,9 +365,9 @@ impl DomainParticipantInner {
         socket_list.insert(USERTRAFFIC_UNI_TOKEN, usertraffic_uni);
         socket_list.insert(USERTRAFFIC_MULTI_TOKEN, usertraffic_multi);
 
-        let (add_writer_sender, add_writer_receiver) =
+        let (create_writer_sender, create_writer_receiver) =
             mio_channel::sync_channel::<WriterIngredients>(10);
-        let (add_reader_sender, add_reader_receiver) =
+        let (create_reader_sender, create_reader_receiver) =
             mio_channel::sync_channel::<ReaderIngredients>(10);
 
         let my_guid = GUID::new_participant_guid(small_rng);
@@ -374,10 +380,10 @@ impl DomainParticipantInner {
                     domain_id,
                     socket_list,
                     guid_prefix,
-                    add_writer_receiver,
-                    add_reader_receiver,
-                    writer_add_sender,
-                    reader_add_sender,
+                    create_writer_receiver,
+                    create_reader_receiver,
+                    notify_new_writer_sender,
+                    notify_new_reader_sender,
                     discovery_db,
                     discdb_update_receiver,
                 );
@@ -392,9 +398,11 @@ impl DomainParticipantInner {
             domain_id,
             participant_id: 0,
             my_guid,
-            add_writer_sender,
-            add_reader_sender,
+            create_writer_sender,
+            create_reader_sender,
             ev_loop_handler: Some(ev_loop_handler),
+            // largest pre-difined entityKey is {00, 02, 01} @DDS-Security 1.1
+            // entity_key of user difined entity start {00, 03, 00}
             entity_key_generator: AtomicU32::new(0x0300),
             default_publisher_qos,
             default_subscriber_qos,
@@ -403,7 +411,7 @@ impl DomainParticipantInner {
     }
 
     fn create_publisher(&self, dp: DomainParticipant, qos: PublisherQos) -> Publisher {
-        // add_writer用のチャネルを生やして、senderはpubにreceiverは自分
+        // generate channel for create_writer. publisher hold its sender and, Self hold receiver
         let guid = GUID::new(
             self.my_guid.guid_prefix,
             EntityId::new_with_entity_kind(self.gen_entity_key(), EntityKind::PUBLISHER),
@@ -413,10 +421,10 @@ impl DomainParticipantInner {
                 guid,
                 self.default_publisher_qos.clone(),
                 dp,
-                self.add_writer_sender.clone(),
+                self.create_writer_sender.clone(),
             ),
             PublisherQos::Policies(q) => {
-                Publisher::new(guid, q, dp, self.add_writer_sender.clone())
+                Publisher::new(guid, q, dp, self.create_writer_sender.clone())
             }
         }
     }
@@ -431,10 +439,10 @@ impl DomainParticipantInner {
                 guid,
                 self.default_subscriber_qos.clone(),
                 dp,
-                self.add_reader_sender.clone(),
+                self.create_reader_sender.clone(),
             ),
             SubscriberQos::Policies(q) => {
-                Subscriber::new(guid, q, dp, self.add_reader_sender.clone())
+                Subscriber::new(guid, q, dp, self.create_reader_sender.clone())
             }
         }
     }
@@ -456,7 +464,12 @@ impl DomainParticipantInner {
     }
 
     pub fn gen_entity_key(&self) -> [u8; 3] {
-        // entity_keyはGUID Prefixを共有するentityの中で一意であればよい
+        // entity_key must unique to participant
+        // This implementation use sequential number to entity_key
+        // rtps 2.3 spec, 9.3.1.2 Mapping of the EntityId_t
+        // When not pre-defined, the entityKey field within the EntityId_t can be chosen arbitrarily
+        // by the middleware implementation as long as the resulting EntityId_t
+        // is unique within the Participant.
         let [_, a, b, c] = self
             .entity_key_generator
             .fetch_add(1, Ordering::Relaxed)

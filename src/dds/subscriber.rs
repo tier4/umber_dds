@@ -26,7 +26,7 @@ impl Subscriber {
         guid: GUID,
         qos: SubscriberQosPolicies,
         dp: DomainParticipant,
-        add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
+        create_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     ) -> Self {
         let default_dr_qos = DataReadedrQosBuilder::new().build();
         Self {
@@ -35,7 +35,7 @@ impl Subscriber {
                 qos,
                 default_dr_qos,
                 dp,
-                add_reader_sender,
+                create_reader_sender,
             ))),
         }
     }
@@ -96,7 +96,7 @@ struct InnerSubscriber {
     qos: SubscriberQosPolicies,
     default_dr_qos: DataReadedrQosPolicies,
     dp: DomainParticipant,
-    add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
+    create_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
 }
 
 impl InnerSubscriber {
@@ -105,14 +105,14 @@ impl InnerSubscriber {
         qos: SubscriberQosPolicies,
         default_dr_qos: DataReadedrQosPolicies,
         dp: DomainParticipant,
-        add_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
+        create_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     ) -> Self {
         Self {
             guid,
             qos,
             default_dr_qos,
             dp,
-            add_reader_sender,
+            create_reader_sender,
         }
     }
 
@@ -161,9 +161,9 @@ impl InnerSubscriber {
             topic: topic.clone(),
             reader_ready_notifier,
         };
-        self.add_reader_sender
+        self.create_reader_sender
             .send(reader_ing)
-            .expect("couldn't send channel 'add_reader_sender'");
+            .expect("couldn't send channel 'create_reader_sender'");
         DataReader::<D>::new(
             dr_qos,
             topic,
@@ -205,9 +205,9 @@ impl InnerSubscriber {
             topic: topic.clone(),
             reader_ready_notifier,
         };
-        self.add_reader_sender
+        self.create_reader_sender
             .send(reader_ing)
-            .expect("couldn't send add_reader_sender");
+            .expect("couldn't send create_reader_sender");
         DataReader::<D>::new(
             dr_qos,
             topic,

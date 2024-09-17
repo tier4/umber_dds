@@ -59,10 +59,10 @@ pub struct Discovery {
     sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
     sedp_builtin_sub_reader: DataReader<SDPBuiltinData>,
     spdp_send_timer: Timer<()>,
-    writers_data: BTreeMap<EntityId, DiscoveredWriterData>,
-    writer_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
-    readers_data: BTreeMap<EntityId, DiscoveredReaderData>,
-    reader_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
+    local_writers_data: BTreeMap<EntityId, DiscoveredWriterData>,
+    notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
+    local_readers_data: BTreeMap<EntityId, DiscoveredReaderData>,
+    notify_new_reader_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
 }
 
 impl Discovery {
@@ -70,8 +70,8 @@ impl Discovery {
         dp: DomainParticipant,
         discovery_db: DiscoveryDB,
         discdb_update_sender: mio_channel::Sender<GuidPrefix>,
-        writer_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
-        reader_add_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
+        notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
+        notify_new_reader_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
     ) -> Self {
         let poll = Poll::new().unwrap();
         let publisher = dp.create_publisher(PublisherQos::Default);
@@ -181,19 +181,19 @@ impl Discovery {
         )
         .expect("couldn't register spdp_send_timer to poll");
         poll.register(
-            &writer_add_receiver,
+            &notify_new_writer_receiver,
             DISC_WRITER_ADD,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("couldn't register writer_add_receiver to poll");
+        .expect("couldn't register notify_new_writer_receiver to poll");
         poll.register(
-            &reader_add_receiver,
+            &notify_new_reader_receiver,
             DISC_READER_ADD,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("couldn't register reader_add_receiver to poll");
+        .expect("couldn't register notify_new_reader_receiver to poll");
         Self {
             dp,
             discovery_db,
@@ -208,10 +208,10 @@ impl Discovery {
             sedp_builtin_sub_writer,
             sedp_builtin_sub_reader,
             spdp_send_timer,
-            writers_data: BTreeMap::new(),
-            writer_add_receiver,
-            readers_data: BTreeMap::new(),
-            reader_add_receiver,
+            local_writers_data: BTreeMap::new(),
+            notify_new_writer_receiver,
+            local_readers_data: BTreeMap::new(),
+            notify_new_reader_receiver,
         }
     }
 
@@ -255,10 +255,10 @@ impl Discovery {
                         }
                         SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
                         DISC_WRITER_ADD => {
-                            while let Ok((eid, data)) = self.writer_add_receiver.try_recv() {
+                            while let Ok((eid, data)) = self.notify_new_writer_receiver.try_recv() {
                                 self.sedp_builtin_pub_writer
                                     .write_builtin_data(data.clone());
-                                self.writers_data.insert(eid, data);
+                                self.local_writers_data.insert(eid, data);
                                 eprintln!(
                                     "<{}>: add writer which has {:?} to writers",
                                     "Discovery: Info".green(),
@@ -267,10 +267,10 @@ impl Discovery {
                             }
                         }
                         DISC_READER_ADD => {
-                            while let Ok((eid, data)) = self.reader_add_receiver.try_recv() {
+                            while let Ok((eid, data)) = self.notify_new_reader_receiver.try_recv() {
                                 self.sedp_builtin_sub_writer
                                     .write_builtin_data(data.clone());
-                                self.readers_data.insert(eid, data);
+                                self.local_readers_data.insert(eid, data);
                                 eprintln!(
                                     "<{}>: add reader which has {:?} to readers",
                                     "Discovery: Info".green(),

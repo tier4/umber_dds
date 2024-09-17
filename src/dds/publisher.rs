@@ -29,7 +29,7 @@ struct InnerPublisher {
     qos: PublisherQosPolicies,
     default_dw_qos: DataWriterQosPolicies,
     dp: DomainParticipant,
-    add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
+    create_writer_sender: mio_channel::SyncSender<WriterIngredients>,
 }
 
 impl Publisher {
@@ -37,7 +37,7 @@ impl Publisher {
         guid: GUID,
         qos: PublisherQosPolicies,
         dp: DomainParticipant,
-        add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
+        create_writer_sender: mio_channel::SyncSender<WriterIngredients>,
     ) -> Self {
         let default_dw_qos = DataWriterQosBuilder::new().build();
         Self {
@@ -46,7 +46,7 @@ impl Publisher {
                 qos,
                 default_dw_qos,
                 dp,
-                add_writer_sender,
+                create_writer_sender,
             ))),
         }
     }
@@ -115,14 +115,14 @@ impl InnerPublisher {
         qos: PublisherQosPolicies,
         default_dw_qos: DataWriterQosPolicies,
         dp: DomainParticipant,
-        add_writer_sender: mio_channel::SyncSender<WriterIngredients>,
+        create_writer_sender: mio_channel::SyncSender<WriterIngredients>,
     ) -> Self {
         Self {
             guid,
             qos,
             default_dw_qos,
             dp,
-            add_writer_sender,
+            create_writer_sender,
         }
     }
 
@@ -172,9 +172,9 @@ impl InnerPublisher {
             topic: topic.clone(),
             writer_command_receiver,
         };
-        self.add_writer_sender
+        self.create_writer_sender
             .send(writer_ing)
-            .expect("couldn't send channel 'add_writer_sender'");
+            .expect("couldn't send channel 'create_writer_sender'");
         DataWriter::<D>::new(writer_command_sender, dw_qos, topic, outter)
     }
     pub fn create_datawriter_with_entityid<D: serde::Serialize>(
@@ -215,9 +215,9 @@ impl InnerPublisher {
             topic: topic.clone(),
             writer_command_receiver,
         };
-        self.add_writer_sender
+        self.create_writer_sender
             .send(writer_ing)
-            .expect("couldn't send channel 'add_writer_sender'");
+            .expect("couldn't send channel 'create_writer_sender'");
         DataWriter::<D>::new(writer_command_sender, dw_qos, topic, outter)
     }
     pub fn get_participant(&self) -> DomainParticipant {
