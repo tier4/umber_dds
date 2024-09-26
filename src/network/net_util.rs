@@ -14,6 +14,7 @@ const D3: u16 = 11;
 
 pub struct UdpMessage {
     pub message: BytesMut,
+    #[allow(dead_code)]
     pub addr: SocketAddr,
 }
 

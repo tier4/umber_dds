@@ -6,7 +6,6 @@ use crate::rtps::cache::{
 use crate::structure::{guid::GUID, parameter_id::ParameterId};
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
-use colored::*;
 use core::cmp::{max, min};
 use serde::{ser::SerializeStruct, Serialize};
 use std::sync::RwLock;
@@ -36,16 +35,6 @@ impl ReaderProxy {
             multicast_locator_list,
             history_cache,
             cache_state: BTreeMap::new(),
-        }
-    }
-
-    pub fn print_cache_states(&self) {
-        eprintln!("<{}>: cache_state", "ReaderProxy: Info".green());
-        for (sn, cfr) in self.cache_state.iter() {
-            eprintln!(
-                "\tsn: {}, state: {:?}, is_relevant: {}",
-                sn.0, cfr.status, cfr.is_relevant
-            );
         }
     }
 
@@ -124,6 +113,7 @@ impl ReaderProxy {
         }
         unsent_changes
     }
+    #[allow(dead_code)]
     pub fn unacked_changes(&self) -> Vec<ChangeForReader> {
         let mut unacked_changes = Vec::new();
         for change_for_reader in self.cache_state.values() {
@@ -175,7 +165,7 @@ pub struct WriterProxy {
     pub unicast_locator_list: Vec<Locator>,
     pub multicast_locator_list: Vec<Locator>,
     pub data_max_size_serialized: i32, // in rtps 2.3 spec, Figure 8.30: long
-    history_cache: Arc<RwLock<HistoryCache>>,
+    _history_cache: Arc<RwLock<HistoryCache>>,
     cache_state: BTreeMap<SequenceNumber, ChangeFromWriter>,
 }
 
@@ -185,25 +175,15 @@ impl WriterProxy {
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
         data_max_size_serialized: i32,
-        history_cache: Arc<RwLock<HistoryCache>>,
+        _history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Self {
         Self {
             remote_writer_guid,
             unicast_locator_list,
             multicast_locator_list,
             data_max_size_serialized,
-            history_cache,
+            _history_cache,
             cache_state: BTreeMap::new(),
-        }
-    }
-
-    pub fn print_cache_states(&self) {
-        eprintln!("<{}>: cache_state", "WriterProxy: Info".green());
-        for (sn, cfw) in self.cache_state.iter() {
-            eprintln!(
-                "\tsn: {}, state: {:?}, is_relevant: {}",
-                sn.0, cfw.status, cfw.is_relevant
-            );
         }
     }
 

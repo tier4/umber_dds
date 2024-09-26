@@ -56,6 +56,7 @@ impl SubMessageHeader {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_endiaan_flag(&self) -> bool {
         match self.flags & 0x01 {
             0 => false,

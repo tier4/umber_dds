@@ -11,6 +11,7 @@ use serde::{ser::SerializeStruct, Serialize};
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
+#[allow(dead_code)]
 #[derive(Clone, Default)]
 pub struct SDPBuiltinData {
     // SPDPdiscoveredParticipantData
@@ -61,10 +62,7 @@ pub struct SDPBuiltinData {
 }
 
 impl SDPBuiltinData {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
+    #[allow(clippy::too_many_arguments)]
     fn from(
         domain_id: Option<u16>,
         domain_tag: Option<String>,
@@ -145,7 +143,7 @@ impl SDPBuiltinData {
         }
     }
 
-    pub fn to_spdp_discoverd_participant_data(&mut self) -> Option<SPDPdiscoveredParticipantData> {
+    pub fn gen_spdp_discoverd_participant_data(&mut self) -> Option<SPDPdiscoveredParticipantData> {
         let domain_id = match self.domain_id {
             Some(did) => did,
             None => return None,
@@ -220,7 +218,7 @@ impl SDPBuiltinData {
         Some((name, data_type))
     }
 
-    pub fn to_readerpoxy(
+    pub fn gen_readerpoxy(
         &mut self,
         history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Option<ReaderProxy> {
@@ -246,7 +244,7 @@ impl SDPBuiltinData {
         ))
     }
 
-    pub fn to_writerproxy(
+    pub fn gen_writerproxy(
         &mut self,
         history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Option<WriterProxy> {
@@ -297,6 +295,7 @@ impl SDPBuiltinData {
     // デフォルト値はrtps 2.3 spec "Table 9.14 - ParameterId mapping and default values"にある。
 }
 
+#[allow(dead_code)]
 #[derive(Debug, serde::Deserialize)]
 struct Property {
     name: String,
@@ -308,6 +307,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
     where
         D: Deserializer<'de>,
     {
+        #[allow(dead_code)]
         enum Field {
             DomainID,
             DomainTag,
@@ -773,6 +773,7 @@ pub struct SubscriptionBuiltinTopicData {
     pub lifespan: Option<Lifespan>,
 }
 impl SubscriptionBuiltinTopicData {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         key: Option<()>,
         publication_key: Option<()>,
@@ -986,6 +987,7 @@ pub struct PublicationBuiltinTopicData {
     pub group_data: Option<GroupData>,
 }
 impl PublicationBuiltinTopicData {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         key: Option<()>,
         publication_key: Option<()>,
@@ -1267,6 +1269,7 @@ pub struct SPDPdiscoveredParticipantData {
 }
 
 impl SPDPdiscoveredParticipantData {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         domain_id: u16,
         domain_tag: String,
@@ -1493,7 +1496,7 @@ mod test {
             Err(e) => panic!("failed deserialize\n{}", e),
         };
         let new_data = deseriarized
-            .to_spdp_discoverd_participant_data()
+            .gen_spdp_discoverd_participant_data()
             .expect("couldn't get spdp data from SDPBuiltinData");
         eprintln!("domain_id: {}", new_data.domain_id);
         eprintln!("domain_tag: {}", new_data.domain_tag);

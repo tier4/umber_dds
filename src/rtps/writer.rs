@@ -61,6 +61,7 @@ enum AckNackState {
     MutsRepair,
 }
 
+#[allow(dead_code)]
 impl Writer {
     pub fn new(
         wi: WriterIngredients,
@@ -437,7 +438,6 @@ impl Writer {
             );
             reader_proxy.acked_changes_set(acknack.reader_sn_state.base() - SequenceNumber(1));
             reader_proxy.requested_changes_set(acknack.reader_sn_state.set());
-            reader_proxy.print_cache_states();
             match self.an_state {
                 AckNackState::Waiting => {
                     // Transistion T9

@@ -29,6 +29,7 @@ pub struct Heartbeat {
 }
 
 impl Heartbeat {
+    #![allow(clippy::too_many_arguments)]
     pub fn new(
         reader_id: EntityId,
         writer_id: EntityId,

@@ -46,6 +46,7 @@ pub enum ChangeForReaderStatusKind {
     Underway,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum ChangeFromWriterStatusKind {
     Lost,
@@ -173,5 +174,11 @@ impl HistoryCache {
         } else {
             max
         }
+    }
+}
+
+impl Default for HistoryCache {
+    fn default() -> Self {
+        Self::new()
     }
 }

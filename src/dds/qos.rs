@@ -466,6 +466,7 @@ pub mod policy {
         pub coherent_access: bool,
         pub ordered_access: bool,
     }
+    #[allow(clippy::derivable_impls)]
     impl Default for Presentation {
         fn default() -> Self {
             Self {
@@ -492,6 +493,15 @@ pub mod policy {
     #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
     pub struct Deadline {
         pub period: Duration,
+    }
+    impl Deadline {
+        /// offer is Publisher side QoS value
+        /// req is Subscriber side QoS value
+        pub(crate) fn is_compatible(offer: Self, req: Self) -> bool {
+            offer.period == req.period
+                || req.period == Self::default().period
+                || offer.period < req.period
+        }
     }
     impl Default for Deadline {
         fn default() -> Self {
@@ -523,6 +533,7 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
     pub struct OwnershipStrength(pub i32);
+    #[allow(clippy::derivable_impls)]
     impl Default for OwnershipStrength {
         fn default() -> Self {
             Self(0)
@@ -534,6 +545,14 @@ pub mod policy {
         pub kind: LivelinessQosKind,
         pub lease_duration: Duration,
     }
+    impl Liveliness {
+        /// offer is Publisher side QoS value
+        /// req is Subscriber side QoS value
+        pub(crate) fn is_compatible(offer: Self, req: Self) -> bool {
+            !(offer.kind == LivelinessQosKind::Automatic
+                && req.kind == LivelinessQosKind::ManualByTopic)
+        }
+    }
     impl Default for Liveliness {
         fn default() -> Self {
             Self {
@@ -543,7 +562,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     pub enum LivelinessQosKind {
         Automatic = 0,
@@ -687,7 +706,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
     pub struct UserData {
         pub value: Vec<u8>,
     }
@@ -696,13 +715,8 @@ pub mod policy {
             4 + self.value.len() as u16
         }
     }
-    impl Default for UserData {
-        fn default() -> Self {
-            Self { value: Vec::new() }
-        }
-    }
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
     pub struct TopicData {
         pub value: Vec<u8>,
     }
@@ -711,24 +725,14 @@ pub mod policy {
             4 + self.value.len() as u16
         }
     }
-    impl Default for TopicData {
-        fn default() -> Self {
-            Self { value: Vec::new() }
-        }
-    }
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, Serialize, Deserialize)]
     pub struct GroupData {
         pub value: Vec<u8>,
     }
     impl GroupData {
         pub fn serialized_size(&self) -> u16 {
             4 + self.value.len() as u16
-        }
-    }
-    impl Default for GroupData {
-        fn default() -> Self {
-            Self { value: Vec::new() }
         }
     }
 
@@ -762,6 +766,7 @@ pub mod policy {
     pub struct TransportPriority {
         pub value: i32,
     }
+    #[allow(clippy::derivable_impls)]
     impl Default for TransportPriority {
         fn default() -> Self {
             Self { value: 0 }
@@ -781,6 +786,7 @@ pub mod policy {
     }
 }
 
+#[allow(unused_imports)]
 mod test {
     use super::policy;
     use crate::structure::Duration;

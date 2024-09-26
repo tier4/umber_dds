@@ -7,7 +7,7 @@ use serde::de::{self, IntoDeserializer};
 
 use super::{
     error::{Error, Result},
-    size::{Infinite, SizeLimit},
+    size::SizeLimit,
 };
 
 /// A deserializer that reads bytes from a buffer.
@@ -302,7 +302,7 @@ where
     fn deserialize_struct<V>(
         self,
         _name: &'static str,
-        fields: &'static [&'static str],
+        _fields: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value>
     where
@@ -430,24 +430,3 @@ const UTF8_CHAR_WIDTH: &[u8; 256] = &[
     3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, // 0xEF
     4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0xFF
 ];
-
-/// Deserializes a slice of bytes into an object.
-pub fn deserialize_data<'de, T, E>(bytes: &[u8]) -> Result<T>
-where
-    T: de::Deserialize<'de>,
-    E: ByteOrder,
-{
-    deserialize_data_from::<_, _, _, E>(bytes, Infinite)
-}
-
-/// Deserializes an object directly from a `Read`.
-pub fn deserialize_data_from<'de, R, T, S, E>(reader: R, size_limit: S) -> Result<T>
-where
-    R: Read,
-    T: de::Deserialize<'de>,
-    S: SizeLimit,
-    E: ByteOrder,
-{
-    let mut deserializer = Deserializer::<_, S, E>::new(reader, size_limit);
-    de::Deserialize::deserialize(&mut deserializer)
-}

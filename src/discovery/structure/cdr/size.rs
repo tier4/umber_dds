@@ -48,27 +48,6 @@ impl SizeLimit for Infinite {
     }
 }
 
-struct Counter {
-    total: u64,
-    limit: Option<u64>,
-}
-
-impl SizeLimit for Counter {
-    fn add(&mut self, n: u64) -> Result<()> {
-        self.total += n;
-        if let Some(limit) = self.limit {
-            if self.total > limit {
-                return Err(Error::SizeLimit);
-            }
-        }
-        Ok(())
-    }
-
-    fn limit(&self) -> Option<u64> {
-        unreachable!();
-    }
-}
-
 struct SizeChecker<S> {
     counter: S,
     pos: usize,
@@ -429,39 +408,5 @@ where
     #[inline]
     fn end(self) -> Result<()> {
         Ok(())
-    }
-}
-
-/// Returns the size that an object would be if serialized.
-pub fn calc_serialized_data_size<T>(value: &T) -> u64
-where
-    T: ser::Serialize + ?Sized,
-{
-    let mut checker = SizeChecker {
-        counter: Counter {
-            total: 0,
-            limit: None,
-        },
-        pos: 0,
-    };
-
-    value.serialize(&mut checker).ok();
-    checker.counter.total
-}
-
-/// Given a maximum size limit, check how large an object would be if it were
-/// to be serialized.
-pub fn calc_serialized_data_size_bounded<T>(value: &T, max: u64) -> Result<u64>
-where
-    T: ser::Serialize + ?Sized,
-{
-    let mut checker = SizeChecker {
-        counter: Bounded(max),
-        pos: 0,
-    };
-
-    match value.serialize(&mut checker) {
-        Ok(_) => Ok(max - checker.counter.0),
-        Err(e) => Err(e),
     }
 }

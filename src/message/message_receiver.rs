@@ -335,7 +335,7 @@ impl MessageReceiver {
                         )));
                     }
                 };
-            let new_data = match deserialized.to_spdp_discoverd_participant_data() {
+            let new_data = match deserialized.gen_spdp_discoverd_participant_data() {
                 Some(nd) => nd,
                 None => return Err(MessageError("received incomplete spdp message".to_string())),
             };
@@ -392,7 +392,7 @@ impl MessageReceiver {
                 "MessageReceiver: Info".green()
             );
             let writer_proxy =
-                match deserialized.to_writerproxy(Arc::new(RwLock::new(HistoryCache::new()))) {
+                match deserialized.gen_writerproxy(Arc::new(RwLock::new(HistoryCache::new()))) {
                     Some(wp) => wp,
                     None => {
                         return Err(MessageError(
@@ -457,7 +457,7 @@ impl MessageReceiver {
                 "MessageReceiver: Info".green()
             );
             let reader_proxy =
-                match deserialized.to_readerpoxy(Arc::new(RwLock::new(HistoryCache::new()))) {
+                match deserialized.gen_readerpoxy(Arc::new(RwLock::new(HistoryCache::new()))) {
                     Some(rp) => rp,
                     None => {
                         return Err(MessageError(

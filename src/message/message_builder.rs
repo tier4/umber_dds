@@ -101,6 +101,7 @@ impl MessageBuilder {
         self.submessages.push(acknack_msg);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn heartbeat(
         &mut self,
         endiannes: Endianness,

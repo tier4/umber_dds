@@ -20,6 +20,8 @@ use std::sync::RwLock;
 pub struct Publisher {
     inner: Arc<RwLock<InnerPublisher>>,
 }
+
+#[allow(dead_code)]
 struct InnerPublisher {
     guid: GUID,
     // rtps 2.3 spec 8.2.4.4
@@ -109,6 +111,7 @@ impl Publisher {
     }
 }
 
+#[allow(dead_code)]
 impl InnerPublisher {
     pub fn new(
         guid: GUID,

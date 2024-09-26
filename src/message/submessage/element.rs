@@ -254,6 +254,7 @@ pub struct Timestamp {
     pub fraction: u32,
 }
 
+#[allow(dead_code)]
 impl Timestamp {
     pub const TIME_INVALID: Self = Self {
         seconds: 0xFFFFFFFF,

@@ -55,6 +55,7 @@ pub struct EventLoop {
 }
 
 impl EventLoop {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         domain_id: u16,
         mut sockets: BTreeMap<Token, UdpSocket>,
@@ -534,6 +535,7 @@ impl EventLoop {
         }
     }
 
+    #[allow(dead_code)]
     fn remove_discoverd_participant(&mut self, participant_guid: GUID) {
         let guid = GUID::new(
             participant_guid.guid_prefix,

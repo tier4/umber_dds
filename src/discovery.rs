@@ -45,6 +45,7 @@ pub mod structure;
 // SEDPbuiltin{Publication/Sunscription}{Writer/Reader}
 // rtps 2.3 spec 8.5.4.2によると、reliableでStatefullな{Writer/Reader}
 
+#[allow(dead_code)]
 pub struct Discovery {
     dp: DomainParticipant,
     discovery_db: DiscoveryDB,
@@ -297,7 +298,7 @@ impl Discovery {
     fn handle_participant_discovery(&mut self) {
         let vd = self.spdp_builtin_participant_reader.take();
         for mut d in vd {
-            if let Some(spdp_data) = d.to_spdp_discoverd_participant_data() {
+            if let Some(spdp_data) = d.gen_spdp_discoverd_participant_data() {
                 if spdp_data.domain_id != self.dp.domain_id() {
                     continue;
                 } else {

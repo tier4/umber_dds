@@ -210,6 +210,7 @@ impl Reader {
             .get_mut(&guid)
             .map(|proxy| proxy.clone())
     }
+    #[allow(dead_code)]
     pub fn matched_writer_remove(&mut self, guid: GUID) {
         self.matched_writers.remove(&guid);
     }

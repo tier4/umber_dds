@@ -9,6 +9,7 @@ pub struct ReaderLocator {
     pub expects_inline_qos: bool,
 }
 
+#[allow(dead_code)]
 impl ReaderLocator {
     pub fn new(
         locator: Locator,

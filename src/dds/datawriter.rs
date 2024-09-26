@@ -6,6 +6,7 @@ use mio_extras::channel as mio_channel;
 use serde::Serialize;
 
 /// DDS DataWriter
+#[allow(dead_code)]
 pub struct DataWriter<D: Serialize> {
     data_phantom: PhantomData<D>,
     qos: DataWriterQosPolicies,

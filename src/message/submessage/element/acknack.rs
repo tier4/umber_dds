@@ -50,11 +50,11 @@ mod test {
         let test_acknack1 = Bytes::from_static(&TEST_ACKNACK1);
         let test_acknack2 = Bytes::from_static(&TEST_ACKNACK2);
         match AckNack::read_from_buffer_with_ctx(E, &test_acknack1) {
-            Ok(ack) => (),
+            Ok(_ack) => (),
             Err(e) => panic!("{:?}", e),
         };
         match AckNack::read_from_buffer_with_ctx(E, &test_acknack2) {
-            Ok(ack) => (),
+            Ok(_ack) => (),
             Err(e) => panic!("{:?}", e),
         };
     }

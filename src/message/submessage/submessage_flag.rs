@@ -4,6 +4,7 @@ use speedy::Endianness;
 macro_rules! from_enndianness {
     ($flag_type: ident) => {
         impl $flag_type {
+            #[allow(dead_code)]
             pub fn from_enndianness(endiann: Endianness) -> BitFlags<$flag_type> {
                 if endiann == Endianness::LittleEndian {
                     $flag_type::Endianness.into()
