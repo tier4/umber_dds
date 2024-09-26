@@ -448,11 +448,17 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
+    /// rtps 2.3 spec, 8.7.2.2 DDS QoS Parameters that affect the wire protoco
+    /// 8.7.2.2.1 DURABILITY
+    /// > While volatile and transient-local durability do not affect the RTPS protocol,
+    /// > support for transient and persistent durability may.
+    /// UmberDDS don't support optional Durability QoS value "Transient" and "Persistent".
+    /// So, this config dosen't affect behavior.
     pub enum Durability {
         Volatile = 0,
         TransientLocal = 1,
-        Transient = 2,
-        Persistent = 3,
+        // Transient = 2, // DDS spec say Support this is optional
+        // Persistent = 3, // DDS spec say Support this is optional
     }
     impl Default for Durability {
         fn default() -> Self {
