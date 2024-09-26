@@ -59,6 +59,8 @@ pub struct Discovery {
     sedp_builtin_pub_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
     sedp_builtin_sub_reader: DataReader<SDPBuiltinData>,
+    p2p_builtin_participant_msg_writer: DataWriter<()>,
+    p2p_builtin_participant_msg_reader: DataReader<()>,
     spdp_send_timer: Timer<()>,
     local_writers_data: BTreeMap<EntityId, DiscoveredWriterData>,
     notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
@@ -172,6 +174,48 @@ impl Discovery {
                 sedp_sub_reader_entity_id,
             );
 
+        // For Writer Liveliness Protocol
+        let p2p_builtin_participant_topic_qos = TopicQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .durability(Durability::TransientLocal)
+            .history(History {
+                kind: HistoryQosKind::KeepLast,
+                depth: 1,
+            })
+            .build();
+        let p2p_builtin_participant_writer_qos = DataWriterQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .durability(Durability::TransientLocal)
+            .history(History {
+                kind: HistoryQosKind::KeepLast,
+                depth: 1,
+            })
+            .build();
+        let p2p_builtin_participant_reader_qos = DataReaderQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .durability(Durability::TransientLocal)
+            .history(History {
+                kind: HistoryQosKind::KeepLast,
+                depth: 1,
+            })
+            .build();
+        let p2p_builtin_participant_topic = dp.create_topic(
+            "DCPSParticipantMessage".to_string(),
+            "ParticipantMessageData".to_string(),
+            TopicKind::WithKey,
+            TopicQos::Policies(p2p_builtin_participant_topic_qos),
+        );
+        let p2p_builtin_participant_msg_writer = publisher.create_datawriter_with_entityid(
+            DataWriterQos::Policies(p2p_builtin_participant_writer_qos),
+            p2p_builtin_participant_topic.clone(),
+            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
+        );
+        let p2p_builtin_participant_msg_reader = subscriber.create_datareader_with_entityid(
+            DataReaderQos::Policies(p2p_builtin_participant_reader_qos),
+            p2p_builtin_participant_topic,
+            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
+        );
+
         let mut spdp_send_timer: Timer<()> = Timer::default();
         spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
         poll.register(
@@ -208,6 +252,8 @@ impl Discovery {
             sedp_builtin_pub_reader,
             sedp_builtin_sub_writer,
             sedp_builtin_sub_reader,
+            p2p_builtin_participant_msg_writer,
+            p2p_builtin_participant_msg_reader,
             spdp_send_timer,
             local_writers_data: BTreeMap::new(),
             notify_new_writer_receiver,
@@ -228,7 +274,7 @@ impl Discovery {
             self.dp.guid(),
             VendorId::THIS_IMPLEMENTATION,
             false,
-            make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR}),
+            make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER}),
             Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
             vec![Locator::new_from_ipv4(
                 spdp_multicast_port(domain_id) as u32,
