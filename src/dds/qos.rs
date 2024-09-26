@@ -13,7 +13,7 @@ pub enum DomainParticipantQos {
     Policies(DomainParticipantQosPolicies),
 }
 
-/// A collection of QoS policies for configuring the behavior of a DataReader
+/// A collection of QoS policies for configuring the behavior of a DomainParticipant
 #[derive(Clone)]
 pub struct DomainParticipantQosPolicies {
     pub user_data: UserData,
@@ -100,20 +100,20 @@ pub struct PublisherQosPolicies {
     pub entity_factory: EntityFactory,
 }
 
-/// for setting QoS on a DataReadedr
+/// for setting QoS on a DataReader
 #[derive(Clone)]
-pub enum DataReadedrQos {
-    /// represent default QoS of DataReadedr.
+pub enum DataReaderQos {
+    /// represent default QoS of DataReader.
     ///
     /// it can get `Subscriber::get_default_datareader_qos()` and
     /// change `Subscriber::set_default_datareader_qos()`
     Default,
-    Policies(DataReadedrQosPolicies),
+    Policies(DataReaderQosPolicies),
 }
 
 /// A collection of QoS policies for configuring the behavior of a DataReader
 #[derive(Clone)]
-pub struct DataReadedrQosPolicies {
+pub struct DataReaderQosPolicies {
     pub durability: Durability,
     pub deadline: Deadline,
     pub latency_budget: LatencyBudget,
@@ -329,9 +329,9 @@ impl PublisherQosBuilder {
     }
 }
 
-/// Builder of DataReadedrQosPolicies
+/// Builder of DataReaderQosPolicies
 #[derive(Default)]
-pub struct DataReadedrQosBuilder {
+pub struct DataReaderQosBuilder {
     durability: Option<Durability>,
     deadline: Option<Deadline>,
     latency_budget: Option<LatencyBudget>,
@@ -346,7 +346,7 @@ pub struct DataReadedrQosBuilder {
     reader_data_lifecycle: Option<ReaderDataLifecycle>,
 }
 
-impl DataReadedrQosBuilder {
+impl DataReaderQosBuilder {
     pub fn new() -> Self {
         Self::default()
     }
@@ -363,8 +363,8 @@ impl DataReadedrQosBuilder {
     builder_method!(time_based_filter, TimeBasedFilter);
     builder_method!(reader_data_lifecycle, ReaderDataLifecycle);
 
-    pub fn build(self) -> DataReadedrQosPolicies {
-        DataReadedrQosPolicies {
+    pub fn build(self) -> DataReaderQosPolicies {
+        DataReaderQosPolicies {
             durability: self.durability.unwrap_or_default(),
             deadline: self.deadline.unwrap_or_default(),
             latency_budget: self.latency_budget.unwrap_or_default(),

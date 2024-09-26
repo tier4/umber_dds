@@ -1,6 +1,6 @@
 use crate::dds::{
     qos::{
-        policy::*, DataReadedrQos, DataReadedrQosBuilder, DataWriterQos, DataWriterQosBuilder,
+        policy::*, DataReaderQos, DataReaderQosBuilder, DataWriterQos, DataWriterQosBuilder,
         PublisherQos, SubscriberQos, TopicQos, TopicQosBuilder,
     },
     tokens::*,
@@ -90,8 +90,8 @@ impl Discovery {
                 .reliability(Reliability::default_besteffort())
                 .build(),
         );
-        let spdp_reader_qos = DataReadedrQos::Policies(
-            DataReadedrQosBuilder::new()
+        let spdp_reader_qos = DataReaderQos::Policies(
+            DataReaderQosBuilder::new()
                 .reliability(Reliability::default_besteffort())
                 .build(),
         );
@@ -121,8 +121,8 @@ impl Discovery {
                 .reliability(Reliability::default_reliable())
                 .build(),
         );
-        let sedp_reader_qos = DataReadedrQos::Policies(
-            DataReadedrQosBuilder::new()
+        let sedp_reader_qos = DataReaderQos::Policies(
+            DataReaderQosBuilder::new()
                 .reliability(Reliability::default_reliable())
                 .build(),
         );

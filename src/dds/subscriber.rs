@@ -1,7 +1,7 @@
 use crate::dds::{
     datareader::DataReader,
     participant::DomainParticipant,
-    qos::{DataReadedrQos, DataReadedrQosBuilder, DataReadedrQosPolicies, SubscriberQosPolicies},
+    qos::{DataReaderQos, DataReaderQosBuilder, DataReaderQosPolicies, SubscriberQosPolicies},
     topic::Topic,
 };
 use crate::message::submessage::element::Locator;
@@ -28,7 +28,7 @@ impl Subscriber {
         dp: DomainParticipant,
         create_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     ) -> Self {
-        let default_dr_qos = DataReadedrQosBuilder::new().build();
+        let default_dr_qos = DataReaderQosBuilder::new().build();
         Self {
             inner: Arc::new(RwLock::new(InnerSubscriber::new(
                 guid,
@@ -41,7 +41,7 @@ impl Subscriber {
     }
     pub fn create_datareader<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: DataReadedrQos,
+        qos: DataReaderQos,
         topic: Topic,
     ) -> DataReader<D> {
         self.inner
@@ -51,7 +51,7 @@ impl Subscriber {
     }
     pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: DataReadedrQos,
+        qos: DataReaderQos,
         topic: Topic,
         entity_id: EntityId,
     ) -> DataReader<D> {
@@ -73,13 +73,13 @@ impl Subscriber {
             .expect("couldn't write lock InnerSubscriber")
             .set_qos(qos)
     }
-    pub fn get_default_datareader_qos(&self) -> DataReadedrQosPolicies {
+    pub fn get_default_datareader_qos(&self) -> DataReaderQosPolicies {
         self.inner
             .read()
             .expect("couldn't read lock InnerSubscriber")
             .get_default_datareader_qos()
     }
-    pub fn set_default_datareader_qos(&mut self, qos: DataReadedrQosPolicies) {
+    pub fn set_default_datareader_qos(&mut self, qos: DataReaderQosPolicies) {
         self.inner
             .write()
             .expect("couldn't write lock InnerSubscriber")
@@ -95,7 +95,7 @@ struct InnerSubscriber {
     // These two entities have GUIDs that are defined exactly
     // as described for Endpoints in clause 8.2.4.3 above.
     qos: SubscriberQosPolicies,
-    default_dr_qos: DataReadedrQosPolicies,
+    default_dr_qos: DataReaderQosPolicies,
     dp: DomainParticipant,
     create_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
 }
@@ -104,7 +104,7 @@ impl InnerSubscriber {
     pub fn new(
         guid: GUID,
         qos: SubscriberQosPolicies,
-        default_dr_qos: DataReadedrQosPolicies,
+        default_dr_qos: DataReaderQosPolicies,
         dp: DomainParticipant,
         create_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     ) -> Self {
@@ -127,13 +127,13 @@ impl InnerSubscriber {
 
     pub fn create_datareader<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: DataReadedrQos,
+        qos: DataReaderQos,
         topic: Topic,
         subscriber: Subscriber,
     ) -> DataReader<D> {
         let dr_qos = match qos {
-            DataReadedrQos::Default => self.default_dr_qos.clone(),
-            DataReadedrQos::Policies(q) => q,
+            DataReaderQos::Default => self.default_dr_qos.clone(),
+            DataReaderQos::Policies(q) => q,
         };
         let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
@@ -176,14 +176,14 @@ impl InnerSubscriber {
 
     pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
-        qos: DataReadedrQos,
+        qos: DataReaderQos,
         topic: Topic,
         subscriber: Subscriber,
         entity_id: EntityId,
     ) -> DataReader<D> {
         let dr_qos = match qos {
-            DataReadedrQos::Default => self.default_dr_qos.clone(),
-            DataReadedrQos::Policies(q) => q,
+            DataReaderQos::Default => self.default_dr_qos.clone(),
+            DataReaderQos::Policies(q) => q,
         };
         let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
@@ -218,10 +218,10 @@ impl InnerSubscriber {
         )
     }
 
-    pub fn get_default_datareader_qos(&self) -> DataReadedrQosPolicies {
+    pub fn get_default_datareader_qos(&self) -> DataReaderQosPolicies {
         self.default_dr_qos.clone()
     }
-    pub fn set_default_datareader_qos(&mut self, qos: DataReadedrQosPolicies) {
+    pub fn set_default_datareader_qos(&mut self, qos: DataReaderQosPolicies) {
         self.default_dr_qos = qos;
     }
 }
