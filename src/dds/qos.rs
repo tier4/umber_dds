@@ -460,6 +460,13 @@ pub mod policy {
         // Transient = 2, // DDS spec say Support this is optional
         // Persistent = 3, // DDS spec say Support this is optional
     }
+    impl Durability {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered as usize >= requested as usize
+        }
+    }
     impl Default for Durability {
         fn default() -> Self {
             Self::Volatile
@@ -471,6 +478,13 @@ pub mod policy {
         pub access_scope: PresentationQosAccessScopeKind,
         pub coherent_access: bool,
         pub ordered_access: bool,
+    }
+    impl Presentation {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered.access_scope as usize >= requested.access_scope as usize
+        }
     }
     #[allow(clippy::derivable_impls)]
     impl Default for Presentation {
@@ -501,12 +515,10 @@ pub mod policy {
         pub period: Duration,
     }
     impl Deadline {
-        /// offer is Publisher side QoS value
-        /// req is Subscriber side QoS value
-        pub(crate) fn is_compatible(offer: Self, req: Self) -> bool {
-            offer.period == req.period
-                || req.period == Self::default().period
-                || offer.period < req.period
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            requested.period == Self::default().period || offered.period <= requested.period
         }
     }
     impl Default for Deadline {
@@ -519,6 +531,13 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
     pub struct LatencyBudget(pub Duration);
+    impl LatencyBudget {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered.0 <= requested.0
+        }
+    }
     impl Default for LatencyBudget {
         fn default() -> Self {
             Self(Duration::ZERO)
@@ -530,6 +549,13 @@ pub mod policy {
     pub enum Ownership {
         Shared = 0,
         Exclusive = 1,
+    }
+    impl Ownership {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered as usize == requested as usize
+        }
     }
     impl Default for Ownership {
         fn default() -> Self {
@@ -552,11 +578,10 @@ pub mod policy {
         pub lease_duration: Duration,
     }
     impl Liveliness {
-        /// offer is Publisher side QoS value
-        /// req is Subscriber side QoS value
-        pub(crate) fn is_compatible(offer: Self, req: Self) -> bool {
-            !(offer.kind == LivelinessQosKind::Automatic
-                && req.kind == LivelinessQosKind::ManualByTopic)
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered.kind as usize >= requested.kind as usize
         }
     }
     impl Default for Liveliness {
@@ -615,6 +640,12 @@ pub mod policy {
                 },
             }
         }
+
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered.kind as usize >= requested.kind as usize
+        }
     }
 
     #[derive(Clone, Copy, Debug, Serialize_repr, Deserialize_repr)]
@@ -629,6 +660,13 @@ pub mod policy {
     pub enum DestinationOrder {
         ByReceptionTimestamp = 0,
         BySourceTimestamp = 1,
+    }
+    impl DestinationOrder {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered as usize >= requested as usize
+        }
     }
     impl Default for DestinationOrder {
         fn default() -> Self {
