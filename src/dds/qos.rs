@@ -354,6 +354,7 @@ impl DataReadedrQosBuilder {
     builder_method!(durability, Durability);
     builder_method!(deadline, Deadline);
     builder_method!(latency_budget, LatencyBudget);
+    builder_method!(liveliness, Liveliness);
     builder_method!(reliability, Reliability);
     builder_method!(destination_order, DestinationOrder);
     builder_method!(history, History);
