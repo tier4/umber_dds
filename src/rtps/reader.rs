@@ -198,6 +198,16 @@ impl Reader {
             "Reader: Info".green(),
             remote_writer_guid
         );
+        if let Err(e) = self.qos.is_compatible(&qos) {
+            eprintln!(
+                "<{}>: add matched Writer which has {:?} failed. {}",
+                "Reader: Warn".yellow(),
+                remote_writer_guid,
+                e
+            );
+            return;
+        }
+
         self.matched_writers.insert(
             remote_writer_guid,
             WriterProxy::new(

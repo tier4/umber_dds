@@ -80,6 +80,51 @@ pub struct DataWriterQosPolicies {
     pub writer_data_lifecycle: WriterDataLifecycle,
 }
 
+impl DataWriterQosPolicies {
+    pub fn is_compatible(&self, qos: &DataReadedrQosPolicies) -> Result<(), String> {
+        let mut msg = String::new();
+        if !Durability::is_compatible(self.durability, qos.durability) {
+            msg += &format!(
+                "durability is not compatible. self: {:?}, writer: {:?}\n",
+                self.durability, qos.durability
+            );
+        } else if !Deadline::is_compatible(self.deadline, qos.deadline) {
+            msg += &format!(
+                "deadline is not compatible. self: {:?}, writer: {:?}\n",
+                self.deadline, qos.deadline
+            );
+        } else if !LatencyBudget::is_compatible(self.latency_budget, qos.latency_budget) {
+            msg += &format!(
+                "latency_budget is not compatible. self: {:?}, writer: {:?}\n",
+                self.latency_budget, qos.latency_budget
+            );
+        } else if !Ownership::is_compatible(self.ownership, qos.ownership) {
+            msg += &format!(
+                "ownership is not compatible. self: {:?}, writer: {:?}\n",
+                self.ownership, qos.ownership
+            );
+        } else if !Liveliness::is_compatible(self.liveliness, qos.liveliness) {
+            msg += &format!(
+                "liveliness is not compatible. self: {:?}, writer: {:?}\n",
+                self.liveliness, qos.liveliness
+            );
+        } else if !Reliability::is_compatible(self.reliability, qos.reliability) {
+            msg += &format!(
+                "reliability is not compatible. self: {:?}, writer: {:?}\n",
+                self.reliability, qos.reliability
+            );
+        } else if !DestinationOrder::is_compatible(self.destination_order, qos.destination_order) {
+            msg += &format!(
+                "destination_order is not compatible. self: {:?}, writer: {:?}\n",
+                self.destination_order, qos.destination_order
+            );
+        } else {
+            return Ok(());
+        }
+        Err(msg)
+    }
+}
+
 /// for setting QoS on a Publisher
 #[derive(Clone)]
 pub enum PublisherQos {
@@ -126,6 +171,50 @@ pub struct DataReadedrQosPolicies {
     pub ownership: Ownership,
     pub time_based_filter: TimeBasedFilter,
     pub reader_data_lifecycle: ReaderDataLifecycle,
+}
+impl DataReadedrQosPolicies {
+    pub fn is_compatible(&self, qos: &DataWriterQosPolicies) -> Result<(), String> {
+        let mut msg = String::new();
+        if !Durability::is_compatible(qos.durability, self.durability) {
+            msg += &format!(
+                "durability is not compatible. self: {:?}, writer: {:?}\n",
+                self.durability, qos.durability
+            );
+        } else if !Deadline::is_compatible(qos.deadline, self.deadline) {
+            msg += &format!(
+                "deadline is not compatible. self: {:?}, writer: {:?}\n",
+                self.deadline, qos.deadline
+            );
+        } else if !LatencyBudget::is_compatible(qos.latency_budget, self.latency_budget) {
+            msg += &format!(
+                "latency_budget is not compatible. self: {:?}, writer: {:?}\n",
+                self.latency_budget, qos.latency_budget
+            );
+        } else if !Ownership::is_compatible(qos.ownership, self.ownership) {
+            msg += &format!(
+                "ownership is not compatible. self: {:?}, writer: {:?}\n",
+                self.ownership, qos.ownership
+            );
+        } else if !Liveliness::is_compatible(qos.liveliness, self.liveliness) {
+            msg += &format!(
+                "liveliness is not compatible. self: {:?}, writer: {:?}\n",
+                self.liveliness, qos.liveliness
+            );
+        } else if !Reliability::is_compatible(qos.reliability, self.reliability) {
+            msg += &format!(
+                "reliability is not compatible. self: {:?}, writer: {:?}\n",
+                self.reliability, qos.reliability
+            );
+        } else if !DestinationOrder::is_compatible(qos.destination_order, self.destination_order) {
+            msg += &format!(
+                "destination_order is not compatible. self: {:?}, writer: {:?}\n",
+                self.destination_order, qos.destination_order
+            );
+        } else {
+            return Ok(());
+        }
+        Err(msg)
+    }
 }
 
 /// for setting QoS on a Subscriber
