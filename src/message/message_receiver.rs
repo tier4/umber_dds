@@ -1,3 +1,4 @@
+use crate::dds::qos::DataWriterQosBuilder;
 use crate::discovery::structure::{cdr::deserialize, data::SDPBuiltinData};
 use crate::message::{
     submessage::{element::*, submessage_flag::*, *},
@@ -356,6 +357,7 @@ impl MessageReceiver {
                         new_data.metarraffic_unicast_locator_list,
                         new_data.metarraffic_multicast_locator_list,
                         0,
+                        DataWriterQosBuilder::new().build(),
                     );
                     r.add_change(self.source_guid_prefix, change)
                 }
@@ -419,6 +421,7 @@ impl MessageReceiver {
                         writer_proxy.unicast_locator_list.clone(),
                         writer_proxy.multicast_locator_list.clone(),
                         writer_proxy.data_max_size_serialized,
+                        writer_proxy.qos.clone(),
                     )
                 }
             }
@@ -484,6 +487,7 @@ impl MessageReceiver {
                         reader_proxy.expects_inline_qos,
                         reader_proxy.unicast_locator_list.clone(),
                         reader_proxy.multicast_locator_list.clone(),
+                        reader_proxy.qos.clone(),
                     )
                 }
             }

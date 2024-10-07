@@ -1,4 +1,7 @@
-use crate::dds::{qos::policy::ReliabilityQosKind, Topic};
+use crate::dds::{
+    qos::{policy::ReliabilityQosKind, DataReadedrQosPolicies, DataWriterQosPolicies},
+    Topic,
+};
 use crate::discovery::structure::data::DiscoveredReaderData;
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
@@ -38,6 +41,7 @@ pub struct Reader {
     matched_writers: BTreeMap<GUID, WriterProxy>,
     // This implementation spesific
     topic: Topic,
+    qos: DataReadedrQosPolicies,
     endianness: Endianness,
     reader_ready_notifier: mio_channel::Sender<()>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
@@ -61,6 +65,7 @@ impl Reader {
             reader_cache: ri.rhc,
             matched_writers: BTreeMap::new(),
             topic: ri.topic,
+            qos: ri.qos,
             endianness: Endianness::LittleEndian,
             reader_ready_notifier: ri.reader_ready_notifier,
             set_reader_hb_timer_sender,
@@ -81,6 +86,7 @@ impl Reader {
             self.expectsinline_qos,
             self.unicast_locator_list.clone(),
             self.multicast_locator_list.clone(),
+            self.qos.clone(),
             Arc::new(RwLock::new(HistoryCache::new())),
         );
         let sub_data = self.topic.sub_builtin_topic_data();
@@ -185,6 +191,7 @@ impl Reader {
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
         data_max_size_serialized: i32,
+        qos: DataWriterQosPolicies,
     ) {
         eprintln!(
             "<{}>: add matched Writer which has {:?}",
@@ -198,6 +205,7 @@ impl Reader {
                 unicast_locator_list,
                 multicast_locator_list,
                 data_max_size_serialized,
+                qos,
                 self.reader_cache.clone(),
             ),
         );
@@ -402,6 +410,7 @@ pub struct ReaderIngredients {
     pub rhc: Arc<RwLock<HistoryCache>>,
     // This implementation spesific
     pub topic: Topic,
+    pub qos: DataReadedrQosPolicies,
     pub reader_ready_notifier: mio_channel::Sender<()>,
 }
 

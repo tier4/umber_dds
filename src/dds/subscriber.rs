@@ -160,6 +160,7 @@ impl InnerSubscriber {
             heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),
             topic: topic.clone(),
+            qos: dr_qos.clone(),
             reader_ready_notifier,
         };
         self.create_reader_sender
@@ -204,6 +205,7 @@ impl InnerSubscriber {
             heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),
             topic: topic.clone(),
+            qos: dr_qos.clone(),
             reader_ready_notifier,
         };
         self.create_reader_sender

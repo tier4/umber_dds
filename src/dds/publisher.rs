@@ -173,6 +173,7 @@ impl InnerPublisher {
             nack_suppression_duration: Duration::ZERO,
             data_max_size_serialized: 0,
             topic: topic.clone(),
+            qos: dw_qos.clone(),
             writer_command_receiver,
         };
         self.create_writer_sender
@@ -216,6 +217,7 @@ impl InnerPublisher {
             nack_suppression_duration: Duration::ZERO,
             data_max_size_serialized: 0,
             topic: topic.clone(),
+            qos: dw_qos.clone(),
             writer_command_receiver,
         };
         self.create_writer_sender

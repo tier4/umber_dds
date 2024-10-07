@@ -1,3 +1,4 @@
+use crate::dds::qos::{DataReadedrQosPolicies, DataWriterQosPolicies};
 use crate::message::submessage::element::{Locator, SequenceNumber};
 use crate::rtps::cache::{
     ChangeForReader, ChangeForReaderStatusKind, ChangeFromWriter, ChangeFromWriterStatusKind,
@@ -16,6 +17,7 @@ pub struct ReaderProxy {
     pub expects_inline_qos: bool,
     pub unicast_locator_list: Vec<Locator>,
     pub multicast_locator_list: Vec<Locator>,
+    pub qos: DataReadedrQosPolicies,
     history_cache: Arc<RwLock<HistoryCache>>,
     cache_state: BTreeMap<SequenceNumber, ChangeForReader>,
 }
@@ -26,6 +28,7 @@ impl ReaderProxy {
         expects_inline_qos: bool,
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
+        qos: DataReadedrQosPolicies,
         history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Self {
         Self {
@@ -33,6 +36,7 @@ impl ReaderProxy {
             expects_inline_qos,
             unicast_locator_list,
             multicast_locator_list,
+            qos,
             history_cache,
             cache_state: BTreeMap::new(),
         }
@@ -165,6 +169,7 @@ pub struct WriterProxy {
     pub unicast_locator_list: Vec<Locator>,
     pub multicast_locator_list: Vec<Locator>,
     pub data_max_size_serialized: i32, // in rtps 2.3 spec, Figure 8.30: long
+    pub qos: DataWriterQosPolicies,
     _history_cache: Arc<RwLock<HistoryCache>>,
     cache_state: BTreeMap<SequenceNumber, ChangeFromWriter>,
 }
@@ -175,6 +180,7 @@ impl WriterProxy {
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
         data_max_size_serialized: i32,
+        qos: DataWriterQosPolicies,
         _history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Self {
         Self {
@@ -182,6 +188,7 @@ impl WriterProxy {
             unicast_locator_list,
             multicast_locator_list,
             data_max_size_serialized,
+            qos,
             _history_cache,
             cache_state: BTreeMap::new(),
         }

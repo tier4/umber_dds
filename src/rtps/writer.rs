@@ -1,4 +1,7 @@
-use crate::dds::{qos::policy::ReliabilityQosKind, Topic};
+use crate::dds::{
+    qos::{policy::ReliabilityQosKind, DataReadedrQosPolicies, DataWriterQosPolicies},
+    Topic,
+};
 use crate::discovery::structure::data::DiscoveredWriterData;
 use crate::message::{
     message_builder::MessageBuilder,
@@ -46,6 +49,7 @@ pub struct Writer {
     matched_readers: BTreeMap<GUID, ReaderProxy>,
     // This implementation spesific
     topic: Topic,
+    qos: DataWriterQosPolicies,
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
     set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
@@ -84,6 +88,7 @@ impl Writer {
             reader_locators: Vec::new(),
             matched_readers: BTreeMap::new(),
             topic: wi.topic,
+            qos: wi.qos,
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
             set_writer_nack_sender,
@@ -99,6 +104,7 @@ impl Writer {
             self.unicast_locator_list.clone(),
             self.multicast_locator_list.clone(),
             self.data_max_size_serialized,
+            self.qos.clone(),
             Arc::new(RwLock::new(HistoryCache::new())),
         );
         let pub_data = self.topic.pub_builtin_topic_data();
@@ -678,6 +684,7 @@ impl Writer {
         expects_inline_qos: bool,
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
+        qos: DataReadedrQosPolicies,
     ) {
         eprintln!(
             "<{}>: add matched Reader which has {:?}",
@@ -691,6 +698,7 @@ impl Writer {
                 expects_inline_qos,
                 unicast_locator_list,
                 multicast_locator_list,
+                qos,
                 self.writer_cache.clone(),
             ),
         );
@@ -742,6 +750,7 @@ pub struct WriterIngredients {
     pub data_max_size_serialized: i32,
     // This implementation spesific
     pub topic: Topic,
+    pub qos: DataWriterQosPolicies,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
 }
 pub struct WriterCmd {
