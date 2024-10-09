@@ -1,4 +1,8 @@
-use crate::dds::{publisher::Publisher, qos::DataWriterQosPolicies, topic::Topic};
+use crate::dds::{
+    publisher::Publisher,
+    qos::{policy::LivelinessQosKind, DataWriterQosPolicies},
+    topic::Topic,
+};
 use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
 use crate::rtps::writer::*;
 use core::marker::PhantomData;
@@ -60,5 +64,21 @@ impl<D: Serialize> DataWriter<D> {
         self.writer_command_sender
             .send(writer_cmd)
             .expect("couldn't send message");
+    }
+
+    pub fn assert_liveliness(&self) -> Result<(), String> {
+        match self.qos.liveliness.kind {
+            LivelinessQosKind::Automatic => Ok(()),
+            LivelinessQosKind::ManualByParticipant => {
+                unimplemented!(
+                    "behavior of LivelinessQosKind::ManualByParticipant is not yet implemented"
+                );
+            }
+            LivelinessQosKind::ManualByTopic => {
+                unimplemented!(
+                    "behavior of LivelinessQosKind::ManualByTopic is not yet implemented"
+                );
+            }
+        }
     }
 }
