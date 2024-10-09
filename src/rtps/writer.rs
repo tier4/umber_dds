@@ -1,9 +1,12 @@
 use crate::dds::{qos::policy::ReliabilityQosKind, Topic};
-use crate::discovery::structure::data::DiscoveredWriterData;
+use crate::discovery::structure::data::{
+    DiscoveredWriterData, ParticipantMessageData, ParticipantMessageKind,
+};
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
-        AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, SerializedPayload, Timestamp,
+        AckNack, Count, Locator, RepresentationIdentifier, SequenceNumber, SequenceNumberSet,
+        SerializedPayload, Timestamp,
     },
 };
 use crate::network::udp_sender::UdpSender;
@@ -190,12 +193,38 @@ impl Writer {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
             match cmd {
                 WriterCmd::WriteData(sp) => self.handle_write_data_cmd(sp),
-                WriterCmd::AssertLiveliness() => self.handle_assert_liveliness_cmd(),
+                WriterCmd::AssertLiveliness((k, d)) => self.handle_assert_liveliness_cmd(k, d),
             }
         }
     }
 
-    fn handle_assert_liveliness_cmd(&mut self) {
+    fn handle_assert_liveliness_cmd(&mut self, kind: ParticipantMessageKind, data: Vec<u8>) {
+        let data = ParticipantMessageData::new(self.guid, kind, data);
+        let serialized_payload =
+            SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
+        let a_change = CacheChange::new(
+            ChangeKind::Alive,
+            self.guid,
+            SequenceNumber(1), // TODO: what should I set?
+            // analyzing the packet capture, it appeared that CycloneDDS fixed this value to 1.
+            Some(serialized_payload),
+            InstantHandle {},
+        );
+        // build RTPS Message
+        let mut message_builder = MessageBuilder::new();
+        let time_stamp = Timestamp::now();
+        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+        message_builder.data(
+            Endianness::LittleEndian,
+            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
+            EntityId::UNKNOW,
+            a_change,
+        );
+        let message = message_builder.build(self.guid_prefix());
+        let message_buf = message
+            .write_to_vec_with_ctx(self.endianness)
+            .expect("couldn't serialize message");
+        // send message_buf to multicast
         todo!();
     }
 
@@ -757,5 +786,5 @@ pub struct WriterIngredients {
 }
 pub enum WriterCmd {
     WriteData(Option<SerializedPayload>),
-    AssertLiveliness(),
+    AssertLiveliness((ParticipantMessageKind, Vec<u8>)),
 }

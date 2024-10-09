@@ -3,6 +3,7 @@ use crate::dds::{
     qos::{policy::LivelinessQosKind, DataWriterQosPolicies},
     topic::Topic,
 };
+use crate::discovery::structure::data::ParticipantMessageKind;
 use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
 use crate::rtps::writer::*;
 use core::marker::PhantomData;
@@ -62,23 +63,14 @@ impl<D: Serialize> DataWriter<D> {
             .expect("couldn't send message");
     }
 
-    pub fn assert_liveliness(&self) -> Result<(), String> {
+    pub fn assert_liveliness(&self) {
         match self.qos.liveliness.kind {
-            LivelinessQosKind::Automatic => Ok(()),
-            LivelinessQosKind::ManualByParticipant => {
-                unimplemented!(
-                    "behavior of LivelinessQosKind::ManualByParticipant is not yet implemented"
-                );
-                let writer_cmd = WriterCmd::AssertLiveliness();
-                self.writer_command_sender
-                    .send(writer_cmd)
-                    .expect("couldn't send message");
-            }
-            LivelinessQosKind::ManualByTopic => {
-                unimplemented!(
-                    "behavior of LivelinessQosKind::ManualByTopic is not yet implemented"
-                );
-                let writer_cmd = WriterCmd::AssertLiveliness();
+            LivelinessQosKind::Automatic => (),
+            LivelinessQosKind::ManualByParticipant | LivelinessQosKind::ManualByTopic => {
+                let writer_cmd = WriterCmd::AssertLiveliness((
+                    ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE,
+                    Vec::new(),
+                ));
                 self.writer_command_sender
                     .send(writer_cmd)
                     .expect("couldn't send message");
