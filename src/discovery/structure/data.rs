@@ -11,6 +11,30 @@ use serde::{ser::SerializeStruct, Serialize};
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
+/// rtps spec, 9.6.2.1 Data Representation for the ParticipantMessageData Built-in Endpoints
+#[derive(Clone, Serialize, serde::Deserialize)]
+pub struct ParticipantMessageData {
+    pub guid: GUID,
+    pub kind: ParticipantMessageKind,
+    pub data: Vec<u8>,
+}
+
+#[derive(Clone, Serialize, serde::Deserialize)]
+pub struct ParticipantMessageKind {
+    value: [u8; 4],
+}
+impl ParticipantMessageKind {
+    pub const UNKNOWN: Self = Self {
+        value: [0x00, 0x00, 0x00, 0x00],
+    };
+    pub const AUTOMATIC_LIVELINESS_UPDATE: Self = Self {
+        value: [0x00, 0x00, 0x00, 0x01],
+    };
+    pub const MANUAL_LIVELINESS_UPDATE: Self = Self {
+        value: [0x00, 0x00, 0x00, 0x02],
+    };
+}
+
 #[allow(dead_code)]
 #[derive(Clone, Default)]
 pub struct SDPBuiltinData {
