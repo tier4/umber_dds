@@ -18,6 +18,11 @@ pub struct ParticipantMessageData {
     pub kind: ParticipantMessageKind,
     pub data: Vec<u8>,
 }
+impl ParticipantMessageData {
+    pub fn new(guid: GUID, kind: ParticipantMessageKind, data: Vec<u8>) -> Self {
+        Self { guid, kind, data }
+    }
+}
 
 #[derive(Clone, Serialize, serde::Deserialize)]
 pub struct ParticipantMessageKind {
