@@ -47,9 +47,7 @@ impl<D: Serialize> DataWriter<D> {
     pub fn write(&self, data: D) {
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
-        let writer_cmd = WriterCmd {
-            serialized_payload: Some(serialized_payload),
-        };
+        let writer_cmd = WriterCmd::WriteData(Some(serialized_payload));
         self.writer_command_sender
             .send(writer_cmd)
             .expect("couldn't send message");
@@ -58,9 +56,7 @@ impl<D: Serialize> DataWriter<D> {
     pub(crate) fn write_builtin_data(&self, data: D) {
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
-        let writer_cmd = WriterCmd {
-            serialized_payload: Some(serialized_payload),
-        };
+        let writer_cmd = WriterCmd::WriteData(Some(serialized_payload));
         self.writer_command_sender
             .send(writer_cmd)
             .expect("couldn't send message");
@@ -73,11 +69,19 @@ impl<D: Serialize> DataWriter<D> {
                 unimplemented!(
                     "behavior of LivelinessQosKind::ManualByParticipant is not yet implemented"
                 );
+                let writer_cmd = WriterCmd::AssertLiveliness();
+                self.writer_command_sender
+                    .send(writer_cmd)
+                    .expect("couldn't send message");
             }
             LivelinessQosKind::ManualByTopic => {
                 unimplemented!(
                     "behavior of LivelinessQosKind::ManualByTopic is not yet implemented"
                 );
+                let writer_cmd = WriterCmd::AssertLiveliness();
+                self.writer_command_sender
+                    .send(writer_cmd)
+                    .expect("couldn't send message");
             }
         }
     }
