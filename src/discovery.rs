@@ -9,7 +9,8 @@ use crate::dds::{
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
-    DiscoveredReaderData, DiscoveredWriterData, SDPBuiltinData, SPDPdiscoveredParticipantData,
+    DiscoveredReaderData, DiscoveredWriterData, ParticipantMessageData, SDPBuiltinData,
+    SPDPdiscoveredParticipantData,
 };
 use crate::message::{
     message_header::ProtocolVersion,
@@ -59,8 +60,8 @@ pub struct Discovery {
     sedp_builtin_pub_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
     sedp_builtin_sub_reader: DataReader<SDPBuiltinData>,
-    p2p_builtin_participant_msg_writer: DataWriter<()>,
-    p2p_builtin_participant_msg_reader: DataReader<()>,
+    p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData>,
+    p2p_builtin_participant_msg_reader: DataReader<ParticipantMessageData>,
     spdp_send_timer: Timer<()>,
     local_writers_data: BTreeMap<EntityId, DiscoveredWriterData>,
     notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
@@ -205,16 +206,18 @@ impl Discovery {
             TopicKind::WithKey,
             TopicQos::Policies(p2p_builtin_participant_topic_qos),
         );
-        let p2p_builtin_participant_msg_writer = publisher.create_datawriter_with_entityid(
-            DataWriterQos::Policies(p2p_builtin_participant_writer_qos),
-            p2p_builtin_participant_topic.clone(),
-            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
-        );
-        let p2p_builtin_participant_msg_reader = subscriber.create_datareader_with_entityid(
-            DataReaderQos::Policies(p2p_builtin_participant_reader_qos),
-            p2p_builtin_participant_topic,
-            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
-        );
+        let p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData> = publisher
+            .create_datawriter_with_entityid(
+                DataWriterQos::Policies(p2p_builtin_participant_writer_qos),
+                p2p_builtin_participant_topic.clone(),
+                EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
+            );
+        let p2p_builtin_participant_msg_reader: DataReader<ParticipantMessageData> = subscriber
+            .create_datareader_with_entityid(
+                DataReaderQos::Policies(p2p_builtin_participant_reader_qos),
+                p2p_builtin_participant_topic,
+                EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
+            );
 
         let mut spdp_send_timer: Timer<()> = Timer::default();
         spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
