@@ -39,11 +39,10 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
 
     /// get available data received from DataWriter
     ///
-    /// this function is blocking
-    ///
+    /// this function may return empty Vec.
     /// DataReader implement mio::Evented, so you can gegister DataReader to mio v0.6's Poll.
+    /// poll DataReader, to ensure taking data.
     pub fn take(&self) -> Vec<D> {
-        while self.reader_state_receiver.try_recv().is_ok() {}
         let d = self.get_change();
         self.remove_changes();
         d
