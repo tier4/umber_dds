@@ -71,6 +71,10 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     pub fn set_qos(&mut self, qos: DataReadedrQosPolicies) {
         self._qos = qos;
     }
+
+    pub fn try_recv(&self) -> Result<DataReaderStatusChanged, std::sync::mpsc::TryRecvError> {
+        self.reader_state_receiver.try_recv()
+    }
 }
 
 impl<D: for<'de> Deserialize<'de>> Evented for DataReader<D> {

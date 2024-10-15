@@ -66,6 +66,10 @@ impl<D: Serialize> DataWriter<D> {
             .send(writer_cmd)
             .expect("couldn't send message");
     }
+
+    pub fn try_recv(&self) -> Result<DataWriterStatusChanged, std::sync::mpsc::TryRecvError> {
+        self.writer_state_receiver.try_recv()
+    }
 }
 
 impl<D: Serialize> Evented for DataWriter<D> {
