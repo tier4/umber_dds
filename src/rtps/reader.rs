@@ -43,7 +43,7 @@ pub struct Reader {
     topic: Topic,
     qos: DataReadedrQosPolicies,
     endianness: Endianness,
-    reader_ready_notifier: mio_channel::Sender<()>,
+    reader_state_notifier: mio_channel::Sender<()>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
     sender: Rc<UdpSender>,
 }
@@ -67,7 +67,7 @@ impl Reader {
             topic: ri.topic,
             qos: ri.qos,
             endianness: Endianness::LittleEndian,
-            reader_ready_notifier: ri.reader_ready_notifier,
+            reader_state_notifier: ri.reader_state_notifier,
             set_reader_hb_timer_sender,
             sender,
         }
@@ -132,7 +132,7 @@ impl Reader {
                 "<{}>: reliable reader, add change to reader_cache",
                 "Reader: Info".green()
             );
-            self.reader_ready_notifier
+            self.reader_state_notifier
                 .send(())
                 .expect("couldn't send channel 'reader_ready_notifier'");
             if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
@@ -160,7 +160,7 @@ impl Reader {
                         "<{}>: besteffort reader, add change to reader_cache",
                         "Reader: Info".green()
                     );
-                    self.reader_ready_notifier
+                    self.reader_state_notifier
                         .send(())
                         .expect("couldn't send reader_ready_notifier");
                     let writer_proxy_mut = self
@@ -421,7 +421,7 @@ pub struct ReaderIngredients {
     // This implementation spesific
     pub topic: Topic,
     pub qos: DataReadedrQosPolicies,
-    pub reader_ready_notifier: mio_channel::Sender<()>,
+    pub reader_state_notifier: mio_channel::Sender<()>,
 }
 
 impl RTPSEntity for Reader {

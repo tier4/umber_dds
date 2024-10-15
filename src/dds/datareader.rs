@@ -16,7 +16,7 @@ pub struct DataReader<D: for<'de> Deserialize<'de>> {
     _topic: Topic,
     _subscriber: Subscriber,
     rhc: Arc<RwLock<HistoryCache>>,
-    reader_ready_receiver: mio_channel::Receiver<()>,
+    reader_state_receiver: mio_channel::Receiver<()>,
 }
 
 impl<D: for<'de> Deserialize<'de>> DataReader<D> {
@@ -25,7 +25,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         topic: Topic,
         subscriber: Subscriber,
         rhc: Arc<RwLock<HistoryCache>>,
-        reader_ready_receiver: mio_channel::Receiver<()>,
+        reader_state_receiver: mio_channel::Receiver<()>,
     ) -> Self {
         DataReader {
             data_phantom: PhantomData::<D>,
@@ -33,7 +33,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
             _topic: topic,
             _subscriber: subscriber,
             rhc,
-            reader_ready_receiver,
+            reader_state_receiver,
         }
     }
 
@@ -43,7 +43,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     ///
     /// DataReader implement mio::Evented, so you can gegister DataReader to mio v0.6's Poll.
     pub fn take(&self) -> Vec<D> {
-        while self.reader_ready_receiver.try_recv().is_ok() {}
+        while self.reader_state_receiver.try_recv().is_ok() {}
         let d = self.get_change();
         self.remove_changes();
         d
@@ -81,7 +81,7 @@ impl<D: for<'de> Deserialize<'de>> Evented for DataReader<D> {
         interests: Ready,
         opts: PollOpt,
     ) -> io::Result<()> {
-        self.reader_ready_receiver
+        self.reader_state_receiver
             .register(poll, token, interests, opts)
     }
     fn reregister(
@@ -91,10 +91,10 @@ impl<D: for<'de> Deserialize<'de>> Evented for DataReader<D> {
         interests: Ready,
         opts: PollOpt,
     ) -> io::Result<()> {
-        self.reader_ready_receiver
+        self.reader_state_receiver
             .reregister(poll, token, interests, opts)
     }
     fn deregister(&self, poll: &Poll) -> io::Result<()> {
-        self.reader_ready_receiver.deregister(poll)
+        self.reader_state_receiver.deregister(poll)
     }
 }
