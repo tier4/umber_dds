@@ -52,6 +52,7 @@ pub struct Writer {
     qos: DataWriterQosPolicies,
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
+    writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
     set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
     sender: Rc<UdpSender>,
     hb_counter: Count,
@@ -91,6 +92,7 @@ impl Writer {
             qos: wi.qos,
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
+            writer_state_notifier: wi.writer_state_notifier,
             set_writer_nack_sender,
             sender,
             hb_counter: 0,
@@ -693,6 +695,9 @@ impl Writer {
         );
 
         if let Err(e) = self.qos.is_compatible(&qos) {
+            self.writer_state_notifier
+                .send(DataWriterStatusChanged::OfferedIncompatibleQos)
+                .expect("couldn't send writer_state_notifier");
             eprintln!(
                 "<{}>: add matched Reader which has {:?} failed. {}",
                 "Writer: Warn".yellow(),
@@ -701,6 +706,9 @@ impl Writer {
             );
         }
 
+        self.writer_state_notifier
+            .send(DataWriterStatusChanged::PublicationMatched)
+            .expect("couldn't send writer_state_notifier");
         self.matched_readers.insert(
             remote_reader_guid,
             ReaderProxy::new(
@@ -744,6 +752,13 @@ impl RTPSEntity for Writer {
     }
 }
 
+pub enum DataWriterStatusChanged {
+    LivelinessLost,
+    OfferedDeadlineMissed,
+    OfferedIncompatibleQos,
+    PublicationMatched,
+}
+
 pub struct WriterIngredients {
     // Entity
     pub guid: GUID,
@@ -762,6 +777,7 @@ pub struct WriterIngredients {
     pub topic: Topic,
     pub qos: DataWriterQosPolicies,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
+    pub writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
 }
 pub struct WriterCmd {
     pub serialized_payload: Option<SerializedPayload>,
