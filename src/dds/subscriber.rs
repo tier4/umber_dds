@@ -6,7 +6,10 @@ use crate::dds::{
 };
 use crate::message::submessage::element::Locator;
 use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
-use crate::rtps::{cache::HistoryCache, reader::ReaderIngredients};
+use crate::rtps::{
+    cache::HistoryCache,
+    reader::{DataReaderStatusChanged, ReaderIngredients},
+};
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
 use alloc::sync::Arc;
 use mio_extras::channel as mio_channel;
@@ -135,7 +138,8 @@ impl InnerSubscriber {
             DataReadedrQos::Default => self.default_dr_qos.clone(),
             DataReadedrQos::Policies(q) => q,
         };
-        let (reader_state_notifier, reader_state_receiver) = mio_channel::channel::<()>();
+        let (reader_state_notifier, reader_state_receiver) =
+            mio_channel::channel::<DataReaderStatusChanged>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
         let reliability_level = dr_qos.reliability.kind;
         let reader_ing = ReaderIngredients {
@@ -186,7 +190,8 @@ impl InnerSubscriber {
             DataReadedrQos::Default => self.default_dr_qos.clone(),
             DataReadedrQos::Policies(q) => q,
         };
-        let (reader_state_notifier, reader_state_receiver) = mio_channel::channel::<()>();
+        let (reader_state_notifier, reader_state_receiver) =
+            mio_channel::channel::<DataReaderStatusChanged>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
         let reliability_level = dr_qos.reliability.kind;
         let reader_ing = ReaderIngredients {

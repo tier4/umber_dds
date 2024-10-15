@@ -1,6 +1,6 @@
 use crate::dds::{qos::DataReadedrQosPolicies, subscriber::Subscriber, topic::Topic};
 use crate::discovery::structure::cdr::deserialize;
-use crate::rtps::cache::HistoryCache;
+use crate::rtps::{cache::HistoryCache, reader::DataReaderStatusChanged};
 use alloc::sync::Arc;
 use core::marker::PhantomData;
 use mio_extras::channel as mio_channel;
@@ -16,7 +16,7 @@ pub struct DataReader<D: for<'de> Deserialize<'de>> {
     _topic: Topic,
     _subscriber: Subscriber,
     rhc: Arc<RwLock<HistoryCache>>,
-    reader_state_receiver: mio_channel::Receiver<()>,
+    reader_state_receiver: mio_channel::Receiver<DataReaderStatusChanged>,
 }
 
 impl<D: for<'de> Deserialize<'de>> DataReader<D> {
@@ -25,7 +25,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         topic: Topic,
         subscriber: Subscriber,
         rhc: Arc<RwLock<HistoryCache>>,
-        reader_state_receiver: mio_channel::Receiver<()>,
+        reader_state_receiver: mio_channel::Receiver<DataReaderStatusChanged>,
     ) -> Self {
         DataReader {
             data_phantom: PhantomData::<D>,
