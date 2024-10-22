@@ -707,7 +707,9 @@ impl Writer {
         }
 
         self.writer_state_notifier
-            .send(DataWriterStatusChanged::PublicationMatched)
+            .send(DataWriterStatusChanged::PublicationMatched(
+                remote_reader_guid,
+            ))
             .expect("couldn't send writer_state_notifier");
         self.matched_readers.insert(
             remote_reader_guid,
@@ -756,7 +758,7 @@ pub enum DataWriterStatusChanged {
     LivelinessLost,
     OfferedDeadlineMissed,
     OfferedIncompatibleQos,
-    PublicationMatched,
+    PublicationMatched(GUID),
 }
 
 pub struct WriterIngredients {

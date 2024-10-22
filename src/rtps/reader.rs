@@ -212,7 +212,9 @@ impl Reader {
         }
 
         self.reader_state_notifier
-            .send(DataReaderStatusChanged::SubscriptionMatched)
+            .send(DataReaderStatusChanged::SubscriptionMatched(
+                remote_writer_guid,
+            ))
             .expect("couldn't send reader_state_notifier");
         self.matched_writers.insert(
             remote_writer_guid,
@@ -419,7 +421,7 @@ pub enum DataReaderStatusChanged {
     RequestedIncompatibleQos,
     DataAvailable,
     SampleLost,
-    SubscriptionMatched,
+    SubscriptionMatched(GUID),
 }
 
 pub struct ReaderIngredients {
