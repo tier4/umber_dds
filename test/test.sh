@@ -9,7 +9,7 @@ echo "execting test1. log is save to test1.log"
 res1=$?
 
 echo "execting test2. log is save to test2.log"
-./test_cases/test_case1.sh &> test2.log
+./test_cases/test_case2.sh &> test2.log
 res2=$?
 
 function show_resut() {
