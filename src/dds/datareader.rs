@@ -1,6 +1,6 @@
 use crate::dds::{qos::DataReadedrQosPolicies, subscriber::Subscriber, topic::Topic};
 use crate::discovery::structure::cdr::deserialize;
-use crate::rtps::cache::HistoryCache;
+use crate::rtps::{cache::HistoryCache, reader::DataReaderStatusChanged};
 use alloc::sync::Arc;
 use core::marker::PhantomData;
 use mio_extras::channel as mio_channel;
@@ -16,7 +16,7 @@ pub struct DataReader<D: for<'de> Deserialize<'de>> {
     _topic: Topic,
     _subscriber: Subscriber,
     rhc: Arc<RwLock<HistoryCache>>,
-    reader_ready_receiver: mio_channel::Receiver<()>,
+    reader_state_receiver: mio_channel::Receiver<DataReaderStatusChanged>,
 }
 
 impl<D: for<'de> Deserialize<'de>> DataReader<D> {
@@ -25,7 +25,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         topic: Topic,
         subscriber: Subscriber,
         rhc: Arc<RwLock<HistoryCache>>,
-        reader_ready_receiver: mio_channel::Receiver<()>,
+        reader_state_receiver: mio_channel::Receiver<DataReaderStatusChanged>,
     ) -> Self {
         DataReader {
             data_phantom: PhantomData::<D>,
@@ -33,17 +33,16 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
             _topic: topic,
             _subscriber: subscriber,
             rhc,
-            reader_ready_receiver,
+            reader_state_receiver,
         }
     }
 
     /// get available data received from DataWriter
     ///
-    /// this function is blocking
-    ///
+    /// this function may return empty Vec.
     /// DataReader implement mio::Evented, so you can gegister DataReader to mio v0.6's Poll.
+    /// poll DataReader, to ensure taking data.
     pub fn take(&self) -> Vec<D> {
-        while self.reader_ready_receiver.try_recv().is_ok() {}
         let d = self.get_change();
         self.remove_changes();
         d
@@ -71,6 +70,10 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     pub fn set_qos(&mut self, qos: DataReadedrQosPolicies) {
         self._qos = qos;
     }
+
+    pub fn try_recv(&self) -> Result<DataReaderStatusChanged, std::sync::mpsc::TryRecvError> {
+        self.reader_state_receiver.try_recv()
+    }
 }
 
 impl<D: for<'de> Deserialize<'de>> Evented for DataReader<D> {
@@ -81,7 +84,7 @@ impl<D: for<'de> Deserialize<'de>> Evented for DataReader<D> {
         interests: Ready,
         opts: PollOpt,
     ) -> io::Result<()> {
-        self.reader_ready_receiver
+        self.reader_state_receiver
             .register(poll, token, interests, opts)
     }
     fn reregister(
@@ -91,10 +94,10 @@ impl<D: for<'de> Deserialize<'de>> Evented for DataReader<D> {
         interests: Ready,
         opts: PollOpt,
     ) -> io::Result<()> {
-        self.reader_ready_receiver
+        self.reader_state_receiver
             .reregister(poll, token, interests, opts)
     }
     fn deregister(&self, poll: &Poll) -> io::Result<()> {
-        self.reader_ready_receiver.deregister(poll)
+        self.reader_state_receiver.deregister(poll)
     }
 }

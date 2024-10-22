@@ -7,7 +7,7 @@ use crate::dds::{
 };
 use crate::message::submessage::element::Locator;
 use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
-use crate::rtps::writer::{WriterCmd, WriterIngredients};
+use crate::rtps::writer::{DataWriterStatusChanged, WriterCmd, WriterIngredients};
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
 use alloc::sync::Arc;
 use mio_extras::channel as mio_channel;
@@ -146,6 +146,8 @@ impl InnerPublisher {
             DataWriterQos::Default => self.default_dw_qos.clone(),
             DataWriterQos::Policies(q) => q,
         };
+        let (writer_state_notifier, writer_state_receiver) =
+            mio_channel::channel::<DataWriterStatusChanged>();
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
         let reliability_level = dw_qos.reliability.kind;
@@ -175,11 +177,18 @@ impl InnerPublisher {
             topic: topic.clone(),
             qos: dw_qos.clone(),
             writer_command_receiver,
+            writer_state_notifier,
         };
         self.create_writer_sender
             .send(writer_ing)
             .expect("couldn't send channel 'create_writer_sender'");
-        DataWriter::<D>::new(writer_command_sender, dw_qos, topic, outter)
+        DataWriter::<D>::new(
+            writer_command_sender,
+            dw_qos,
+            topic,
+            outter,
+            writer_state_receiver,
+        )
     }
     pub fn create_datawriter_with_entityid<D: serde::Serialize>(
         &self,
@@ -192,6 +201,8 @@ impl InnerPublisher {
             DataWriterQos::Default => self.default_dw_qos.clone(),
             DataWriterQos::Policies(q) => q,
         };
+        let (writer_state_notifier, writer_state_receiver) =
+            mio_channel::channel::<DataWriterStatusChanged>();
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
         let reliability_level = dw_qos.reliability.kind;
@@ -219,11 +230,18 @@ impl InnerPublisher {
             topic: topic.clone(),
             qos: dw_qos.clone(),
             writer_command_receiver,
+            writer_state_notifier,
         };
         self.create_writer_sender
             .send(writer_ing)
             .expect("couldn't send channel 'create_writer_sender'");
-        DataWriter::<D>::new(writer_command_sender, dw_qos, topic, outter)
+        DataWriter::<D>::new(
+            writer_command_sender,
+            dw_qos,
+            topic,
+            outter,
+            writer_state_receiver,
+        )
     }
     pub fn get_participant(&self) -> DomainParticipant {
         self.dp.clone()

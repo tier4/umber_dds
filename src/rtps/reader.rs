@@ -43,7 +43,7 @@ pub struct Reader {
     topic: Topic,
     qos: DataReadedrQosPolicies,
     endianness: Endianness,
-    reader_ready_notifier: mio_channel::Sender<()>,
+    reader_state_notifier: mio_channel::Sender<DataReaderStatusChanged>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
     sender: Rc<UdpSender>,
 }
@@ -67,7 +67,7 @@ impl Reader {
             topic: ri.topic,
             qos: ri.qos,
             endianness: Endianness::LittleEndian,
-            reader_ready_notifier: ri.reader_ready_notifier,
+            reader_state_notifier: ri.reader_state_notifier,
             set_reader_hb_timer_sender,
             sender,
         }
@@ -132,9 +132,9 @@ impl Reader {
                 "<{}>: reliable reader, add change to reader_cache",
                 "Reader: Info".green()
             );
-            self.reader_ready_notifier
-                .send(())
-                .expect("couldn't send channel 'reader_ready_notifier'");
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::DataAvailable)
+                .expect("couldn't send channel 'reader_state_notifier'");
             if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
                 writer_proxy.received_chage_set(change.sequence_number);
             }
@@ -160,9 +160,9 @@ impl Reader {
                         "<{}>: besteffort reader, add change to reader_cache",
                         "Reader: Info".green()
                     );
-                    self.reader_ready_notifier
-                        .send(())
-                        .expect("couldn't send reader_ready_notifier");
+                    self.reader_state_notifier
+                        .send(DataReaderStatusChanged::DataAvailable)
+                        .expect("couldn't send reader_state_notifier");
                     let writer_proxy_mut = self
                         .matched_writers
                         .get_mut(&writer_guid)
@@ -199,6 +199,9 @@ impl Reader {
             remote_writer_guid
         );
         if let Err(e) = self.qos.is_compatible(&qos) {
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::RequestedIncompatibleQos)
+                .expect("couldn't send reader_state_notifier");
             eprintln!(
                 "<{}>: add matched Writer which has {:?} failed. {}",
                 "Reader: Warn".yellow(),
@@ -208,6 +211,11 @@ impl Reader {
             return;
         }
 
+        self.reader_state_notifier
+            .send(DataReaderStatusChanged::SubscriptionMatched(
+                remote_writer_guid,
+            ))
+            .expect("couldn't send reader_state_notifier");
         self.matched_writers.insert(
             remote_writer_guid,
             WriterProxy::new(
@@ -406,6 +414,16 @@ impl Reader {
     }
 }
 
+pub enum DataReaderStatusChanged {
+    SampleRejected,
+    LivelinessChanged,
+    RequestedDeadlineMissed,
+    RequestedIncompatibleQos,
+    DataAvailable,
+    SampleLost,
+    SubscriptionMatched(GUID),
+}
+
 pub struct ReaderIngredients {
     // Entity
     pub guid: GUID,
@@ -421,7 +439,7 @@ pub struct ReaderIngredients {
     // This implementation spesific
     pub topic: Topic,
     pub qos: DataReadedrQosPolicies,
-    pub reader_ready_notifier: mio_channel::Sender<()>,
+    pub reader_state_notifier: mio_channel::Sender<DataReaderStatusChanged>,
 }
 
 impl RTPSEntity for Reader {
