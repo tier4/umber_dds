@@ -49,22 +49,25 @@ besteffort subscriber
 
 Unsuporting QoS can be set, but it dosn't effect behavior of UmberDDS.
 
+#### ROS 2 suported QoS
 - [ ] Reliability
     - [x] kind (Reliability, BestEffort)
     - [ ] max_bloking_time
-- [ ] DurabilityService
 - [ ] Durability
-- [ ] Presentaion
 - [ ] Deadline
+- [ ] History
+- [ ] Lifespan
+- [ ] Liveliness
+
+#### ROS 2 unsuported QoS
+- [ ] DurabilityService
+- [ ] Presentaion
 - [ ] LatencyBudget
 - [ ] Ownership
 - [ ] OwnershipStrength
-- [ ] Liveliness
 - [ ] TimeBasedFilter
 - [ ] DestinationOrder
-- [ ] History
 - [ ] ResourceLimits
-- [ ] Lifespan
 - [ ] Partition
 - [ ] UserData
 - [ ] TopicData
@@ -73,5 +76,4 @@ Unsuporting QoS can be set, but it dosn't effect behavior of UmberDDS.
 - [ ] ReaderDataLifecycle
 - [ ] TransportPrioriry
 - [ ] EntityFactory
-
 
