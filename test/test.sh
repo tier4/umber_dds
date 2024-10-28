@@ -1,5 +1,13 @@
 #!/usr/bin/bash
 
+echo "preparing tests: building umberdds/example/shapes_demo_for_autotest"
+cargo build --example=shapes_demo_for_autotest --release
+
+echo "preparing tests: building otherdds/shapes_demo_rustdds"
+cd otherdds/shapes_demo_rustdds
+cargo build --release
+cd ../..
+
 echo "preparing tests: starting docker containers"
 sudo docker compose up -d
 echo "tests start: it takes about 1 minutes"
