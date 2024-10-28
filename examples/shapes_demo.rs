@@ -1,8 +1,10 @@
 use clap::{Arg, Command};
+use mio_extras::timer::Timer;
+use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
-use umberdds::dds::{qos::*, DomainParticipant};
+use umberdds::dds::{qos::*, DataReaderStatusChanged, DataWriterStatusChanged, DomainParticipant};
 use umberdds::structure::TopicKind;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -45,6 +47,11 @@ fn main() {
             false
         };
 
+    let poll = Poll::new().unwrap();
+    const DATAREADER: Token = Token(0);
+    const DATAWRITER: Token = Token(1);
+    const WRITETIMTER: Token = Token(2);
+
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap();
@@ -79,6 +86,12 @@ fn main() {
                     .build();
                 let datawriter =
                     publisher.create_datawriter::<Shape>(DataWriterQos::Policies(dw_qos), topic);
+                poll.register(&datawriter, DATAWRITER, Ready::readable(), PollOpt::edge())
+                    .unwrap();
+                let mut timer = Timer::default();
+                poll.register(&timer, WRITETIMTER, Ready::readable(), PollOpt::edge())
+                    .unwrap();
+                timer.set_timeout(Duration::from_millis(100), ());
                 let mut shape = Shape {
                     color: "Red".to_string(),
                     x: 0,
@@ -86,11 +99,30 @@ fn main() {
                     shapesize: 42,
                 };
                 loop {
-                    datawriter.write(shape.clone());
-                    println!("send: {:?}", shape);
-                    shape.x = (shape.x + 5) % 255;
-                    shape.y = (shape.y + 5) % 255;
-                    std::thread::sleep(Duration::from_millis(100));
+                    let mut events = Events::with_capacity(64);
+                    poll.poll(&mut events, None).unwrap();
+                    for event in events.iter() {
+                        match event.token() {
+                            DATAWRITER => {
+                                while let Ok(dwc) = datawriter.try_recv() {
+                                    match dwc {
+                                        DataWriterStatusChanged::PublicationMatched(guid) => {
+                                            println!("PublicationMatched, guid: {:?}", guid);
+                                        }
+                                        _ => (),
+                                    }
+                                }
+                            }
+                            WRITETIMTER => {
+                                datawriter.write(shape.clone());
+                                println!("send: {:?}", shape);
+                                shape.x = (shape.x + 5) % 255;
+                                shape.y = (shape.y + 5) % 255;
+                                timer.set_timeout(Duration::from_millis(100), ());
+                            }
+                            _ => (), // unreachable
+                        }
+                    }
                 }
             }
             "s" | "S" => {
@@ -104,10 +136,31 @@ fn main() {
                     .build();
                 let datareader =
                     subscriber.create_datareader::<Shape>(DataReaderQos::Policies(dr_qos), topic);
+                poll.register(&datareader, DATAREADER, Ready::readable(), PollOpt::edge())
+                    .unwrap();
                 loop {
-                    let received_shapes = datareader.take();
-                    for shape in received_shapes {
-                        println!("received: {:?}", shape);
+                    let mut events = Events::with_capacity(64);
+                    poll.poll(&mut events, None).unwrap();
+                    for event in events.iter() {
+                        match event.token() {
+                            DATAREADER => {
+                                while let Ok(drc) = datareader.try_recv() {
+                                    match drc {
+                                        DataReaderStatusChanged::DataAvailable => {
+                                            let received_shapes = datareader.take();
+                                            for shape in received_shapes {
+                                                println!("received: {:?}", shape);
+                                            }
+                                        }
+                                        DataReaderStatusChanged::SubscriptionMatched(guid) => {
+                                            println!("SubscriptionMatched, guid: {:?}", guid);
+                                        }
+                                        _ => (), // TODO
+                                    }
+                                }
+                            }
+                            _ => (), // unreachable
+                        }
                     }
                 }
             }

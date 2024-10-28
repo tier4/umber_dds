@@ -14,3 +14,5 @@ pub use {
     datareader::DataReader, datawriter::DataWriter, participant::DomainParticipant,
     publisher::Publisher, subscriber::Subscriber, topic::Topic,
 };
+
+pub use crate::rtps::{reader::DataReaderStatusChanged, writer::DataWriterStatusChanged};

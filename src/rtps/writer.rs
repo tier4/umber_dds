@@ -1,4 +1,7 @@
-use crate::dds::{qos::policy::ReliabilityQosKind, Topic};
+use crate::dds::{
+    qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
+    Topic,
+};
 use crate::discovery::structure::data::{
     DiscoveredWriterData, ParticipantMessageData, ParticipantMessageKind,
 };
@@ -49,8 +52,10 @@ pub struct Writer {
     matched_readers: BTreeMap<GUID, ReaderProxy>,
     // This implementation spesific
     topic: Topic,
+    qos: DataWriterQosPolicies,
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
+    writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
     set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
     sender: Rc<UdpSender>,
     hb_counter: Count,
@@ -87,8 +92,10 @@ impl Writer {
             reader_locators: Vec::new(),
             matched_readers: BTreeMap::new(),
             topic: wi.topic,
+            qos: wi.qos,
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
+            writer_state_notifier: wi.writer_state_notifier,
             set_writer_nack_sender,
             sender,
             hb_counter: 0,
@@ -102,6 +109,7 @@ impl Writer {
             self.unicast_locator_list.clone(),
             self.multicast_locator_list.clone(),
             self.data_max_size_serialized,
+            self.qos.clone(),
             Arc::new(RwLock::new(HistoryCache::new())),
         );
         let pub_data = self.topic.pub_builtin_topic_data();
@@ -718,12 +726,31 @@ impl Writer {
         expects_inline_qos: bool,
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
+        qos: DataReaderQosPolicies,
     ) {
         eprintln!(
             "<{}>: add matched Reader which has {:?}",
             "Writer: Info".green(),
             remote_reader_guid
         );
+
+        if let Err(e) = self.qos.is_compatible(&qos) {
+            self.writer_state_notifier
+                .send(DataWriterStatusChanged::OfferedIncompatibleQos)
+                .expect("couldn't send writer_state_notifier");
+            eprintln!(
+                "<{}>: add matched Reader which has {:?} failed. {}",
+                "Writer: Warn".yellow(),
+                remote_reader_guid,
+                e
+            );
+        }
+
+        self.writer_state_notifier
+            .send(DataWriterStatusChanged::PublicationMatched(
+                remote_reader_guid,
+            ))
+            .expect("couldn't send writer_state_notifier");
         self.matched_readers.insert(
             remote_reader_guid,
             ReaderProxy::new(
@@ -731,6 +758,7 @@ impl Writer {
                 expects_inline_qos,
                 unicast_locator_list,
                 multicast_locator_list,
+                qos,
                 self.writer_cache.clone(),
             ),
         );
@@ -766,6 +794,13 @@ impl RTPSEntity for Writer {
     }
 }
 
+pub enum DataWriterStatusChanged {
+    LivelinessLost,
+    OfferedDeadlineMissed,
+    OfferedIncompatibleQos,
+    PublicationMatched(GUID),
+}
+
 pub struct WriterIngredients {
     // Entity
     pub guid: GUID,
@@ -782,7 +817,9 @@ pub struct WriterIngredients {
     pub data_max_size_serialized: i32,
     // This implementation spesific
     pub topic: Topic,
+    pub qos: DataWriterQosPolicies,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
+    pub writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
 }
 pub enum WriterCmd {
     WriteData(Option<SerializedPayload>),

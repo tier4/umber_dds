@@ -1,4 +1,7 @@
-use crate::dds::qos::policy::*;
+use crate::dds::qos::{
+    policy::*, DataReaderQosBuilder, DataReaderQosPolicies, DataWriterQosBuilder,
+    DataWriterQosPolicies,
+};
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator};
@@ -264,11 +267,27 @@ impl SDPBuiltinData {
             Some(mll) => mll,
             None => return None,
         };
+        let dr_qos_builder = DataReaderQosBuilder::new();
+        let qos = dr_qos_builder
+            .durability(self.durability.unwrap_or_default())
+            .deadline(self.deadline.unwrap_or_default())
+            .latency_budget(self.latency_budget.unwrap_or_default())
+            .liveliness(self.liveliness.unwrap_or_default())
+            .reliability(
+                self.reliability
+                    .unwrap_or(Reliability::default_besteffort()),
+            )
+            .destination_order(self.destination_order.unwrap_or_default())
+            .user_data(self.user_data.clone().unwrap_or_default())
+            .ownership(self.ownership.unwrap_or_default())
+            .time_based_filter(self.time_based_filter.unwrap_or_default())
+            .build();
         Some(ReaderProxy::new(
             remote_guid,
             expects_inline_qos,
             unicast_locator_list,
             multicast_locator_list,
+            qos,
             history_cache,
         ))
     }
@@ -308,11 +327,26 @@ impl SDPBuiltinData {
             }
         };
         let data_max_size_serialized = self.data_max_size_serialized.unwrap_or(0); // TODO: Which default value should I set?
+        let dw_qos_builder = DataWriterQosBuilder::new();
+        let qos = dw_qos_builder
+            .durability(self.durability.unwrap_or_default())
+            .durability_service(self.durability_service.unwrap_or_default())
+            .deadline(self.deadline.unwrap_or_default())
+            .latency_budget(self.latency_budget.unwrap_or_default())
+            .liveliness(self.liveliness.unwrap_or_default())
+            .reliability(self.reliability.unwrap_or(Reliability::default_reliable()))
+            .destination_order(self.destination_order.unwrap_or_default())
+            .user_data(self.user_data.clone().unwrap_or_default())
+            .ownership(self.ownership.unwrap_or_default())
+            .ownership_strength(self.ownership_strength.unwrap_or_default())
+            .lifespan(self.lifespan.unwrap_or_default())
+            .build();
         Some(WriterProxy::new(
             remote_guid,
             unicast_locator_list,
             multicast_locator_list,
             data_max_size_serialized,
+            qos,
             history_cache,
         ))
     }

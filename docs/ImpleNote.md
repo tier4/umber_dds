@@ -23,6 +23,9 @@ All packets directed to UmberDDS are received by the EventLoop, serialized by th
 The results of discovery are communicated from the Discovery Module to the EventLoop through the DiscoveryDB. The DiscoveryDB is wrapped in an Arc and shared between the EventLoop and the Discovery Module. When the Discovery Module updates the DiscoveryDB, it notifies the EventLoop via an mpsc channel. Upon receiving this notification, the EventLoop configures the settings for each entity.
 
 ## dds module
+DDS specでは、各エンティティーは抽象Classを継承したClassとして定義されている。
+しかし、Rustには継承は存在しない。そこで、本実装では、各Super Classのメソッド、プロパティをすべて各エンティティー
+を表す構造体に実装している。その結果、未使用のプロパティが発生している。
 
 ### datareader
 Provide topic subscribing interface to DDS app.

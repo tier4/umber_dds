@@ -1,4 +1,7 @@
-use crate::dds::{qos::policy::ReliabilityQosKind, Topic};
+use crate::dds::{
+    qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
+    Topic,
+};
 use crate::discovery::structure::data::DiscoveredReaderData;
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
@@ -38,8 +41,9 @@ pub struct Reader {
     matched_writers: BTreeMap<GUID, WriterProxy>,
     // This implementation spesific
     topic: Topic,
+    qos: DataReaderQosPolicies,
     endianness: Endianness,
-    reader_ready_notifier: mio_channel::Sender<()>,
+    reader_state_notifier: mio_channel::Sender<DataReaderStatusChanged>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
     sender: Rc<UdpSender>,
 }
@@ -61,8 +65,9 @@ impl Reader {
             reader_cache: ri.rhc,
             matched_writers: BTreeMap::new(),
             topic: ri.topic,
+            qos: ri.qos,
             endianness: Endianness::LittleEndian,
-            reader_ready_notifier: ri.reader_ready_notifier,
+            reader_state_notifier: ri.reader_state_notifier,
             set_reader_hb_timer_sender,
             sender,
         }
@@ -81,6 +86,7 @@ impl Reader {
             self.expectsinline_qos,
             self.unicast_locator_list.clone(),
             self.multicast_locator_list.clone(),
+            self.qos.clone(),
             Arc::new(RwLock::new(HistoryCache::new())),
         );
         let sub_data = self.topic.sub_builtin_topic_data();
@@ -126,9 +132,9 @@ impl Reader {
                 "<{}>: reliable reader, add change to reader_cache",
                 "Reader: Info".green()
             );
-            self.reader_ready_notifier
-                .send(())
-                .expect("couldn't send channel 'reader_ready_notifier'");
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::DataAvailable)
+                .expect("couldn't send channel 'reader_state_notifier'");
             if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
                 writer_proxy.received_chage_set(change.sequence_number);
             }
@@ -154,9 +160,9 @@ impl Reader {
                         "<{}>: besteffort reader, add change to reader_cache",
                         "Reader: Info".green()
                     );
-                    self.reader_ready_notifier
-                        .send(())
-                        .expect("couldn't send reader_ready_notifier");
+                    self.reader_state_notifier
+                        .send(DataReaderStatusChanged::DataAvailable)
+                        .expect("couldn't send reader_state_notifier");
                     let writer_proxy_mut = self
                         .matched_writers
                         .get_mut(&writer_guid)
@@ -185,12 +191,31 @@ impl Reader {
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
         data_max_size_serialized: i32,
+        qos: DataWriterQosPolicies,
     ) {
         eprintln!(
             "<{}>: add matched Writer which has {:?}",
             "Reader: Info".green(),
             remote_writer_guid
         );
+        if let Err(e) = self.qos.is_compatible(&qos) {
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::RequestedIncompatibleQos)
+                .expect("couldn't send reader_state_notifier");
+            eprintln!(
+                "<{}>: add matched Writer which has {:?} failed. {}",
+                "Reader: Warn".yellow(),
+                remote_writer_guid,
+                e
+            );
+            return;
+        }
+
+        self.reader_state_notifier
+            .send(DataReaderStatusChanged::SubscriptionMatched(
+                remote_writer_guid,
+            ))
+            .expect("couldn't send reader_state_notifier");
         self.matched_writers.insert(
             remote_writer_guid,
             WriterProxy::new(
@@ -198,6 +223,7 @@ impl Reader {
                 unicast_locator_list,
                 multicast_locator_list,
                 data_max_size_serialized,
+                qos,
                 self.reader_cache.clone(),
             ),
         );
@@ -388,6 +414,16 @@ impl Reader {
     }
 }
 
+pub enum DataReaderStatusChanged {
+    SampleRejected,
+    LivelinessChanged,
+    RequestedDeadlineMissed,
+    RequestedIncompatibleQos,
+    DataAvailable,
+    SampleLost,
+    SubscriptionMatched(GUID),
+}
+
 pub struct ReaderIngredients {
     // Entity
     pub guid: GUID,
@@ -402,7 +438,8 @@ pub struct ReaderIngredients {
     pub rhc: Arc<RwLock<HistoryCache>>,
     // This implementation spesific
     pub topic: Topic,
-    pub reader_ready_notifier: mio_channel::Sender<()>,
+    pub qos: DataReaderQosPolicies,
+    pub reader_state_notifier: mio_channel::Sender<DataReaderStatusChanged>,
 }
 
 impl RTPSEntity for Reader {

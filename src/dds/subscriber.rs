@@ -6,7 +6,10 @@ use crate::dds::{
 };
 use crate::message::submessage::element::Locator;
 use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
-use crate::rtps::{cache::HistoryCache, reader::ReaderIngredients};
+use crate::rtps::{
+    cache::HistoryCache,
+    reader::{DataReaderStatusChanged, ReaderIngredients},
+};
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
 use alloc::sync::Arc;
 use mio_extras::channel as mio_channel;
@@ -135,7 +138,8 @@ impl InnerSubscriber {
             DataReaderQos::Default => self.default_dr_qos.clone(),
             DataReaderQos::Policies(q) => q,
         };
-        let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
+        let (reader_state_notifier, reader_state_receiver) =
+            mio_channel::channel::<DataReaderStatusChanged>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
         let reliability_level = dr_qos.reliability.kind;
         let reader_ing = ReaderIngredients {
@@ -160,7 +164,8 @@ impl InnerSubscriber {
             heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),
             topic: topic.clone(),
-            reader_ready_notifier,
+            qos: dr_qos.clone(),
+            reader_state_notifier,
         };
         self.create_reader_sender
             .send(reader_ing)
@@ -170,7 +175,7 @@ impl InnerSubscriber {
             topic,
             subscriber,
             history_cache,
-            reader_ready_receiver,
+            reader_state_receiver,
         )
     }
 
@@ -185,7 +190,8 @@ impl InnerSubscriber {
             DataReaderQos::Default => self.default_dr_qos.clone(),
             DataReaderQos::Policies(q) => q,
         };
-        let (reader_ready_notifier, reader_ready_receiver) = mio_channel::channel::<()>();
+        let (reader_state_notifier, reader_state_receiver) =
+            mio_channel::channel::<DataReaderStatusChanged>();
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
         let reliability_level = dr_qos.reliability.kind;
         let reader_ing = ReaderIngredients {
@@ -204,7 +210,8 @@ impl InnerSubscriber {
             heartbeat_response_delay: Duration::ZERO,
             rhc: history_cache.clone(),
             topic: topic.clone(),
-            reader_ready_notifier,
+            qos: dr_qos.clone(),
+            reader_state_notifier,
         };
         self.create_reader_sender
             .send(reader_ing)
@@ -214,7 +221,7 @@ impl InnerSubscriber {
             topic,
             subscriber,
             history_cache,
-            reader_ready_receiver,
+            reader_state_receiver,
         )
     }
 

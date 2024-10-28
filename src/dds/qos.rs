@@ -80,6 +80,51 @@ pub struct DataWriterQosPolicies {
     pub writer_data_lifecycle: WriterDataLifecycle,
 }
 
+impl DataWriterQosPolicies {
+    pub fn is_compatible(&self, qos: &DataReaderQosPolicies) -> Result<(), String> {
+        let mut msg = String::new();
+        if !Durability::is_compatible(self.durability, qos.durability) {
+            msg += &format!(
+                "durability is not compatible. self: {:?}, writer: {:?}\n",
+                self.durability, qos.durability
+            );
+        } else if !Deadline::is_compatible(self.deadline, qos.deadline) {
+            msg += &format!(
+                "deadline is not compatible. self: {:?}, writer: {:?}\n",
+                self.deadline, qos.deadline
+            );
+        } else if !LatencyBudget::is_compatible(self.latency_budget, qos.latency_budget) {
+            msg += &format!(
+                "latency_budget is not compatible. self: {:?}, writer: {:?}\n",
+                self.latency_budget, qos.latency_budget
+            );
+        } else if !Ownership::is_compatible(self.ownership, qos.ownership) {
+            msg += &format!(
+                "ownership is not compatible. self: {:?}, writer: {:?}\n",
+                self.ownership, qos.ownership
+            );
+        } else if !Liveliness::is_compatible(self.liveliness, qos.liveliness) {
+            msg += &format!(
+                "liveliness is not compatible. self: {:?}, writer: {:?}\n",
+                self.liveliness, qos.liveliness
+            );
+        } else if !Reliability::is_compatible(self.reliability, qos.reliability) {
+            msg += &format!(
+                "reliability is not compatible. self: {:?}, writer: {:?}\n",
+                self.reliability, qos.reliability
+            );
+        } else if !DestinationOrder::is_compatible(self.destination_order, qos.destination_order) {
+            msg += &format!(
+                "destination_order is not compatible. self: {:?}, writer: {:?}\n",
+                self.destination_order, qos.destination_order
+            );
+        } else {
+            return Ok(());
+        }
+        Err(msg)
+    }
+}
+
 /// for setting QoS on a Publisher
 #[derive(Clone)]
 pub enum PublisherQos {
@@ -126,6 +171,50 @@ pub struct DataReaderQosPolicies {
     pub ownership: Ownership,
     pub time_based_filter: TimeBasedFilter,
     pub reader_data_lifecycle: ReaderDataLifecycle,
+}
+impl DataReaderQosPolicies {
+    pub fn is_compatible(&self, qos: &DataWriterQosPolicies) -> Result<(), String> {
+        let mut msg = String::new();
+        if !Durability::is_compatible(qos.durability, self.durability) {
+            msg += &format!(
+                "durability is not compatible. self: {:?}, writer: {:?}\n",
+                self.durability, qos.durability
+            );
+        } else if !Deadline::is_compatible(qos.deadline, self.deadline) {
+            msg += &format!(
+                "deadline is not compatible. self: {:?}, writer: {:?}\n",
+                self.deadline, qos.deadline
+            );
+        } else if !LatencyBudget::is_compatible(qos.latency_budget, self.latency_budget) {
+            msg += &format!(
+                "latency_budget is not compatible. self: {:?}, writer: {:?}\n",
+                self.latency_budget, qos.latency_budget
+            );
+        } else if !Ownership::is_compatible(qos.ownership, self.ownership) {
+            msg += &format!(
+                "ownership is not compatible. self: {:?}, writer: {:?}\n",
+                self.ownership, qos.ownership
+            );
+        } else if !Liveliness::is_compatible(qos.liveliness, self.liveliness) {
+            msg += &format!(
+                "liveliness is not compatible. self: {:?}, writer: {:?}\n",
+                self.liveliness, qos.liveliness
+            );
+        } else if !Reliability::is_compatible(qos.reliability, self.reliability) {
+            msg += &format!(
+                "reliability is not compatible. self: {:?}, writer: {:?}\n",
+                self.reliability, qos.reliability
+            );
+        } else if !DestinationOrder::is_compatible(qos.destination_order, self.destination_order) {
+            msg += &format!(
+                "destination_order is not compatible. self: {:?}, writer: {:?}\n",
+                self.destination_order, qos.destination_order
+            );
+        } else {
+            return Ok(());
+        }
+        Err(msg)
+    }
 }
 
 /// for setting QoS on a Subscriber
@@ -354,6 +443,7 @@ impl DataReaderQosBuilder {
     builder_method!(durability, Durability);
     builder_method!(deadline, Deadline);
     builder_method!(latency_budget, LatencyBudget);
+    builder_method!(liveliness, Liveliness);
     builder_method!(reliability, Reliability);
     builder_method!(destination_order, DestinationOrder);
     builder_method!(history, History);
@@ -460,6 +550,13 @@ pub mod policy {
         // Transient = 2, // DDS spec say Support this is optional
         // Persistent = 3, // DDS spec say Support this is optional
     }
+    impl Durability {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered as usize >= requested as usize
+        }
+    }
     impl Default for Durability {
         fn default() -> Self {
             Self::Volatile
@@ -471,6 +568,13 @@ pub mod policy {
         pub access_scope: PresentationQosAccessScopeKind,
         pub coherent_access: bool,
         pub ordered_access: bool,
+    }
+    impl Presentation {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered.access_scope as usize >= requested.access_scope as usize
+        }
     }
     #[allow(clippy::derivable_impls)]
     impl Default for Presentation {
@@ -501,12 +605,10 @@ pub mod policy {
         pub period: Duration,
     }
     impl Deadline {
-        /// offer is Publisher side QoS value
-        /// req is Subscriber side QoS value
-        pub(crate) fn is_compatible(offer: Self, req: Self) -> bool {
-            offer.period == req.period
-                || req.period == Self::default().period
-                || offer.period < req.period
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            requested.period == Self::default().period || offered.period <= requested.period
         }
     }
     impl Default for Deadline {
@@ -519,6 +621,13 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
     pub struct LatencyBudget(pub Duration);
+    impl LatencyBudget {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered.0 <= requested.0
+        }
+    }
     impl Default for LatencyBudget {
         fn default() -> Self {
             Self(Duration::ZERO)
@@ -530,6 +639,13 @@ pub mod policy {
     pub enum Ownership {
         Shared = 0,
         Exclusive = 1,
+    }
+    impl Ownership {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered as usize == requested as usize
+        }
     }
     impl Default for Ownership {
         fn default() -> Self {
@@ -552,11 +668,10 @@ pub mod policy {
         pub lease_duration: Duration,
     }
     impl Liveliness {
-        /// offer is Publisher side QoS value
-        /// req is Subscriber side QoS value
-        pub(crate) fn is_compatible(offer: Self, req: Self) -> bool {
-            !(offer.kind == LivelinessQosKind::Automatic
-                && req.kind == LivelinessQosKind::ManualByTopic)
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered.kind as usize >= requested.kind as usize
         }
     }
     impl Default for Liveliness {
@@ -615,6 +730,12 @@ pub mod policy {
                 },
             }
         }
+
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered.kind as usize >= requested.kind as usize
+        }
     }
 
     #[derive(Clone, Copy, Debug, Serialize_repr, Deserialize_repr)]
@@ -629,6 +750,13 @@ pub mod policy {
     pub enum DestinationOrder {
         ByReceptionTimestamp = 0,
         BySourceTimestamp = 1,
+    }
+    impl DestinationOrder {
+        /// offered is Publisher side QoS value
+        /// requested is Subscriber side QoS value
+        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+            offered as usize >= requested as usize
+        }
     }
     impl Default for DestinationOrder {
         fn default() -> Self {

@@ -2,7 +2,7 @@
  * This code is from https://github.com/hrektts/cdr-rs/blob/master/src/lib.rs
     MIT License
 
-    Copyright (c) 2017 Katsutoshi Horie↲
+    Copyright (c) 2017 Katsutoshi Horie
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal

@@ -1,3 +1,4 @@
+use crate::dds::qos::{policy::Reliability, DataReaderQosBuilder, DataWriterQosBuilder};
 use crate::dds::tokens::*;
 use crate::discovery::{
     discovery_db::DiscoveryDB,
@@ -190,6 +191,9 @@ impl EventLoop {
                                     // readerEntityId of SPDP message from Cyclone DDS:
                                     // ENTITYID_UNKNOW
                                     // stpr 2.3 sepc, 9.6.1.4, Default multicast address
+                                    let qos = DataReaderQosBuilder::new()
+                                        .reliability(Reliability::default_besteffort())
+                                        .build();
                                     writer.matched_reader_add(
                                         GUID::UNKNOW, // this is same to CycloneDDS
                                         false,
@@ -198,6 +202,7 @@ impl EventLoop {
                                             spdp_multicast_port(self.domain_id) as u32,
                                             [239, 255, 0, 1],
                                         )]),
+                                        qos,
                                     );
                                 }
                                 if writer.is_reliable() {
@@ -457,11 +462,15 @@ impl EventLoop {
                                 "<{}>: sedp_writer.matched_reader_add(remote_sedp_pub_reader)",
                                 "EventLoop: Info".green()
                             );
+                            let qos = DataReaderQosBuilder::new()
+                                .reliability(Reliability::default_besteffort())
+                                .build();
                             writer.matched_reader_add(
                                 guid,
                                 spdp_data.expects_inline_qos,
                                 spdp_data.metarraffic_unicast_locator_list.clone(),
                                 spdp_data.metarraffic_multicast_locator_list.clone(),
+                                qos,
                             );
                         }
                     }
@@ -480,11 +489,15 @@ impl EventLoop {
                                 "<{}>: sedp_reader.matched_writer_add(remote_sedp_pub_writer)",
                                 "EventLoop: Info".green()
                             );
+                            let qos = DataWriterQosBuilder::new()
+                                .reliability(Reliability::default_reliable())
+                                .build();
                             reader.matched_writer_add(
                                 guid,
                                 spdp_data.metarraffic_unicast_locator_list.clone(),
                                 spdp_data.metarraffic_multicast_locator_list.clone(),
                                 0, // TODO: What value should I set?
+                                qos,
                             );
                         }
                     }
@@ -503,11 +516,15 @@ impl EventLoop {
                                 "<{}>: sedp_writer.matched_reader_add(remote_sedp_sub_reader)",
                                 "EventLoop".green()
                             );
+                            let qos = DataReaderQosBuilder::new()
+                                .reliability(Reliability::default_reliable())
+                                .build();
                             writer.matched_reader_add(
                                 guid,
                                 spdp_data.expects_inline_qos,
                                 spdp_data.metarraffic_unicast_locator_list.clone(),
                                 spdp_data.metarraffic_multicast_locator_list.clone(),
+                                qos,
                             );
                         }
                     }
@@ -526,11 +543,15 @@ impl EventLoop {
                                 "<{}>: sedp_reader.matched_writer_add(remote_sedp_sub_writer)",
                                 "EventLoop: Info".green()
                             );
+                            let qos = DataWriterQosBuilder::new()
+                                .reliability(Reliability::default_reliable())
+                                .build();
                             reader.matched_writer_add(
                                 guid,
                                 spdp_data.metarraffic_unicast_locator_list.clone(),
                                 spdp_data.metarraffic_multicast_locator_list.clone(),
                                 0, // TODO: What value should I set?
+                                qos,
                             );
                         }
                     }
@@ -549,11 +570,15 @@ impl EventLoop {
                                 "<{}>: p2p_msg_writer.matched_reader_add(remote_p2p_msg_reader)",
                                 "EventLoop: Info".green()
                             );
+                            let qos = DataReaderQosBuilder::new()
+                                .reliability(Reliability::default_reliable())
+                                .build();
                             writer.matched_reader_add(
                                 guid,
                                 spdp_data.expects_inline_qos,
                                 spdp_data.metarraffic_unicast_locator_list.clone(),
                                 spdp_data.metarraffic_multicast_locator_list.clone(),
+                                qos,
                             );
                         }
                     }
@@ -572,11 +597,15 @@ impl EventLoop {
                                 "<{}>: p2p_msg_reader.matched_writer_add(remote_p2p_msg_writer)",
                                 "EventLoop: Info".green()
                             );
+                            let qos = DataWriterQosBuilder::new()
+                                .reliability(Reliability::default_reliable())
+                                .build();
                             reader.matched_writer_add(
                                 guid,
                                 spdp_data.metarraffic_unicast_locator_list,
                                 spdp_data.metarraffic_multicast_locator_list,
                                 0, // TODO: What value should I set?
+                                qos,
                             );
                         }
                     }

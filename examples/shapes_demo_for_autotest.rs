@@ -4,7 +4,10 @@ use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
-use umberdds::dds::{qos::*, DataReader, DataWriter, DomainParticipant};
+use umberdds::dds::{
+    qos::*, DataReader, DataReaderStatusChanged, DataWriter, DataWriterStatusChanged,
+    DomainParticipant,
+};
 use umberdds::structure::TopicKind;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -80,6 +83,7 @@ fn main() {
     const END_TIMER: Token = Token(0);
     const WRITE_TIMER: Token = Token(1);
     const DATAREADER: Token = Token(2);
+    const DATAWRITER: Token = Token(3);
 
     poll.register(
         &mut end_timer,
@@ -102,8 +106,15 @@ fn main() {
                         policy::Reliability::default_besteffort()
                     })
                     .build();
-                let datawriter =
+                let mut datawriter =
                     publisher.create_datawriter::<Shape>(DataWriterQos::Policies(dw_qos), topic);
+                poll.register(
+                    &mut datawriter,
+                    DATAWRITER,
+                    Ready::readable(),
+                    PollOpt::edge(),
+                )
+                .unwrap();
                 Entity::Datawriter(datawriter)
             }
             "s" | "S" => {
@@ -181,13 +192,35 @@ fn main() {
                 }
                 DATAREADER => {
                     if let Some(dr) = &datareader {
-                        let received_shapes = dr.take();
-                        for shape in received_shapes {
-                            received += 1;
-                            println!("received: {:?}", shape);
+                        while let Ok(r) = dr.try_recv() {
+                            match r {
+                                DataReaderStatusChanged::DataAvailable => {
+                                    let received_shapes = dr.take();
+                                    for shape in received_shapes {
+                                        received += 1;
+                                        println!("received: {:?}", shape);
+                                    }
+                                    if received > 5 {
+                                        std::process::exit(0);
+                                    }
+                                }
+                                DataReaderStatusChanged::SubscriptionMatched(guid) => {
+                                    println!("SubscriptionMatched, guid: {:?}", guid);
+                                }
+                                _ => (),
+                            }
                         }
-                        if received > 5 {
-                            std::process::exit(0);
+                    }
+                }
+                DATAWRITER => {
+                    if let Some(dw) = &datawriter {
+                        while let Ok(w) = dw.try_recv() {
+                            match w {
+                                DataWriterStatusChanged::PublicationMatched(guid) => {
+                                    println!("PublicationMatched, guid: {:?}", guid);
+                                }
+                                _ => (),
+                            }
                         }
                     }
                 }
