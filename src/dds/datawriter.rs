@@ -69,17 +69,14 @@ impl<D: Serialize> DataWriter<D> {
     }
 
     pub fn assert_liveliness(&self) {
-        match self.qos.liveliness.kind {
-            LivelinessQosKind::Automatic => (),
-            LivelinessQosKind::ManualByParticipant | LivelinessQosKind::ManualByTopic => {
-                let writer_cmd = WriterCmd::AssertLiveliness((
-                    ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE,
-                    Vec::new(),
-                ));
-                self.writer_command_sender
-                    .send(writer_cmd)
-                    .expect("couldn't send message");
-            }
+        if let LivelinessQosKind::ManualByParticipant = self.qos.liveliness.kind {
+            let writer_cmd = WriterCmd::AssertLiveliness((
+                ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE,
+                Vec::new(),
+            ));
+            self.writer_command_sender
+                .send(writer_cmd)
+                .expect("couldn't send message");
         }
     }
     pub fn try_recv(&self) -> Result<DataWriterStatusChanged, std::sync::mpsc::TryRecvError> {
