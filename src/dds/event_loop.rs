@@ -570,8 +570,13 @@ impl EventLoop {
                                 "<{}>: p2p_msg_writer.matched_reader_add(remote_p2p_msg_reader)",
                                 "EventLoop: Info".green()
                             );
+                            // rtps 2.3 sepc, 8.4.13.3 BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader QoS
+                            // If the ParticipantProxy::builtinEndpointQos is included in the SPDPdiscoveredParticipantData, then the
+                            // BuiltinParticipantMessageWriter shall treat the BuiltinParticipantMessageReader as indicated by the flags If the
+                            // ParticipantProxy::builtinEndpointQos is not included then the BuiltinParticipantMessageWriter shall treat the
+                            // BuiltinParticipantMessageReader as if it is configured with RELIABLE_RELIABILITY_QOS.
                             let qos = DataReaderQosBuilder::new()
-                                .reliability(Reliability::default_reliable())
+                                .reliability(Reliability::default_reliable()) // TODO: set best_effort if the flag indicated
                                 .build();
                             writer.matched_reader_add(
                                 guid,
