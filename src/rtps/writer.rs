@@ -124,10 +124,12 @@ impl Writer {
     ) -> CacheChange {
         // Writer
         self.last_change_sequence_number += SequenceNumber(1);
+        let ts = Timestamp::now().expect("failed get Timestamp::now()");
         CacheChange::new(
             kind,
             self.guid,
             self.last_change_sequence_number,
+            ts,
             data,
             handle,
         )
@@ -210,11 +212,13 @@ impl Writer {
         let data = ParticipantMessageData::new(self.guid, kind, data);
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
+        let ts = Timestamp::now().expect("failed get Timestamp::now()");
         let a_change = CacheChange::new(
             ChangeKind::Alive,
             self.guid,
             SequenceNumber(1), // TODO: what should I set?
             // analyzing the packet capture, it appeared that CycloneDDS fixed this value to 1.
+            ts,
             Some(serialized_payload),
             InstantHandle {},
         );
@@ -239,10 +243,12 @@ impl Writer {
     fn handle_write_data_cmd(&mut self, serialized_payload: Option<SerializedPayload>) {
         // this is new_change
         self.last_change_sequence_number += SequenceNumber(1);
+        let ts = Timestamp::now().expect("failed get Timestamp::now()");
         let a_change = CacheChange::new(
             ChangeKind::Alive,
             self.guid,
             self.last_change_sequence_number,
+            ts,
             serialized_payload,
             InstantHandle {},
         );

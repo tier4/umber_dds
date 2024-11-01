@@ -307,10 +307,12 @@ impl MessageReceiver {
         let writer_guid = GUID::new(self.dest_guid_prefix, data.writer_id);
         let _reader_guid = GUID::new(self.source_guid_prefix, data.reader_id);
 
+        let ts = Timestamp::now().expect("failed get Timestamp::new()");
         let change = CacheChange::new(
             ChangeKind::Alive,
             writer_guid,
             data.writer_sn,
+            ts,
             data.serialized_payload.clone(),
             InstantHandle {}, // TODO
         );

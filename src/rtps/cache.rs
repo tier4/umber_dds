@@ -1,4 +1,4 @@
-use crate::message::submessage::element::{SequenceNumber, SerializedPayload};
+use crate::message::submessage::element::{SequenceNumber, SerializedPayload, Timestamp};
 use crate::structure::GUID;
 use alloc::collections::BTreeMap;
 
@@ -7,6 +7,7 @@ pub struct CacheChange {
     kind: ChangeKind,
     pub writer_guid: GUID,
     pub sequence_number: SequenceNumber,
+    pub timestamp: Timestamp,
     data_value: Option<SerializedPayload>,
     // inline_qos: ParameterList,
     instance_handle: InstantHandle, // In DDS, the value of the fields
@@ -20,6 +21,7 @@ impl CacheChange {
         kind: ChangeKind,
         writer_guid: GUID,
         sequence_number: SequenceNumber,
+        timestamp: Timestamp,
         data_value: Option<SerializedPayload>,
         instance_handle: InstantHandle,
     ) -> Self {
@@ -27,6 +29,7 @@ impl CacheChange {
             kind,
             writer_guid,
             sequence_number,
+            timestamp,
             data_value,
             instance_handle,
         }
