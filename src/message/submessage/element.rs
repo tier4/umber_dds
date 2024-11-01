@@ -248,7 +248,7 @@ impl<C: Context> Writable<C> for ParameterList {
     }
 }
 
-#[derive(Readable, Writable, Clone, Copy)]
+#[derive(PartialEq, Eq, Readable, Writable, Clone, Copy)]
 pub struct Timestamp {
     pub seconds: u32,
     pub fraction: u32,
