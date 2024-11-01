@@ -27,7 +27,7 @@ impl ParticipantMessageData {
     }
 }
 
-#[derive(Clone, Serialize, serde::Deserialize)]
+#[derive(PartialEq, Clone, Serialize, serde::Deserialize)]
 pub struct ParticipantMessageKind {
     value: [u8; 4],
 }
