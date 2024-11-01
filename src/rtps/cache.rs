@@ -109,8 +109,31 @@ pub enum ChangeKind {
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct InstantHandle {/* TODO */}
 
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub struct HCKey {
+    pub guid: GUID,
+    pub seq_num: SequenceNumber,
+}
+impl HCKey {
+    pub fn new(guid: GUID, seq_num: SequenceNumber) -> Self {
+        Self { guid, seq_num }
+    }
+}
+impl PartialOrd for HCKey {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for HCKey {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.seq_num
+            .cmp(&other.seq_num)
+            .then_with(|| self.guid.cmp(&other.guid))
+    }
+}
+
 pub struct HistoryCache {
-    pub changes: BTreeMap<SequenceNumber, CacheChange>,
+    pub changes: BTreeMap<HCKey, CacheChange>,
     pub min_seq_num: Option<SequenceNumber>,
     pub max_seq_num: Option<SequenceNumber>,
 }
@@ -124,10 +147,13 @@ impl HistoryCache {
         }
     }
     pub fn add_change(&mut self, change: CacheChange) {
-        self.changes.insert(change.sequence_number, change);
+        self.changes.insert(
+            HCKey::new(change.writer_guid, change.sequence_number),
+            change,
+        );
     }
-    pub fn get_change(&self, seq_num: SequenceNumber) -> Option<CacheChange> {
-        self.changes.get(&seq_num).cloned()
+    pub fn get_change(&self, guid: GUID, seq_num: SequenceNumber) -> Option<CacheChange> {
+        self.changes.get(&HCKey::new(guid, seq_num)).cloned()
     }
 
     pub fn get_changes(&self) -> Vec<Option<SerializedPayload>> {
@@ -151,9 +177,9 @@ impl HistoryCache {
     }
     pub fn get_seq_num_min(&self) -> SequenceNumber {
         let mut min = SequenceNumber::MAX;
-        for c in &self.changes {
-            if *c.0 < min {
-                min = *c.0;
+        for (k, _v) in &self.changes {
+            if k.seq_num < min {
+                min = k.seq_num;
             }
         }
         if min == SequenceNumber::MAX {
@@ -164,9 +190,9 @@ impl HistoryCache {
     }
     pub fn get_seq_num_max(&self) -> SequenceNumber {
         let mut max = SequenceNumber::MIN;
-        for c in &self.changes {
-            if *c.0 > max {
-                max = *c.0;
+        for (k, _v) in &self.changes {
+            if k.seq_num > max {
+                max = k.seq_num;
             }
         }
         if max == SequenceNumber::MIN {
