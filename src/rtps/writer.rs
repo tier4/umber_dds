@@ -221,7 +221,7 @@ impl Writer {
                             .writer_cache
                             .read()
                             .expect("couldn't read writer_cache")
-                            .get_change(change_for_reader.seq_num)
+                            .get_change(self.guid, change_for_reader.seq_num)
                         {
                             // build RTPS Message
                             let mut message_builder = MessageBuilder::new();
@@ -491,7 +491,7 @@ impl Writer {
                         .writer_cache
                         .read()
                         .expect("couldn't read writer_cache")
-                        .get_change(change.seq_num)
+                        .get_change(self.guid, change.seq_num)
                     {
                         // build RTPS Message
                         let mut message_builder = MessageBuilder::new();

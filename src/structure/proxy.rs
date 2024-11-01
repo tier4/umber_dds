@@ -63,8 +63,8 @@ impl ReaderProxy {
         for (k, v) in &hc.changes {
             if v.sequence_number <= commited_seq_num {
                 self.cache_state.insert(
-                    *k,
-                    ChangeForReader::new(*k, ChangeForReaderStatusKind::Acknowledged, false),
+                    k.seq_num,
+                    ChangeForReader::new(k.seq_num, ChangeForReaderStatusKind::Acknowledged, false),
                 );
             }
         }
