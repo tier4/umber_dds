@@ -1,5 +1,8 @@
 use crate::dds::qos::DataWriterQosBuilder;
-use crate::discovery::structure::{cdr::deserialize, data::SDPBuiltinData};
+use crate::discovery::structure::{
+    cdr::deserialize,
+    data::{ParticipantMessageData, ParticipantMessageKind, SDPBuiltinData},
+};
 use crate::message::{
     submessage::{element::*, submessage_flag::*, *},
     *,
@@ -502,6 +505,44 @@ impl MessageReceiver {
                     );
                 }
             };
+        } else if data.writer_id == EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER
+            || data.reader_id == EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER
+        {
+            // if ParticipantMessage
+            let deserialized =
+                match deserialize::<ParticipantMessageData>(&match data.serialized_payload.as_ref()
+                {
+                    Some(sp) => sp.to_bytes(),
+                    None => {
+                        return Err(MessageError(
+                            "received sedp message without serializedPayload".to_string(),
+                        ))
+                    }
+                }) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        return Err(MessageError(format!(
+                            "failed deserialize reseived sedp(r) data message: {:?}",
+                            e
+                        )));
+                    }
+                };
+            eprintln!(
+                "<{}>: successed for deserialize DATA(m)",
+                "MessageReceiver: Info".green()
+            );
+            match deserialized.kind {
+                ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE
+                | ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE => {
+                    // ParticipantMessage is for Writer Liveliness Protocol
+                    // TODO
+                    // deserialized.guidをもつWriterとmatchするreaderに空のchangeをaddする？
+                    // P2P_BUILTIN_PARTICIPANT_MESSAGE_READERの役割は？
+                }
+                _ => {
+                    // ParticipantMessage is not for Writer Liveliness Protocol
+                }
+            }
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(data.writer_id) {
