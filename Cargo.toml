@@ -13,7 +13,6 @@ panic = 'abort'
 panic = 'abort'
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-# hoge
 [dependencies]
 byteorder = { version = "1.4.3", default-features = false }
 bytes = { version = "1.7", default-features = false }
