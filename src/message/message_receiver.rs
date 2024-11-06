@@ -531,18 +531,15 @@ impl MessageReceiver {
                 "<{}>: successed for deserialize DATA(m)",
                 "MessageReceiver: Info".green()
             );
-            match deserialized.kind {
-                ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE
-                | ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE => {
-                    // ParticipantMessage is for Writer Liveliness Protocol
-                    // TODO
-                    // deserialized.guidをもつWriterとmatchするreaderに空のchangeをaddする？
-                    // P2P_BUILTIN_PARTICIPANT_MESSAGE_READERの役割は？
+            match readers.get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER) {
+                Some(r) => r.add_change(self.source_guid_prefix, change),
+                None => {
+                    eprintln!(
+                        "<{}>: couldn't find sedp_builtin_subscription_reader",
+                        "MessageReceiver: Err".red(),
+                    );
                 }
-                _ => {
-                    // ParticipantMessage is not for Writer Liveliness Protocol
-                }
-            }
+            };
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(data.writer_id) {
