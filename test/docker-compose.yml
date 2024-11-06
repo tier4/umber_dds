@@ -3,6 +3,7 @@ services:
         build:
             context: umberdds
             dockerfile: Dockerfile
+            network: host
         image: umberdds_img
         container_name: umberdds
         networks:
@@ -17,6 +18,7 @@ services:
         build:
             context: otherdds
             dockerfile: Dockerfile
+            network: host
         image: otherdds_img
         container_name: otherdds
         networks:
@@ -31,6 +33,7 @@ services:
         build:
            context: otherdds2
            dockerfile: Dockerfile
+           network: host
         image: otherdds2_img
         container_name: otherdds2
         networks:

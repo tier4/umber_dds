@@ -1,11 +1,19 @@
 #!/usr/bin/bash
 
 echo "preparing tests: building umberdds/example/shapes_demo_for_autotest"
-cargo build --example=shapes_demo_for_autotest --release
+cargo build --example=shapes_demo_for_autotest
+if [ "$?" -ne 0 ];then
+    echo "shapes_demo_for_autotest build failed!"
+    exit
+fi
 
 echo "preparing tests: building otherdds/shapes_demo_rustdds"
 cd otherdds/shapes_demo_rustdds
-cargo build --release
+cargo build
+if [ "$?" -ne 0 ];then
+    echo "shapes_demo_rustdds build failed!"
+    exit
+fi
 cd ../..
 
 echo "preparing tests: starting docker containers"
