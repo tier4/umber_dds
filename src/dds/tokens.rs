@@ -17,12 +17,13 @@ impl TokenDec {
     }
 }
 
+#[allow(dead_code)]
 pub const PTB: usize = 0x40;
-pub const STOP_POLL_TOKEN: Token = Token(PTB);
+pub const _STOP_POLL_TOKEN: Token = Token(PTB);
 pub const ADD_WRITER_TOKEN: Token = Token(PTB + 1);
-pub const REMOVE_WRITER_TOKEN: Token = Token(PTB + 2);
+pub const _REMOVE_WRITER_TOKEN: Token = Token(PTB + 2);
 pub const ADD_READER_TOKEN: Token = Token(PTB + 3);
-pub const REMOVE_READER_TOKEN: Token = Token(PTB + 4);
+pub const _REMOVE_READER_TOKEN: Token = Token(PTB + 4);
 pub const DISCOVERY_UNI_TOKEN: Token = Token(PTB + 5);
 pub const DISCOVERY_MULTI_TOKEN: Token = Token(PTB + 6);
 pub const DISCOVERY_SEND_TOKEN: Token = Token(PTB + 7);
@@ -31,8 +32,8 @@ pub const USERTRAFFIC_UNI_TOKEN: Token = Token(PTB + 9);
 pub const USERTRAFFIC_MULTI_TOKEN: Token = Token(PTB + 10);
 pub const DISCOVERY_DB_UPDATE: Token = Token(PTB + 11);
 pub const SPDP_PARTICIPANT_DETECTOR: Token = Token(PTB + 12);
-pub const SEDP_PUBLICATIONS_DETECTOR: Token = Token(PTB + 13);
-pub const SEDP_SUBSCRIPTIONS_DETECTOR: Token = Token(PTB + 14);
+pub const _SEDP_PUBLICATIONS_DETECTOR: Token = Token(PTB + 13);
+pub const _SEDP_SUBSCRIPTIONS_DETECTOR: Token = Token(PTB + 14);
 pub const WRITER_HEARTBEAT_TIMER: Token = Token(PTB + 15);
 pub const SET_READER_HEARTBEAT_TIMER: Token = Token(PTB + 16);
 pub const READER_HEARTBEAT_TIMER: Token = Token(PTB + 17);

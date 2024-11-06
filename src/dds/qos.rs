@@ -542,6 +542,7 @@ pub mod policy {
     /// 8.7.2.2.1 DURABILITY
     /// > While volatile and transient-local durability do not affect the RTPS protocol,
     /// > support for transient and persistent durability may.
+    ///
     /// UmberDDS don't support optional Durability QoS value "Transient" and "Persistent".
     /// So, this config dosen't affect behavior.
     pub enum Durability {
@@ -572,7 +573,7 @@ pub mod policy {
     impl Presentation {
         /// offered is Publisher side QoS value
         /// requested is Subscriber side QoS value
-        pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
+        pub(crate) fn _is_compatible(offered: Self, requested: Self) -> bool {
             offered.access_scope as usize >= requested.access_scope as usize
         }
     }

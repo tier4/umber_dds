@@ -260,10 +260,10 @@ impl Writer {
             while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
                 reader_proxy.update_cache_state(
                     change_for_reader.seq_num,
-                    change_for_reader.is_relevant,
+                    change_for_reader._is_relevant,
                     ChangeForReaderStatusKind::Underway,
                 );
-                if change_for_reader.is_relevant {
+                if change_for_reader._is_relevant {
                     if let Some(aa_change) = self
                         .writer_cache
                         .read()
@@ -529,10 +529,10 @@ impl Writer {
             while let Some(change) = reader_proxy.next_requested_change() {
                 reader_proxy.update_cache_state(
                     change.seq_num,
-                    change.is_relevant,
+                    change._is_relevant,
                     ChangeForReaderStatusKind::Underway,
                 );
-                if change.is_relevant {
+                if change._is_relevant {
                     if let Some(aa_change) = self
                         .writer_cache
                         .read()

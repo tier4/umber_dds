@@ -62,19 +62,19 @@ pub enum ChangeFromWriterStatusKind {
 pub struct ChangeForReader {
     pub seq_num: SequenceNumber,
     pub status: ChangeForReaderStatusKind,
-    pub is_relevant: bool,
+    pub _is_relevant: bool,
 }
 
 impl ChangeForReader {
     pub fn new(
         seq_num: SequenceNumber,
         status: ChangeForReaderStatusKind,
-        is_relevant: bool,
+        _is_relevant: bool,
     ) -> Self {
         Self {
             seq_num,
             status,
-            is_relevant,
+            _is_relevant,
         }
     }
 }
@@ -82,7 +82,7 @@ impl ChangeForReader {
 #[derive(Clone)]
 pub struct ChangeFromWriter {
     pub _seq_num: SequenceNumber,
-    pub is_relevant: bool,
+    pub _is_relevant: bool,
     pub status: ChangeFromWriterStatusKind,
 }
 
@@ -90,12 +90,12 @@ impl ChangeFromWriter {
     pub fn new(
         seq_num: SequenceNumber,
         status: ChangeFromWriterStatusKind,
-        is_relevant: bool,
+        _is_relevant: bool,
     ) -> Self {
         Self {
             _seq_num: seq_num,
             status,
-            is_relevant,
+            _is_relevant,
         }
     }
 }
