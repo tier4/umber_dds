@@ -1,7 +1,4 @@
-use crate::dds::qos::{
-    policy::*, DataReadedrQosBuilder, DataReadedrQosPolicies, DataWriterQosBuilder,
-    DataWriterQosPolicies,
-};
+use crate::dds::qos::{policy::*, DataReadedrQosBuilder, DataWriterQosBuilder};
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator};
@@ -151,7 +148,7 @@ impl SDPBuiltinData {
             Some(did) => did,
             None => return None,
         }; // TODO: set  domain_id of this participant if domain_id is none
-        let domain_tag = self.domain_tag.take().unwrap_or(String::from(""));
+        let _domain_tag = self.domain_tag.take().unwrap_or(String::from(""));
         let protocol_version = match self.protocol_version.take() {
             Some(pv) => pv,
             None => return None,
@@ -194,7 +191,7 @@ impl SDPBuiltinData {
 
         Some(SPDPdiscoveredParticipantData {
             domain_id,
-            domain_tag,
+            _domain_tag,
             protocol_version,
             guid,
             vendor_id,
@@ -779,7 +776,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
             }
             */
         }
-        const FIELDS: &'static [&'static str] = &["secs", "nanos"];
+        const FIELDS: &[&str] = &["secs", "nanos"];
         deserializer.deserialize_struct("SDPBuiltinData", FIELDS, SDPBuiltinDataVisitor)
     }
 }
@@ -1288,7 +1285,7 @@ impl Serialize for DiscoveredWriterData {
 #[derive(Clone)]
 pub struct SPDPdiscoveredParticipantData {
     pub domain_id: u16,
-    pub domain_tag: String,
+    pub _domain_tag: String,
     pub protocol_version: ProtocolVersion,
     pub guid: GUID,
     pub vendor_id: VendorId,
@@ -1306,7 +1303,7 @@ impl SPDPdiscoveredParticipantData {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         domain_id: u16,
-        domain_tag: String,
+        _domain_tag: String,
         protocol_version: ProtocolVersion,
         guid: GUID,
         vendor_id: VendorId,
@@ -1321,7 +1318,7 @@ impl SPDPdiscoveredParticipantData {
     ) -> Self {
         Self {
             domain_id,
-            domain_tag,
+            _domain_tag,
             protocol_version,
             guid,
             vendor_id,
@@ -1533,7 +1530,7 @@ mod test {
             .gen_spdp_discoverd_participant_data()
             .expect("couldn't get spdp data from SDPBuiltinData");
         eprintln!("domain_id: {}", new_data.domain_id);
-        eprintln!("domain_tag: {}", new_data.domain_tag);
+        eprintln!("domain_tag: {}", new_data._domain_tag);
         eprintln!("protocol_version: {:?}", new_data.protocol_version);
         eprintln!("guid: {:?}", new_data.protocol_version);
         eprintln!("vendor_id: {:?}", new_data.vendor_id);
