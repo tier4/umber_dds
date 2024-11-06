@@ -29,7 +29,7 @@ impl ParticipantMessageData {
 
 #[derive(PartialEq, Clone, Serialize, serde::Deserialize)]
 pub struct ParticipantMessageKind {
-    value: [u8; 4],
+    pub value: [u8; 4],
 }
 impl ParticipantMessageKind {
     pub const UNKNOWN: Self = Self {

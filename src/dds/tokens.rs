@@ -40,3 +40,4 @@ pub const DISC_WRITER_ADD: Token = Token(PTB + 19);
 pub const DISC_READER_ADD: Token = Token(PTB + 20);
 pub const SET_WRITER_NACK_TIMER: Token = Token(PTB + 21);
 pub const WRITER_NACK_TIMER: Token = Token(PTB + 22);
+pub const PARTICIPANT_MESSAGE_READER: Token = Token(PTB + 23);

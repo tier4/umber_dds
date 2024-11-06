@@ -9,8 +9,8 @@ use crate::dds::{
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
-    DiscoveredReaderData, DiscoveredWriterData, ParticipantMessageData, SDPBuiltinData,
-    SPDPdiscoveredParticipantData,
+    DiscoveredReaderData, DiscoveredWriterData, ParticipantMessageData, ParticipantMessageKind,
+    SDPBuiltinData, SPDPdiscoveredParticipantData,
 };
 use crate::message::{
     message_header::ProtocolVersion,
@@ -218,6 +218,13 @@ impl Discovery {
                 p2p_builtin_participant_topic,
                 EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
             );
+        poll.register(
+            &p2p_builtin_participant_msg_reader,
+            PARTICIPANT_MESSAGE_READER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("couldn't register p2p_builtin_participant_msg_reader to poll");
 
         let mut spdp_send_timer: Timer<()> = Timer::default();
         spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
@@ -304,6 +311,7 @@ impl Discovery {
                             self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
                         }
                         SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
+                        PARTICIPANT_MESSAGE_READER => self.handle_participant_message(),
                         DISC_WRITER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_writer_receiver.try_recv() {
                                 self.sedp_builtin_pub_writer
@@ -361,6 +369,34 @@ impl Discovery {
                     self.discdb_update_sender
                         .send(guid_prefix)
                         .expect("couldn't send update notification to discdb_update_sender");
+                }
+            }
+        }
+    }
+    fn handle_participant_message(&mut self) {
+        let vd = self.p2p_builtin_participant_msg_reader.take();
+        for d in vd {
+            match d.kind {
+                ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE
+                | ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
+                    let writer_guid = d.guid;
+                    // TODO
+                    eprintln!(
+                        "<{}>: receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}}",
+                        "Discovery: Info".green()
+                    );
+                }
+                ParticipantMessageKind::UNKNOWN => {
+                    eprintln!(
+                        "<{}>: receved DATA(m) with ParticipantMessageKind::UNKNOWN, which is not processed",
+                        "Discovery: Warn".yellow()
+                    );
+                }
+                k => {
+                    eprintln!(
+                        "<{}>: receved DATA(m) with ParticipantMessageKind::{:?}, which is not processed",
+                        "Discovery: Warn".yellow(), k.value
+                    );
                 }
             }
         }
