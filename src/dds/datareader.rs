@@ -1,4 +1,4 @@
-use crate::dds::{qos::DataReadedrQosPolicies, subscriber::Subscriber, topic::Topic};
+use crate::dds::{qos::DataReaderQosPolicies, subscriber::Subscriber, topic::Topic};
 use crate::discovery::structure::cdr::deserialize;
 use crate::rtps::{cache::HistoryCache, reader::DataReaderStatusChanged};
 use alloc::sync::Arc;
@@ -12,7 +12,7 @@ use std::sync::RwLock;
 /// DDS DataReader
 pub struct DataReader<D: for<'de> Deserialize<'de>> {
     data_phantom: PhantomData<D>,
-    _qos: DataReadedrQosPolicies,
+    _qos: DataReaderQosPolicies,
     _topic: Topic,
     _subscriber: Subscriber,
     rhc: Arc<RwLock<HistoryCache>>,
@@ -21,7 +21,7 @@ pub struct DataReader<D: for<'de> Deserialize<'de>> {
 
 impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     pub(crate) fn new(
-        qos: DataReadedrQosPolicies,
+        qos: DataReaderQosPolicies,
         topic: Topic,
         subscriber: Subscriber,
         rhc: Arc<RwLock<HistoryCache>>,
@@ -64,10 +64,10 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         let mut hc = self.rhc.write().expect("couldn't write ReaderHistoryCache");
         hc.remove_changes();
     }
-    pub fn get_qos(&self) -> DataReadedrQosPolicies {
+    pub fn get_qos(&self) -> DataReaderQosPolicies {
         self._qos.clone()
     }
-    pub fn set_qos(&mut self, qos: DataReadedrQosPolicies) {
+    pub fn set_qos(&mut self, qos: DataReaderQosPolicies) {
         self._qos = qos;
     }
 

@@ -113,11 +113,11 @@
 //!     const DATAREADER: Token = Token(0);
 //!
 //!     let subscriber = participant.create_subscriber(SubscriberQos::Default);
-//!     let dr_qos = DataReadedrQosBuilder::new()
+//!     let dr_qos = DataReaderQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
 //!     let mut datareader =
-//!         subscriber.create_datareader::<Hello>(DataReadedrQos::Policies(dr_qos), topic);
+//!         subscriber.create_datareader::<Hello>(DataReaderQos::Policies(dr_qos), topic);
 //!     poll.register(
 //!         &mut datareader,
 //!         DATAREADER,

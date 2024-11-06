@@ -119,7 +119,7 @@ fn main() {
             }
             "s" | "S" => {
                 let subscriber = participant.create_subscriber(SubscriberQos::Default);
-                let dr_qos = DataReadedrQosBuilder::new()
+                let dr_qos = DataReaderQosBuilder::new()
                     .reliability(if is_reliable {
                         policy::Reliability::default_reliable()
                     } else {
@@ -127,7 +127,7 @@ fn main() {
                     })
                     .build();
                 let mut datareader =
-                    subscriber.create_datareader::<Shape>(DataReadedrQos::Policies(dr_qos), topic);
+                    subscriber.create_datareader::<Shape>(DataReaderQos::Policies(dr_qos), topic);
                 poll.register(
                     &mut datareader,
                     DATAREADER,

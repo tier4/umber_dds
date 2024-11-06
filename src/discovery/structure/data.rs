@@ -1,4 +1,4 @@
-use crate::dds::qos::{policy::*, DataReadedrQosBuilder, DataWriterQosBuilder};
+use crate::dds::qos::{policy::*, DataReaderQosBuilder, DataWriterQosBuilder};
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator};
@@ -235,7 +235,7 @@ impl SDPBuiltinData {
             Some(mll) => mll,
             None => return None,
         };
-        let dr_qos_builder = DataReadedrQosBuilder::new();
+        let dr_qos_builder = DataReaderQosBuilder::new();
         let qos = dr_qos_builder
             .durability(self.durability.unwrap_or_default())
             .deadline(self.deadline.unwrap_or_default())

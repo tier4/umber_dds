@@ -1,5 +1,5 @@
 use crate::dds::{
-    qos::{policy::ReliabilityQosKind, DataReadedrQosPolicies, DataWriterQosPolicies},
+    qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
     Topic,
 };
 use crate::discovery::structure::data::DiscoveredReaderData;
@@ -41,7 +41,7 @@ pub struct Reader {
     matched_writers: BTreeMap<GUID, WriterProxy>,
     // This implementation spesific
     topic: Topic,
-    qos: DataReadedrQosPolicies,
+    qos: DataReaderQosPolicies,
     endianness: Endianness,
     reader_state_notifier: mio_channel::Sender<DataReaderStatusChanged>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
@@ -438,7 +438,7 @@ pub struct ReaderIngredients {
     pub rhc: Arc<RwLock<HistoryCache>>,
     // This implementation spesific
     pub topic: Topic,
-    pub qos: DataReadedrQosPolicies,
+    pub qos: DataReaderQosPolicies,
     pub reader_state_notifier: mio_channel::Sender<DataReaderStatusChanged>,
 }
 

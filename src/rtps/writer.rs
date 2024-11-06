@@ -1,5 +1,5 @@
 use crate::dds::{
-    qos::{policy::ReliabilityQosKind, DataReadedrQosPolicies, DataWriterQosPolicies},
+    qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
     Topic,
 };
 use crate::discovery::structure::data::DiscoveredWriterData;
@@ -686,7 +686,7 @@ impl Writer {
         expects_inline_qos: bool,
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
-        qos: DataReadedrQosPolicies,
+        qos: DataReaderQosPolicies,
     ) {
         eprintln!(
             "<{}>: add matched Reader which has {:?}",

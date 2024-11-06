@@ -1,4 +1,4 @@
-use crate::dds::qos::{policy::Reliability, DataReadedrQosBuilder, DataWriterQosBuilder};
+use crate::dds::qos::{policy::Reliability, DataReaderQosBuilder, DataWriterQosBuilder};
 use crate::dds::tokens::*;
 use crate::discovery::{
     discovery_db::DiscoveryDB,
@@ -191,7 +191,7 @@ impl EventLoop {
                                     // readerEntityId of SPDP message from Cyclone DDS:
                                     // ENTITYID_UNKNOW
                                     // stpr 2.3 sepc, 9.6.1.4, Default multicast address
-                                    let qos = DataReadedrQosBuilder::new()
+                                    let qos = DataReaderQosBuilder::new()
                                         .reliability(Reliability::default_besteffort())
                                         .build();
                                     writer.matched_reader_add(
@@ -458,7 +458,7 @@ impl EventLoop {
                                 "<{}>: sedp_writer.matched_reader_add(remote_sedp_pub_reader)",
                                 "EventLoop: Info".green()
                             );
-                            let qos = DataReadedrQosBuilder::new()
+                            let qos = DataReaderQosBuilder::new()
                                 .reliability(Reliability::default_besteffort())
                                 .build();
                             writer.matched_reader_add(
@@ -512,7 +512,7 @@ impl EventLoop {
                                 "<{}>: sedp_writer.matched_reader_add(remote_sedp_sub_reader)",
                                 "EventLoop".green()
                             );
-                            let qos = DataReadedrQosBuilder::new()
+                            let qos = DataReaderQosBuilder::new()
                                 .reliability(Reliability::default_reliable())
                                 .build();
                             writer.matched_reader_add(
