@@ -304,8 +304,9 @@ impl MessageReceiver {
             // For example, this flag should be set when the SerializedPayload is transformed as described in the DDS-Security specification
         }
 
-        let writer_guid = GUID::new(self.dest_guid_prefix, data.writer_id);
-        let _reader_guid = GUID::new(self.source_guid_prefix, data.reader_id);
+        // rtps 2.3 spec, 8.3.7.2.5 Logical Interpretation
+        let writer_guid = GUID::new(self.source_guid_prefix, data.writer_id);
+        let _reader_guid = GUID::new(self.dest_guid_prefix, data.reader_id);
 
         let change = CacheChange::new(
             ChangeKind::Alive,
