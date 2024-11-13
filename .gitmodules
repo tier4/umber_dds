@@ -1,6 +1,3 @@
-[submodule "refarence/dds-analysis-docker"]
-	path = refarence/dds-analysis-docker
-	url = git@github.com:tier4/dds-analysis-docker.git
 [submodule "refarence/RustDDS"]
 	path = refarence/RustDDS
 	url = https://github.com/jhelovuo/RustDDS.git
