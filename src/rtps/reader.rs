@@ -389,6 +389,27 @@ impl Reader {
                     );
                 }
             }
+            // if there is Participant on same host, umber_dds need to send acknack to multicast
+            for mul_loc in &writer_proxy.multicast_locator_list {
+                if mul_loc.kind == Locator::KIND_UDPV4 {
+                    let port = mul_loc.port;
+                    let addr = mul_loc.address;
+                    eprintln!(
+                        "<{}>: sned acknack(heartbeat response) message to {}.{}.{}.{}:{}",
+                        "Reader: Info".green(),
+                        addr[12],
+                        addr[13],
+                        addr[14],
+                        addr[15],
+                        port
+                    );
+                    self.sender.send_to_unicast(
+                        &message_buf,
+                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                        port as u16,
+                    );
+                }
+            }
         } else {
             eprintln!(
                 "<{}>: couldn't find reader which has {:?}",
