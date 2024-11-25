@@ -28,9 +28,11 @@ besteffort subscriber
 ```
 
 ## Interoperability
-- [x] FastDDS
-- [x] RustDDS
+- [x] FastDDS (*)
+- [x] RustDDS (*)
 - [ ] CycloneDDS
+
+(*) These implementations use IPC (Inter-Process Communication) instead of UDP for communication when Participants are on the same host. Since UmberDDS does not implement IPC, it cannot communicate with Participants of these implementations on the same host. If you need to communicate with these implementations on the same host, run UmberDDS in an isolated network namespace using tools like Docker.
 
 ## Progress
 
@@ -44,6 +46,7 @@ besteffort subscriber
 - [ ] RTPS Writer Liveliness Protocol
 - [ ] Logging
 - [ ] Topics kinds: with_key and no_key
+- [ ] IPC (Inter-Process Communication)
 
 ### Supporting QoS
 
