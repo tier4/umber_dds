@@ -43,16 +43,17 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     /// DataReader implement mio::Evented, so you can gegister DataReader to mio v0.6's Poll.
     /// poll DataReader, to ensure taking data.
     pub fn take(&self) -> Vec<D> {
-        let d = self.get_change();
-        self.remove_changes();
-        d
+        self.get_data()
     }
 
-    fn get_change(&self) -> Vec<D> {
-        let hc = self.rhc.read().expect("couldn't read ReaderHistoryCache");
-        let data = hc.get_changes();
+    fn get_data(&self) -> Vec<D> {
+        let mut hc = self.rhc.write().expect("couldn't read ReaderHistoryCache");
+        let changes = hc.get_alive_changes();
+        for c in changes.iter() {
+            hc.remove_change(c);
+        }
         let mut v: Vec<D> = Vec::new();
-        for d in data.into_iter().flatten() {
+        for d in changes.iter().filter_map(|c| c.data_value()) {
             match deserialize::<D>(&d.to_bytes()) {
                 Ok(neko) => v.push(neko),
                 Err(_e) => (),
@@ -60,9 +61,9 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         }
         v
     }
-    fn remove_changes(&self) {
+    fn _remove_changes(&self) {
         let mut hc = self.rhc.write().expect("couldn't write ReaderHistoryCache");
-        hc.remove_changes();
+        hc.remove_notalive_changes();
     }
     pub fn get_qos(&self) -> DataReaderQosPolicies {
         self._qos.clone()

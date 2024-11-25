@@ -124,10 +124,15 @@ impl Reader {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if self.is_reliable() {
             // Reliable Reader Behavior
-            self.reader_cache
+            if self
+                .reader_cache
                 .write()
                 .expect("couldn't write reader_cache")
-                .add_change(change.clone());
+                .add_change(change.clone())
+                .is_err()
+            {
+                return;
+            }
             eprintln!(
                 "<{}>: reliable reader, add change to reader_cache",
                 "Reader: Info".green()
@@ -152,10 +157,15 @@ impl Reader {
                     flag = change.sequence_number >= expected_seq_num;
                 }
                 if flag {
-                    self.reader_cache
+                    if self
+                        .reader_cache
                         .write()
                         .expect("couldn't write reader_cache")
-                        .add_change(change.clone());
+                        .add_change(change.clone())
+                        .is_err()
+                    {
+                        return;
+                    }
                     eprintln!(
                         "<{}>: besteffort reader, add change to reader_cache",
                         "Reader: Info".green()
