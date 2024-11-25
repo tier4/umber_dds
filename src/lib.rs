@@ -8,7 +8,7 @@
 //! use rand::SeedableRng;
 //! use serde::{Deserialize, Serialize};
 //! use std::time::{Duration, SystemTime};
-//! use umberdds::dds::{DomainParticipant, qos::*};
+//! use umberdds::dds::{qos::*, DomainParticipant};
 //! use umberdds::structure::TopicKind;
 //!
 //! #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -55,7 +55,7 @@
 //!     )
 //!     .unwrap();
 //!     write_timer.set_timeout(Duration::new(2, 0), ());
-//!        loop {
+//!     loop {
 //!         let mut events = Events::with_capacity(128);
 //!         poll.poll(&mut events, None).unwrap();
 //!         for event in events.iter() {
@@ -82,7 +82,7 @@
 //! use rand::SeedableRng;
 //! use serde::{Deserialize, Serialize};
 //! use std::time::SystemTime;
-//! use umberdds::dds::{DomainParticipant, qos::*};
+//! use umberdds::dds::{qos::*, DataReaderStatusChanged, DomainParticipant};
 //! use umberdds::structure::TopicKind;
 //!
 //! #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -132,13 +132,20 @@
 //!         for event in events.iter() {
 //!             match event.token() {
 //!                 DATAREADER => {
-//!                     let received_shapes = datareader.take();
-//!                     for shape in received_shapes {
-//!                         received += 1;
-//!                         println!("received: {:?}", shape);
-//!                     }
-//!                     if received > 5 {
-//!                         std::process::exit(0);
+//!                     while let Ok(drc) = datareader.try_recv() {
+//!                         match drc {
+//!                             DataReaderStatusChanged::DataAvailable => {
+//!                                 let received_shapes = datareader.take();
+//!                                 for shape in received_shapes {
+//!                                     received += 1;
+//!                                     println!("received: {:?}", shape);
+//!                                 }
+//!                                 if received > 5 {
+//!                                     std::process::exit(0);
+//!                                 }
+//!                             }
+//!                             _ => (),
+//!                         }
 //!                     }
 //!                 }
 //!                 _ => unreachable!(),
