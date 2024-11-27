@@ -1,4 +1,4 @@
-# UmberDDS: Rust implementation of Data Distribution Service
+# UmberDDS: An experimental Rust implementation of Data Distribution Service
 
 In traditional DDS, the format of the exchanged data is defined using IDL, and DataWriter and DataReader are automatically generated from the IDL.
 However, in UmberDDS, the format of the exchanged data is defined as a struct that implements `serde::{Serialize, Deserialize}`, and the DataWriter and DataReader use the generic types `DataWriter<D: Serialize>` and `DataReader<D: Deserialize>`.

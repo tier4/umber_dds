@@ -2,7 +2,7 @@
 name = "umberdds"
 version = "0.1.0"
 edition = "2021"
-description = "UmberDDS: Rust implementation of Data Distribution Service"
+description = "UmberDDS: An experimental Rust implementation of Data Distribution Service"
 authors = ["Ryosuke Tomishige, TIER IV, Inc."]
 readme = "README.md"
 license-file = "LICENSE"

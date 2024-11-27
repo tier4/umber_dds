@@ -1,4 +1,4 @@
-//! Rust implementation of Data Distribution Service.
+//! An experimental Rust implementation of Data Distribution Service.
 //! # Usage Example
 //!
 //! publish sample
