@@ -538,6 +538,8 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
+    /// Durability QoS policy
+    ///
     /// rtps 2.3 spec, 8.7.2.2 DDS QoS Parameters that affect the wire protoco
     /// 8.7.2.2.1 DURABILITY
     /// > While volatile and transient-local durability do not affect the RTPS protocol,

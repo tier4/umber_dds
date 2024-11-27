@@ -72,6 +72,11 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         self._qos = qos;
     }
 
+    /// get DataReaderStatusChanged
+    ///
+    /// This method is non_blocking, so if failed to get DataReaderStatusChanged, this method returns Err.
+    /// DataReader implement mio::Evented, so you can gegister DataReader to mio v0.6's Poll.
+    /// Poll DataReader, to ensure get DataReaderStatusChanged.
     pub fn try_recv(&self) -> Result<DataReaderStatusChanged, std::sync::mpsc::TryRecvError> {
         self.reader_state_receiver.try_recv()
     }

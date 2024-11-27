@@ -757,10 +757,15 @@ impl RTPSEntity for Writer {
     }
 }
 
+/// For more details on each variants, please refer to the DDS specification. DDS v1.4 spec, 2.2.4 Listeners, Conditions, and Wait-sets (<https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386>)
+///
+/// The content for each variant has not been implemented yet, but it is planned to be implemented in the future.
 pub enum DataWriterStatusChanged {
     LivelinessLost,
     OfferedDeadlineMissed,
     OfferedIncompatibleQos,
+    /// This is diffarent form DDS spec.
+    /// The GUID is remote reader's one.
     PublicationMatched(GUID),
 }
 

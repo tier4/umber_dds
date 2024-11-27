@@ -38,7 +38,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 --------------------------------------------------------------------------
-src/structure/parameter_id.rs
+src/structure/parameter_id.rs, test/otherdds/shapes_demo_rustdds
 Copyright 2020 Atostek Oy
 
 Licensed under the Apache License, Version 2.0 (the "License");
