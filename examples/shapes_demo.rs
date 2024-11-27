@@ -118,7 +118,7 @@ fn main() {
                                 println!("send: {:?}", shape);
                                 shape.x = (shape.x + 5) % 255;
                                 shape.y = (shape.y + 5) % 255;
-                                timer.set_timeout(Duration::from_millis(100), ());
+                                timer.set_timeout(Duration::from_millis(1000), ());
                             }
                             _ => (), // unreachable
                         }

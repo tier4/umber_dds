@@ -14,6 +14,19 @@ services:
         volumes:
             - ./umberdds:/home
             - ../target:/home/UmberDDS/target
+    umberdds2:
+        depends_on:
+            - umberdds
+        image: umberdds_img
+        container_name: umberdds2
+        networks:
+            docker-pcap:
+                ipv4_address: 192.168.209.5
+        tty: true
+        command: /bin/bash
+        volumes:
+            - ./umberdds:/home
+            - ../target:/home/UmberDDS/target
     otherdds:
         build:
             context: otherdds
@@ -27,15 +40,14 @@ services:
         tty: true
         command: /bin/bash
         volumes:
-            - ./otherdds:/home
-            - ../refarence/RustDDS:/home/RustDDS
-    otherdds2:
+            - ./otherdds/shapes_demo_rustdds:/home/shapes_demo_rustdds
+    otherdds_dev:
         build:
-           context: otherdds2
-           dockerfile: Dockerfile
+           context: ..
+           dockerfile: test/otherdds_dev/Dockerfile
            network: host
-        image: otherdds2_img
-        container_name: otherdds2
+        image: otherdds_dev_img
+        container_name: otherdds_dev
         networks:
             docker-pcap:
                 ipv4_address: 192.168.209.4
@@ -45,9 +57,9 @@ services:
             DISPLAY: $DISPLAY
         user: foo
         volumes:
-            - ./otherdds2:/home
-            - ../refarence/RustDDS:/home/RustDDS
-            - ../refarence/ShapesDemo:/home/ShapesDemo
+            - ./otherdds_dev/msgs:/home/foo/msgs
+            - ./otherdds_dev/workspace_FastDDSShapesDemo:/home/foo/workspace_FastDDSShapesDemo
+            - ./otherdds_dev/shapes_demo_safe_drive/:/home/foo/shapes_demo_safe_drive/
             - /tmp/.X11-unix:/tmp/.X11-unix
 
 networks:

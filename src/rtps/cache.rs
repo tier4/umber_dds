@@ -149,38 +149,58 @@ impl HistoryCache {
             max_seq_num: None,
         }
     }
-    pub fn add_change(&mut self, change: CacheChange) {
-        self.changes.insert(
-            HCKey::new(change.writer_guid, change.sequence_number),
-            change,
-        );
+    pub fn add_change(&mut self, change: CacheChange) -> Result<(), ()> {
+        let key = HCKey::new(change.writer_guid, change.sequence_number);
+        if let Some(c) = self.changes.get(&key) {
+            if c.data_value == change.data_value {
+                Err(())
+            } else {
+                self.changes.insert(key, change);
+                Ok(())
+            }
+        } else {
+            self.changes.insert(key, change);
+            Ok(())
+        }
     }
     pub fn get_change(&self, guid: GUID, seq_num: SequenceNumber) -> Option<CacheChange> {
         self.changes.get(&HCKey::new(guid, seq_num)).cloned()
     }
 
-    pub fn get_changes(&self) -> Vec<Option<SerializedPayload>> {
-        self.changes.iter().map(|c| c.1.data_value()).collect()
+    pub fn get_alive_changes(&self) -> Vec<CacheChange> {
+        self.changes
+            .iter()
+            .filter(|c| c.1.kind == ChangeKind::Alive)
+            .map(|c| c.1.clone())
+            .collect()
     }
-    pub fn remove_change(&mut self, change: CacheChange) {
+    pub fn remove_change(&mut self, change: &CacheChange) {
         let mut to_del = Vec::new();
         for (k, v) in self.changes.iter() {
-            if *v == change {
+            if *v == *change {
                 to_del.push(*k);
             }
         }
         for k in to_del {
-            self.changes.remove(&k);
+            self.update_change_state(&k, ChangeKind::NotAliveDisposed);
         }
     }
-    pub fn remove_changes(&mut self) {
-        self.changes = BTreeMap::new();
+    pub fn remove_notalive_changes(&mut self) {
+        let to_del: Vec<HCKey> = self
+            .changes
+            .iter()
+            .filter(|c| c.1.kind == ChangeKind::NotAliveDisposed)
+            .map(|c| *c.0)
+            .collect();
+        for d in to_del {
+            self.changes.remove(&d);
+        }
         self.min_seq_num = None;
         self.max_seq_num = None;
     }
     pub fn get_seq_num_min(&self) -> SequenceNumber {
         let mut min = SequenceNumber::MAX;
-        for (k, _v) in &self.changes {
+        for k in self.changes.keys() {
             if k.seq_num < min {
                 min = k.seq_num;
             }
@@ -193,7 +213,7 @@ impl HistoryCache {
     }
     pub fn get_seq_num_max(&self) -> SequenceNumber {
         let mut max = SequenceNumber::MIN;
-        for (k, _v) in &self.changes {
+        for k in self.changes.keys() {
             if k.seq_num > max {
                 max = k.seq_num;
             }
@@ -202,6 +222,12 @@ impl HistoryCache {
             SequenceNumber(0)
         } else {
             max
+        }
+    }
+
+    fn update_change_state(&mut self, key: &HCKey, kind: ChangeKind) {
+        if let Some(todo_update) = self.changes.get_mut(key) {
+            todo_update.kind = kind;
         }
     }
 }

@@ -79,6 +79,12 @@ impl<D: Serialize> DataWriter<D> {
                 .expect("couldn't send message");
         }
     }
+
+    /// get DataWriterStatusChanged
+    ///
+    /// This method is non_blocking, so if failed to get DataReaderStatusChanged, this method returns Err.
+    /// DataReader implement mio::Evented, so you can gegister DataReader to mio v0.6's Poll.
+    /// Poll DataReader, to ensure get DataWriterStatusChanged.
     pub fn try_recv(&self) -> Result<DataWriterStatusChanged, std::sync::mpsc::TryRecvError> {
         self.writer_state_receiver.try_recv()
     }

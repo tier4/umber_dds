@@ -1,9 +1,18 @@
-# UmberDDS: Rust implementation of Data Distribution Service
+# UmberDDS: An experimental Rust implementation of Data Distribution Service
 
 In traditional DDS, the format of the exchanged data is defined using IDL, and DataWriter and DataReader are automatically generated from the IDL.
 However, in UmberDDS, the format of the exchanged data is defined as a struct that implements `serde::{Serialize, Deserialize}`, and the DataWriter and DataReader use the generic types `DataWriter<D: Serialize>` and `DataReader<D: Deserialize>`.
 
 ## Usage
+If you want to use refarence/dds-analysis-docker to perform communication tests with other implementations or analyze this implementation in a Docker environment, or if you want to test interoperability with RustDDS before contributing using test, several dependencies registered as Git submodules are required.
+
+When cloning this repository, please use the --recursive option to clone the dependencies along with it.
+```
+git clone --recursive https://github.com/tier4/umber_dds.git
+```
+
+UmberDDS has not yet implemented proper logging, so all debug information is output directly to `stderr`. Therefore, if you do not need debug information, it is recommended to redirect `stderr` to `/dev/null`.
+
 ### examples/shapes_deme
 ```
 # build examples
@@ -19,18 +28,22 @@ The default is BestEffort.
 
 reliable publisher
 ```
-./target/debug/examples/shapes_demo -m p -r b
+./target/debug/examples/shapes_demo -m p -r b 2> /dev/null
 ```
 
 besteffort subscriber
 ```
-./target/debug/examples/shapes_demo -m s
+./target/debug/examples/shapes_demo -m s 2> /dev/null
 ```
 
 ## Interoperability
-- [x] FastDDS
-- [x] RustDDS
+- [ ] FastDDS (%1),(%2)
+- [x] RustDDS (%1)
 - [ ] CycloneDDS
+
+(%1) These implementations use IPC (Inter-Process Communication) instead of UDP for communication when Participants are on the same host. Since UmberDDS does not implement IPC, it cannot communicate with Participants of these implementations on the same host. If you need to communicate with these implementations on the same host, run UmberDDS in an isolated network namespace using tools like Docker.
+
+(%2) It has been confirmed that `example/shapes_demo.rs can` communicate with [FastDDS ShapesDemo](https://github.com/eProsima/ShapesDemo). However, communication between UmberDDS and FastDDS using other programs has not been successful.
 
 ## Progress
 
@@ -44,6 +57,7 @@ besteffort subscriber
 - [ ] RTPS Writer Liveliness Protocol
 - [ ] Logging
 - [ ] Topics kinds: with_key and no_key
+- [ ] IPC (Inter-Process Communication)
 
 ### Supporting QoS
 

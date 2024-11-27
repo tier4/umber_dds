@@ -253,7 +253,9 @@ impl Writer {
             InstantHandle {},
         );
         // register a_change to writer HistoryCache
-        self.add_change_to_hc(a_change.clone());
+        if self.add_change_to_hc(a_change.clone()).is_err() {
+            return;
+        }
         let self_guid_prefix = self.guid_prefix();
         self.print_self_info();
         for reader_proxy in self.matched_readers.values_mut() {
@@ -463,12 +465,12 @@ impl Writer {
         }
     }
 
-    fn add_change_to_hc(&mut self, change: CacheChange) {
+    fn add_change_to_hc(&mut self, change: CacheChange) -> Result<(), ()> {
         // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
         self.writer_cache
             .write()
             .expect("couldn't write writer_cache")
-            .add_change(change);
+            .add_change(change)?;
         for reader_proxy in self.matched_readers.values_mut() {
             reader_proxy.update_cache_state(
                 self.last_change_sequence_number,
@@ -481,6 +483,7 @@ impl Writer {
                 },
             )
         }
+        Ok(())
     }
 
     pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) {
@@ -800,10 +803,15 @@ impl RTPSEntity for Writer {
     }
 }
 
+/// For more details on each variants, please refer to the DDS specification. DDS v1.4 spec, 2.2.4 Listeners, Conditions, and Wait-sets (<https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386>)
+///
+/// The content for each variant has not been implemented yet, but it is planned to be implemented in the future.
 pub enum DataWriterStatusChanged {
     LivelinessLost,
     OfferedDeadlineMissed,
     OfferedIncompatibleQos,
+    /// This is diffarent form DDS spec.
+    /// The GUID is remote reader's one.
     PublicationMatched(GUID),
 }
 

@@ -124,10 +124,15 @@ impl Reader {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if self.is_reliable() {
             // Reliable Reader Behavior
-            self.reader_cache
+            if self
+                .reader_cache
                 .write()
                 .expect("couldn't write reader_cache")
-                .add_change(change.clone());
+                .add_change(change.clone())
+                .is_err()
+            {
+                return;
+            }
             eprintln!(
                 "<{}>: reliable reader, add change to reader_cache",
                 "Reader: Info".green()
@@ -152,10 +157,15 @@ impl Reader {
                     flag = change.sequence_number >= expected_seq_num;
                 }
                 if flag {
-                    self.reader_cache
+                    if self
+                        .reader_cache
                         .write()
                         .expect("couldn't write reader_cache")
-                        .add_change(change.clone());
+                        .add_change(change.clone())
+                        .is_err()
+                    {
+                        return;
+                    }
                     eprintln!(
                         "<{}>: besteffort reader, add change to reader_cache",
                         "Reader: Info".green()
@@ -389,6 +399,27 @@ impl Reader {
                     );
                 }
             }
+            // if there is Participant on same host, umber_dds need to send acknack to multicast
+            for mul_loc in &writer_proxy.multicast_locator_list {
+                if mul_loc.kind == Locator::KIND_UDPV4 {
+                    let port = mul_loc.port;
+                    let addr = mul_loc.address;
+                    eprintln!(
+                        "<{}>: sned acknack(heartbeat response) message to {}.{}.{}.{}:{}",
+                        "Reader: Info".green(),
+                        addr[12],
+                        addr[13],
+                        addr[14],
+                        addr[15],
+                        port
+                    );
+                    self.sender.send_to_unicast(
+                        &message_buf,
+                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                        port as u16,
+                    );
+                }
+            }
         } else {
             eprintln!(
                 "<{}>: couldn't find reader which has {:?}",
@@ -414,6 +445,9 @@ impl Reader {
     }
 }
 
+/// For more details on each variants, please refer to the DDS specification. DDS v1.4 spec, 2.2.4 Listeners, Conditions, and Wait-sets (<https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386>)
+///
+/// The content for each variant has not been implemented yet, but it is planned to be implemented in the future.
 pub enum DataReaderStatusChanged {
     SampleRejected,
     LivelinessChanged,
@@ -421,6 +455,8 @@ pub enum DataReaderStatusChanged {
     RequestedIncompatibleQos,
     DataAvailable,
     SampleLost,
+    /// This is diffarent form DDS spec.
+    /// The GUID is remote writer's one.
     SubscriptionMatched(GUID),
 }
 
