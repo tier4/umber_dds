@@ -11,7 +11,7 @@ impl Duration {
     // TODO
     pub const INFINITE: Self = Self {
         seconds: 0x7fffffff,
-        fraction: 0x7fffffff,
+        fraction: 0xffffffff,
     };
     pub const ZERO: Self = Self {
         seconds: 0,
