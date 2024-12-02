@@ -442,7 +442,7 @@ impl EventLoop {
         );
 
         while let Ok(guid_prefix) = self.discdb_update_receiver.try_recv() {
-            if let Some(spdp_data) = self.discovery_db.read(guid_prefix) {
+            if let Some(spdp_data) = self.discovery_db.read_data(guid_prefix) {
                 if spdp_data.domain_id != self.domain_id {
                     continue;
                 } else {

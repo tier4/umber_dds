@@ -26,9 +26,14 @@ impl DiscoveryDB {
         inner.write(guid_prefix, timestamp, data)
     }
 
-    pub fn read(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
+    pub fn read_data(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
         let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
-        inner.read(guid_prefix)
+        inner.read_data(guid_prefix)
+    }
+
+    pub fn read_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
+        let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.read_ts(guid_prefix)
     }
 }
 
@@ -52,9 +57,17 @@ impl DiscoveryDBInner {
         self.data.insert(guid_prefix, (timestamp, data));
     }
 
-    fn read(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
+    fn read_data(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
         if let Some((_ts, data)) = self.data.get(&guid_prefix) {
             Some((*data).clone())
+        } else {
+            None
+        }
+    }
+
+    fn read_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
+        if let Some((ts, _data)) = self.data.get(&guid_prefix) {
+            Some(*ts)
         } else {
             None
         }
