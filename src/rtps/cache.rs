@@ -137,6 +137,7 @@ impl Ord for HCKey {
 
 pub struct HistoryCache {
     pub changes: BTreeMap<HCKey, CacheChange>,
+    pub last_added: BTreeMap<GUID, Timestamp>,
     pub min_seq_num: Option<SequenceNumber>,
     pub max_seq_num: Option<SequenceNumber>,
 }
@@ -145,6 +146,7 @@ impl HistoryCache {
     pub fn new() -> Self {
         Self {
             changes: BTreeMap::new(),
+            last_added: BTreeMap::new(),
             min_seq_num: None,
             max_seq_num: None,
         }
@@ -155,16 +157,23 @@ impl HistoryCache {
             if c.data_value == change.data_value {
                 Err(())
             } else {
+                self.last_added.insert(key.guid, change.timestamp);
                 self.changes.insert(key, change);
                 Ok(())
             }
         } else {
+            self.last_added.insert(key.guid, change.timestamp);
             self.changes.insert(key, change);
             Ok(())
         }
     }
     pub fn get_change(&self, guid: GUID, seq_num: SequenceNumber) -> Option<CacheChange> {
         self.changes.get(&HCKey::new(guid, seq_num)).cloned()
+    }
+
+    /// get the Timestamp of the last Change added to the HistoryCache from the Writer with the specified `writer_guid`.
+    pub fn get_last_added_ts(&self, writer_guid: GUID) -> Option<&Timestamp> {
+        self.last_added.get(&writer_guid)
     }
 
     pub fn get_alive_changes(&self) -> Vec<CacheChange> {
