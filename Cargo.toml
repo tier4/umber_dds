@@ -12,8 +12,12 @@ panic = 'abort'
 [profile.dev]
 panic = 'abort'
 
+[workspace]
+members = [".", "keyed_derive"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
+keyed_derive = { version = "0.1.0", path = "keyed_derive" }
 byteorder = { version = "1.4.3", default-features = false }
 bytes = { version = "1.7", default-features = false }
 enumflags2 = { version = "0.7.7", default-features = false, features = [
@@ -35,6 +39,7 @@ cdr = "0.2.4"
 chrono = { version = "0.4", optional = true }
 thiserror = "1.0"
 serde_repr = "0.1.18"
+md5 = { version = "0.7.0", default-features = false }
 
 [dev-dependencies]
 clap = { version = "4.5", features = ["derive"] }

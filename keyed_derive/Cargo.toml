@@ -1,0 +1,15 @@
+[package]
+name = "keyed_derive"
+version = "0.1.0"
+edition = "2021"
+description = "#[derive(Keyed)] support"
+authors = ["Ryosuke Tomishige, TIER IV, Inc."]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.37"
+syn = "2.0.90"
+cdr = "0.2.4"
+md5 = { version = "0.7.0", default-features = false }

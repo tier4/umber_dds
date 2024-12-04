@@ -3,6 +3,7 @@
 mod datareader;
 mod datawriter;
 mod event_loop;
+mod key;
 mod participant;
 mod publisher;
 pub mod qos;
