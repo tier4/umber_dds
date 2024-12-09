@@ -12,7 +12,10 @@ use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use bytes::BytesMut;
 use colored::*;
-use mio_extras::{channel as mio_channel, timer::Timer};
+use mio_extras::{
+    channel as mio_channel,
+    timer::{Timeout, Timer},
+};
 use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 
@@ -50,6 +53,7 @@ pub struct EventLoop {
     writer_hb_timer: Timer<EntityId>,
     reader_hb_timers: Vec<Timer<(EntityId, GUID)>>, // (reader EntityId, writer GUID)
     writer_nack_timers: Vec<Timer<(EntityId, GUID)>>, // (writer EntityId, reader GUID)
+    wlp_timers: BTreeMap<EntityId, (Timer<EntityId>, Timeout)>, //  reader EntityId, reader EntityId
     // receive discovery_db update notification from Discovery
     discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     discovery_db: DiscoveryDB,
@@ -139,6 +143,7 @@ impl EventLoop {
             writer_hb_timer,
             reader_hb_timers: Vec::new(),
             writer_nack_timers: Vec::new(),
+            wlp_timers: BTreeMap::new(),
             discdb_update_receiver,
             discovery_db,
         }
@@ -349,6 +354,19 @@ impl EventLoop {
                                 }
                             }
                         }
+                        WRITER_LIVELINESS_TIMER => {
+                            for (wlp_timer, to) in self.wlp_timers.values_mut() {
+                                if let Some(eid) = wlp_timer.poll() {
+                                    if let Some(reader) = self.readers.get_mut(&eid) {
+                                        reader.check_liveliness();
+                                        *to = wlp_timer.set_timeout(
+                                            reader.get_min_remote_writer_lease_duration(),
+                                            reader.entity_id(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
                         READER_HEARTBEAT_TIMER => {
                             for rhb_timer in &mut self.reader_hb_timers {
                                 if let Some((reid, wguid)) = rhb_timer.poll() {
@@ -499,6 +517,24 @@ impl EventLoop {
                                 0, // TODO: What value should I set?
                                 qos,
                             );
+                            let min_ld = reader.get_min_remote_writer_lease_duration();
+                            let mut wlp_timer = Timer::default();
+                            let timeout = wlp_timer.set_timeout(min_ld, reader.entity_id());
+                            self.poll
+                                .register(
+                                    &wlp_timer,
+                                    WRITER_LIVELINESS_TIMER,
+                                    Ready::readable(),
+                                    PollOpt::edge(),
+                                )
+                                .expect("coludn't register reader_hb_timer to poll");
+                            if let Some((timer, to)) = self.wlp_timers.get_mut(&reader.entity_id())
+                            {
+                                timer.cancel_timeout(to);
+                                reader.check_liveliness();
+                            }
+                            self.wlp_timers
+                                .insert(reader.entity_id(), (wlp_timer, timeout));
                         }
                     }
                     if available_builtin_endpoint

@@ -5,7 +5,7 @@ use crate::dds::{
 use crate::discovery::structure::data::DiscoveredReaderData;
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
-    element::{Gap, Heartbeat, Locator, SequenceNumber, SequenceNumberSet},
+    element::{Gap, Heartbeat, Locator, SequenceNumber, SequenceNumberSet, Timestamp},
     submessage_flag::HeartbeatFlag,
 };
 use crate::network::udp_sender::UdpSender;
@@ -246,7 +246,7 @@ impl Reader {
             .get_mut(&guid)
             .map(|proxy| proxy.clone())
     }
-    #[allow(dead_code)]
+
     pub fn matched_writer_remove(&mut self, guid: GUID) {
         self.matched_writers.remove(&guid);
     }
@@ -442,6 +442,42 @@ impl Reader {
             }
         }
         false
+    }
+
+    pub fn check_liveliness(&mut self) {
+        let mut todo_remove = Vec::new();
+        for (guid, wp) in &self.matched_writers {
+            let wld = wp.qos.liveliness.lease_duration;
+            if wld == Duration::INFINITE {
+                continue;
+            }
+            let rhc = self
+                .reader_cache
+                .read()
+                .expect("couldn't read lock reader HistoryCache");
+            let last_added = rhc.get_last_added_ts(*guid).unwrap();
+            let elapse = Timestamp::now().expect("failed get Timestamp::now()") - *last_added;
+            if elapse > wld {
+                todo_remove.push(*guid);
+            }
+        }
+        for g in todo_remove {
+            self.matched_writer_remove(g)
+        }
+        self.reader_state_notifier
+            .send(DataReaderStatusChanged::LivelinessChanged)
+            .expect("couldn't send channel 'reader_state_notifier'");
+    }
+
+    pub fn get_min_remote_writer_lease_duration(&self) -> StdDuration {
+        let mut min_ld = Duration::INFINITE;
+        for (_, wp) in &self.matched_writers {
+            let wld = wp.qos.liveliness.lease_duration;
+            if wld < min_ld {
+                min_ld = wld;
+            }
+        }
+        StdDuration::new(min_ld.seconds as u64, min_ld.fraction)
     }
 }
 
