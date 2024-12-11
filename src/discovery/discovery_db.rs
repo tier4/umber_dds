@@ -1,6 +1,6 @@
 use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
 use crate::message::submessage::element::Timestamp;
-use crate::structure::GuidPrefix;
+use crate::structure::{GuidPrefix, GUID};
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use std::sync::Mutex;
@@ -16,57 +16,165 @@ impl DiscoveryDB {
         }
     }
 
-    pub fn write(
+    pub fn write_participant(
         &mut self,
         guid_prefix: GuidPrefix,
         timestamp: Timestamp,
         data: SPDPdiscoveredParticipantData,
     ) {
         let mut inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
-        inner.write(guid_prefix, timestamp, data)
+        inner.write_participant(guid_prefix, timestamp, data)
     }
 
-    pub fn read_data(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
-        let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
-        inner.read_data(guid_prefix)
+    /*
+    pub fn write_local_reader(&mut self, guid: GUID, timestamp: Timestamp) {
+        let mut inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.write_local_reader(guid, timestamp)
+    }
+    */
+    /// Write the time when data was last sent by a local writer with a GUID to the discovery_db.
+    pub fn write_local_writer(&mut self, guid: GUID, timestamp: Timestamp) {
+        let mut inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.write_local_writer(guid, timestamp)
+    }
+    /*
+    pub fn write_remote_reader(&mut self, guid: GUID, timestamp: Timestamp) {
+        let mut inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.write_remote_reader(guid, timestamp)
+    }
+    */
+    /// Write the time when data was last received from a remote writer with a GUID to the discovery_db.
+    pub fn write_remote_writer(&mut self, guid: GUID, timestamp: Timestamp) {
+        let mut inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.write_remote_writer(guid, timestamp)
     }
 
-    pub fn read_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
+    pub fn read_participant_data(
+        &self,
+        guid_prefix: GuidPrefix,
+    ) -> Option<SPDPdiscoveredParticipantData> {
         let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
-        inner.read_ts(guid_prefix)
+        inner.read_participant_data(guid_prefix)
+    }
+
+    pub fn read_participant_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
+        let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.read_participant_ts(guid_prefix)
+    }
+
+    /*
+    pub fn read_local_reader(&self, guid: GUID) -> Option<Timestamp> {
+        let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.read_local_reader(guid)
+    }
+    */
+    pub fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
+        let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.read_local_writer(guid)
+    }
+    /*
+    pub fn read_remote_reader(&self, guid: GUID) -> Option<Timestamp> {
+        let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.read_remote_reader(guid)
+    }
+    */
+    pub fn read_remote_writer(&self, guid: GUID) -> Option<Timestamp> {
+        let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        inner.read_remote_writer(guid)
     }
 }
 
 struct DiscoveryDBInner {
-    data: BTreeMap<GuidPrefix, (Timestamp, SPDPdiscoveredParticipantData)>,
+    participant_data: BTreeMap<GuidPrefix, (Timestamp, SPDPdiscoveredParticipantData)>,
+    // local_reader_data: BTreeMap<GUID, Timestamp>,
+    local_writer_data: BTreeMap<GUID, Timestamp>,
+    // remote_reader_data: BTreeMap<GUID, Timestamp>,
+    remote_writer_data: BTreeMap<GUID, Timestamp>,
 }
 
 impl DiscoveryDBInner {
     fn new() -> Self {
         Self {
-            data: BTreeMap::new(),
+            participant_data: BTreeMap::new(),
+            // local_reader_data: BTreeMap::new(),
+            local_writer_data: BTreeMap::new(),
+            // remote_reader_data: BTreeMap::new(),
+            remote_writer_data: BTreeMap::new(),
         }
     }
 
-    fn write(
+    fn write_participant(
         &mut self,
         guid_prefix: GuidPrefix,
         timestamp: Timestamp,
         data: SPDPdiscoveredParticipantData,
     ) {
-        self.data.insert(guid_prefix, (timestamp, data));
+        self.participant_data.insert(guid_prefix, (timestamp, data));
     }
 
-    fn read_data(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
-        if let Some((_ts, data)) = self.data.get(&guid_prefix) {
+    /*
+    fn write_local_reader(&mut self, guid: GUID, timestamp: Timestamp) {
+        self.local_reader_data.insert(guid, timestamp);
+    }
+    */
+    fn write_local_writer(&mut self, guid: GUID, timestamp: Timestamp) {
+        self.local_writer_data.insert(guid, timestamp);
+    }
+    /*
+    fn write_remote_reader(&mut self, guid: GUID, timestamp: Timestamp) {
+        self.remote_reader_data.insert(guid, timestamp);
+    }
+    */
+    fn write_remote_writer(&mut self, guid: GUID, timestamp: Timestamp) {
+        self.remote_writer_data.insert(guid, timestamp);
+    }
+
+    fn read_participant_data(
+        &self,
+        guid_prefix: GuidPrefix,
+    ) -> Option<SPDPdiscoveredParticipantData> {
+        if let Some((_ts, data)) = self.participant_data.get(&guid_prefix) {
             Some((*data).clone())
         } else {
             None
         }
     }
 
-    fn read_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
-        if let Some((ts, _data)) = self.data.get(&guid_prefix) {
+    fn read_participant_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
+        if let Some((ts, _data)) = self.participant_data.get(&guid_prefix) {
+            Some(*ts)
+        } else {
+            None
+        }
+    }
+
+    /*
+    fn read_local_reader(&self, guid: GUID) -> Option<Timestamp> {
+        if let Some(ts) = self.local_reader_data.get(&guid) {
+            Some(*ts)
+        } else {
+            None
+        }
+    }
+    */
+    fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
+        if let Some(ts) = self.local_writer_data.get(&guid) {
+            Some(*ts)
+        } else {
+            None
+        }
+    }
+    /*
+    fn read_remote_reader(&self, guid: GUID) -> Option<Timestamp> {
+        if let Some(ts) = self.remote_reader_data.get(&guid) {
+            Some(*ts)
+        } else {
+            None
+        }
+    }
+    */
+    fn read_remote_writer(&self, guid: GUID) -> Option<Timestamp> {
+        if let Some(ts) = self.remote_writer_data.get(&guid) {
             Some(*ts)
         } else {
             None

@@ -20,7 +20,7 @@ use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 
 use crate::message::message_receiver::*;
-use crate::message::submessage::element::Locator;
+use crate::message::submessage::element::{Locator, Timestamp};
 use crate::network::{net_util::*, udp_sender::UdpSender};
 
 const MAX_MESSAGE_SIZE: usize = 64 * 1024; // This is max we can get from UDP.
@@ -28,6 +28,7 @@ const MESSAGE_BUFFER_ALLOCATION_CHUNK: usize = 256 * 1024;
 
 pub struct EventLoop {
     domain_id: u16,
+    guid_prefix: GuidPrefix,
     poll: Poll,
     sockets: BTreeMap<Token, UdpSocket>,
     message_receiver: MessageReceiver,
@@ -63,6 +64,7 @@ impl EventLoop {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         domain_id: u16,
+        guid_prefix: GuidPrefix,
         mut sockets: BTreeMap<Token, UdpSocket>,
         participant_guidprefix: GuidPrefix,
         create_writer_receiver: mio_channel::Receiver<WriterIngredients>,
@@ -126,6 +128,7 @@ impl EventLoop {
         let sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
             domain_id,
+            guid_prefix,
             poll,
             sockets,
             message_receiver,
@@ -163,6 +166,7 @@ impl EventLoop {
                                     packets,
                                     &mut self.writers,
                                     &mut self.readers,
+                                    &mut self.discovery_db,
                                 );
                             }
                         }
@@ -173,6 +177,7 @@ impl EventLoop {
                                     packets,
                                     &mut self.writers,
                                     &mut self.readers,
+                                    &mut self.discovery_db,
                                 );
                             }
                         }
@@ -358,7 +363,7 @@ impl EventLoop {
                             for (wlp_timer, to) in self.wlp_timers.values_mut() {
                                 if let Some(eid) = wlp_timer.poll() {
                                     if let Some(reader) = self.readers.get_mut(&eid) {
-                                        reader.check_liveliness();
+                                        reader.check_liveliness(&self.discovery_db);
                                         *to = wlp_timer.set_timeout(
                                             reader.get_min_remote_writer_lease_duration(),
                                             reader.entity_id(),
@@ -398,6 +403,10 @@ impl EventLoop {
                     TokenDec::Entity(eid) => {
                         if eid.is_writer() {
                             if let Some(writer) = self.writers.get_mut(&eid) {
+                                self.discovery_db.write_local_writer(
+                                    GUID::new(self.guid_prefix, eid),
+                                    Timestamp::now().expect("failed get Timestamp"),
+                                );
                                 writer.handle_writer_cmd();
                             } else {
                                 eprintln!(
@@ -460,7 +469,7 @@ impl EventLoop {
         );
 
         while let Ok(guid_prefix) = self.discdb_update_receiver.try_recv() {
-            if let Some(spdp_data) = self.discovery_db.read_data(guid_prefix) {
+            if let Some(spdp_data) = self.discovery_db.read_participant_data(guid_prefix) {
                 if spdp_data.domain_id != self.domain_id {
                     continue;
                 } else {
@@ -531,7 +540,7 @@ impl EventLoop {
                             if let Some((timer, to)) = self.wlp_timers.get_mut(&reader.entity_id())
                             {
                                 timer.cancel_timeout(to);
-                                reader.check_liveliness();
+                                reader.check_liveliness(&self.discovery_db);
                             }
                             self.wlp_timers
                                 .insert(reader.entity_id(), (wlp_timer, timeout));
@@ -641,6 +650,7 @@ impl EventLoop {
                             let qos = DataWriterQosBuilder::new()
                                 .reliability(Reliability::default_reliable())
                                 .build();
+                            // TODO: Is this really necessary?
                             reader.matched_writer_add(
                                 guid,
                                 spdp_data.metarraffic_unicast_locator_list,

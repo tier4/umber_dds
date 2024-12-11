@@ -378,6 +378,7 @@ impl DomainParticipantInner {
                 let guid_prefix = my_guid.guid_prefix;
                 let ev_loop = EventLoop::new(
                     domain_id,
+                    my_guid.guid_prefix,
                     socket_list,
                     guid_prefix,
                     create_writer_receiver,

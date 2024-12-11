@@ -363,7 +363,7 @@ impl Discovery {
                 } else {
                     let guid_prefix = spdp_data.guid.guid_prefix;
                     eprintln!("<{}>: discovery_db wite", "Discovery: Info".green());
-                    self.discovery_db.write(
+                    self.discovery_db.write_participant(
                         spdp_data.guid.guid_prefix,
                         Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
                         spdp_data,

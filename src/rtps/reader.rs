@@ -2,7 +2,7 @@ use crate::dds::{
     qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
     Topic,
 };
-use crate::discovery::structure::data::DiscoveredReaderData;
+use crate::discovery::{discovery_db::DiscoveryDB, structure::data::DiscoveredReaderData};
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
     element::{Gap, Heartbeat, Locator, SequenceNumber, SequenceNumberSet, Timestamp},
@@ -120,12 +120,6 @@ impl Reader {
         }
     }
 
-    pub fn add_empty(&mut self, guid: GUID, ts: Timestamp) {
-        self.reader_cache
-            .write()
-            .expect("couldn't write reader_cache")
-            .add_empty(guid, ts);
-    }
     pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if self.is_reliable() {
@@ -450,19 +444,17 @@ impl Reader {
         false
     }
 
-    pub fn check_liveliness(&mut self) {
+    pub fn check_liveliness(&mut self, disc_db: &DiscoveryDB) {
         let mut todo_remove = Vec::new();
         for (guid, wp) in &self.matched_writers {
             let wld = wp.qos.liveliness.lease_duration;
             if wld == Duration::INFINITE {
                 continue;
             }
-            let rhc = self
-                .reader_cache
-                .read()
-                .expect("couldn't read lock reader HistoryCache");
-            let last_added = rhc.get_last_added_ts(*guid).unwrap();
-            let elapse = Timestamp::now().expect("failed get Timestamp::now()") - *last_added;
+            let last_added = disc_db
+                .read_remote_writer(*guid)
+                .expect("not found data from discovery_db");
+            let elapse = Timestamp::now().expect("failed get Timestamp::now()") - last_added;
             if elapse > wld {
                 todo_remove.push(*guid);
             }

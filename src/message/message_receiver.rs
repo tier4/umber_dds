@@ -1,4 +1,5 @@
 use crate::dds::qos::DataWriterQosBuilder;
+use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::{
     cdr::deserialize,
     data::{ParticipantMessageData, ParticipantMessageKind, SDPBuiltinData},
@@ -80,6 +81,7 @@ impl MessageReceiver {
         messages: Vec<UdpMessage>,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
+        disc_db: &mut DiscoveryDB,
     ) {
         for message in messages {
             // Is DDSPING
@@ -110,7 +112,7 @@ impl MessageReceiver {
                 rtps_message.header.guid_prefix,
                 rtps_message.summary()
             );
-            self.handle_parsed_packet(rtps_message, writers, readers);
+            self.handle_parsed_packet(rtps_message, writers, readers, disc_db);
         }
     }
 
@@ -119,6 +121,7 @@ impl MessageReceiver {
         rtps_msg: Message,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
+        disc_db: &mut DiscoveryDB,
     ) {
         self.reset();
         self.dest_guid_prefix = self.own_guid_prefix;
@@ -126,7 +129,7 @@ impl MessageReceiver {
         for submsg in rtps_msg.submessages {
             match submsg.body {
                 SubMessageBody::Entity(e) => {
-                    if let Err(e) = self.handle_entity_submessage(e, writers, readers) {
+                    if let Err(e) = self.handle_entity_submessage(e, writers, readers, disc_db) {
                         eprintln!("<{}>: {:?}", "MessageReceiver: Err".red(), e);
                         return;
                     }
@@ -146,20 +149,21 @@ impl MessageReceiver {
         entity_subm: EntitySubmessage,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
+        disc_db: &mut DiscoveryDB,
     ) -> Result<(), MessageError> {
         match entity_subm {
             EntitySubmessage::AckNack(acknack, flags) => {
                 self.handle_acknack_submsg(acknack, flags, writers)
             }
             EntitySubmessage::Data(data, flags) => {
-                self.handle_data_submsg(data, flags, readers, writers)
+                self.handle_data_submsg(data, flags, readers, writers, disc_db)
             }
             EntitySubmessage::DataFrag(data_frag, flags) => {
                 Self::handle_datafrag_submsg(data_frag, flags)
             }
             EntitySubmessage::Gap(gap, flags) => self.handle_gap_submsg(gap, flags, readers),
             EntitySubmessage::HeartBeat(heartbeat, flags) => {
-                self.handle_heartbeat_submsg(heartbeat, flags, readers)
+                self.handle_heartbeat_submsg(heartbeat, flags, readers, disc_db)
             }
             EntitySubmessage::HeartbeatFrag(heartbeatfrag, flags) => {
                 Self::handle_heartbeatfrag_submsg(heartbeatfrag, flags)
@@ -272,6 +276,7 @@ impl MessageReceiver {
         flag: BitFlags<DataFlag>,
         readers: &mut BTreeMap<EntityId, Reader>,
         writers: &mut BTreeMap<EntityId, Writer>,
+        disc_db: &mut DiscoveryDB,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.2 Data
 
@@ -535,11 +540,7 @@ impl MessageReceiver {
                         "<{}>: receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}} from Participant: {:?}",
                         "MessageReceiver: Info".green(), self.source_guid_prefix
                     );
-                    for reader in readers.values_mut() {
-                        if reader.is_contain_writer(deserialized.guid) {
-                            reader.add_empty(writer_guid, ts)
-                        }
-                    }
+                    disc_db.write_remote_writer(deserialized.guid, ts);
                 }
                 ParticipantMessageKind::UNKNOWN => {
                     eprintln!(
@@ -569,12 +570,16 @@ impl MessageReceiver {
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(GUID::new(self.source_guid_prefix, data.writer_id)) {
+                    disc_db.write_remote_writer(writer_guid, ts);
                     reader.add_change(self.source_guid_prefix, change.clone())
                 }
             }
         } else {
             match readers.get_mut(&data.reader_id) {
-                Some(r) => r.add_change(self.source_guid_prefix, change),
+                Some(r) => {
+                    disc_db.write_remote_writer(writer_guid, ts);
+                    r.add_change(self.source_guid_prefix, change)
+                }
                 None => {
                     let mut reader_eids = String::new();
                     for (eid, _reader) in readers.iter_mut() {
@@ -650,6 +655,7 @@ impl MessageReceiver {
         heartbeat: Heartbeat,
         flag: BitFlags<HeartbeatFlag>,
         readers: &mut BTreeMap<EntityId, Reader>,
+        disc_db: &mut DiscoveryDB,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.5 Heartbeat
 
@@ -665,6 +671,8 @@ impl MessageReceiver {
         if !heartbeat.is_valid(flag) {
             return Err(MessageError("Invalid Heartbeat Submessage".to_string()));
         }
+
+        let ts = Timestamp::now().expect("failed get Timestamp::new()");
 
         let writer_guid = GUID::new(self.source_guid_prefix, heartbeat.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, heartbeat.reader_id);
@@ -694,6 +702,7 @@ impl MessageReceiver {
                     for reader in readers.values_mut() {
                         if reader.is_contain_writer(GUID::new(self.source_guid_prefix, writer_eid))
                         {
+                            disc_db.write_remote_writer(writer_guid, ts);
                             reader.handle_heartbeat(writer_guid, flag, heartbeat.clone());
                         }
                     }
@@ -701,7 +710,10 @@ impl MessageReceiver {
             }
         } else {
             match readers.get_mut(&heartbeat.reader_id) {
-                Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
+                Some(r) => {
+                    disc_db.write_remote_writer(writer_guid, ts);
+                    r.handle_heartbeat(writer_guid, flag, heartbeat)
+                }
                 None => {
                     eprintln!(
                     "<{}>: couldn't find reader which has {:?}\nthere are readers which has eid:\n{}",
