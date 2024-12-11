@@ -336,7 +336,9 @@ impl Discovery {
                                 );
                             }
                         }
-                        Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
+                        Token(n) => {
+                            unimplemented!("@discovery: Token(0x{:02X}) is not implemented", n)
+                        }
                     },
                     TokenDec::Entity(eid) => {
                         if eid.is_reader() {

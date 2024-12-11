@@ -393,7 +393,7 @@ impl EventLoop {
                                 }
                             }
                         }
-                        _ => eprintln!("undefined Token or unimplemented event"),
+                        Token(n) => eprintln!("@event_loop: Token(0x{:02X}) is not implemented", n),
                     },
                     TokenDec::Entity(eid) => {
                         if eid.is_writer() {
