@@ -237,7 +237,28 @@ impl Writer {
             .write_to_vec_with_ctx(self.endianness)
             .expect("couldn't serialize message");
         // send message_buf to multicast
-        todo!();
+        for reader_proxy in self.matched_readers.values_mut() {
+            for mul_loc in &reader_proxy.multicast_locator_list {
+                if mul_loc.kind == Locator::KIND_UDPV4 {
+                    let port = mul_loc.port;
+                    let addr = mul_loc.address;
+                    eprintln!(
+                        "<{}>: send data(m) message to {}.{}.{}.{}:{}",
+                        "Writer: Info".green(),
+                        addr[12],
+                        addr[13],
+                        addr[14],
+                        addr[15],
+                        port
+                    );
+                    self.sender.send_to_multicast(
+                        &message_buf,
+                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                        port as u16,
+                    );
+                }
+            }
+        }
     }
 
     fn handle_write_data_cmd(&mut self, serialized_payload: Option<SerializedPayload>) {
