@@ -120,6 +120,12 @@ impl Reader {
         }
     }
 
+    pub fn add_empty(&mut self, guid: GUID, ts: Timestamp) {
+        self.reader_cache
+            .write()
+            .expect("couldn't write reader_cache")
+            .add_empty(guid, ts);
+    }
     pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if self.is_reliable() {
@@ -435,9 +441,9 @@ impl Reader {
             self.heartbeat_response_delay.fraction,
         )
     }
-    pub fn is_contain_writer(&self, writer_entity_id: EntityId) -> bool {
+    pub fn is_contain_writer(&self, writer_guid: GUID) -> bool {
         for guid in self.matched_writers.keys() {
-            if guid.entity_id == writer_entity_id {
+            if *guid == writer_guid {
                 return true;
             }
         }

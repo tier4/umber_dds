@@ -151,6 +151,9 @@ impl HistoryCache {
             max_seq_num: None,
         }
     }
+    pub fn add_empty(&mut self, writer_guid: GUID, ts: Timestamp) {
+        self.last_added.insert(writer_guid, ts);
+    }
     pub fn add_change(&mut self, change: CacheChange) -> Result<(), ()> {
         let key = HCKey::new(change.writer_guid, change.sequence_number);
         if let Some(c) = self.changes.get(&key) {

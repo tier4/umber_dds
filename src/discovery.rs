@@ -311,7 +311,7 @@ impl Discovery {
                             self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
                         }
                         SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
-                        PARTICIPANT_MESSAGE_READER => self.handle_participant_message(),
+                        PARTICIPANT_MESSAGE_READER => { /*self.handle_participant_message()*/ }
                         DISC_WRITER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_writer_receiver.try_recv() {
                                 self.sedp_builtin_pub_writer
@@ -373,6 +373,9 @@ impl Discovery {
             }
         }
     }
+    /*
+     * process DATA(m) which ParticipantMessageKind is MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE @MessageReceiver
+     * in the future, I will use this for process DATA(m) which has other ParticipantMessageKind
     fn handle_participant_message(&mut self) {
         let vd = self.p2p_builtin_participant_msg_reader.take();
         for d in vd {
@@ -380,7 +383,6 @@ impl Discovery {
                 ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE
                 | ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
                     let writer_guid = d.guid;
-                    // TODO
                     eprintln!(
                         "<{}>: receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}}",
                         "Discovery: Info".green()
@@ -401,4 +403,5 @@ impl Discovery {
             }
         }
     }
+    */
 }
