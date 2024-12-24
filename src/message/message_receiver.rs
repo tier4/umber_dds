@@ -15,9 +15,9 @@ use crate::structure::{EntityId, GuidPrefix, VendorId, GUID};
 use alloc::collections::BTreeMap;
 use alloc::fmt;
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use colored::*;
 use std::error;
-use std::sync::RwLock;
 
 #[derive(Debug, Clone)]
 struct MessageError(String);
