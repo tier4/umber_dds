@@ -13,7 +13,7 @@ use crate::rtps::cache::{CacheChange, HistoryCache};
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
 };
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
 use colored::*;
@@ -39,6 +39,7 @@ pub struct Reader {
     reader_cache: Arc<RwLock<HistoryCache>>,
     // StatefulReader
     matched_writers: BTreeMap<GUID, WriterProxy>,
+    total_matched_writers: BTreeSet<GUID>,
     // This implementation spesific
     topic: Topic,
     qos: DataReaderQosPolicies,
@@ -64,6 +65,7 @@ impl Reader {
             heartbeat_response_delay: ri.heartbeat_response_delay,
             reader_cache: ri.rhc,
             matched_writers: BTreeMap::new(),
+            total_matched_writers: BTreeSet::new(),
             topic: ri.topic,
             qos: ri.qos,
             endianness: Endianness::LittleEndian,
@@ -221,11 +223,6 @@ impl Reader {
             return;
         }
 
-        self.reader_state_notifier
-            .send(DataReaderStatusChanged::SubscriptionMatched(
-                remote_writer_guid,
-            ))
-            .expect("couldn't send reader_state_notifier");
         self.matched_writers.insert(
             remote_writer_guid,
             WriterProxy::new(
@@ -237,6 +234,19 @@ impl Reader {
                 self.reader_cache.clone(),
             ),
         );
+        self.total_matched_writers.insert(remote_writer_guid);
+        let sub_match_state = SubscriptionMatchedStatus::new(
+            self.total_matched_writers.len() as i32,
+            1,
+            self.matched_writers.len() as i32,
+            1,
+            remote_writer_guid,
+        );
+        self.reader_state_notifier
+            .send(DataReaderStatusChanged::SubscriptionMatched(
+                sub_match_state,
+            ))
+            .expect("couldn't send reader_state_notifier");
     }
     pub fn is_writer_match(&self, topic_name: &str, data_type: &str) -> bool {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type
@@ -249,6 +259,19 @@ impl Reader {
 
     pub fn matched_writer_remove(&mut self, guid: GUID) {
         self.matched_writers.remove(&guid);
+        let sub_match_state = SubscriptionMatchedStatus::new(
+            self.total_matched_writers.len() as i32,
+            0,
+            self.matched_writers.len() as i32,
+            -1,
+            guid,
+        );
+
+        self.reader_state_notifier
+            .send(DataReaderStatusChanged::SubscriptionMatched(
+                sub_match_state,
+            ))
+            .expect("couldn't send reader_state_notifier");
     }
 
     pub fn handle_gap(&mut self, writer_guid: GUID, gap: Gap) {
@@ -489,9 +512,35 @@ pub enum DataReaderStatusChanged {
     RequestedIncompatibleQos,
     DataAvailable,
     SampleLost,
+    SubscriptionMatched(SubscriptionMatchedStatus),
+}
+
+pub struct SubscriptionMatchedStatus {
+    pub total_count: i32,
+    pub total_count_change: i32,
+    pub current_count: i32,
+    pub current_count_change: i32,
     /// This is diffarent form DDS spec.
     /// The GUID is remote writer's one.
-    SubscriptionMatched(GUID),
+    pub guid: GUID,
+}
+
+impl SubscriptionMatchedStatus {
+    pub fn new(
+        total_count: i32,
+        total_count_change: i32,
+        current_count: i32,
+        current_count_change: i32,
+        guid: GUID,
+    ) -> Self {
+        Self {
+            total_count,
+            total_count_change,
+            current_count,
+            current_count_change,
+            guid,
+        }
+    }
 }
 
 pub struct ReaderIngredients {

@@ -18,7 +18,7 @@ use crate::rtps::cache::{
 };
 use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{Duration, EntityId, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID};
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
 use colored::*;
@@ -50,6 +50,7 @@ pub struct Writer {
     reader_locators: Vec<ReaderLocator>,
     // StatefulWriter
     matched_readers: BTreeMap<GUID, ReaderProxy>,
+    total_matched_readers: BTreeSet<GUID>,
     // This implementation spesific
     topic: Topic,
     qos: DataWriterQosPolicies,
@@ -91,6 +92,7 @@ impl Writer {
             data_max_size_serialized: wi.data_max_size_serialized,
             reader_locators: Vec::new(),
             matched_readers: BTreeMap::new(),
+            total_matched_readers: BTreeSet::new(),
             topic: wi.topic,
             qos: wi.qos,
             endianness: Endianness::LittleEndian,
@@ -776,11 +778,6 @@ impl Writer {
             );
         }
 
-        self.writer_state_notifier
-            .send(DataWriterStatusChanged::PublicationMatched(
-                remote_reader_guid,
-            ))
-            .expect("couldn't send writer_state_notifier");
         self.matched_readers.insert(
             remote_reader_guid,
             ReaderProxy::new(
@@ -792,6 +789,17 @@ impl Writer {
                 self.writer_cache.clone(),
             ),
         );
+        self.total_matched_readers.insert(remote_reader_guid);
+        let pub_match_state = PublicationMatchedStatus::new(
+            self.total_matched_readers.len() as i32,
+            1,
+            self.matched_readers.len() as i32,
+            1,
+            remote_reader_guid,
+        );
+        self.writer_state_notifier
+            .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
+            .expect("couldn't send writer_state_notifier");
     }
     pub fn is_reader_match(&self, topic_name: &str, data_type: &str) -> bool {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type
@@ -801,6 +809,16 @@ impl Writer {
     }
     pub fn matched_reader_remove(&mut self, guid: GUID) {
         self.matched_readers.remove(&guid);
+        let pub_match_state = PublicationMatchedStatus::new(
+            self.total_matched_readers.len() as i32,
+            0,
+            self.matched_readers.len() as i32,
+            -1,
+            guid,
+        );
+        self.writer_state_notifier
+            .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
+            .expect("couldn't send writer_state_notifier");
     }
 
     pub fn heartbeat_period(&self) -> CoreDuration {
@@ -835,9 +853,34 @@ pub enum DataWriterStatusChanged {
     LivelinessLost,
     OfferedDeadlineMissed,
     OfferedIncompatibleQos,
+    PublicationMatched(PublicationMatchedStatus),
+}
+
+pub struct PublicationMatchedStatus {
+    pub total_count: i32,
+    pub total_count_change: i32,
+    pub current_count: i32,
+    pub current_count_change: i32,
     /// This is diffarent form DDS spec.
     /// The GUID is remote reader's one.
-    PublicationMatched(GUID),
+    pub guid: GUID,
+}
+impl PublicationMatchedStatus {
+    pub fn new(
+        total_count: i32,
+        total_count_change: i32,
+        current_count: i32,
+        current_count_change: i32,
+        guid: GUID,
+    ) -> Self {
+        Self {
+            total_count,
+            total_count_change,
+            current_count,
+            current_count_change,
+            guid,
+        }
+    }
 }
 
 pub struct WriterIngredients {

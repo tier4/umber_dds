@@ -204,8 +204,8 @@ fn main() {
                                         std::process::exit(0);
                                     }
                                 }
-                                DataReaderStatusChanged::SubscriptionMatched(guid) => {
-                                    println!("SubscriptionMatched, guid: {:?}", guid);
+                                DataReaderStatusChanged::SubscriptionMatched(state) => {
+                                    println!("SubscriptionMatched, guid: {:?}", state.guid);
                                 }
                                 _ => (),
                             }
@@ -216,8 +216,8 @@ fn main() {
                     if let Some(dw) = &datawriter {
                         while let Ok(w) = dw.try_recv() {
                             match w {
-                                DataWriterStatusChanged::PublicationMatched(guid) => {
-                                    println!("PublicationMatched, guid: {:?}", guid);
+                                DataWriterStatusChanged::PublicationMatched(state) => {
+                                    println!("PublicationMatched, guid: {:?}", state.guid);
                                 }
                                 _ => (),
                             }

@@ -106,8 +106,8 @@ fn main() {
                             DATAWRITER => {
                                 while let Ok(dwc) = datawriter.try_recv() {
                                     match dwc {
-                                        DataWriterStatusChanged::PublicationMatched(guid) => {
-                                            println!("PublicationMatched, guid: {:?}", guid);
+                                        DataWriterStatusChanged::PublicationMatched(state) => {
+                                            println!("PublicationMatched, guid: {:?}", state.guid);
                                         }
                                         _ => (),
                                     }
@@ -152,8 +152,8 @@ fn main() {
                                                 println!("received: {:?}", shape);
                                             }
                                         }
-                                        DataReaderStatusChanged::SubscriptionMatched(guid) => {
-                                            println!("SubscriptionMatched, guid: {:?}", guid);
+                                        DataReaderStatusChanged::SubscriptionMatched(state) => {
+                                            println!("SubscriptionMatched, guid: {:?}", state.guid);
                                         }
                                         _ => (), // TODO
                                     }
