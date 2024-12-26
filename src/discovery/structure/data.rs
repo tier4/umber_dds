@@ -4,12 +4,13 @@ use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator};
 use crate::rtps::cache::HistoryCache;
 use crate::structure::{Duration, ParameterId, ReaderProxy, VendorId, WriterProxy, GUID};
+use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use colored::*;
 use enumflags2::BitFlags;
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::{ser::SerializeStruct, Serialize};
 use std::fmt;
-use std::sync::{Arc, RwLock};
 
 #[allow(dead_code)]
 #[derive(Clone, Default)]

@@ -2,12 +2,12 @@ use crate::dds::{qos::DataReaderQosPolicies, subscriber::Subscriber, topic::Topi
 use crate::discovery::structure::cdr::deserialize;
 use crate::rtps::{cache::HistoryCache, reader::DataReaderStatusChanged};
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use core::marker::PhantomData;
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
 use serde::Deserialize;
 use std::io;
-use std::sync::RwLock;
 
 /// DDS DataReader
 pub struct DataReader<D: for<'de> Deserialize<'de>> {
@@ -47,7 +47,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     }
 
     fn get_data(&self) -> Vec<D> {
-        let mut hc = self.rhc.write().expect("couldn't read ReaderHistoryCache");
+        let mut hc = self.rhc.write();
         let changes = hc.get_alive_changes();
         for c in changes.iter() {
             hc.remove_change(c);
@@ -62,7 +62,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
         v
     }
     fn _remove_changes(&self) {
-        let mut hc = self.rhc.write().expect("couldn't write ReaderHistoryCache");
+        let mut hc = self.rhc.write();
         hc.remove_notalive_changes();
     }
     pub fn get_qos(&self) -> DataReaderQosPolicies {

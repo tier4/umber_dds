@@ -16,13 +16,13 @@ use crate::structure::{
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use colored::*;
 use core::net::Ipv4Addr;
 use core::time::Duration as StdDuration;
 use enumflags2::BitFlags;
 use mio_extras::channel as mio_channel;
 use speedy::{Endianness, Writable};
-use std::sync::RwLock;
 
 /// RTPS StatefulReader
 pub struct Reader {
@@ -127,7 +127,6 @@ impl Reader {
             if self
                 .reader_cache
                 .write()
-                .expect("couldn't write reader_cache")
                 .add_change(change.clone())
                 .is_err()
             {
@@ -160,7 +159,6 @@ impl Reader {
                     if self
                         .reader_cache
                         .write()
-                        .expect("couldn't write reader_cache")
                         .add_change(change.clone())
                         .is_err()
                     {

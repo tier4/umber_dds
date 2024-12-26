@@ -7,9 +7,9 @@ use crate::rtps::cache::{
 use crate::structure::{guid::GUID, parameter_id::ParameterId};
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use core::cmp::{max, min};
 use serde::{ser::SerializeStruct, Serialize};
-use std::sync::RwLock;
 
 #[derive(Clone)]
 pub struct ReaderProxy {
@@ -56,10 +56,7 @@ impl ReaderProxy {
     }
 
     pub fn acked_changes_set(&mut self, commited_seq_num: SequenceNumber) {
-        let hc = self
-            .history_cache
-            .read()
-            .expect("couldn't read history_cache");
+        let hc = self.history_cache.read();
         for (k, v) in &hc.changes {
             if v.sequence_number <= commited_seq_num {
                 self.cache_state.insert(
