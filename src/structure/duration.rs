@@ -20,6 +20,17 @@ impl Duration {
     pub fn new(seconds: i32, fraction: u32) -> Self {
         Self { seconds, fraction }
     }
+
+    pub fn half(self) -> Self {
+        if self != Self::INFINITE {
+            Self {
+                seconds: self.seconds / 2,
+                fraction: self.fraction / 2,
+            }
+        } else {
+            self
+        }
+    }
 }
 
 impl PartialOrd for Duration {
