@@ -203,12 +203,12 @@ impl Writer {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
             match cmd {
                 WriterCmd::WriteData(sp) => self.handle_write_data_cmd(sp),
-                WriterCmd::AssertLiveliness((k, d)) => self.handle_assert_liveliness_cmd(k, d),
+                WriterCmd::AssertLiveliness((k, d)) => self.assert_liveliness(k, d),
             }
         }
     }
 
-    fn handle_assert_liveliness_cmd(&mut self, kind: ParticipantMessageKind, data: Vec<u8>) {
+    pub fn assert_liveliness(&mut self, kind: ParticipantMessageKind, data: Vec<u8>) {
         let data = ParticipantMessageData::new(self.guid, kind, data);
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);

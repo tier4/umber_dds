@@ -57,9 +57,9 @@ impl DiscoveryDB {
         inner.read_participant_data(guid_prefix)
     }
 
-    pub fn read_participant_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
+    pub fn _read_participant_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
         let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
-        inner.read_participant_ts(guid_prefix)
+        inner._read_participant_ts(guid_prefix)
     }
 
     /*
@@ -68,9 +68,9 @@ impl DiscoveryDB {
         inner.read_local_reader(guid)
     }
     */
-    pub fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
+    pub fn _read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
         let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
-        inner.read_local_writer(guid)
+        inner._read_local_writer(guid)
     }
     /*
     pub fn read_remote_reader(&self, guid: GUID) -> Option<Timestamp> {
@@ -140,7 +140,7 @@ impl DiscoveryDBInner {
         }
     }
 
-    fn read_participant_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
+    fn _read_participant_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
         if let Some((ts, _data)) = self.participant_data.get(&guid_prefix) {
             Some(*ts)
         } else {
@@ -157,7 +157,7 @@ impl DiscoveryDBInner {
         }
     }
     */
-    fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
+    fn _read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
         if let Some(ts) = self.local_writer_data.get(&guid) {
             Some(*ts)
         } else {

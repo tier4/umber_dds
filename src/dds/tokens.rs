@@ -42,4 +42,5 @@ pub const DISC_READER_ADD: Token = Token(PTB + 0x13);
 pub const SET_WRITER_NACK_TIMER: Token = Token(PTB + 0x14);
 pub const WRITER_NACK_TIMER: Token = Token(PTB + 0x15);
 pub const PARTICIPANT_MESSAGE_READER: Token = Token(PTB + 0x16);
-pub const WRITER_LIVELINESS_TIMER: Token = Token(PTB + 0x17);
+pub const WRITER_LIVELINESS_CHECK_TIMER: Token = Token(PTB + 0x17);
+pub const ASSERT_LIVELINESS_TIMER: Token = Token(PTB + 0x18);

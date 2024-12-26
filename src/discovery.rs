@@ -9,8 +9,8 @@ use crate::dds::{
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
-    DiscoveredReaderData, DiscoveredWriterData, ParticipantMessageData, ParticipantMessageKind,
-    SDPBuiltinData, SPDPdiscoveredParticipantData,
+    DiscoveredReaderData, DiscoveredWriterData, ParticipantMessageData, SDPBuiltinData,
+    SPDPdiscoveredParticipantData,
 };
 use crate::message::{
     message_header::ProtocolVersion,

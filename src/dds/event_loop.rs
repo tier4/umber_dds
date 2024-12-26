@@ -1,17 +1,21 @@
-use crate::dds::qos::{policy::Reliability, DataReaderQosBuilder, DataWriterQosBuilder};
+use crate::dds::qos::{
+    policy::{LivelinessQosKind, Reliability},
+    DataReaderQosBuilder, DataWriterQosBuilder,
+};
 use crate::dds::tokens::*;
 use crate::discovery::{
     discovery_db::DiscoveryDB,
     structure::builtin_endpoint::BuiltinEndpoint,
-    structure::data::{DiscoveredReaderData, DiscoveredWriterData},
+    structure::data::{DiscoveredReaderData, DiscoveredWriterData, ParticipantMessageKind},
 };
 use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterIngredients};
-use crate::structure::{EntityId, GuidPrefix, RTPSEntity, GUID};
+use crate::structure::{Duration, EntityId, GuidPrefix, RTPSEntity, GUID};
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use bytes::BytesMut;
 use colored::*;
+use core::time::Duration as CoreDuration;
 use mio_extras::{
     channel as mio_channel,
     timer::{Timeout, Timer},
@@ -25,6 +29,7 @@ use crate::network::{net_util::*, udp_sender::UdpSender};
 
 const MAX_MESSAGE_SIZE: usize = 64 * 1024; // This is max we can get from UDP.
 const MESSAGE_BUFFER_ALLOCATION_CHUNK: usize = 256 * 1024;
+const ASSERT_LIVELINESS_PERIOD: u64 = 10;
 
 pub struct EventLoop {
     domain_id: u16,
@@ -55,6 +60,7 @@ pub struct EventLoop {
     reader_hb_timers: Vec<Timer<(EntityId, GUID)>>, // (reader EntityId, writer GUID)
     writer_nack_timers: Vec<Timer<(EntityId, GUID)>>, // (writer EntityId, reader GUID)
     wlp_timers: BTreeMap<EntityId, (Timer<EntityId>, Timeout)>, //  reader EntityId, reader EntityId
+    assert_liveliness_timer: Timer<()>,
     // receive discovery_db update notification from Discovery
     discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
     discovery_db: DiscoveryDB,
@@ -101,6 +107,15 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("coludn't register writer_hb_timer to poll");
+        let mut assert_liveliness_timer = Timer::default();
+        assert_liveliness_timer.set_timeout(CoreDuration::from_secs(ASSERT_LIVELINESS_PERIOD), ());
+        poll.register(
+            &assert_liveliness_timer,
+            ASSERT_LIVELINESS_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("coludn't register discdb_update_receiver to poll");
         poll.register(
             &discdb_update_receiver,
             DISCOVERY_DB_UPDATE,
@@ -147,6 +162,7 @@ impl EventLoop {
             reader_hb_timers: Vec::new(),
             writer_nack_timers: Vec::new(),
             wlp_timers: BTreeMap::new(),
+            assert_liveliness_timer,
             discdb_update_receiver,
             discovery_db,
         }
@@ -359,7 +375,7 @@ impl EventLoop {
                                 }
                             }
                         }
-                        WRITER_LIVELINESS_TIMER => {
+                        WRITER_LIVELINESS_CHECK_TIMER => {
                             for (wlp_timer, to) in self.wlp_timers.values_mut() {
                                 if let Some(eid) = wlp_timer.poll() {
                                     if let Some(reader) = self.readers.get_mut(&eid) {
@@ -371,6 +387,31 @@ impl EventLoop {
                                     }
                                 }
                             }
+                        }
+                        ASSERT_LIVELINESS_TIMER => {
+                            self.assert_liveliness_timer.poll();
+                            let now = Timestamp::now().unwrap_or(Timestamp::TIME_INVALID);
+                            for (_eid, writer) in &mut self.writers {
+                                let guid = writer.guid();
+                                if let Some(ts) = self.discovery_db.read_remote_writer(guid) {
+                                    let duration = now - ts;
+                                    let liveliness = writer.get_qos().liveliness;
+                                    if liveliness.kind != LivelinessQosKind::Automatic {
+                                        continue;
+                                    }
+                                    if liveliness.lease_duration == Duration::INFINITE {
+                                        continue;
+                                    }
+                                    if duration > liveliness.lease_duration.half() {
+                                        writer.assert_liveliness(
+                                            ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE,
+                                            Vec::new(),
+                                        );
+                                    }
+                                }
+                            }
+                            self.assert_liveliness_timer
+                                .set_timeout(CoreDuration::from_secs(ASSERT_LIVELINESS_PERIOD), ());
                         }
                         READER_HEARTBEAT_TIMER => {
                             for rhb_timer in &mut self.reader_hb_timers {
@@ -532,7 +573,7 @@ impl EventLoop {
                             self.poll
                                 .register(
                                     &wlp_timer,
-                                    WRITER_LIVELINESS_TIMER,
+                                    WRITER_LIVELINESS_CHECK_TIMER,
                                     Ready::readable(),
                                     PollOpt::edge(),
                                 )
