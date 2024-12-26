@@ -816,6 +816,10 @@ impl Writer {
             self.nack_response_delay.fraction,
         )
     }
+
+    pub fn get_qos(&self) -> DataWriterQosPolicies {
+        self.qos.clone()
+    }
 }
 
 impl RTPSEntity for Writer {
