@@ -18,13 +18,13 @@ use crate::structure::{Duration, EntityId, RTPSEntity, ReaderProxy, TopicKind, W
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use colored::*;
 use core::net::Ipv4Addr;
 use core::time::Duration as CoreDuration;
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
-use std::sync::RwLock;
 
 /// RTPS StatefulWriter
 pub struct Writer {
@@ -152,14 +152,7 @@ impl Writer {
     pub fn unsent_changes_reset(&mut self) {
         // StatelessWriter
         for rl in &mut self.reader_locators {
-            rl.unsent_changes = self
-                .writer_cache
-                .read()
-                .expect("couldn't read writer_cache")
-                .changes
-                .values()
-                .cloned()
-                .collect();
+            rl.unsent_changes = self.writer_cache.read().changes.values().cloned().collect();
         }
     }
 
@@ -222,7 +215,6 @@ impl Writer {
                         if let Some(aa_change) = self
                             .writer_cache
                             .read()
-                            .expect("couldn't read writer_cache")
                             .get_change(self.guid, change_for_reader.seq_num)
                         {
                             // build RTPS Message
@@ -352,10 +344,7 @@ impl Writer {
 
     pub fn send_heart_beat(&mut self) {
         let time_stamp = Timestamp::now();
-        let writer_cache = self
-            .writer_cache
-            .read()
-            .expect("couldn't read writer_cache");
+        let writer_cache = self.writer_cache.read();
         self.hb_counter += 1;
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
@@ -421,10 +410,7 @@ impl Writer {
 
     fn add_change_to_hc(&mut self, change: CacheChange) -> Result<(), ()> {
         // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
-        self.writer_cache
-            .write()
-            .expect("couldn't write writer_cache")
-            .add_change(change)?;
+        self.writer_cache.write().add_change(change)?;
         for reader_proxy in self.matched_readers.values_mut() {
             reader_proxy.update_cache_state(
                 self.last_change_sequence_number,
@@ -493,7 +479,6 @@ impl Writer {
                     if let Some(aa_change) = self
                         .writer_cache
                         .read()
-                        .expect("couldn't read writer_cache")
                         .get_change(self.guid, change.seq_num)
                     {
                         // build RTPS Message
@@ -558,10 +543,7 @@ impl Writer {
                         // send Heartbeat because, the sample is no longer avilable
                         self.hb_counter += 1;
                         let time_stamp = Timestamp::now();
-                        let writer_cache = self
-                            .writer_cache
-                            .read()
-                            .expect("couldn't read writer_cache");
+                        let writer_cache = self.writer_cache.read();
                         let mut message_builder = MessageBuilder::new();
                         message_builder.info_ts(Endianness::LittleEndian, time_stamp);
                         message_builder.heartbeat(

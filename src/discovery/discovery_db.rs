@@ -3,7 +3,7 @@ use crate::message::submessage::element::Timestamp;
 use crate::structure::GuidPrefix;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
-use std::sync::Mutex;
+use awkernel_sync::{mcs::MCSNode, mutex::Mutex};
 
 #[derive(Clone)]
 pub struct DiscoveryDB {
@@ -22,12 +22,14 @@ impl DiscoveryDB {
         timestamp: Timestamp,
         data: SPDPdiscoveredParticipantData,
     ) {
-        let mut inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        let mut node = MCSNode::new();
+        let mut inner = self.inner.lock(&mut node);
         inner.write(guid_prefix, timestamp, data)
     }
 
     pub fn read(&self, guid_prefix: GuidPrefix) -> Option<SPDPdiscoveredParticipantData> {
-        let inner = self.inner.lock().expect("couldn't lock DiscoveryDBInner");
+        let mut node = MCSNode::new();
+        let inner = self.inner.lock(&mut node);
         inner.read(guid_prefix)
     }
 }

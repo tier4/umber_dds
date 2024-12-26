@@ -12,9 +12,9 @@ use crate::rtps::{
 };
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use mio_extras::channel as mio_channel;
 use serde::Deserialize;
-use std::sync::RwLock;
 
 /// DDS Subscriber
 ///
@@ -49,7 +49,6 @@ impl Subscriber {
     ) -> DataReader<D> {
         self.inner
             .read()
-            .expect("couldn't read lock InnerSubscriber")
             .create_datareader(qos, topic, self.clone())
     }
     pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
@@ -60,33 +59,20 @@ impl Subscriber {
     ) -> DataReader<D> {
         self.inner
             .read()
-            .expect("couldn't read lock InnerSubscriber")
             .create_datareader_with_entityid(qos, topic, self.clone(), entity_id)
     }
 
     pub fn get_qos(&self) -> SubscriberQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerSubscriber")
-            .get_qos()
+        self.inner.read().get_qos()
     }
     pub fn set_qos(&mut self, qos: SubscriberQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock InnerSubscriber")
-            .set_qos(qos)
+        self.inner.write().set_qos(qos)
     }
     pub fn get_default_datareader_qos(&self) -> DataReaderQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerSubscriber")
-            .get_default_datareader_qos()
+        self.inner.read().get_default_datareader_qos()
     }
     pub fn set_default_datareader_qos(&mut self, qos: DataReaderQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock InnerSubscriber")
-            .set_default_datareader_qos(qos)
+        self.inner.write().set_default_datareader_qos(qos)
     }
 }
 

@@ -10,8 +10,8 @@ use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_p
 use crate::rtps::writer::{DataWriterStatusChanged, WriterCmd, WriterIngredients};
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use mio_extras::channel as mio_channel;
-use std::sync::RwLock;
 
 /// DDS Publisher
 ///
@@ -60,7 +60,6 @@ impl Publisher {
     ) -> DataWriter<D> {
         self.inner
             .read()
-            .expect("couldn't read lock InnerPublisher")
             .create_datawriter(qos, topic, self.clone())
     }
 
@@ -72,42 +71,24 @@ impl Publisher {
     ) -> DataWriter<D> {
         self.inner
             .read()
-            .expect("couldn't read lock InnerPublisher")
             .create_datawriter_with_entityid(qos, topic, self.clone(), entity_id)
     }
 
     pub fn get_qos(&self) -> PublisherQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerPublisher")
-            .get_qos()
+        self.inner.read().get_qos()
     }
     pub fn set_qos(&mut self, qos: PublisherQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock InnerPublisher")
-            .set_qos(qos);
+        self.inner.write().set_qos(qos);
     }
 
     pub fn domain_participant(&self) -> DomainParticipant {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerPublisher")
-            .dp
-            .clone()
+        self.inner.read().dp.clone()
     }
     pub fn get_default_datawriter_qos(&self) -> DataWriterQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerPublisher")
-            .default_dw_qos
-            .clone()
+        self.inner.read().default_dw_qos.clone()
     }
     pub fn set_default_datawriter_qos(&mut self, qos: DataWriterQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock InnerPublisher")
-            .default_dw_qos = qos;
+        self.inner.write().default_dw_qos = qos;
     }
 }
 
