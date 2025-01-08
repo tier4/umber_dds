@@ -675,6 +675,7 @@ pub mod policy {
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
             offered.kind as usize >= requested.kind as usize
+                && offered.lease_duration <= requested.lease_duration
         }
     }
     impl Default for Liveliness {
