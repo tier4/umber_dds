@@ -1,7 +1,7 @@
 use crate::dds::{
     qos::{
         policy::*, DataReaderQos, DataReaderQosBuilder, DataWriterQos, DataWriterQosBuilder,
-        PublisherQos, SubscriberQos, TopicQos,
+        PublisherQos, SubscriberQos, TopicQos, TopicQosBuilder,
     },
     tokens::*,
     DataReader, DataWriter, DomainParticipant, Publisher, Subscriber,
@@ -129,18 +129,16 @@ impl Discovery {
                 .reliability(Reliability::default_reliable())
                 .build(),
         );
-        /*
         let sedp_topic_qos = TopicQos::Policies(
             TopicQosBuilder::new()
                 .reliability(Reliability::default_reliable())
                 .build(),
         );
-        */
         let sedp_publication_topic = dp.create_topic(
             "DCPSPublication".to_string(),
             "PublicationBuiltinTopicData".to_string(),
             TopicKind::WithKey,
-            TopicQos::Default, // sedp_topic_qos,
+            sedp_topic_qos.clone(),
         );
         let sedp_pub_writer_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER;
         let sedp_pub_reader_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR;
@@ -160,7 +158,7 @@ impl Discovery {
             "DCPSSucscription".to_string(),
             "SubscriptionBuiltinTopicData".to_string(),
             TopicKind::WithKey,
-            TopicQos::Default, // sedp_topic_qos
+            sedp_topic_qos,
         );
         let sedp_sub_writer_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER;
         let sedp_sub_reader_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR;
@@ -178,7 +176,6 @@ impl Discovery {
             );
 
         // For Writer Liveliness Protocol
-        /*
         let p2p_builtin_participant_topic_qos = TopicQosBuilder::new()
             .reliability(Reliability::default_reliable())
             .durability(Durability::TransientLocal)
@@ -187,7 +184,6 @@ impl Discovery {
                 depth: 1,
             })
             .build();
-        */
         let p2p_builtin_participant_writer_qos = DataWriterQosBuilder::new()
             .reliability(Reliability::default_reliable())
             .durability(Durability::TransientLocal)
@@ -208,7 +204,7 @@ impl Discovery {
             "DCPSParticipantMessage".to_string(),
             "ParticipantMessageData".to_string(),
             TopicKind::WithKey,
-            TopicQos::Default, // TopicQos::Policies(p2p_builtin_participant_topic_qos),
+            TopicQos::Policies(p2p_builtin_participant_topic_qos),
         );
         let p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData> = publisher
             .create_datawriter_with_entityid(

@@ -21,10 +21,6 @@ pub struct DomainParticipantQosPolicies {
 }
 
 /// for setting QoS on a Topic
-/// TopicQos is defined in DDS 1.4 specification, section 2.3.3 DCPS PSM: IDL,
-/// but it is not mentioned elsewhere in the DDS 1.4 specification.
-/// Therefore, this implementation retains the definition of TopicQos for future use,
-/// but it does not influence the behavior of DDS.
 #[derive(Clone)]
 pub enum TopicQos {
     /// represent default QoS of Topic.
@@ -32,10 +28,9 @@ pub enum TopicQos {
     /// it can get `DomainParticipant::get_defaul_topict_qos()` and
     /// change `DomainParticipant::set_default_topic_qos()`
     Default,
-    // Policies(TopicQosPolicies),
+    Policies(TopicQosPolicies),
 }
 
-/*
 /// A collection of QoS policies for configuring the behavior of a Topic
 #[derive(Clone)]
 pub struct TopicQosPolicies {
@@ -53,7 +48,6 @@ pub struct TopicQosPolicies {
     pub lifespan: Lifespan,
     pub ownership: Ownership,
 }
-*/
 
 /// for setting QoS on a DataWriter
 #[derive(Clone)]
@@ -275,7 +269,6 @@ impl DomainParticipantQosBuilder {
     }
 }
 
-/*
 /// Builder of TopicQosPolicies
 #[derive(Default)]
 pub struct TopicQosBuilder {
@@ -333,7 +326,6 @@ impl TopicQosBuilder {
         }
     }
 }
-*/
 
 /// Builder of DataWriterQosPolicies
 #[derive(Default)]

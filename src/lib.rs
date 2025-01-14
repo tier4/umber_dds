@@ -25,11 +25,14 @@
 //!
 //!     let domain_id = 0;
 //!     let participant = DomainParticipant::new(domain_id, &mut small_rng);
+//!     let topic_qos = TopicQosBuilder::new()
+//!         .reliability(policy::Reliability::default_reliable())
+//!         .build();
 //!     let topic = participant.create_topic(
 //!         "HelloWorldTopic".to_string(),
 //!         "HelloWorld".to_string(),
 //!         TopicKind::WithKey,
-//!         TopicQos::Default,
+//!         TopicQos::Policies(topic_qos),
 //!     );
 //!
 //!     let poll = Poll::new().unwrap();
@@ -101,6 +104,12 @@
 //!     let topic_qos = TopicQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
+//!     let topic = participant.create_topic(
+//!         "HelloWorldTopic".to_string(),
+//!         "HelloWorld".to_string(),
+//!         TopicKind::WithKey,
+//!         TopicQos::Policies(topic_qos),
+//!     );
 //!
 //!     let poll = Poll::new().unwrap();
 //!
