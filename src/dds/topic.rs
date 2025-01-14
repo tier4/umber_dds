@@ -1,5 +1,5 @@
 use crate::dds::participant::DomainParticipant;
-use crate::dds::qos::TopicQosPolicies;
+// use crate::dds::qos::TopicQosPolicies;
 use crate::discovery::structure::data::{
     PublicationBuiltinTopicData, SubscriptionBuiltinTopicData,
 };
@@ -17,7 +17,7 @@ impl Topic {
         name: String,
         type_desc: String,
         my_domain_participant: DomainParticipant,
-        my_qos_policies: TopicQosPolicies,
+        // my_qos_policies: TopicQosPolicies,
         kind: TopicKind,
     ) -> Self {
         Self {
@@ -25,7 +25,7 @@ impl Topic {
                 name,
                 type_desc,
                 my_domain_participant,
-                my_qos_policies,
+                // my_qos_policies,
                 kind,
             )),
         }
@@ -40,9 +40,11 @@ impl Topic {
     pub fn my_domain_participant(&self) -> DomainParticipant {
         self.inner.my_domain_participant.clone()
     }
+    /*
     pub fn my_qos_policies(&self) -> TopicQosPolicies {
         self.inner.my_qos_policies.clone()
     }
+    */
     pub fn kind(&self) -> TopicKind {
         self.inner.kind
     }
@@ -59,7 +61,7 @@ struct InnerTopic {
     name: String,
     type_desc: String,
     my_domain_participant: DomainParticipant,
-    my_qos_policies: TopicQosPolicies,
+    // my_qos_policies: TopicQosPolicies,
     kind: TopicKind,
 }
 
@@ -68,14 +70,14 @@ impl InnerTopic {
         name: String,
         type_desc: String,
         my_domain_participant: DomainParticipant,
-        my_qos_policies: TopicQosPolicies,
+        // my_qos_policies: TopicQosPolicies,
         kind: TopicKind,
     ) -> Self {
         Self {
             name,
             type_desc,
             my_domain_participant,
-            my_qos_policies,
+            // my_qos_policies,
             kind,
         }
     }
@@ -86,18 +88,18 @@ impl InnerTopic {
             None,
             Some(self.name.clone()),
             Some(self.type_desc.clone()),
-            Some(self.my_qos_policies.durability),
+            None, // Some(self.my_qos_policies.durability),
             None,
-            Some(self.my_qos_policies.deadline),
-            Some(self.my_qos_policies.latency_budget),
-            Some(self.my_qos_policies.liveliness),
-            Some(self.my_qos_policies.reliability),
-            Some(self.my_qos_policies.lifespan),
+            None, // Some(self.my_qos_policies.deadline),
+            None, // Some(self.my_qos_policies.latency_budget),
+            None, // Some(self.my_qos_policies.liveliness),
+            None, // Some(self.my_qos_policies.reliability),
+            None, // Some(self.my_qos_policies.lifespan),
             None,
             None,
-            Some(self.my_qos_policies.ownership),
+            None, // Some(self.my_qos_policies.ownership),
             None,
-            Some(self.my_qos_policies.destination_order),
+            None, // Some(self.my_qos_policies.destination_order),
             None,
             None,
             None,
@@ -115,13 +117,13 @@ impl InnerTopic {
             None,
             Some(self.name.clone()),
             Some(self.type_desc.clone()),
-            Some(self.my_qos_policies.durability),
+            None, // Some(self.my_qos_policies.durability),
             None, // Some(self.my_qos_policies.deadline),
-            Some(self.my_qos_policies.latency_budget),
+            None, // Some(self.my_qos_policies.latency_budget),
             None, // Some(self.my_qos_policies.liveliness),
-            Some(self.my_qos_policies.reliability),
-            Some(self.my_qos_policies.ownership),
-            Some(self.my_qos_policies.destination_order),
+            None, // Some(self.my_qos_policies.reliability),
+            None, // Some(self.my_qos_policies.ownership),
+            None, // Some(self.my_qos_policies.destination_order),
             None,
             None,
             None,
@@ -129,7 +131,7 @@ impl InnerTopic {
             None,
             None,
             None,
-            Some(self.my_qos_policies.lifespan),
+            None, // Some(self.my_qos_policies.lifespan),
         )
     }
 }

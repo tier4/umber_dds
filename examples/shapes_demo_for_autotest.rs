@@ -62,18 +62,11 @@ fn main() {
 
     let domain_id = 0;
     let participant = DomainParticipant::new(domain_id, &mut small_rng);
-    let topic_qos = TopicQosBuilder::new()
-        .reliability(if is_reliable {
-            policy::Reliability::default_reliable()
-        } else {
-            policy::Reliability::default_besteffort()
-        })
-        .build();
     let topic = participant.create_topic(
         "Square".to_string(),
         "ShapeType".to_string(),
         TopicKind::WithKey,
-        TopicQos::Policies(topic_qos),
+        TopicQos::Default,
     );
 
     let poll = Poll::new().unwrap();

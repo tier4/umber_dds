@@ -13,8 +13,7 @@ use crate::{
         publisher::Publisher,
         qos::{
             PublisherQos, PublisherQosBuilder, PublisherQosPolicies, SubscriberQos,
-            SubscriberQosBuilder, SubscriberQosPolicies, TopicQos, TopicQosBuilder,
-            TopicQosPolicies,
+            SubscriberQosBuilder, SubscriberQosPolicies, TopicQos,
         },
         subscriber::Subscriber,
         tokens::*,
@@ -156,6 +155,7 @@ impl DomainParticipant {
             .expect("couldn't lock DomainParticipantDisc")
             .set_default_subscriber_qos(qos);
     }
+    /*
     pub fn get_default_topic_qos(&self) -> TopicQosPolicies {
         self.inner
             .lock()
@@ -168,6 +168,7 @@ impl DomainParticipant {
             .expect("couldn't lock DomainParticipantDisc")
             .set_default_topic_qos(qos);
     }
+    */
 }
 
 struct DomainParticipantDisc {
@@ -264,6 +265,7 @@ impl DomainParticipantDisc {
             .expect("couldn't write lock DomainParticipantInnet")
             .set_default_subscriber_qos(qos);
     }
+    /*
     pub fn get_default_topic_qos(&self) -> TopicQosPolicies {
         self.inner
             .read()
@@ -276,6 +278,7 @@ impl DomainParticipantDisc {
             .expect("couldn't write lock DomainParticipantInnet")
             .set_default_topic_qos(qos);
     }
+    */
 }
 impl Drop for DomainParticipantDisc {
     fn drop(&mut self) {
@@ -304,7 +307,7 @@ struct DomainParticipantInner {
     entity_key_generator: AtomicU32,
     default_publisher_qos: PublisherQosPolicies,
     default_subscriber_qos: SubscriberQosPolicies,
-    default_topic_qos: TopicQosPolicies,
+    // default_topic_qos: TopicQosPolicies,
 }
 
 impl DomainParticipantInner {
@@ -391,7 +394,7 @@ impl DomainParticipantInner {
                 ev_loop.event_loop();
             })
             .expect("couldn't spawn EventLoop thread");
-        let default_topic_qos = TopicQosBuilder::new().build();
+        // let default_topic_qos = TopicQosBuilder::new().build();
         let default_publisher_qos = PublisherQosBuilder::new().build();
         let default_subscriber_qos = SubscriberQosBuilder::new().build();
 
@@ -407,7 +410,7 @@ impl DomainParticipantInner {
             entity_key_generator: AtomicU32::new(0x0300),
             default_publisher_qos,
             default_subscriber_qos,
-            default_topic_qos,
+            // default_topic_qos,
         }
     }
 
@@ -458,9 +461,10 @@ impl DomainParticipantInner {
     ) -> Topic {
         match qos {
             TopicQos::Default => {
-                Topic::new(name, type_desc, dp, self.default_topic_qos.clone(), kind)
-            }
-            TopicQos::Policies(q) => Topic::new(name, type_desc, dp, q, kind),
+                Topic::new(
+                    name, type_desc, dp, /* self.default_topic_qos.clone(),*/ kind,
+                )
+            } // TopicQos::Policies(q) => Topic::new(name, type_desc, dp, q, kind),
         }
     }
 
@@ -490,12 +494,14 @@ impl DomainParticipantInner {
     pub fn set_default_subscriber_qos(&mut self, qos: SubscriberQosPolicies) {
         self.default_subscriber_qos = qos;
     }
+    /*
     pub fn get_default_topic_qos(&self) -> TopicQosPolicies {
         self.default_topic_qos.clone()
     }
     pub fn set_default_topic_qos(&mut self, qos: TopicQosPolicies) {
         self.default_topic_qos = qos;
     }
+    */
 }
 
 impl Drop for DomainParticipantInner {
