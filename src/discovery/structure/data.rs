@@ -1128,6 +1128,7 @@ impl Serialize for PublicationBuiltinTopicData {
             }
         }
 
+        /*
         // durability
         if let Some(durability) = &self.durability {
             s.serialize_field("parameterId", &ParameterId::PID_DURABILITY.value)?;
@@ -1240,6 +1241,7 @@ impl Serialize for PublicationBuiltinTopicData {
             s.serialize_field::<u16>("parameterLength", &group_data.serialized_size())?;
             s.serialize_field("group_data", &group_data)?;
         }
+        */
 
         s.end()
     }
