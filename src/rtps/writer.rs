@@ -776,6 +776,7 @@ impl Writer {
                 remote_reader_guid,
                 e
             );
+            return;
         }
 
         self.matched_readers.insert(
