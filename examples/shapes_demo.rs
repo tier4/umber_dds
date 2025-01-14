@@ -100,7 +100,27 @@ fn main() {
                                 while let Ok(dwc) = datawriter.try_recv() {
                                     match dwc {
                                         DataWriterStatusChanged::PublicationMatched(state) => {
-                                            println!("PublicationMatched, guid: {:?}", state.guid);
+                                            match state.current_count_change {
+                                                1 => {
+                                                    println!(
+                                                        "PublicationMatched, guid: {:?}",
+                                                        state.guid
+                                                    );
+                                                }
+                                                -1 => {
+                                                    println!(
+                                                        "PublicationUnmatched, guid: {:?}",
+                                                        state.guid
+                                                    );
+                                                }
+                                                _ => unreachable!(),
+                                            }
+                                        }
+                                        DataWriterStatusChanged::OfferedIncompatibleQos => {
+                                            println!("OfferedIncompatibleQos");
+                                        }
+                                        DataWriterStatusChanged::LivelinessLost => {
+                                            println!("LivelinessLost");
                                         }
                                         _ => (),
                                     }
@@ -146,7 +166,27 @@ fn main() {
                                             }
                                         }
                                         DataReaderStatusChanged::SubscriptionMatched(state) => {
-                                            println!("SubscriptionMatched, guid: {:?}", state.guid);
+                                            match state.current_count_change {
+                                                1 => {
+                                                    println!(
+                                                        "SubscriptionMatched, guid: {:?}",
+                                                        state.guid
+                                                    );
+                                                }
+                                                -1 => {
+                                                    println!(
+                                                        "SubscriptionUnmatched, guid: {:?}",
+                                                        state.guid
+                                                    );
+                                                }
+                                                _ => unreachable!(),
+                                            }
+                                        }
+                                        DataReaderStatusChanged::RequestedIncompatibleQos => {
+                                            println!("RequestedIncompatibleQos");
+                                        }
+                                        DataReaderStatusChanged::LivelinessChanged => {
+                                            println!("LivelinessChanged");
                                         }
                                         _ => (), // TODO
                                     }
