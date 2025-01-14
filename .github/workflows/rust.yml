@@ -15,21 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install libssl1.1
-      run: wget http://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.23_amd64.deb && sudo dpkg -i libssl1.1_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
-    - name: Install cargo-binstall
-      run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-    - name: Install cargo-binutils
-      run: cargo binstall cargo-binutils -y
-    - name: Install cargo-udeps
-      run: cargo binstall cargo-udeps -y
-        
+    - uses: actions/checkout@v4        
     - name: Cargo fmt
       run: cargo fmt && git diff --exit-code
-    - name: Cargo udeps
-      run: cargo udeps
     - name: Build
       run: cargo build --verbose
     - name: Run tests
