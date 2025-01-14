@@ -96,7 +96,7 @@ macro_rules! impl_deserialize_value {
     };
 }
 
-impl<'de, 'a, R, S, E> de::Deserializer<'de> for &'a mut Deserializer<R, S, E>
+impl<'de, R, S, E> de::Deserializer<'de> for &mut Deserializer<R, S, E>
 where
     R: Read,
     S: SizeLimit,
@@ -320,25 +320,6 @@ where
     where
         V: de::Visitor<'de>,
     {
-        impl<'de, 'a, R, S, E> de::EnumAccess<'de> for &'a mut Deserializer<R, S, E>
-        where
-            R: Read + 'a,
-            S: SizeLimit,
-            E: ByteOrder,
-        {
-            type Error = Error;
-            type Variant = Self;
-
-            fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant)>
-            where
-                V: de::DeserializeSeed<'de>,
-            {
-                let idx: u32 = de::Deserialize::deserialize(&mut *self)?;
-                let val: Result<_> = seed.deserialize(idx.into_deserializer());
-                Ok((val?, self))
-            }
-        }
-
         visitor.visit_enum(self)
     }
 
@@ -361,7 +342,7 @@ where
     }
 }
 
-impl<'de, 'a, R, S, E> de::VariantAccess<'de> for &'a mut Deserializer<R, S, E>
+impl<'de, R, S, E> de::VariantAccess<'de> for &mut Deserializer<R, S, E>
 where
     R: Read,
     S: SizeLimit,
@@ -392,6 +373,25 @@ where
         V: de::Visitor<'de>,
     {
         de::Deserializer::deserialize_tuple(self, fields.len(), visitor)
+    }
+}
+
+impl<'de, 'a, R, S, E> de::EnumAccess<'de> for &'a mut Deserializer<R, S, E>
+where
+    R: Read + 'a,
+    S: SizeLimit,
+    E: ByteOrder,
+{
+    type Error = Error;
+    type Variant = Self;
+
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant)>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        let idx: u32 = de::Deserialize::deserialize(&mut *self)?;
+        let val: Result<_> = seed.deserialize(idx.into_deserializer());
+        Ok((val?, self))
     }
 }
 

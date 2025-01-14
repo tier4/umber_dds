@@ -145,45 +145,17 @@ impl SDPBuiltinData {
     }
 
     pub fn gen_spdp_discoverd_participant_data(&mut self) -> Option<SPDPdiscoveredParticipantData> {
-        let domain_id = match self.domain_id {
-            Some(did) => did,
-            None => return None,
-        }; // TODO: set  domain_id of this participant if domain_id is none
+        let domain_id = self.domain_id?; // TODO: set  domain_id of this participant if domain_id is none
         let _domain_tag = self.domain_tag.take().unwrap_or(String::from(""));
-        let protocol_version = match self.protocol_version.take() {
-            Some(pv) => pv,
-            None => return None,
-        };
-        let guid = match self.guid {
-            Some(g) => g,
-            None => return None,
-        };
-        let vendor_id = match self.vendor_id {
-            Some(vid) => vid,
-            None => return None,
-        };
+        let protocol_version = self.protocol_version.take()?;
+        let guid = self.guid?;
+        let vendor_id = self.vendor_id?;
         let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
-        let available_builtin_endpoint = match self.available_builtin_endpoint {
-            Some(abe) => abe,
-            None => return None,
-        };
-        let metarraffic_unicast_locator_list = match self.metarraffic_unicast_locator_list.take() {
-            Some(mull) => mull,
-            None => return None,
-        };
-        let metarraffic_multicast_locator_list =
-            match self.metarraffic_multicast_locator_list.take() {
-                Some(mmll) => mmll,
-                None => return None,
-            };
-        let default_unicast_locator_list = match self.default_unicast_locator_list.take() {
-            Some(dull) => dull,
-            None => return None,
-        };
-        let default_multicast_locator_list = match self.default_multicast_locator_list.take() {
-            Some(dmll) => dmll,
-            None => return None,
-        };
+        let available_builtin_endpoint = self.available_builtin_endpoint?;
+        let metarraffic_unicast_locator_list = self.metarraffic_unicast_locator_list.take()?;
+        let metarraffic_multicast_locator_list = self.metarraffic_multicast_locator_list.take()?;
+        let default_unicast_locator_list = self.default_unicast_locator_list.take()?;
+        let default_multicast_locator_list = self.default_multicast_locator_list.take()?;
         let manual_liveliness_count = self.manual_liveliness_count;
         let lease_duration = self.lease_duration.unwrap_or(Duration {
             seconds: 100,
@@ -223,19 +195,10 @@ impl SDPBuiltinData {
         &mut self,
         history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Option<ReaderProxy> {
-        let remote_guid = match self.remote_guid {
-            Some(rg) => rg,
-            None => return None,
-        };
+        let remote_guid = self.remote_guid?;
         let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
-        let unicast_locator_list = match self.unicast_locator_list.take() {
-            Some(ull) => ull,
-            None => return None,
-        };
-        let multicast_locator_list = match self.multicast_locator_list.take() {
-            Some(mll) => mll,
-            None => return None,
-        };
+        let unicast_locator_list = self.unicast_locator_list.take()?;
+        let multicast_locator_list = self.multicast_locator_list.take()?;
         let dr_qos_builder = DataReaderQosBuilder::new();
         let qos = dr_qos_builder
             .durability(self.durability.unwrap_or_default())
@@ -386,7 +349,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
             {
                 struct FieldVisitor;
 
-                impl<'de> Visitor<'de> for FieldVisitor {
+                impl Visitor<'_> for FieldVisitor {
                     type Value = Field;
                     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                         formatter.write_str("a RTPS serialized_payload")
