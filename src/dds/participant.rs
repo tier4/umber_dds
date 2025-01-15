@@ -304,6 +304,12 @@ impl DomainParticipantInner {
         )
         .expect("the max number of participant on same host on same domin is 127.");
 
+        let usertraffic_uni_tokio = new_unicast_tokio(
+            "0.0.0.0",
+            usertraffic_unicast_port(domain_id, participant_id),
+        )
+        .expect("the max number of participant on same host on same domin is 127.");
+
         socket_list.insert(DISCOVERY_UNI_TOKEN, discovery_multi);
         socket_list.insert(DISCOVERY_MULTI_TOKEN, discovery_uni);
         socket_list.insert(USERTRAFFIC_UNI_TOKEN, usertraffic_uni);
@@ -323,6 +329,7 @@ impl DomainParticipantInner {
                 let ev_loop = EventLoop::new(
                     domain_id,
                     socket_list,
+                    usertraffic_uni_tokio,
                     guid_prefix,
                     create_writer_receiver,
                     create_reader_receiver,

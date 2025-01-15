@@ -12,6 +12,7 @@ use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use bytes::BytesMut;
 use colored::*;
+use futures::FutureExt;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
@@ -27,6 +28,9 @@ pub struct EventLoop {
     domain_id: u16,
     poll: Poll,
     sockets: BTreeMap<Token, UdpSocket>,
+
+    usertraffic_uni: tokio::net::UdpSocket,
+
     message_receiver: MessageReceiver,
     // receive writer ingredients from publisher
     create_writer_receiver: mio_channel::Receiver<WriterIngredients>,
@@ -60,6 +64,7 @@ impl EventLoop {
     pub fn new(
         domain_id: u16,
         mut sockets: BTreeMap<Token, UdpSocket>,
+        usertraffic_uni: tokio::net::UdpSocket,
         participant_guidprefix: GuidPrefix,
         create_writer_receiver: mio_channel::Receiver<WriterIngredients>,
         create_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
@@ -124,6 +129,7 @@ impl EventLoop {
             domain_id,
             poll,
             sockets,
+            usertraffic_uni,
             message_receiver,
             create_writer_receiver,
             create_reader_receiver,
@@ -400,6 +406,43 @@ impl EventLoop {
                     }
                 }
             }
+        }
+    }
+
+    pub async fn event_loop_tokio(mut self) {
+        loop {
+            futures::select! {
+                packets = EventLoop::receive_packet_tokio(&self.usertraffic_uni).fuse() => {
+                    self.message_receiver.handle_packet(packets, &mut self.writers, &mut self.readers);
+                }
+            }
+        }
+    }
+
+    async fn receive_packet_tokio(udp_sock: &tokio::net::UdpSocket) -> Vec<UdpMessage> {
+        let mut packets: Vec<UdpMessage> = Vec::with_capacity(4);
+        loop {
+            let mut buf = BytesMut::with_capacity(MESSAGE_BUFFER_ALLOCATION_CHUNK);
+            unsafe {
+                buf.set_len(MAX_MESSAGE_SIZE);
+            }
+            let (num_of_byte, addr) = match udp_sock.recv_from(&mut buf).await {
+                Ok((n, addr)) => (n, addr),
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::WouldBlock {
+                        // pass
+                    } else {
+                        panic!();
+                    }
+                    return packets;
+                }
+            };
+            let mut packet = buf.split_to(buf.len());
+            packet.truncate(num_of_byte);
+            packets.push(UdpMessage {
+                message: packet,
+                addr,
+            });
         }
     }
 

@@ -43,3 +43,35 @@ pub fn new_multicast(addr: &str, port: u16, multicast_group: Ipv4Addr) -> io::Re
     }
     Ok(socket)
 }
+
+fn new_listening_socket_tokio(
+    addr: &str,
+    port: u16,
+    reuse_addr: bool,
+) -> io::Result<tokio::net::UdpSocket> {
+    let raw_socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
+    raw_socket.set_reuse_address(reuse_addr)?;
+
+    let address = SocketAddr::new(
+        addr.parse()
+            .unwrap_or_else(|_| panic!("could't parce '{}' to IP Address", addr)),
+        port,
+    );
+
+    raw_socket.bind(&SockAddr::from(address))?;
+
+    let udp_socket = std::net::UdpSocket::from(raw_socket);
+    udp_socket
+        .set_nonblocking(true)
+        .expect("could't set nonbloking");
+    // let mio_socket = UdpSocket::from_socket(udp_socket)?;
+    // Ok(mio_socket)
+
+    let tokio_socket = tokio::net::UdpSocket::from_std(udp_socket)?;
+    Ok(tokio_socket)
+}
+
+pub fn new_unicast_tokio(addr: &str, port: u16) -> io::Result<tokio::net::UdpSocket> {
+    let sock = new_listening_socket_tokio(addr, port, false)?;
+    Ok(sock)
+}

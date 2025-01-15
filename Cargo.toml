@@ -36,6 +36,10 @@ chrono = { version = "0.4", optional = true }
 thiserror = "1.0"
 serde_repr = "0.1.18"
 awkernel_sync = { git = "https://github.com/tier4/awkernel_sync.git" }
+tokio = { version = "1.43.0", features = ["full"] }
+futures = { git = "https://github.com/ytakano/futures-rs.git", default-features = false, features = [
+    "async-await",
+] }
 
 [dev-dependencies]
 clap = { version = "4.5", features = ["derive"] }
@@ -44,6 +48,6 @@ serde_derive = "1"
 
 [features]
 default = ["std"]
-std = ["dep:chrono", "awkernel_sync/std"]
+std = ["dep:chrono", "awkernel_sync/std", "futures/std"]
 awkernel_x86 = ["awkernel_sync/x86"]
 awkernel_aarch64 = ["awkernel_sync/aarch64"]
