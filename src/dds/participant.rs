@@ -304,8 +304,8 @@ impl DomainParticipantInner {
         )
         .expect("the max number of participant on same host on same domin is 127.");
 
-        socket_list.insert(DISCOVERY_UNI_TOKEN, discovery_multi);
-        socket_list.insert(DISCOVERY_MULTI_TOKEN, discovery_uni);
+        socket_list.insert(DISCOVERY_UNI_TOKEN, discovery_uni);
+        socket_list.insert(DISCOVERY_MULTI_TOKEN, discovery_multi);
         socket_list.insert(USERTRAFFIC_UNI_TOKEN, usertraffic_uni);
         socket_list.insert(USERTRAFFIC_MULTI_TOKEN, usertraffic_multi);
 
