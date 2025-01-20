@@ -154,6 +154,37 @@ impl DataWriterQosPolicies {
         }
         Err(msg)
     }
+
+    pub fn combine(&mut self, policies: Self) {
+        macro_rules! combine_policy {
+            ($policy_name:ident, $policy_type:ident) => {
+                if self.$policy_name != policies.$policy_name
+                    && policies.$policy_name != $policy_type::default()
+                {
+                    self.$policy_name = policies.$policy_name;
+                }
+            };
+        }
+        combine_policy!(durability, Durability);
+        combine_policy!(durability_service, DurabilityService);
+        combine_policy!(deadline, Deadline);
+        combine_policy!(latency_budget, LatencyBudget);
+        combine_policy!(liveliness, Liveliness);
+        if self.reliability != policies.reliability
+            && policies.reliability != Reliability::default_reliable()
+        {
+            self.reliability = policies.reliability;
+        }
+        combine_policy!(destination_order, DestinationOrder);
+        combine_policy!(history, History);
+        combine_policy!(resource_limits, ResourceLimits);
+        combine_policy!(transport_priority, TransportPriority);
+        combine_policy!(lifespan, Lifespan);
+        combine_policy!(user_data, UserData);
+        combine_policy!(ownership, Ownership);
+        combine_policy!(ownership_strength, OwnershipStrength);
+        combine_policy!(writer_data_lifecycle, WriterDataLifecycle);
+    }
 }
 
 /// for setting QoS on a Publisher
@@ -245,6 +276,34 @@ impl DataReaderQosPolicies {
             return Ok(());
         }
         Err(msg)
+    }
+
+    pub fn combine(&mut self, policies: Self) {
+        macro_rules! combine_policy {
+            ($policy_name:ident, $policy_type:ident) => {
+                if self.$policy_name != policies.$policy_name
+                    && policies.$policy_name != $policy_type::default()
+                {
+                    self.$policy_name = policies.$policy_name;
+                }
+            };
+        }
+        combine_policy!(durability, Durability);
+        combine_policy!(deadline, Deadline);
+        combine_policy!(latency_budget, LatencyBudget);
+        combine_policy!(liveliness, Liveliness);
+        if self.reliability != policies.reliability
+            && policies.reliability != Reliability::default_besteffort()
+        {
+            self.reliability = policies.reliability;
+        }
+        combine_policy!(destination_order, DestinationOrder);
+        combine_policy!(history, History);
+        combine_policy!(resource_limits, ResourceLimits);
+        combine_policy!(user_data, UserData);
+        combine_policy!(ownership, Ownership);
+        combine_policy!(time_based_filter, TimeBasedFilter);
+        combine_policy!(reader_data_lifecycle, ReaderDataLifecycle);
     }
 }
 
