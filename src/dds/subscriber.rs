@@ -135,8 +135,24 @@ impl InnerSubscriber {
         subscriber: Subscriber,
     ) -> DataReader<D> {
         let dr_qos = match qos {
+            // DDS 1.4 spec, 2.2.2.5.2.5 create_datareader
+            // > The special value DATAREADER_QOS_DEFAULT can be used to indicate that the DataReader should be created with the
+            // > default DataReader QoS set in the factory. The use of this value is equivalent to the application obtaining the default
+            // > DataReader QoS by means of the operation get_default_datareader_qos (2.2.2.4.1.15) and using the resulting QoS to create
+            // > the DataReader.
             DataReaderQos::Default => self.default_dr_qos.clone(),
-            DataReaderQos::Policies(q) => q,
+            // DDS 1.4 spec, 2.2.2.5.2.5 create_datareader
+            // > Note that a common application pattern to construct the QoS for the DataReader is to:
+            // > + Retrieve the QoS policies on the associated Topic by means of the get_qos operation on the Topic.
+            // > + Retrieve the default DataReader qos by means of the get_default_datareader_qos operation on the Subscriber.
+            // > + Combine those two QoS policies and selectively modify policies as desired.
+            // > + Use the resulting QoS policies to construct the DataReader.
+            DataReaderQos::Policies(q) => {
+                let mut dr_qos = topic.my_qos_policies().to_datareader_qos();
+                dr_qos.combine(self.default_dr_qos.clone());
+                dr_qos.combine(q);
+                dr_qos
+            }
         };
         let (reader_state_notifier, reader_state_receiver) =
             mio_channel::channel::<DataReaderStatusChanged>();

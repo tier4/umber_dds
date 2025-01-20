@@ -143,8 +143,24 @@ impl InnerPublisher {
         outter: Publisher,
     ) -> DataWriter<D> {
         let dw_qos = match qos {
+            // DDS 1.4 spec, 2.2.2.4.1.5 create_ datawriter
+            // > The special value DATAWRITER_QOS_DEFAULT can be used to indicate that the DataWriter should be created with the
+            // default DataWriter QoS set in the factory. The use of this value is equivalent to the application obtaining the default
+            // DataWriter QoS by means of the operation get_default_datawriter_qos (2.2.2.4.1.15) and using the resulting QoS to create
+            // the DataWriter.
             DataWriterQos::Default => self.default_dw_qos.clone(),
-            DataWriterQos::Policies(q) => q,
+            // DDS 1.4 spec, 2.2.2.5.2.5 create_datareader
+            // > Note that a common application pattern to construct the QoS for the DataWriter is to:
+            // > + Retrieve the QoS policies on the associated Topic by means of the get_qos operation on the Topic.
+            // > + Retrieve the default DataWriter qos by means of the get_default_datawriter_qos operation on the Publisher.
+            // > + Combine those two QoS policies and selectively modify policies as desired.
+            // > + Use the resulting QoS policies to construct the DataWriter.
+            DataWriterQos::Policies(q) => {
+                let mut dw_qos = topic.my_qos_policies().to_datawriter_qos();
+                dw_qos.combine(self.default_dw_qos.clone());
+                dw_qos.combine(q);
+                dw_qos
+            }
         };
         let (writer_state_notifier, writer_state_receiver) =
             mio_channel::channel::<DataWriterStatusChanged>();
