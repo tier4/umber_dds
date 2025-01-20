@@ -48,6 +48,37 @@ pub struct TopicQosPolicies {
     pub lifespan: Lifespan,
     pub ownership: Ownership,
 }
+impl TopicQosPolicies {
+    pub fn to_datawriter_qos(&self) -> DataWriterQosPolicies {
+        DataWriterQosBuilder::new()
+            .durability(self.durability)
+            .durability_service(self.durability_service)
+            .deadline(self.deadline)
+            .latency_budget(self.latency_budget)
+            .liveliness(self.liveliness)
+            .reliability(self.reliability)
+            .destination_order(self.destination_order)
+            .history(self.history)
+            .resource_limits(self.resource_limits)
+            .transport_priority(self.transport_priority)
+            .lifespan(self.lifespan)
+            .ownership(self.ownership)
+            .build()
+    }
+    pub fn to_datareader_qos(&self) -> DataReaderQosPolicies {
+        DataReaderQosBuilder::new()
+            .durability(self.durability)
+            .deadline(self.deadline)
+            .latency_budget(self.latency_budget)
+            .liveliness(self.liveliness)
+            .reliability(self.reliability)
+            .destination_order(self.destination_order)
+            .history(self.history)
+            .resource_limits(self.resource_limits)
+            .ownership(self.ownership)
+            .build()
+    }
+}
 
 /// for setting QoS on a DataWriter
 #[derive(Clone)]
