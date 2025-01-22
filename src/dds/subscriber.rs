@@ -42,6 +42,46 @@ impl Subscriber {
             ))),
         }
     }
+
+    /// Note that if you pass `DataReaderQos::Policies(qos)` when creating a DataReader,
+    /// the resulting QoS will not be exactly the same as the provided `qos`.
+    ///
+    /// Instead, the DataReader QoS is constructed by combining:
+    /// 1) the QoS from the associated Topic (`topic_qos`),
+    /// 2) the Subscriber's default DataReader QoS (`subscriber.get_default_datareader_qos()`), and
+    /// 3) the user-supplied `qos`.
+    ///
+    /// The pseudo-code below illustrates the combination process:
+    /// ```
+    /// impl DataReaderQosPolicies {
+    ///     fn combine(&mut self, other: Self) {
+    ///         // For each QoS policy in Self:
+    ///         for qos_policy in Self {
+    ///             // If `other`'s policy is not default and differs from `self`'s policy,
+    ///             // overwrite `self`'s policy.
+    ///             if self.qos_policy != qos_policy && qos_policy != QoSPolicy::default() {
+    ///                 self.qos_policy = qos_policy;
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let mut dr_qos = topic_qos.to_datareader_qos();
+    /// dr_qos.combine(subscriber.get_default_datareader_qos());
+    /// dr_qos.combine(qos);
+    /// dr_qos
+    /// ```
+    ///
+    /// If you set `DataReaderQos::Default` as the QoS when creating a DataReader,
+    /// it simply uses the Subscriber's default DataReader QoS
+    /// (subscriber.get_default_datareader_qos()). Therefore,
+    /// ```
+    /// subscriber.create_datareader::<Hoge>(DataReaderQos::Default, &topic)
+    /// ```
+    /// is may **not** equivalent to:
+    /// ```
+    /// subscriber.create_datareader::<Hoge>(subscriber.get_default_datareader_qos(), &topic)
+    /// ```
     pub fn create_datareader<D: for<'de> Deserialize<'de>>(
         &self,
         qos: DataReaderQos,
@@ -52,6 +92,8 @@ impl Subscriber {
             .expect("couldn't read lock InnerSubscriber")
             .create_datareader(qos, topic, self.clone())
     }
+
+    /// See [`Self::create_datareader`] for a note of qos.
     pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
         qos: DataReaderQos,

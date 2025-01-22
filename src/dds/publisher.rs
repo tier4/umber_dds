@@ -53,6 +53,45 @@ impl Publisher {
         }
     }
 
+    /// Note that if you pass `DataWriterQos::Policies(qos)` when creating a DataWriter,
+    /// the resulting QoS will not be exactly the same as the provided `qos`.
+    ///
+    /// Instead, the DataWriter QoS is constructed by combining:
+    /// 1) the QoS from the associated Topic (`topic_qos`),
+    /// 2) the Publisher's default DataWriter QoS (`publisher.get_default_datawriter_qos()`), and
+    /// 3) the user-supplied `qos`.
+    ///
+    /// The pseudo-code below illustrates the combination process:
+    /// ```
+    /// impl DataWriterQosPolicies {
+    ///     fn combine(&mut self, other: Self) {
+    ///         // For each QoS policy in Self:
+    ///         for qos_policy in Self {
+    ///             // If `other`'s policy is not default and differs from `self`'s policy,
+    ///             // overwrite `self`'s policy.
+    ///             if self.qos_policy != qos_policy && qos_policy != QoSPolicy::default() {
+    ///                 self.qos_policy = qos_policy;
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let mut dw_qos = topic_qos.to_datawriter_qos();
+    /// dw_qos.combine(publisher.get_default_datawriter_qos());
+    /// dw_qos.combine(qos);
+    /// dw_qos
+    /// ```
+    ///
+    /// If you set `DataWriterQos::Default` as the QoS when creating a DataWriter,
+    /// it simply uses the Publisher's default DataWriter
+    /// QoS (publisher.get_default_datawriter_qos()). Therefore,
+    /// ```
+    /// publisher.create_datawriter::<Hoge>(DataWriterQos::Default, &topic)
+    /// ```
+    /// is may **not** equivalent to:
+    /// ```
+    /// publisher.create_datawriter::<Hoge>(publisher.get_default_datawriter_qos(), &topic)
+    /// ```
     pub fn create_datawriter<D: serde::Serialize>(
         &self,
         qos: DataWriterQos,
@@ -64,6 +103,7 @@ impl Publisher {
             .create_datawriter(qos, topic, self.clone())
     }
 
+    /// See [`Self::create_datawriter`] for a note of qos.
     pub fn create_datawriter_with_entityid<D: serde::Serialize>(
         &self,
         qos: DataWriterQos,
@@ -129,13 +169,14 @@ impl InnerPublisher {
         }
     }
 
-    /// Allows access to the values of the QoS.
     pub fn get_qos(&self) -> PublisherQosPolicies {
         self.qos.clone()
     }
+
     pub fn set_qos(&mut self, qos: PublisherQosPolicies) {
         self.qos = qos;
     }
+
     pub fn create_datawriter<D: serde::Serialize>(
         &self,
         qos: DataWriterQos,
@@ -149,7 +190,7 @@ impl InnerPublisher {
             // DataWriter QoS by means of the operation get_default_datawriter_qos (2.2.2.4.1.15) and using the resulting QoS to create
             // the DataWriter.
             DataWriterQos::Default => self.default_dw_qos.clone(),
-            // DDS 1.4 spec, 2.2.2.5.2.5 create_datareader
+            // DDS 1.4 spec, 2.2.2.4.1.5 create_ datawriter
             // > Note that a common application pattern to construct the QoS for the DataWriter is to:
             // > + Retrieve the QoS policies on the associated Topic by means of the get_qos operation on the Topic.
             // > + Retrieve the default DataWriter qos by means of the get_default_datawriter_qos operation on the Publisher.
