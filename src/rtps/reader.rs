@@ -483,11 +483,11 @@ impl Reader {
             }
         }
         for g in todo_remove {
-            self.matched_writer_remove(g)
+            self.matched_writer_remove(g);
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::LivelinessChanged)
+                .expect("couldn't send channel 'reader_state_notifier'");
         }
-        self.reader_state_notifier
-            .send(DataReaderStatusChanged::LivelinessChanged)
-            .expect("couldn't send channel 'reader_state_notifier'");
     }
 
     pub fn get_min_remote_writer_lease_duration(&self) -> StdDuration {

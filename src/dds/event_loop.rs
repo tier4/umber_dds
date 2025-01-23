@@ -59,6 +59,7 @@ pub struct EventLoop {
     writer_hb_timer: Timer<EntityId>,
     reader_hb_timers: Vec<Timer<(EntityId, GUID)>>, // (reader EntityId, writer GUID)
     writer_nack_timers: Vec<Timer<(EntityId, GUID)>>, // (writer EntityId, reader GUID)
+    wlp_timer_receiver: mio_channel::Receiver<EntityId>,
     wlp_timers: BTreeMap<EntityId, (Timer<EntityId>, Timeout)>, //  reader EntityId, reader EntityId
     assert_liveliness_timer: Timer<()>,
     // receive discovery_db update notification from Discovery
@@ -125,6 +126,7 @@ impl EventLoop {
         .expect("coludn't register discdb_update_receiver to poll");
         let (set_reader_hb_timer_sender, set_reader_hb_timer_receiver) = mio_channel::channel();
         let (set_writer_nack_timer_sender, set_writer_nack_timer_receiver) = mio_channel::channel();
+        let (wlp_timer_sender, wlp_timer_receiver) = mio_channel::channel();
         poll.register(
             &set_reader_hb_timer_receiver,
             SET_READER_HEARTBEAT_TIMER,
@@ -139,7 +141,14 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("coludn't register set_writer_nack_timer_receiver to poll");
-        let message_receiver = MessageReceiver::new(participant_guidprefix);
+        poll.register(
+            &wlp_timer_receiver,
+            SET_WLP_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("coludn't register wlp_timer_receiver to poll");
+        let message_receiver = MessageReceiver::new(participant_guidprefix, wlp_timer_sender);
         let sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
             domain_id,
@@ -161,6 +170,7 @@ impl EventLoop {
             writer_hb_timer,
             reader_hb_timers: Vec::new(),
             writer_nack_timers: Vec::new(),
+            wlp_timer_receiver,
             wlp_timers: BTreeMap::new(),
             assert_liveliness_timer,
             discdb_update_receiver,
@@ -380,6 +390,11 @@ impl EventLoop {
                                 if let Some(eid) = wlp_timer.poll() {
                                     if let Some(reader) = self.readers.get_mut(&eid) {
                                         reader.check_liveliness(&self.discovery_db);
+                                        eprintln!(
+                                            "<{}>: checked liveliness of reader: {:?}",
+                                            "EventLoop: Info".green(),
+                                            reader.entity_id()
+                                        );
                                         *to = wlp_timer.set_timeout(
                                             reader.get_min_remote_writer_lease_duration(),
                                             reader.entity_id(),
@@ -436,6 +451,31 @@ impl EventLoop {
                                     if let Some(writer) = self.writers.get_mut(&weid) {
                                         writer.handle_nack_response_timeout(rguid);
                                     }
+                                }
+                            }
+                        }
+                        SET_WLP_TIMER => {
+                            while let Ok(reader_eid) = self.wlp_timer_receiver.try_recv() {
+                                if let Some(reader) = self.readers.get_mut(&reader_eid) {
+                                    let min_ld = reader.get_min_remote_writer_lease_duration();
+                                    let mut wlp_timer = Timer::default();
+                                    let timeout = wlp_timer.set_timeout(min_ld, reader.entity_id());
+                                    self.poll
+                                        .register(
+                                            &wlp_timer,
+                                            WRITER_LIVELINESS_CHECK_TIMER,
+                                            Ready::readable(),
+                                            PollOpt::edge(),
+                                        )
+                                        .expect("coludn't register reader_hb_timer to poll");
+                                    if let Some((timer, to)) =
+                                        self.wlp_timers.get_mut(&reader.entity_id())
+                                    {
+                                        timer.cancel_timeout(to);
+                                        reader.check_liveliness(&self.discovery_db);
+                                    }
+                                    self.wlp_timers
+                                        .insert(reader.entity_id(), (wlp_timer, timeout));
                                 }
                             }
                         }
@@ -567,24 +607,6 @@ impl EventLoop {
                                 0, // TODO: What value should I set?
                                 qos,
                             );
-                            let min_ld = reader.get_min_remote_writer_lease_duration();
-                            let mut wlp_timer = Timer::default();
-                            let timeout = wlp_timer.set_timeout(min_ld, reader.entity_id());
-                            self.poll
-                                .register(
-                                    &wlp_timer,
-                                    WRITER_LIVELINESS_CHECK_TIMER,
-                                    Ready::readable(),
-                                    PollOpt::edge(),
-                                )
-                                .expect("coludn't register reader_hb_timer to poll");
-                            if let Some((timer, to)) = self.wlp_timers.get_mut(&reader.entity_id())
-                            {
-                                timer.cancel_timeout(to);
-                                reader.check_liveliness(&self.discovery_db);
-                            }
-                            self.wlp_timers
-                                .insert(reader.entity_id(), (wlp_timer, timeout));
                         }
                     }
                     if available_builtin_endpoint

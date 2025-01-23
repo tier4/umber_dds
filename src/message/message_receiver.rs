@@ -20,6 +20,7 @@ use alloc::collections::BTreeMap;
 use alloc::fmt;
 use alloc::sync::Arc;
 use colored::*;
+use mio_extras::channel as mio_channel;
 use std::error;
 use std::sync::RwLock;
 
@@ -46,12 +47,16 @@ pub struct MessageReceiver {
     dest_guid_prefix: GuidPrefix,
     unicast_reply_locator_list: Vec<Locator>,
     multicast_reply_locator_list: Vec<Locator>,
+    wlp_timer_sender: mio_channel::Sender<EntityId>,
     have_timestamp: bool,
     timestamp: Timestamp,
 }
 
 impl MessageReceiver {
-    pub fn new(participant_guidprefix: GuidPrefix) -> MessageReceiver {
+    pub fn new(
+        participant_guidprefix: GuidPrefix,
+        wlp_timer_sender: mio_channel::Sender<EntityId>,
+    ) -> MessageReceiver {
         Self {
             own_guid_prefix: participant_guidprefix,
             source_version: ProtocolVersion::PROTOCOLVERSION,
@@ -60,6 +65,7 @@ impl MessageReceiver {
             dest_guid_prefix: GuidPrefix::UNKNOW,
             unicast_reply_locator_list: vec![Locator::INVALID],
             multicast_reply_locator_list: vec![Locator::INVALID],
+            wlp_timer_sender,
             have_timestamp: false,
             timestamp: Timestamp::TIME_INVALID,
         }
@@ -421,7 +427,7 @@ impl MessageReceiver {
                     ));
                 }
             };
-            for (_eid, reader) in readers.iter_mut() {
+            for (eid, reader) in readers.iter_mut() {
                 if reader.is_writer_match(&topic_name, &data_type) {
                     eprintln!(
                         "<{}>: matched writer add to reader",
@@ -433,7 +439,10 @@ impl MessageReceiver {
                         writer_proxy.multicast_locator_list.clone(),
                         writer_proxy.data_max_size_serialized,
                         writer_proxy.qos.clone(),
-                    )
+                    );
+                    self.wlp_timer_sender
+                        .send(*eid)
+                        .expect("couldn't send channel 'wlp_timer_sender'");
                 }
             }
             match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
