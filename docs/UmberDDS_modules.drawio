@@ -1,6 +1,6 @@
-<mxfile host="Electron" modified="2024-10-28T09:47:26.343Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.4.8 Chrome/124.0.6367.207 Electron/30.0.6 Safari/537.36" etag="4LMNmfeJbXiRV376Yefx" version="24.4.8" type="device">
+<mxfile host="Electron" modified="2025-01-23T08:23:31.782Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.4.8 Chrome/124.0.6367.207 Electron/30.0.6 Safari/537.36" etag="Qj96oFwRv8mI3q96goGv" version="24.4.8" type="device">
   <diagram name="Page-1" id="-fP_LIbSd6yxelAOJSjp">
-    <mxGraphModel dx="2924" dy="2330" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2035" dy="1803" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -188,7 +188,7 @@
         <mxCell id="iw7bkt_WirvSa25fS6zJ-61" value="&lt;font style=&quot;font-size: 20px;&quot;&gt;ser_reader_hb_timer&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="870" y="920" width="200" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="iw7bkt_WirvSa25fS6zJ-63" value="&lt;font style=&quot;font-size: 20px;&quot;&gt;ser_writer_nack_timer&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+        <mxCell id="iw7bkt_WirvSa25fS6zJ-63" value="&lt;font style=&quot;font-size: 20px;&quot;&gt;set_writer_nack_timer&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="810" y="610" width="200" height="30" as="geometry" />
         </mxCell>
         <mxCell id="iw7bkt_WirvSa25fS6zJ-64" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;strokeWidth=3;dashed=1;edgeStyle=orthogonalEdgeStyle;curved=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;fillColor=#e51400;strokeColor=#B20000;" parent="1" source="iw7bkt_WirvSa25fS6zJ-31" target="iw7bkt_WirvSa25fS6zJ-20" edge="1">
@@ -522,6 +522,15 @@
         </mxCell>
         <mxCell id="wV1MeeOjmb5BiqbG29lt-44" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;DATA, HEARTBEAT, etc.&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="880" y="700" width="170" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="Q6VQ9ecxNFoYZTvgYiWM-1" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.75;exitY=1;exitDx=0;exitDy=0;strokeWidth=3;dashed=1;fillColor=#e51400;strokeColor=#B20000;entryX=0.378;entryY=0.062;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1050" y="560" as="sourcePoint" />
+            <mxPoint x="1083" y="612" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Q6VQ9ecxNFoYZTvgYiWM-2" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;wlp_timer_timer&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="610" width="145" height="30" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
