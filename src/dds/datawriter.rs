@@ -1,4 +1,9 @@
-use crate::dds::{publisher::Publisher, qos::DataWriterQosPolicies, topic::Topic};
+use crate::dds::{
+    publisher::Publisher,
+    qos::{policy::LivelinessQosKind, DataWriterQosPolicies},
+    topic::Topic,
+};
+use crate::discovery::structure::data::ParticipantMessageKind;
 use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
 use crate::rtps::writer::*;
 use core::marker::PhantomData;
@@ -48,9 +53,7 @@ impl<D: Serialize> DataWriter<D> {
     pub fn write(&self, data: D) {
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
-        let writer_cmd = WriterCmd {
-            serialized_payload: Some(serialized_payload),
-        };
+        let writer_cmd = WriterCmd::WriteData(Some(serialized_payload));
         self.writer_command_sender
             .send(writer_cmd)
             .expect("couldn't send message");
@@ -59,12 +62,22 @@ impl<D: Serialize> DataWriter<D> {
     pub(crate) fn write_builtin_data(&self, data: D) {
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
-        let writer_cmd = WriterCmd {
-            serialized_payload: Some(serialized_payload),
-        };
+        let writer_cmd = WriterCmd::WriteData(Some(serialized_payload));
         self.writer_command_sender
             .send(writer_cmd)
             .expect("couldn't send message");
+    }
+
+    pub fn assert_liveliness(&self) {
+        if let LivelinessQosKind::ManualByParticipant = self.qos.liveliness.kind {
+            let writer_cmd = WriterCmd::AssertLiveliness((
+                ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE,
+                Vec::new(),
+            ));
+            self.writer_command_sender
+                .send(writer_cmd)
+                .expect("couldn't send message");
+        }
     }
 
     /// get DataWriterStatusChanged

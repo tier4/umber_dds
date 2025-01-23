@@ -12,7 +12,7 @@ note about UmberDDS implementation
 | netwok | network utils |
 
 ## Module Oraganization
-![UmberDDS_modules](https://github.com/user-attachments/assets/7b6d5f56-d296-4083-b505-9f4165fec1b7)
+![UmberDDS_modules](https://github.com/user-attachments/assets/76621ab4-bf78-42a8-8792-bc08c0dfdde5)
 
 
 ## architecture description

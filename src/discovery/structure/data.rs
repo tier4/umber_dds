@@ -12,6 +12,35 @@ use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::{ser::SerializeStruct, Serialize};
 use std::fmt;
 
+/// rtps spec, 9.6.2.1 Data Representation for the ParticipantMessageData Built-in Endpoints
+#[derive(Clone, Serialize, serde::Deserialize)]
+pub struct ParticipantMessageData {
+    pub guid: GUID,
+    pub kind: ParticipantMessageKind,
+    pub data: Vec<u8>,
+}
+impl ParticipantMessageData {
+    pub fn new(guid: GUID, kind: ParticipantMessageKind, data: Vec<u8>) -> Self {
+        Self { guid, kind, data }
+    }
+}
+
+#[derive(PartialEq, Clone, Serialize, serde::Deserialize)]
+pub struct ParticipantMessageKind {
+    pub value: [u8; 4],
+}
+impl ParticipantMessageKind {
+    pub const UNKNOWN: Self = Self {
+        value: [0x00, 0x00, 0x00, 0x00],
+    };
+    pub const AUTOMATIC_LIVELINESS_UPDATE: Self = Self {
+        value: [0x00, 0x00, 0x00, 0x01],
+    };
+    pub const MANUAL_LIVELINESS_UPDATE: Self = Self {
+        value: [0x00, 0x00, 0x00, 0x02],
+    };
+}
+
 #[allow(dead_code)]
 #[derive(Clone, Default)]
 pub struct SDPBuiltinData {
@@ -1063,6 +1092,7 @@ impl Serialize for PublicationBuiltinTopicData {
             }
         }
 
+        /*
         // durability
         if let Some(durability) = &self.durability {
             s.serialize_field("parameterId", &ParameterId::PID_DURABILITY.value)?;
@@ -1175,6 +1205,7 @@ impl Serialize for PublicationBuiltinTopicData {
             s.serialize_field::<u16>("parameterLength", &group_data.serialized_size())?;
             s.serialize_field("group_data", &group_data)?;
         }
+        */
 
         s.end()
     }

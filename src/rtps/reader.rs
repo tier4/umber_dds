@@ -2,10 +2,10 @@ use crate::dds::{
     qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
     Topic,
 };
-use crate::discovery::structure::data::DiscoveredReaderData;
+use crate::discovery::{discovery_db::DiscoveryDB, structure::data::DiscoveredReaderData};
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
-    element::{Gap, Heartbeat, Locator, SequenceNumber, SequenceNumberSet},
+    element::{Gap, Heartbeat, Locator, SequenceNumber, SequenceNumberSet, Timestamp},
     submessage_flag::HeartbeatFlag,
 };
 use crate::network::udp_sender::UdpSender;
@@ -13,7 +13,7 @@ use crate::rtps::cache::{CacheChange, HistoryCache};
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
 };
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
@@ -39,6 +39,7 @@ pub struct Reader {
     reader_cache: Arc<RwLock<HistoryCache>>,
     // StatefulReader
     matched_writers: BTreeMap<GUID, WriterProxy>,
+    total_matched_writers: BTreeSet<GUID>,
     // This implementation spesific
     topic: Topic,
     qos: DataReaderQosPolicies,
@@ -64,6 +65,7 @@ impl Reader {
             heartbeat_response_delay: ri.heartbeat_response_delay,
             reader_cache: ri.rhc,
             matched_writers: BTreeMap::new(),
+            total_matched_writers: BTreeSet::new(),
             topic: ri.topic,
             qos: ri.qos,
             endianness: Endianness::LittleEndian,
@@ -219,11 +221,6 @@ impl Reader {
             return;
         }
 
-        self.reader_state_notifier
-            .send(DataReaderStatusChanged::SubscriptionMatched(
-                remote_writer_guid,
-            ))
-            .expect("couldn't send reader_state_notifier");
         self.matched_writers.insert(
             remote_writer_guid,
             WriterProxy::new(
@@ -235,6 +232,19 @@ impl Reader {
                 self.reader_cache.clone(),
             ),
         );
+        self.total_matched_writers.insert(remote_writer_guid);
+        let sub_match_state = SubscriptionMatchedStatus::new(
+            self.total_matched_writers.len() as i32,
+            1,
+            self.matched_writers.len() as i32,
+            1,
+            remote_writer_guid,
+        );
+        self.reader_state_notifier
+            .send(DataReaderStatusChanged::SubscriptionMatched(
+                sub_match_state,
+            ))
+            .expect("couldn't send reader_state_notifier");
     }
     pub fn is_writer_match(&self, topic_name: &str, data_type: &str) -> bool {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type
@@ -244,9 +254,22 @@ impl Reader {
             .get_mut(&guid)
             .map(|proxy| proxy.clone())
     }
-    #[allow(dead_code)]
+
     pub fn matched_writer_remove(&mut self, guid: GUID) {
         self.matched_writers.remove(&guid);
+        let sub_match_state = SubscriptionMatchedStatus::new(
+            self.total_matched_writers.len() as i32,
+            0,
+            self.matched_writers.len() as i32,
+            -1,
+            guid,
+        );
+
+        self.reader_state_notifier
+            .send(DataReaderStatusChanged::SubscriptionMatched(
+                sub_match_state,
+            ))
+            .expect("couldn't send reader_state_notifier");
     }
 
     pub fn handle_gap(&mut self, writer_guid: GUID, gap: Gap) {
@@ -433,13 +456,47 @@ impl Reader {
             self.heartbeat_response_delay.fraction,
         )
     }
-    pub fn is_contain_writer(&self, writer_entity_id: EntityId) -> bool {
+    pub fn is_contain_writer(&self, writer_guid: GUID) -> bool {
         for guid in self.matched_writers.keys() {
-            if guid.entity_id == writer_entity_id {
+            if *guid == writer_guid {
                 return true;
             }
         }
         false
+    }
+
+    pub fn check_liveliness(&mut self, disc_db: &DiscoveryDB) {
+        let mut todo_remove = Vec::new();
+        for (guid, wp) in &self.matched_writers {
+            let wld = wp.qos.liveliness.lease_duration;
+            if wld == Duration::INFINITE {
+                continue;
+            }
+            let last_added = disc_db
+                .read_remote_writer(*guid)
+                .expect("not found data from discovery_db");
+            let elapse = Timestamp::now().expect("failed get Timestamp::now()") - last_added;
+            if elapse > wld {
+                todo_remove.push(*guid);
+            }
+        }
+        for g in todo_remove {
+            self.matched_writer_remove(g);
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::LivelinessChanged)
+                .expect("couldn't send channel 'reader_state_notifier'");
+        }
+    }
+
+    pub fn get_min_remote_writer_lease_duration(&self) -> StdDuration {
+        let mut min_ld = Duration::INFINITE;
+        for wp in self.matched_writers.values() {
+            let wld = wp.qos.liveliness.lease_duration;
+            if wld < min_ld {
+                min_ld = wld;
+            }
+        }
+        StdDuration::new(min_ld.seconds as u64, min_ld.fraction)
     }
 }
 
@@ -453,9 +510,35 @@ pub enum DataReaderStatusChanged {
     RequestedIncompatibleQos,
     DataAvailable,
     SampleLost,
+    SubscriptionMatched(SubscriptionMatchedStatus),
+}
+
+pub struct SubscriptionMatchedStatus {
+    pub total_count: i32,
+    pub total_count_change: i32,
+    pub current_count: i32,
+    pub current_count_change: i32,
     /// This is diffarent form DDS spec.
     /// The GUID is remote writer's one.
-    SubscriptionMatched(GUID),
+    pub guid: GUID,
+}
+
+impl SubscriptionMatchedStatus {
+    pub fn new(
+        total_count: i32,
+        total_count_change: i32,
+        current_count: i32,
+        current_count_change: i32,
+        guid: GUID,
+    ) -> Self {
+        Self {
+            total_count,
+            total_count_change,
+            current_count,
+            current_count_change,
+            guid,
+        }
+    }
 }
 
 pub struct ReaderIngredients {
