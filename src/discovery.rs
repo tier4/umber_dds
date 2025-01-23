@@ -9,7 +9,8 @@ use crate::dds::{
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
-    DiscoveredReaderData, DiscoveredWriterData, SDPBuiltinData, SPDPdiscoveredParticipantData,
+    DiscoveredReaderData, DiscoveredWriterData, ParticipantMessageData, SDPBuiltinData,
+    SPDPdiscoveredParticipantData,
 };
 use crate::message::{
     message_header::ProtocolVersion,
@@ -59,6 +60,8 @@ pub struct Discovery {
     sedp_builtin_pub_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
     sedp_builtin_sub_reader: DataReader<SDPBuiltinData>,
+    p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData>,
+    p2p_builtin_participant_msg_reader: DataReader<ParticipantMessageData>,
     spdp_send_timer: Timer<()>,
     local_writers_data: BTreeMap<EntityId, DiscoveredWriterData>,
     notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
@@ -172,6 +175,57 @@ impl Discovery {
                 sedp_sub_reader_entity_id,
             );
 
+        // For Writer Liveliness Protocol
+        let p2p_builtin_participant_topic_qos = TopicQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .durability(Durability::TransientLocal)
+            .history(History {
+                kind: HistoryQosKind::KeepLast,
+                depth: 1,
+            })
+            .build();
+        let p2p_builtin_participant_writer_qos = DataWriterQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .durability(Durability::TransientLocal)
+            .history(History {
+                kind: HistoryQosKind::KeepLast,
+                depth: 1,
+            })
+            .build();
+        let p2p_builtin_participant_reader_qos = DataReaderQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .durability(Durability::TransientLocal)
+            .history(History {
+                kind: HistoryQosKind::KeepLast,
+                depth: 1,
+            })
+            .build();
+        let p2p_builtin_participant_topic = dp.create_topic(
+            "DCPSParticipantMessage".to_string(),
+            "ParticipantMessageData".to_string(),
+            TopicKind::WithKey,
+            TopicQos::Policies(p2p_builtin_participant_topic_qos),
+        );
+        let p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData> = publisher
+            .create_datawriter_with_entityid(
+                DataWriterQos::Policies(p2p_builtin_participant_writer_qos),
+                p2p_builtin_participant_topic.clone(),
+                EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
+            );
+        let p2p_builtin_participant_msg_reader: DataReader<ParticipantMessageData> = subscriber
+            .create_datareader_with_entityid(
+                DataReaderQos::Policies(p2p_builtin_participant_reader_qos),
+                p2p_builtin_participant_topic,
+                EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
+            );
+        poll.register(
+            &p2p_builtin_participant_msg_reader,
+            PARTICIPANT_MESSAGE_READER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("couldn't register p2p_builtin_participant_msg_reader to poll");
+
         let mut spdp_send_timer: Timer<()> = Timer::default();
         spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
         poll.register(
@@ -208,6 +262,8 @@ impl Discovery {
             sedp_builtin_pub_reader,
             sedp_builtin_sub_writer,
             sedp_builtin_sub_reader,
+            p2p_builtin_participant_msg_writer,
+            p2p_builtin_participant_msg_reader,
             spdp_send_timer,
             local_writers_data: BTreeMap::new(),
             notify_new_writer_receiver,
@@ -228,7 +284,7 @@ impl Discovery {
             self.dp.guid(),
             VendorId::THIS_IMPLEMENTATION,
             false,
-            make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR}),
+            make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER}),
             Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
             vec![Locator::new_from_ipv4(
                 spdp_multicast_port(domain_id) as u32,
@@ -255,6 +311,7 @@ impl Discovery {
                             self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
                         }
                         SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
+                        PARTICIPANT_MESSAGE_READER => { /*self.handle_participant_message()*/ }
                         DISC_WRITER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_writer_receiver.try_recv() {
                                 self.sedp_builtin_pub_writer
@@ -279,7 +336,9 @@ impl Discovery {
                                 );
                             }
                         }
-                        Token(n) => unimplemented!("@discovery: Token({}) is not implemented", n),
+                        Token(n) => {
+                            unimplemented!("@discovery: Token(0x{:02X}) is not implemented", n)
+                        }
                     },
                     TokenDec::Entity(eid) => {
                         if eid.is_reader() {
@@ -304,7 +363,7 @@ impl Discovery {
                 } else {
                     let guid_prefix = spdp_data.guid.guid_prefix;
                     eprintln!("<{}>: discovery_db wite", "Discovery: Info".green());
-                    self.discovery_db.write(
+                    self.discovery_db.write_participant(
                         spdp_data.guid.guid_prefix,
                         Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
                         spdp_data,
@@ -316,4 +375,35 @@ impl Discovery {
             }
         }
     }
+    /*
+     * process DATA(m) which ParticipantMessageKind is MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE @MessageReceiver
+     * in the future, I will use this for process DATA(m) which has other ParticipantMessageKind
+    fn handle_participant_message(&mut self) {
+        let vd = self.p2p_builtin_participant_msg_reader.take();
+        for d in vd {
+            match d.kind {
+                ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE
+                | ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
+                    let writer_guid = d.guid;
+                    eprintln!(
+                        "<{}>: receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}}",
+                        "Discovery: Info".green()
+                    );
+                }
+                ParticipantMessageKind::UNKNOWN => {
+                    eprintln!(
+                        "<{}>: receved DATA(m) with ParticipantMessageKind::UNKNOWN, which is not processed",
+                        "Discovery: Warn".yellow()
+                    );
+                }
+                k => {
+                    eprintln!(
+                        "<{}>: receved DATA(m) with ParticipantMessageKind::{:?}, which is not processed",
+                        "Discovery: Warn".yellow(), k.value
+                    );
+                }
+            }
+        }
+    }
+    */
 }

@@ -7,9 +7,9 @@ use crate::rtps::cache::{
 use crate::structure::{guid::GUID, parameter_id::ParameterId};
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use core::cmp::{max, min};
 use serde::{ser::SerializeStruct, Serialize};
-use std::sync::RwLock;
 
 #[derive(Clone)]
 pub struct ReaderProxy {
@@ -56,10 +56,7 @@ impl ReaderProxy {
     }
 
     pub fn acked_changes_set(&mut self, commited_seq_num: SequenceNumber) {
-        let hc = self
-            .history_cache
-            .read()
-            .expect("couldn't read history_cache");
+        let hc = self.history_cache.read();
         for (k, v) in &hc.changes {
             if v.sequence_number <= commited_seq_num {
                 self.cache_state.insert(
@@ -158,6 +155,64 @@ impl Serialize for ReaderProxy {
             s.serialize_field::<u16>("parameterLength", &24)?;
             s.serialize_field("multicast_locator_list", &multicast_locator)?;
         }
+
+        // durability
+        s.serialize_field("parameterId", &ParameterId::PID_DURABILITY.value)?;
+        s.serialize_field::<u16>("parameterLength", &4)?;
+        s.serialize_field("durability", &self.qos.durability)?;
+
+        // deadline
+        s.serialize_field("parameterId", &ParameterId::PID_DEADLINE.value)?;
+        s.serialize_field::<u16>("parameterLength", &8)?;
+        s.serialize_field("deadline", &self.qos.deadline)?;
+
+        // latency_budget
+        s.serialize_field("parameterId", &ParameterId::PID_LATENCY_BUDGET.value)?;
+        s.serialize_field::<u16>("parameterLength", &8)?;
+        s.serialize_field("latency_budget", &self.qos.latency_budget)?;
+
+        // liveliness
+        s.serialize_field("parameterId", &ParameterId::PID_LIVELINESS.value)?;
+        s.serialize_field::<u16>("parameterLength", &12)?;
+        s.serialize_field("liveliness", &self.qos.liveliness)?;
+
+        // reliability
+        s.serialize_field("parameterId", &ParameterId::PID_RELIABILITY.value)?;
+        s.serialize_field::<u16>("parameterLength", &12)?;
+        s.serialize_field("reliability", &self.qos.reliability)?;
+
+        // destination_order
+        s.serialize_field("parameterId", &ParameterId::PID_DESTINATION_ORDER.value)?;
+        s.serialize_field::<u16>("parameterLength", &4)?;
+        s.serialize_field("reliability", &self.qos.destination_order)?;
+
+        // history
+        s.serialize_field("parameterId", &ParameterId::PID_HISTORY.value)?;
+        s.serialize_field::<u16>("parameterLength", &8)?;
+        s.serialize_field("reliability", &self.qos.history)?;
+
+        // resouce_limits
+        s.serialize_field("parameterId", &ParameterId::PID_RESOURCE_LIMITS.value)?;
+        s.serialize_field::<u16>("parameterLength", &12)?;
+        s.serialize_field("reliability", &self.qos.resource_limits)?;
+
+        // user_data
+        s.serialize_field("parameterId", &ParameterId::PID_USER_DATA.value)?;
+        s.serialize_field::<u16>(
+            "parameterLength",
+            &(4 + self.qos.user_data.value.len() as u16),
+        )?;
+        s.serialize_field("user_data", &self.qos.user_data)?;
+
+        // ownership
+        s.serialize_field("parameterId", &ParameterId::PID_OWNERSHIP.value)?;
+        s.serialize_field::<u16>("parameterLength", &4)?;
+        s.serialize_field("ownership", &self.qos.ownership)?;
+
+        // time_based_filter
+        s.serialize_field("parameterId", &ParameterId::PID_TIME_BASED_FILTER.value)?;
+        s.serialize_field::<u16>("parameterLength", &8)?;
+        s.serialize_field("reliability", &self.qos.time_based_filter)?;
 
         s.end()
     }
@@ -304,6 +359,79 @@ impl Serialize for WriterProxy {
         )?;
         s.serialize_field::<u16>("parameterLength", &4)?;
         s.serialize_field("data_max_size_serialized", &self.data_max_size_serialized)?;
+
+        // durability
+        s.serialize_field("parameterId", &ParameterId::PID_DURABILITY.value)?;
+        s.serialize_field::<u16>("parameterLength", &4)?;
+        s.serialize_field("durability", &self.qos.durability)?;
+
+        // durability_service
+        s.serialize_field("parameterId", &ParameterId::PID_DURABILITY_SERVICE.value)?;
+        s.serialize_field::<u16>("parameterLength", &28)?;
+        s.serialize_field("durability_service", &self.qos.durability_service)?;
+
+        // deadline
+        s.serialize_field("parameterId", &ParameterId::PID_DEADLINE.value)?;
+        s.serialize_field::<u16>("parameterLength", &8)?;
+        s.serialize_field("deadline", &self.qos.deadline)?;
+
+        // latency_budget
+        s.serialize_field("parameterId", &ParameterId::PID_LATENCY_BUDGET.value)?;
+        s.serialize_field::<u16>("parameterLength", &8)?;
+        s.serialize_field("latency_budget", &self.qos.latency_budget)?;
+
+        // liveliness
+        s.serialize_field("parameterId", &ParameterId::PID_LIVELINESS.value)?;
+        s.serialize_field::<u16>("parameterLength", &12)?;
+        s.serialize_field("liveliness", &self.qos.liveliness)?;
+
+        // reliability
+        s.serialize_field("parameterId", &ParameterId::PID_RELIABILITY.value)?;
+        s.serialize_field::<u16>("parameterLength", &12)?;
+        s.serialize_field("reliability", &self.qos.reliability)?;
+
+        // destination_order
+        s.serialize_field("parameterId", &ParameterId::PID_DESTINATION_ORDER.value)?;
+        s.serialize_field::<u16>("parameterLength", &4)?;
+        s.serialize_field("reliability", &self.qos.destination_order)?;
+
+        // history
+        s.serialize_field("parameterId", &ParameterId::PID_HISTORY.value)?;
+        s.serialize_field::<u16>("parameterLength", &8)?;
+        s.serialize_field("reliability", &self.qos.history)?;
+
+        // resouce_limits
+        s.serialize_field("parameterId", &ParameterId::PID_RESOURCE_LIMITS.value)?;
+        s.serialize_field::<u16>("parameterLength", &12)?;
+        s.serialize_field("reliability", &self.qos.resource_limits)?;
+
+        // transport_priority
+        s.serialize_field("parameterId", &ParameterId::PID_TRANSPORT_PRIO.value)?;
+        s.serialize_field::<u16>("parameterLength", &4)?;
+        s.serialize_field("reliability", &self.qos.transport_priority)?;
+
+        // lifespan
+        s.serialize_field("parameterId", &ParameterId::PID_LIFESPAN.value)?;
+        s.serialize_field::<u16>("parameterLength", &8)?;
+        s.serialize_field("lifespan", &self.qos.lifespan)?;
+
+        // user_data
+        s.serialize_field("parameterId", &ParameterId::PID_USER_DATA.value)?;
+        s.serialize_field::<u16>(
+            "parameterLength",
+            &(4 + self.qos.user_data.value.len() as u16),
+        )?;
+        s.serialize_field("user_data", &self.qos.user_data)?;
+
+        // ownership
+        s.serialize_field("parameterId", &ParameterId::PID_OWNERSHIP.value)?;
+        s.serialize_field::<u16>("parameterLength", &4)?;
+        s.serialize_field("ownership", &self.qos.ownership)?;
+
+        // ownership_strength
+        s.serialize_field("parameterId", &ParameterId::PID_OWNERSHIP_STRENGTH.value)?;
+        s.serialize_field::<u16>("parameterLength", &4)?;
+        s.serialize_field("ownership_strength", &self.qos.ownership_strength)?;
 
         s.end()
     }

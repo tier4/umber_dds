@@ -2,11 +2,14 @@ use crate::dds::{
     qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
     Topic,
 };
-use crate::discovery::structure::data::DiscoveredWriterData;
+use crate::discovery::structure::data::{
+    DiscoveredWriterData, ParticipantMessageData, ParticipantMessageKind,
+};
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
-        AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, SerializedPayload, Timestamp,
+        AckNack, Count, Locator, RepresentationIdentifier, SequenceNumber, SequenceNumberSet,
+        SerializedPayload, Timestamp,
     },
 };
 use crate::network::udp_sender::UdpSender;
@@ -15,16 +18,16 @@ use crate::rtps::cache::{
 };
 use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{Duration, EntityId, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID};
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use colored::*;
 use core::net::Ipv4Addr;
 use core::time::Duration as CoreDuration;
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
-use std::sync::RwLock;
 
 /// RTPS StatefulWriter
 pub struct Writer {
@@ -47,6 +50,7 @@ pub struct Writer {
     reader_locators: Vec<ReaderLocator>,
     // StatefulWriter
     matched_readers: BTreeMap<GUID, ReaderProxy>,
+    total_matched_readers: BTreeSet<GUID>,
     // This implementation spesific
     topic: Topic,
     qos: DataWriterQosPolicies,
@@ -88,6 +92,7 @@ impl Writer {
             data_max_size_serialized: wi.data_max_size_serialized,
             reader_locators: Vec::new(),
             matched_readers: BTreeMap::new(),
+            total_matched_readers: BTreeSet::new(),
             topic: wi.topic,
             qos: wi.qos,
             endianness: Endianness::LittleEndian,
@@ -121,10 +126,12 @@ impl Writer {
     ) -> CacheChange {
         // Writer
         self.last_change_sequence_number += SequenceNumber(1);
+        let ts = Timestamp::now().expect("failed get Timestamp::now()");
         CacheChange::new(
             kind,
             self.guid,
             self.last_change_sequence_number,
+            ts,
             data,
             handle,
         )
@@ -152,14 +159,7 @@ impl Writer {
     pub fn unsent_changes_reset(&mut self) {
         // StatelessWriter
         for rl in &mut self.reader_locators {
-            rl.unsent_changes = self
-                .writer_cache
-                .read()
-                .expect("couldn't read writer_cache")
-                .changes
-                .values()
-                .cloned()
-                .collect();
+            rl.unsent_changes = self.writer_cache.read().changes.values().cloned().collect();
         }
     }
 
@@ -196,112 +196,112 @@ impl Writer {
 
     pub fn handle_writer_cmd(&mut self) {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
-            // this is new_change
-            self.last_change_sequence_number += SequenceNumber(1);
-            let a_change = CacheChange::new(
-                ChangeKind::Alive,
-                self.guid,
-                self.last_change_sequence_number,
-                cmd.serialized_payload,
-                InstantHandle {},
-            );
-            // register a_change to writer HistoryCache
-            if self.add_change_to_hc(a_change.clone()).is_err() {
-                return;
+            match cmd {
+                WriterCmd::WriteData(sp) => self.handle_write_data_cmd(sp),
+                WriterCmd::AssertLiveliness((k, d)) => self.assert_liveliness(k, d),
             }
-            let self_guid_prefix = self.guid_prefix();
-            self.print_self_info();
-            for reader_proxy in self.matched_readers.values_mut() {
-                while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
-                    reader_proxy.update_cache_state(
-                        change_for_reader.seq_num,
-                        change_for_reader._is_relevant,
-                        ChangeForReaderStatusKind::Underway,
-                    );
-                    if change_for_reader._is_relevant {
-                        if let Some(aa_change) = self
-                            .writer_cache
-                            .read()
-                            .expect("couldn't read writer_cache")
-                            .get_change(self.guid, change_for_reader.seq_num)
-                        {
-                            // build RTPS Message
-                            let mut message_builder = MessageBuilder::new();
-                            let time_stamp = Timestamp::now();
-                            message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-                            message_builder.data(
-                                Endianness::LittleEndian,
-                                self.guid.entity_id,
-                                reader_proxy.remote_reader_guid.entity_id,
-                                aa_change,
-                            );
-                            let message = message_builder.build(self_guid_prefix);
-                            let message_buf = message
-                                .write_to_vec_with_ctx(self.endianness)
-                                .expect("couldn't serialize message");
+        }
+    }
 
-                            // TODO:
-                            // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
-                            for uni_loc in &reader_proxy.unicast_locator_list {
-                                if uni_loc.kind == Locator::KIND_UDPV4 {
-                                    let port = uni_loc.port;
-                                    let addr = uni_loc.address;
-                                    eprintln!(
-                                        "<{}>: send data message to {}.{}.{}.{}:{}",
-                                        "Writer: Info".green(),
-                                        addr[12],
-                                        addr[13],
-                                        addr[14],
-                                        addr[15],
-                                        port
-                                    );
-                                    self.sender.send_to_unicast(
-                                        &message_buf,
-                                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                        port as u16,
-                                    );
-                                }
-                            }
-                            for mul_loc in &reader_proxy.multicast_locator_list {
-                                if mul_loc.kind == Locator::KIND_UDPV4 {
-                                    let port = mul_loc.port;
-                                    let addr = mul_loc.address;
-                                    eprintln!(
-                                        "<{}>: send data message to {}.{}.{}.{}:{}",
-                                        "Writer: Info".green(),
-                                        addr[12],
-                                        addr[13],
-                                        addr[14],
-                                        addr[15],
-                                        port
-                                    );
-                                    self.sender.send_to_multicast(
-                                        &message_buf,
-                                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                        port as u16,
-                                    );
-                                }
-                            }
-                        } else {
-                            unreachable!();
-                        }
-                    } else {
+    pub fn assert_liveliness(&mut self, kind: ParticipantMessageKind, data: Vec<u8>) {
+        let data = ParticipantMessageData::new(self.guid, kind, data);
+        let serialized_payload =
+            SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
+        let ts = Timestamp::now().expect("failed get Timestamp::now()");
+        let a_change = CacheChange::new(
+            ChangeKind::Alive,
+            self.guid,
+            SequenceNumber(1), // TODO: what should I set?
+            // analyzing the packet capture, it appeared that CycloneDDS fixed this value to 1.
+            ts,
+            Some(serialized_payload),
+            InstantHandle {},
+        );
+        // build RTPS Message
+        let mut message_builder = MessageBuilder::new();
+        let time_stamp = Timestamp::now();
+        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+        message_builder.data(
+            Endianness::LittleEndian,
+            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
+            EntityId::UNKNOW,
+            a_change,
+        );
+        let message = message_builder.build(self.guid_prefix());
+        let message_buf = message
+            .write_to_vec_with_ctx(self.endianness)
+            .expect("couldn't serialize message");
+        // send message_buf to multicast
+        for reader_proxy in self.matched_readers.values_mut() {
+            for mul_loc in &reader_proxy.multicast_locator_list {
+                if mul_loc.kind == Locator::KIND_UDPV4 {
+                    let port = mul_loc.port;
+                    let addr = mul_loc.address;
+                    eprintln!(
+                        "<{}>: send data(m) message to {}.{}.{}.{}:{}",
+                        "Writer: Info".green(),
+                        addr[12],
+                        addr[13],
+                        addr[14],
+                        addr[15],
+                        port
+                    );
+                    self.sender.send_to_multicast(
+                        &message_buf,
+                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                        port as u16,
+                    );
+                }
+            }
+        }
+    }
+
+    fn handle_write_data_cmd(&mut self, serialized_payload: Option<SerializedPayload>) {
+        // this is new_change
+        self.last_change_sequence_number += SequenceNumber(1);
+        let ts = Timestamp::now().expect("failed get Timestamp::now()");
+        let a_change = CacheChange::new(
+            ChangeKind::Alive,
+            self.guid,
+            self.last_change_sequence_number,
+            ts,
+            serialized_payload,
+            InstantHandle {},
+        );
+        // register a_change to writer HistoryCache
+        if self.add_change_to_hc(a_change.clone()).is_err() {
+            return;
+        }
+        let self_guid_prefix = self.guid_prefix();
+        self.print_self_info();
+        for reader_proxy in self.matched_readers.values_mut() {
+            while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
+                reader_proxy.update_cache_state(
+                    change_for_reader.seq_num,
+                    change_for_reader._is_relevant,
+                    ChangeForReaderStatusKind::Underway,
+                );
+                if change_for_reader._is_relevant {
+                    if let Some(aa_change) = self
+                        .writer_cache
+                        .read()
+                        .get_change(self.guid, change_for_reader.seq_num)
+                    {
                         // build RTPS Message
                         let mut message_builder = MessageBuilder::new();
-                        // let time_stamp = Timestamp::now();
-                        // message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-                        let gap_start = change_for_reader.seq_num;
-                        message_builder.gap(
+                        let time_stamp = Timestamp::now();
+                        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                        message_builder.data(
                             Endianness::LittleEndian,
                             self.guid.entity_id,
                             reader_proxy.remote_reader_guid.entity_id,
-                            gap_start,
-                            SequenceNumberSet::from_vec(gap_start + SequenceNumber(1), vec![]),
+                            aa_change,
                         );
                         let message = message_builder.build(self_guid_prefix);
                         let message_buf = message
                             .write_to_vec_with_ctx(self.endianness)
                             .expect("couldn't serialize message");
+
                         // TODO:
                         // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
                         for uni_loc in &reader_proxy.unicast_locator_list {
@@ -344,6 +344,67 @@ impl Writer {
                                 );
                             }
                         }
+                    } else {
+                        unreachable!();
+                    }
+                } else {
+                    // build RTPS Message
+                    let mut message_builder = MessageBuilder::new();
+                    // let time_stamp = Timestamp::now();
+                    // message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                    let gap_start = change_for_reader.seq_num;
+                    message_builder.gap(
+                        Endianness::LittleEndian,
+                        self.guid.entity_id,
+                        reader_proxy.remote_reader_guid.entity_id,
+                        gap_start,
+                        SequenceNumberSet::from_vec(gap_start + SequenceNumber(1), vec![]),
+                    );
+                    let message = message_builder.build(self_guid_prefix);
+                    let message_buf = message
+                        .write_to_vec_with_ctx(self.endianness)
+                        .expect("couldn't serialize message");
+                    // TODO:
+                    // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
+                    for uni_loc in &reader_proxy.unicast_locator_list {
+                        if uni_loc.kind == Locator::KIND_UDPV4 {
+                            let port = uni_loc.port;
+                            let addr = uni_loc.address;
+                            eprintln!(
+                                "<{}>: send data message to {}.{}.{}.{}:{}",
+                                "Writer: Info".green(),
+                                addr[12],
+                                addr[13],
+                                addr[14],
+                                addr[15],
+                                port
+                            );
+                            self.sender.send_to_unicast(
+                                &message_buf,
+                                Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                port as u16,
+                            );
+                        }
+                    }
+                    for mul_loc in &reader_proxy.multicast_locator_list {
+                        if mul_loc.kind == Locator::KIND_UDPV4 {
+                            let port = mul_loc.port;
+                            let addr = mul_loc.address;
+                            eprintln!(
+                                "<{}>: send data message to {}.{}.{}.{}:{}",
+                                "Writer: Info".green(),
+                                addr[12],
+                                addr[13],
+                                addr[14],
+                                addr[15],
+                                port
+                            );
+                            self.sender.send_to_multicast(
+                                &message_buf,
+                                Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                                port as u16,
+                            );
+                        }
                     }
                 }
             }
@@ -352,10 +413,7 @@ impl Writer {
 
     pub fn send_heart_beat(&mut self) {
         let time_stamp = Timestamp::now();
-        let writer_cache = self
-            .writer_cache
-            .read()
-            .expect("couldn't read writer_cache");
+        let writer_cache = self.writer_cache.read();
         self.hb_counter += 1;
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
@@ -421,10 +479,7 @@ impl Writer {
 
     fn add_change_to_hc(&mut self, change: CacheChange) -> Result<(), ()> {
         // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
-        self.writer_cache
-            .write()
-            .expect("couldn't write writer_cache")
-            .add_change(change)?;
+        self.writer_cache.write().add_change(change)?;
         for reader_proxy in self.matched_readers.values_mut() {
             reader_proxy.update_cache_state(
                 self.last_change_sequence_number,
@@ -493,7 +548,6 @@ impl Writer {
                     if let Some(aa_change) = self
                         .writer_cache
                         .read()
-                        .expect("couldn't read writer_cache")
                         .get_change(self.guid, change.seq_num)
                     {
                         // build RTPS Message
@@ -558,10 +612,7 @@ impl Writer {
                         // send Heartbeat because, the sample is no longer avilable
                         self.hb_counter += 1;
                         let time_stamp = Timestamp::now();
-                        let writer_cache = self
-                            .writer_cache
-                            .read()
-                            .expect("couldn't read writer_cache");
+                        let writer_cache = self.writer_cache.read();
                         let mut message_builder = MessageBuilder::new();
                         message_builder.info_ts(Endianness::LittleEndian, time_stamp);
                         message_builder.heartbeat(
@@ -707,13 +758,9 @@ impl Writer {
                 remote_reader_guid,
                 e
             );
+            return;
         }
 
-        self.writer_state_notifier
-            .send(DataWriterStatusChanged::PublicationMatched(
-                remote_reader_guid,
-            ))
-            .expect("couldn't send writer_state_notifier");
         self.matched_readers.insert(
             remote_reader_guid,
             ReaderProxy::new(
@@ -725,6 +772,17 @@ impl Writer {
                 self.writer_cache.clone(),
             ),
         );
+        self.total_matched_readers.insert(remote_reader_guid);
+        let pub_match_state = PublicationMatchedStatus::new(
+            self.total_matched_readers.len() as i32,
+            1,
+            self.matched_readers.len() as i32,
+            1,
+            remote_reader_guid,
+        );
+        self.writer_state_notifier
+            .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
+            .expect("couldn't send writer_state_notifier");
     }
     pub fn is_reader_match(&self, topic_name: &str, data_type: &str) -> bool {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type
@@ -734,6 +792,16 @@ impl Writer {
     }
     pub fn matched_reader_remove(&mut self, guid: GUID) {
         self.matched_readers.remove(&guid);
+        let pub_match_state = PublicationMatchedStatus::new(
+            self.total_matched_readers.len() as i32,
+            0,
+            self.matched_readers.len() as i32,
+            -1,
+            guid,
+        );
+        self.writer_state_notifier
+            .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
+            .expect("couldn't send writer_state_notifier");
     }
 
     pub fn heartbeat_period(&self) -> CoreDuration {
@@ -748,6 +816,10 @@ impl Writer {
             self.nack_response_delay.seconds as u64,
             self.nack_response_delay.fraction,
         )
+    }
+
+    pub fn get_qos(&self) -> DataWriterQosPolicies {
+        self.qos.clone()
     }
 }
 
@@ -764,9 +836,34 @@ pub enum DataWriterStatusChanged {
     LivelinessLost,
     OfferedDeadlineMissed,
     OfferedIncompatibleQos,
+    PublicationMatched(PublicationMatchedStatus),
+}
+
+pub struct PublicationMatchedStatus {
+    pub total_count: i32,
+    pub total_count_change: i32,
+    pub current_count: i32,
+    pub current_count_change: i32,
     /// This is diffarent form DDS spec.
     /// The GUID is remote reader's one.
-    PublicationMatched(GUID),
+    pub guid: GUID,
+}
+impl PublicationMatchedStatus {
+    pub fn new(
+        total_count: i32,
+        total_count_change: i32,
+        current_count: i32,
+        current_count_change: i32,
+        guid: GUID,
+    ) -> Self {
+        Self {
+            total_count,
+            total_count_change,
+            current_count,
+            current_count_change,
+            guid,
+        }
+    }
 }
 
 pub struct WriterIngredients {
@@ -789,6 +886,7 @@ pub struct WriterIngredients {
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
     pub writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
 }
-pub struct WriterCmd {
-    pub serialized_payload: Option<SerializedPayload>,
+pub enum WriterCmd {
+    WriteData(Option<SerializedPayload>),
+    AssertLiveliness((ParticipantMessageKind, Vec<u8>)),
 }

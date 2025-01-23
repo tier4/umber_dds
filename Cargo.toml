@@ -29,7 +29,7 @@ mio-extras = "2.0.6"
 rand = { version = "0.8", default-features = false, features = ["small_rng"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 socket2 = "0.5"
-speedy = { git = "https://github.com/ytakano/speedy.git", default-features = false, features = [
+speedy = { git = "https://github.com/koute/speedy", default-features = false, features = [
     "speedy-derive",
     "alloc",
 ] }
@@ -39,6 +39,7 @@ cdr = "0.2.4"
 chrono = { version = "0.4", optional = true }
 thiserror = "1.0"
 serde_repr = "0.1.18"
+awkernel_sync = { git = "https://github.com/tier4/awkernel_sync.git" }
 md5 = { version = "0.7.0", default-features = false }
 
 [dev-dependencies]
@@ -48,4 +49,6 @@ serde_derive = "1"
 
 [features]
 default = ["std"]
-std = ["dep:chrono"]
+std = ["dep:chrono", "awkernel_sync/std"]
+awkernel_x86 = ["awkernel_sync/x86"]
+awkernel_aarch64 = ["awkernel_sync/aarch64"]

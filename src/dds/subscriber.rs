@@ -12,9 +12,9 @@ use crate::rtps::{
 };
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use mio_extras::channel as mio_channel;
 use serde::Deserialize;
-use std::sync::RwLock;
 
 /// DDS Subscriber
 ///
@@ -42,6 +42,46 @@ impl Subscriber {
             ))),
         }
     }
+
+    /// Note that if you pass `DataReaderQos::Policies(qos)` when creating a DataReader,
+    /// the resulting QoS will not be exactly the same as the provided `qos`.
+    ///
+    /// Instead, the DataReader QoS is constructed by combining:
+    /// 1) the QoS from the associated Topic (`topic_qos`),
+    /// 2) the Subscriber's default DataReader QoS (`subscriber.get_default_datareader_qos()`), and
+    /// 3) the user-supplied `qos`.
+    ///
+    /// The pseudo-code below illustrates the combination process:
+    /// ```ignore
+    /// impl DataReaderQosPolicies {
+    ///     fn combine(&mut self, other: Self) {
+    ///         // For each QoS policy in Self:
+    ///         for qos_policy in Self {
+    ///             // If `other`'s policy is not default and differs from `self`'s policy,
+    ///             // overwrite `self`'s policy.
+    ///             if self.qos_policy != qos_policy && qos_policy != QoSPolicy::default() {
+    ///                 self.qos_policy = qos_policy;
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let mut dr_qos = topic_qos.to_datareader_qos();
+    /// dr_qos.combine(subscriber.get_default_datareader_qos());
+    /// dr_qos.combine(qos);
+    /// dr_qos
+    /// ```
+    ///
+    /// If you set `DataReaderQos::Default` as the QoS when creating a DataReader,
+    /// it simply uses the Subscriber's default DataReader QoS
+    /// (subscriber.get_default_datareader_qos()). Therefore,
+    /// ```ignore
+    /// subscriber.create_datareader::<Hoge>(DataReaderQos::Default, &topic)
+    /// ```
+    /// is may **not** equivalent to:
+    /// ```ignore
+    /// subscriber.create_datareader::<Hoge>(subscriber.get_default_datareader_qos(), &topic)
+    /// ```
     pub fn create_datareader<D: for<'de> Deserialize<'de>>(
         &self,
         qos: DataReaderQos,
@@ -49,9 +89,10 @@ impl Subscriber {
     ) -> DataReader<D> {
         self.inner
             .read()
-            .expect("couldn't read lock InnerSubscriber")
             .create_datareader(qos, topic, self.clone())
     }
+
+    /// See [`Self::create_datareader`] for a note of qos.
     pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
         &self,
         qos: DataReaderQos,
@@ -60,33 +101,20 @@ impl Subscriber {
     ) -> DataReader<D> {
         self.inner
             .read()
-            .expect("couldn't read lock InnerSubscriber")
             .create_datareader_with_entityid(qos, topic, self.clone(), entity_id)
     }
 
     pub fn get_qos(&self) -> SubscriberQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerSubscriber")
-            .get_qos()
+        self.inner.read().get_qos()
     }
     pub fn set_qos(&mut self, qos: SubscriberQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock InnerSubscriber")
-            .set_qos(qos)
+        self.inner.write().set_qos(qos)
     }
     pub fn get_default_datareader_qos(&self) -> DataReaderQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerSubscriber")
-            .get_default_datareader_qos()
+        self.inner.read().get_default_datareader_qos()
     }
     pub fn set_default_datareader_qos(&mut self, qos: DataReaderQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock InnerSubscriber")
-            .set_default_datareader_qos(qos)
+        self.inner.write().set_default_datareader_qos(qos)
     }
 }
 
@@ -135,8 +163,24 @@ impl InnerSubscriber {
         subscriber: Subscriber,
     ) -> DataReader<D> {
         let dr_qos = match qos {
+            // DDS 1.4 spec, 2.2.2.5.2.5 create_datareader
+            // > The special value DATAREADER_QOS_DEFAULT can be used to indicate that the DataReader should be created with the
+            // > default DataReader QoS set in the factory. The use of this value is equivalent to the application obtaining the default
+            // > DataReader QoS by means of the operation get_default_datareader_qos (2.2.2.4.1.15) and using the resulting QoS to create
+            // > the DataReader.
             DataReaderQos::Default => self.default_dr_qos.clone(),
-            DataReaderQos::Policies(q) => q,
+            // DDS 1.4 spec, 2.2.2.5.2.5 create_datareader
+            // > Note that a common application pattern to construct the QoS for the DataReader is to:
+            // > + Retrieve the QoS policies on the associated Topic by means of the get_qos operation on the Topic.
+            // > + Retrieve the default DataReader qos by means of the get_default_datareader_qos operation on the Subscriber.
+            // > + Combine those two QoS policies and selectively modify policies as desired.
+            // > + Use the resulting QoS policies to construct the DataReader.
+            DataReaderQos::Policies(q) => {
+                let mut dr_qos = topic.my_qos_policies().to_datareader_qos();
+                dr_qos.combine(self.default_dr_qos.clone());
+                dr_qos.combine(q);
+                dr_qos
+            }
         };
         let (reader_state_notifier, reader_state_receiver) =
             mio_channel::channel::<DataReaderStatusChanged>();

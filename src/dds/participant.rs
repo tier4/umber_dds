@@ -30,8 +30,9 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use mio_extras::channel as mio_channel;
 use mio_v06::net::UdpSocket;
 use rand::rngs::SmallRng;
-use std::sync::{Mutex, RwLock};
 use std::thread::{self, Builder};
+
+use awkernel_sync::{mcs::MCSNode, mutex::Mutex, rwlock::RwLock};
 
 /// DDS DomainParticipant
 ///
@@ -43,10 +44,8 @@ pub struct DomainParticipant {
 
 impl RTPSEntity for DomainParticipant {
     fn guid(&self) -> GUID {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .guid()
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).guid()
     }
 }
 
@@ -91,15 +90,15 @@ impl DomainParticipant {
         dp
     }
     pub fn create_publisher(&self, qos: PublisherQos) -> Publisher {
+        let mut node = MCSNode::new();
         self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
+            .lock(&mut node)
             .create_publisher(self.clone(), qos)
     }
     pub fn create_subscriber(&self, qos: SubscriberQos) -> Subscriber {
+        let mut node = MCSNode::new();
         self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
+            .lock(&mut node)
             .create_subscriber(self.clone(), qos)
     }
     pub fn create_topic(
@@ -109,64 +108,46 @@ impl DomainParticipant {
         kind: TopicKind,
         qos: TopicQos,
     ) -> Topic {
+        let mut node = MCSNode::new();
         self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
+            .lock(&mut node)
             .create_topic(self.clone(), name, type_desc, kind, qos)
     }
     pub fn domain_id(&self) -> u16 {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .domain_id()
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).domain_id()
     }
     pub fn participant_id(&self) -> u16 {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .participant_id()
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).participant_id()
     }
     pub(crate) fn gen_entity_key(&self) -> [u8; 3] {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .gen_entity_key()
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).gen_entity_key()
     }
     pub fn get_default_publisher_qos(&self) -> PublisherQosPolicies {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .get_default_publisher_qos()
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).get_default_publisher_qos()
     }
     pub fn set_default_publisher_qos(&mut self, qos: PublisherQosPolicies) {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .set_default_publisher_qos(qos);
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).set_default_publisher_qos(qos);
     }
     pub fn get_default_subscriber_qos(&self) -> SubscriberQosPolicies {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .get_default_subscriber_qos()
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).get_default_subscriber_qos()
     }
     pub fn set_default_subscriber_qos(&mut self, qos: SubscriberQosPolicies) {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .set_default_subscriber_qos(qos);
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).set_default_subscriber_qos(qos);
     }
     pub fn get_default_topic_qos(&self) -> TopicQosPolicies {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .get_default_topic_qos()
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).get_default_topic_qos()
     }
     pub fn set_default_topic_qos(&mut self, qos: TopicQosPolicies) {
-        self.inner
-            .lock()
-            .expect("couldn't lock DomainParticipantDisc")
-            .set_default_topic_qos(qos);
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).set_default_topic_qos(qos);
     }
 }
 
@@ -198,16 +179,10 @@ impl DomainParticipantDisc {
         }
     }
     pub fn create_publisher(&self, dp: DomainParticipant, qos: PublisherQos) -> Publisher {
-        self.inner
-            .read()
-            .expect("couldn't read lock DomainParticipantInnet")
-            .create_publisher(dp, qos)
+        self.inner.read().create_publisher(dp, qos)
     }
     pub fn create_subscriber(&self, dp: DomainParticipant, qos: SubscriberQos) -> Subscriber {
-        self.inner
-            .read()
-            .expect("couldn't read lock DomainParticipantInnet")
-            .create_subscriber(dp, qos)
+        self.inner.read().create_subscriber(dp, qos)
     }
     pub fn create_topic(
         &self,
@@ -219,62 +194,34 @@ impl DomainParticipantDisc {
     ) -> Topic {
         self.inner
             .read()
-            .expect("couldn't read lock DomainParticipantInnet")
             .create_topic(dp, name, type_desc, kind, qos)
     }
     pub fn domain_id(&self) -> u16 {
-        self.inner
-            .read()
-            .expect("couldn't read lock DomainParticipantInnet")
-            .domain_id
+        self.inner.read().domain_id
     }
     pub fn participant_id(&self) -> u16 {
-        self.inner
-            .read()
-            .expect("couldn't read lock DomainParticipantInnet")
-            .participant_id
+        self.inner.read().participant_id
     }
     pub fn gen_entity_key(&self) -> [u8; 3] {
-        self.inner
-            .read()
-            .expect("couldn't read lock DomainParticipantInnet")
-            .gen_entity_key()
+        self.inner.read().gen_entity_key()
     }
     pub fn get_default_publisher_qos(&self) -> PublisherQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock DomainParticipantInnet")
-            .get_default_publisher_qos()
+        self.inner.read().get_default_publisher_qos()
     }
     pub fn set_default_publisher_qos(&mut self, qos: PublisherQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock DomainParticipantInnet")
-            .set_default_publisher_qos(qos);
+        self.inner.write().set_default_publisher_qos(qos);
     }
     pub fn get_default_subscriber_qos(&self) -> SubscriberQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock DomainParticipantInnet")
-            .get_default_subscriber_qos()
+        self.inner.read().get_default_subscriber_qos()
     }
     pub fn set_default_subscriber_qos(&mut self, qos: SubscriberQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock DomainParticipantInnet")
-            .set_default_subscriber_qos(qos);
+        self.inner.write().set_default_subscriber_qos(qos);
     }
     pub fn get_default_topic_qos(&self) -> TopicQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock DomainParticipantInnet")
-            .get_default_topic_qos()
+        self.inner.read().get_default_topic_qos()
     }
     pub fn set_default_topic_qos(&mut self, qos: TopicQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock DomainParticipantInnet")
-            .set_default_topic_qos(qos);
+        self.inner.write().set_default_topic_qos(qos);
     }
 }
 impl Drop for DomainParticipantDisc {
@@ -287,10 +234,7 @@ impl Drop for DomainParticipantDisc {
 
 impl RTPSEntity for DomainParticipantDisc {
     fn guid(&self) -> GUID {
-        self.inner
-            .read()
-            .expect("couldn't read lock DomainParticipantInnet")
-            .my_guid
+        self.inner.read().my_guid
     }
 }
 
@@ -360,8 +304,8 @@ impl DomainParticipantInner {
         )
         .expect("the max number of participant on same host on same domin is 127.");
 
-        socket_list.insert(DISCOVERY_UNI_TOKEN, discovery_multi);
-        socket_list.insert(DISCOVERY_MULTI_TOKEN, discovery_uni);
+        socket_list.insert(DISCOVERY_UNI_TOKEN, discovery_uni);
+        socket_list.insert(DISCOVERY_MULTI_TOKEN, discovery_multi);
         socket_list.insert(USERTRAFFIC_UNI_TOKEN, usertraffic_uni);
         socket_list.insert(USERTRAFFIC_MULTI_TOKEN, usertraffic_multi);
 
@@ -378,6 +322,7 @@ impl DomainParticipantInner {
                 let guid_prefix = my_guid.guid_prefix;
                 let ev_loop = EventLoop::new(
                     domain_id,
+                    my_guid.guid_prefix,
                     socket_list,
                     guid_prefix,
                     create_writer_receiver,

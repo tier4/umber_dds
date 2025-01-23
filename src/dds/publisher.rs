@@ -10,8 +10,8 @@ use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_p
 use crate::rtps::writer::{DataWriterStatusChanged, WriterCmd, WriterIngredients};
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use mio_extras::channel as mio_channel;
-use std::sync::RwLock;
 
 /// DDS Publisher
 ///
@@ -53,6 +53,45 @@ impl Publisher {
         }
     }
 
+    /// Note that if you pass `DataWriterQos::Policies(qos)` when creating a DataWriter,
+    /// the resulting QoS will not be exactly the same as the provided `qos`.
+    ///
+    /// Instead, the DataWriter QoS is constructed by combining:
+    /// 1) the QoS from the associated Topic (`topic_qos`),
+    /// 2) the Publisher's default DataWriter QoS (`publisher.get_default_datawriter_qos()`), and
+    /// 3) the user-supplied `qos`.
+    ///
+    /// The pseudo-code below illustrates the combination process:
+    /// ```ignore
+    /// impl DataWriterQosPolicies {
+    ///     fn combine(&mut self, other: Self) {
+    ///         // For each QoS policy in Self:
+    ///         for qos_policy in Self {
+    ///             // If `other`'s policy is not default and differs from `self`'s policy,
+    ///             // overwrite `self`'s policy.
+    ///             if self.qos_policy != qos_policy && qos_policy != QoSPolicy::default() {
+    ///                 self.qos_policy = qos_policy;
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let mut dw_qos = topic_qos.to_datawriter_qos();
+    /// dw_qos.combine(publisher.get_default_datawriter_qos());
+    /// dw_qos.combine(qos);
+    /// dw_qos
+    /// ```
+    ///
+    /// If you set `DataWriterQos::Default` as the QoS when creating a DataWriter,
+    /// it simply uses the Publisher's default DataWriter
+    /// QoS (publisher.get_default_datawriter_qos()). Therefore,
+    /// ```ignore
+    /// publisher.create_datawriter::<Hoge>(DataWriterQos::Default, &topic)
+    /// ```
+    /// is may **not** equivalent to:
+    /// ```ignore
+    /// publisher.create_datawriter::<Hoge>(publisher.get_default_datawriter_qos(), &topic)
+    /// ```
     pub fn create_datawriter<D: serde::Serialize>(
         &self,
         qos: DataWriterQos,
@@ -60,10 +99,10 @@ impl Publisher {
     ) -> DataWriter<D> {
         self.inner
             .read()
-            .expect("couldn't read lock InnerPublisher")
             .create_datawriter(qos, topic, self.clone())
     }
 
+    /// See [`Self::create_datawriter`] for a note of qos.
     pub fn create_datawriter_with_entityid<D: serde::Serialize>(
         &self,
         qos: DataWriterQos,
@@ -72,42 +111,24 @@ impl Publisher {
     ) -> DataWriter<D> {
         self.inner
             .read()
-            .expect("couldn't read lock InnerPublisher")
             .create_datawriter_with_entityid(qos, topic, self.clone(), entity_id)
     }
 
     pub fn get_qos(&self) -> PublisherQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerPublisher")
-            .get_qos()
+        self.inner.read().get_qos()
     }
     pub fn set_qos(&mut self, qos: PublisherQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock InnerPublisher")
-            .set_qos(qos);
+        self.inner.write().set_qos(qos);
     }
 
     pub fn domain_participant(&self) -> DomainParticipant {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerPublisher")
-            .dp
-            .clone()
+        self.inner.read().dp.clone()
     }
     pub fn get_default_datawriter_qos(&self) -> DataWriterQosPolicies {
-        self.inner
-            .read()
-            .expect("couldn't read lock InnerPublisher")
-            .default_dw_qos
-            .clone()
+        self.inner.read().default_dw_qos.clone()
     }
     pub fn set_default_datawriter_qos(&mut self, qos: DataWriterQosPolicies) {
-        self.inner
-            .write()
-            .expect("couldn't write lock InnerPublisher")
-            .default_dw_qos = qos;
+        self.inner.write().default_dw_qos = qos;
     }
 }
 
@@ -129,13 +150,14 @@ impl InnerPublisher {
         }
     }
 
-    /// Allows access to the values of the QoS.
     pub fn get_qos(&self) -> PublisherQosPolicies {
         self.qos.clone()
     }
+
     pub fn set_qos(&mut self, qos: PublisherQosPolicies) {
         self.qos = qos;
     }
+
     pub fn create_datawriter<D: serde::Serialize>(
         &self,
         qos: DataWriterQos,
@@ -143,8 +165,24 @@ impl InnerPublisher {
         outter: Publisher,
     ) -> DataWriter<D> {
         let dw_qos = match qos {
+            // DDS 1.4 spec, 2.2.2.4.1.5 create_ datawriter
+            // > The special value DATAWRITER_QOS_DEFAULT can be used to indicate that the DataWriter should be created with the
+            // default DataWriter QoS set in the factory. The use of this value is equivalent to the application obtaining the default
+            // DataWriter QoS by means of the operation get_default_datawriter_qos (2.2.2.4.1.15) and using the resulting QoS to create
+            // the DataWriter.
             DataWriterQos::Default => self.default_dw_qos.clone(),
-            DataWriterQos::Policies(q) => q,
+            // DDS 1.4 spec, 2.2.2.4.1.5 create_ datawriter
+            // > Note that a common application pattern to construct the QoS for the DataWriter is to:
+            // > + Retrieve the QoS policies on the associated Topic by means of the get_qos operation on the Topic.
+            // > + Retrieve the default DataWriter qos by means of the get_default_datawriter_qos operation on the Publisher.
+            // > + Combine those two QoS policies and selectively modify policies as desired.
+            // > + Use the resulting QoS policies to construct the DataWriter.
+            DataWriterQos::Policies(q) => {
+                let mut dw_qos = topic.my_qos_policies().to_datawriter_qos();
+                dw_qos.combine(self.default_dw_qos.clone());
+                dw_qos.combine(q);
+                dw_qos
+            }
         };
         let (writer_state_notifier, writer_state_receiver) =
             mio_channel::channel::<DataWriterStatusChanged>();

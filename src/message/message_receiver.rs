@@ -1,5 +1,9 @@
 use crate::dds::qos::DataWriterQosBuilder;
-use crate::discovery::structure::{cdr::deserialize, data::SDPBuiltinData};
+use crate::discovery::discovery_db::DiscoveryDB;
+use crate::discovery::structure::{
+    cdr::deserialize,
+    data::{ParticipantMessageData, ParticipantMessageKind, SDPBuiltinData},
+};
 use crate::message::{
     submessage::{element::*, submessage_flag::*, *},
     *,
@@ -15,9 +19,10 @@ use crate::structure::{EntityId, GuidPrefix, VendorId, GUID};
 use alloc::collections::BTreeMap;
 use alloc::fmt;
 use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use colored::*;
+use mio_extras::channel as mio_channel;
 use std::error;
-use std::sync::RwLock;
 
 #[derive(Debug, Clone)]
 struct MessageError(String);
@@ -42,12 +47,16 @@ pub struct MessageReceiver {
     dest_guid_prefix: GuidPrefix,
     unicast_reply_locator_list: Vec<Locator>,
     multicast_reply_locator_list: Vec<Locator>,
+    wlp_timer_sender: mio_channel::Sender<EntityId>,
     have_timestamp: bool,
     timestamp: Timestamp,
 }
 
 impl MessageReceiver {
-    pub fn new(participant_guidprefix: GuidPrefix) -> MessageReceiver {
+    pub fn new(
+        participant_guidprefix: GuidPrefix,
+        wlp_timer_sender: mio_channel::Sender<EntityId>,
+    ) -> MessageReceiver {
         Self {
             own_guid_prefix: participant_guidprefix,
             source_version: ProtocolVersion::PROTOCOLVERSION,
@@ -56,6 +65,7 @@ impl MessageReceiver {
             dest_guid_prefix: GuidPrefix::UNKNOW,
             unicast_reply_locator_list: vec![Locator::INVALID],
             multicast_reply_locator_list: vec![Locator::INVALID],
+            wlp_timer_sender,
             have_timestamp: false,
             timestamp: Timestamp::TIME_INVALID,
         }
@@ -77,6 +87,7 @@ impl MessageReceiver {
         messages: Vec<UdpMessage>,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
+        disc_db: &mut DiscoveryDB,
     ) {
         for message in messages {
             // Is DDSPING
@@ -107,7 +118,7 @@ impl MessageReceiver {
                 rtps_message.header.guid_prefix,
                 rtps_message.summary()
             );
-            self.handle_parsed_packet(rtps_message, writers, readers);
+            self.handle_parsed_packet(rtps_message, writers, readers, disc_db);
         }
     }
 
@@ -116,6 +127,7 @@ impl MessageReceiver {
         rtps_msg: Message,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
+        disc_db: &mut DiscoveryDB,
     ) {
         self.reset();
         self.dest_guid_prefix = self.own_guid_prefix;
@@ -123,7 +135,7 @@ impl MessageReceiver {
         for submsg in rtps_msg.submessages {
             match submsg.body {
                 SubMessageBody::Entity(e) => {
-                    if let Err(e) = self.handle_entity_submessage(e, writers, readers) {
+                    if let Err(e) = self.handle_entity_submessage(e, writers, readers, disc_db) {
                         eprintln!("<{}>: {:?}", "MessageReceiver: Err".red(), e);
                         return;
                     }
@@ -143,20 +155,21 @@ impl MessageReceiver {
         entity_subm: EntitySubmessage,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
+        disc_db: &mut DiscoveryDB,
     ) -> Result<(), MessageError> {
         match entity_subm {
             EntitySubmessage::AckNack(acknack, flags) => {
                 self.handle_acknack_submsg(acknack, flags, writers)
             }
             EntitySubmessage::Data(data, flags) => {
-                self.handle_data_submsg(data, flags, readers, writers)
+                self.handle_data_submsg(data, flags, readers, writers, disc_db)
             }
             EntitySubmessage::DataFrag(data_frag, flags) => {
                 Self::handle_datafrag_submsg(data_frag, flags)
             }
             EntitySubmessage::Gap(gap, flags) => self.handle_gap_submsg(gap, flags, readers),
             EntitySubmessage::HeartBeat(heartbeat, flags) => {
-                self.handle_heartbeat_submsg(heartbeat, flags, readers)
+                self.handle_heartbeat_submsg(heartbeat, flags, readers, disc_db)
             }
             EntitySubmessage::HeartbeatFrag(heartbeatfrag, flags) => {
                 Self::handle_heartbeatfrag_submsg(heartbeatfrag, flags)
@@ -269,6 +282,7 @@ impl MessageReceiver {
         flag: BitFlags<DataFlag>,
         readers: &mut BTreeMap<EntityId, Reader>,
         writers: &mut BTreeMap<EntityId, Writer>,
+        disc_db: &mut DiscoveryDB,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.2 Data
 
@@ -308,10 +322,12 @@ impl MessageReceiver {
         let writer_guid = GUID::new(self.source_guid_prefix, data.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, data.reader_id);
 
+        let ts = Timestamp::now().expect("failed get Timestamp::new()");
         let change = CacheChange::new(
             ChangeKind::Alive,
             writer_guid,
             data.writer_sn,
+            ts,
             data.serialized_payload.clone(),
             InstantHandle {}, // TODO
         );
@@ -411,7 +427,7 @@ impl MessageReceiver {
                     ));
                 }
             };
-            for (_eid, reader) in readers.iter_mut() {
+            for (eid, reader) in readers.iter_mut() {
                 if reader.is_writer_match(&topic_name, &data_type) {
                     eprintln!(
                         "<{}>: matched writer add to reader",
@@ -423,7 +439,10 @@ impl MessageReceiver {
                         writer_proxy.multicast_locator_list.clone(),
                         writer_proxy.data_max_size_serialized,
                         writer_proxy.qos.clone(),
-                    )
+                    );
+                    self.wlp_timer_sender
+                        .send(*eid)
+                        .expect("couldn't send channel 'wlp_timer_sender'");
                 }
             }
             match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
@@ -501,15 +520,75 @@ impl MessageReceiver {
                     );
                 }
             };
+        } else if data.writer_id == EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER
+            || data.reader_id == EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER
+        {
+            // if ParticipantMessage
+            let deserialized =
+                match deserialize::<ParticipantMessageData>(&match data.serialized_payload.as_ref()
+                {
+                    Some(sp) => sp.to_bytes(),
+                    None => {
+                        return Err(MessageError(
+                            "received participant message without serializedPayload".to_string(),
+                        ))
+                    }
+                }) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        return Err(MessageError(format!(
+                            "failed deserialize reseived sedp(r) data message: {:?}",
+                            e
+                        )));
+                    }
+                };
+            match deserialized.kind {
+                ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE
+                | ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
+                    eprintln!(
+                        "<{}>: receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}} from Participant: {:?}",
+                        "MessageReceiver: Info".green(), self.source_guid_prefix
+                    );
+                    disc_db.write_remote_writer(deserialized.guid, ts);
+                }
+                ParticipantMessageKind::UNKNOWN => {
+                    eprintln!(
+                        "<{}>: receved DATA(m) with ParticipantMessageKind::UNKNOWN, which is not processed",
+                        "MessageReceiver: Warn".yellow()
+
+                    );
+                }
+                k => {
+                    eprintln!(
+                        "<{}>: receved DATA(m) with ParticipantMessageKind::{:?}, which is not processed",
+                        "MessageReceiver: Warn".yellow(), k.value
+                    );
+                }
+            }
+            /*
+            match readers.get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER) {
+                Some(r) => r.add_change(self.source_guid_prefix, change),
+                None => {
+                    eprintln!(
+                        "<{}>: couldn't find sedp_builtin_subscription_reader",
+                        "MessageReceiver: Err".red(),
+                    );
+                }
+            };
+            */
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
-                if reader.is_contain_writer(data.writer_id) {
+                if reader.is_contain_writer(GUID::new(self.source_guid_prefix, data.writer_id)) {
+                    disc_db.write_remote_writer(writer_guid, ts);
                     reader.add_change(self.source_guid_prefix, change.clone())
                 }
             }
         } else {
             match readers.get_mut(&data.reader_id) {
-                Some(r) => r.add_change(self.source_guid_prefix, change),
+                Some(r) => {
+                    disc_db.write_remote_writer(writer_guid, ts);
+                    r.add_change(self.source_guid_prefix, change)
+                }
                 None => {
                     let mut reader_eids = String::new();
                     for (eid, _reader) in readers.iter_mut() {
@@ -557,7 +636,7 @@ impl MessageReceiver {
         let _reader_guid = GUID::new(self.dest_guid_prefix, gap.reader_id);
         if gap.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
-                if reader.is_contain_writer(gap.writer_id) {
+                if reader.is_contain_writer(GUID::new(self.source_guid_prefix, gap.writer_id)) {
                     reader.handle_gap(writer_guid, gap.clone());
                 }
             }
@@ -585,6 +664,7 @@ impl MessageReceiver {
         heartbeat: Heartbeat,
         flag: BitFlags<HeartbeatFlag>,
         readers: &mut BTreeMap<EntityId, Reader>,
+        disc_db: &mut DiscoveryDB,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.5 Heartbeat
 
@@ -600,6 +680,8 @@ impl MessageReceiver {
         if !heartbeat.is_valid(flag) {
             return Err(MessageError("Invalid Heartbeat Submessage".to_string()));
         }
+
+        let ts = Timestamp::now().expect("failed get Timestamp::new()");
 
         let writer_guid = GUID::new(self.source_guid_prefix, heartbeat.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, heartbeat.reader_id);
@@ -627,7 +709,9 @@ impl MessageReceiver {
                 }
                 writer_eid => {
                     for reader in readers.values_mut() {
-                        if reader.is_contain_writer(writer_eid) {
+                        if reader.is_contain_writer(GUID::new(self.source_guid_prefix, writer_eid))
+                        {
+                            disc_db.write_remote_writer(writer_guid, ts);
                             reader.handle_heartbeat(writer_guid, flag, heartbeat.clone());
                         }
                     }
@@ -635,7 +719,10 @@ impl MessageReceiver {
             }
         } else {
             match readers.get_mut(&heartbeat.reader_id) {
-                Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
+                Some(r) => {
+                    disc_db.write_remote_writer(writer_guid, ts);
+                    r.handle_heartbeat(writer_guid, flag, heartbeat)
+                }
                 None => {
                     eprintln!(
                     "<{}>: couldn't find reader which has {:?}\nthere are readers which has eid:\n{}",

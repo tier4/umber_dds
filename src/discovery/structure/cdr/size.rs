@@ -256,7 +256,7 @@ pub struct SizeCompound<'a, S: 'a> {
     ser: &'a mut SizeChecker<S>,
 }
 
-impl<'a, S> ser::SerializeSeq for SizeCompound<'a, S>
+impl<S> ser::SerializeSeq for SizeCompound<'_, S>
 where
     S: SizeLimit,
 {
@@ -277,7 +277,7 @@ where
     }
 }
 
-impl<'a, S> ser::SerializeTuple for SizeCompound<'a, S>
+impl<S> ser::SerializeTuple for SizeCompound<'_, S>
 where
     S: SizeLimit,
 {
@@ -298,7 +298,7 @@ where
     }
 }
 
-impl<'a, S> ser::SerializeTupleStruct for SizeCompound<'a, S>
+impl<S> ser::SerializeTupleStruct for SizeCompound<'_, S>
 where
     S: SizeLimit,
 {
@@ -319,7 +319,7 @@ where
     }
 }
 
-impl<'a, S> ser::SerializeTupleVariant for SizeCompound<'a, S>
+impl<S> ser::SerializeTupleVariant for SizeCompound<'_, S>
 where
     S: SizeLimit,
 {
@@ -340,7 +340,7 @@ where
     }
 }
 
-impl<'a, S> ser::SerializeMap for SizeCompound<'a, S>
+impl<S> ser::SerializeMap for SizeCompound<'_, S>
 where
     S: SizeLimit,
 {
@@ -369,7 +369,7 @@ where
     }
 }
 
-impl<'a, S> ser::SerializeStruct for SizeCompound<'a, S>
+impl<S> ser::SerializeStruct for SizeCompound<'_, S>
 where
     S: SizeLimit,
 {
@@ -390,7 +390,7 @@ where
     }
 }
 
-impl<'a, S> ser::SerializeStructVariant for SizeCompound<'a, S>
+impl<S> ser::SerializeStructVariant for SizeCompound<'_, S>
 where
     S: SizeLimit,
 {
