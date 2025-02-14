@@ -165,7 +165,7 @@ impl DataWriterQosPolicies {
             );
         }
         if is_ok {
-            return Ok(());
+            Ok(())
         } else {
             msg += "```\n";
             Err(msg)
@@ -305,7 +305,7 @@ impl DataReaderQosPolicies {
             );
         }
         if is_ok {
-            return Ok(());
+            Ok(())
         } else {
             msg += "```\n";
             Err(msg)
