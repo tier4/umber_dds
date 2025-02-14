@@ -877,6 +877,7 @@ impl Serialize for SubscriptionBuiltinTopicData {
             }
         }
 
+        /*
         // durability
         if let Some(durability) = &self.durability {
             s.serialize_field("parameterId", &ParameterId::PID_DURABILITY.value)?;
@@ -982,6 +983,7 @@ impl Serialize for SubscriptionBuiltinTopicData {
             s.serialize_field::<u16>("parameterLength", &8)?;
             s.serialize_field("lifespan", &lifespan)?;
         }
+        */
 
         s.end()
     }
