@@ -753,7 +753,7 @@ impl Writer {
 
         if let Err(e) = self.qos.is_compatible(&qos) {
             self.writer_state_notifier
-                .send(DataWriterStatusChanged::OfferedIncompatibleQos)
+                .send(DataWriterStatusChanged::OfferedIncompatibleQos(e.clone()))
                 .expect("couldn't send writer_state_notifier");
             eprintln!(
                 "<{}>: add matched Reader which has {:?} failed. {}",
@@ -838,7 +838,7 @@ impl RTPSEntity for Writer {
 pub enum DataWriterStatusChanged {
     LivelinessLost,
     OfferedDeadlineMissed,
-    OfferedIncompatibleQos,
+    OfferedIncompatibleQos(String),
     PublicationMatched(PublicationMatchedStatus),
 }
 

@@ -210,7 +210,7 @@ impl Reader {
         );
         if let Err(e) = self.qos.is_compatible(&qos) {
             self.reader_state_notifier
-                .send(DataReaderStatusChanged::RequestedIncompatibleQos)
+                .send(DataReaderStatusChanged::RequestedIncompatibleQos(e.clone()))
                 .expect("couldn't send reader_state_notifier");
             eprintln!(
                 "<{}>: add matched Writer which has {:?} failed. {}",
@@ -507,7 +507,7 @@ pub enum DataReaderStatusChanged {
     SampleRejected,
     LivelinessChanged,
     RequestedDeadlineMissed,
-    RequestedIncompatibleQos,
+    RequestedIncompatibleQos(String),
     DataAvailable,
     SampleLost,
     SubscriptionMatched(SubscriptionMatchedStatus),
