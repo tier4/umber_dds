@@ -421,6 +421,9 @@ impl Writer {
         for reader_proxy in self.matched_readers.values_mut() {
             let mut message_builder = MessageBuilder::new();
             message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+            if writer_cache.get_seq_num_min().0 <= 0 || writer_cache.get_seq_num_max().0 < 0 {
+                continue;
+            }
             message_builder.heartbeat(
                 self.endianness,
                 self_entity_id,
