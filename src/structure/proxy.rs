@@ -17,31 +17,61 @@ pub struct ReaderProxy {
     pub expects_inline_qos: bool,
     pub unicast_locator_list: Vec<Locator>,
     pub multicast_locator_list: Vec<Locator>,
+    pub default_unicast_locator_list: Vec<Locator>,
+    pub default_multicast_locator_list: Vec<Locator>,
     pub qos: DataReaderQosPolicies,
     history_cache: Arc<RwLock<HistoryCache>>,
     cache_state: BTreeMap<SequenceNumber, ChangeForReader>,
 }
 
 impl ReaderProxy {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         remote_reader_guid: GUID,
         expects_inline_qos: bool,
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
+        default_unicast_locator_list: Vec<Locator>,
+        default_multicast_locator_list: Vec<Locator>,
         qos: DataReaderQosPolicies,
         history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Self {
+        // Check whether the WriterProxy have at lease one Locator
+        assert!(
+            unicast_locator_list.len()
+                + multicast_locator_list.len()
+                + default_unicast_locator_list.len()
+                + default_multicast_locator_list.len()
+                > 0
+        );
         Self {
             remote_reader_guid,
             expects_inline_qos,
             unicast_locator_list,
             multicast_locator_list,
+            default_unicast_locator_list,
+            default_multicast_locator_list,
             qos,
             history_cache,
             cache_state: BTreeMap::new(),
         }
     }
 
+    pub fn get_unicast_locator_list(&self) -> &Vec<Locator> {
+        if self.unicast_locator_list.is_empty() {
+            &self.default_unicast_locator_list
+        } else {
+            &self.unicast_locator_list
+        }
+    }
+
+    pub fn get_multicast_locator_list(&self) -> &Vec<Locator> {
+        if self.multicast_locator_list.is_empty() {
+            &self.default_multicast_locator_list
+        } else {
+            &self.multicast_locator_list
+        }
+    }
     pub fn update_cache_state(
         &mut self,
         seq_num: SequenceNumber,
@@ -223,6 +253,8 @@ pub struct WriterProxy {
     pub remote_writer_guid: GUID,
     pub unicast_locator_list: Vec<Locator>,
     pub multicast_locator_list: Vec<Locator>,
+    pub default_unicast_locator_list: Vec<Locator>,
+    pub default_multicast_locator_list: Vec<Locator>,
     pub data_max_size_serialized: i32, // in rtps 2.3 spec, Figure 8.30: long
     pub qos: DataWriterQosPolicies,
     _history_cache: Arc<RwLock<HistoryCache>>,
@@ -230,22 +262,51 @@ pub struct WriterProxy {
 }
 
 impl WriterProxy {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         remote_writer_guid: GUID,
         unicast_locator_list: Vec<Locator>,
         multicast_locator_list: Vec<Locator>,
+        default_unicast_locator_list: Vec<Locator>,
+        default_multicast_locator_list: Vec<Locator>,
         data_max_size_serialized: i32,
         qos: DataWriterQosPolicies,
         _history_cache: Arc<RwLock<HistoryCache>>,
     ) -> Self {
+        // Check whether the WriterProxy have at lease one Locator
+        assert!(
+            unicast_locator_list.len()
+                + multicast_locator_list.len()
+                + default_unicast_locator_list.len()
+                + default_multicast_locator_list.len()
+                > 0
+        );
         Self {
             remote_writer_guid,
             unicast_locator_list,
             multicast_locator_list,
+            default_unicast_locator_list,
+            default_multicast_locator_list,
             data_max_size_serialized,
             qos,
             _history_cache,
             cache_state: BTreeMap::new(),
+        }
+    }
+
+    pub fn get_unicast_locator_list(&self) -> &Vec<Locator> {
+        if self.unicast_locator_list.is_empty() {
+            &self.default_unicast_locator_list
+        } else {
+            &self.unicast_locator_list
+        }
+    }
+
+    pub fn get_multicast_locator_list(&self) -> &Vec<Locator> {
+        if self.multicast_locator_list.is_empty() {
+            &self.default_multicast_locator_list
+        } else {
+            &self.multicast_locator_list
         }
     }
 

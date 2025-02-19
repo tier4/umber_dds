@@ -52,17 +52,17 @@ pub struct SDPBuiltinData {
     pub vendor_id: Option<VendorId>,
     pub expects_inline_qos: Option<bool>,
     pub available_builtin_endpoint: Option<BitFlags<BuiltinEndpoint>>, // parameter_id: ParameterId::PID_BUILTIN_ENDPOINT_SET
-    pub metarraffic_unicast_locator_list: Option<Vec<Locator>>,
-    pub metarraffic_multicast_locator_list: Option<Vec<Locator>>,
-    pub default_multicast_locator_list: Option<Vec<Locator>>,
-    pub default_unicast_locator_list: Option<Vec<Locator>>,
+    pub metarraffic_unicast_locator_list: Vec<Locator>,
+    pub metarraffic_multicast_locator_list: Vec<Locator>,
+    pub default_multicast_locator_list: Vec<Locator>,
+    pub default_unicast_locator_list: Vec<Locator>,
     pub manual_liveliness_count: Option<Count>,
     pub lease_duration: Option<Duration>,
 
     // {Reader/Writer}Proxy
     pub remote_guid: Option<GUID>,
-    pub unicast_locator_list: Option<Vec<Locator>>,
-    pub multicast_locator_list: Option<Vec<Locator>>,
+    pub unicast_locator_list: Vec<Locator>,
+    pub multicast_locator_list: Vec<Locator>,
     // expects_inline_qos // only ReaderProxy
     pub data_max_size_serialized: Option<i32>, // only ReaderProxy
 
@@ -101,15 +101,15 @@ impl SDPBuiltinData {
         vendor_id: Option<VendorId>,
         expects_inline_qos: Option<bool>,
         available_builtin_endpoint: Option<BitFlags<BuiltinEndpoint>>,
-        metarraffic_unicast_locator_list: Option<Vec<Locator>>,
-        metarraffic_multicast_locator_list: Option<Vec<Locator>>,
-        default_unicast_locator_list: Option<Vec<Locator>>,
-        default_multicast_locator_list: Option<Vec<Locator>>,
+        metarraffic_unicast_locator_list: Vec<Locator>,
+        metarraffic_multicast_locator_list: Vec<Locator>,
+        default_unicast_locator_list: Vec<Locator>,
+        default_multicast_locator_list: Vec<Locator>,
         manual_liveliness_count: Option<Count>,
         lease_duration: Option<Duration>,
         remote_guid: Option<GUID>,
-        unicast_locator_list: Option<Vec<Locator>>,
-        multicast_locator_list: Option<Vec<Locator>>,
+        unicast_locator_list: Vec<Locator>,
+        multicast_locator_list: Vec<Locator>,
         data_max_size_serialized: Option<i32>,
         type_name: Option<String>,
         topic_name: Option<String>,
@@ -181,10 +181,10 @@ impl SDPBuiltinData {
         let vendor_id = self.vendor_id?;
         let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
         let available_builtin_endpoint = self.available_builtin_endpoint?;
-        let metarraffic_unicast_locator_list = self.metarraffic_unicast_locator_list.take()?;
-        let metarraffic_multicast_locator_list = self.metarraffic_multicast_locator_list.take()?;
-        let default_unicast_locator_list = self.default_unicast_locator_list.take()?;
-        let default_multicast_locator_list = self.default_multicast_locator_list.take()?;
+        let metarraffic_unicast_locator_list = self.metarraffic_unicast_locator_list.clone();
+        let metarraffic_multicast_locator_list = self.metarraffic_multicast_locator_list.clone();
+        let default_unicast_locator_list = self.default_unicast_locator_list.clone();
+        let default_multicast_locator_list = self.default_multicast_locator_list.clone();
         let manual_liveliness_count = self.manual_liveliness_count;
         let lease_duration = self.lease_duration.unwrap_or(Duration {
             seconds: 100,
@@ -223,11 +223,13 @@ impl SDPBuiltinData {
     pub fn gen_readerpoxy(
         &mut self,
         history_cache: Arc<RwLock<HistoryCache>>,
+        default_unicast_locator_list: Vec<Locator>,
+        default_multicast_locator_list: Vec<Locator>,
     ) -> Option<ReaderProxy> {
         let remote_guid = self.remote_guid?;
         let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
-        let unicast_locator_list = self.unicast_locator_list.take()?;
-        let multicast_locator_list = self.multicast_locator_list.take()?;
+        let unicast_locator_list = self.unicast_locator_list.clone();
+        let multicast_locator_list = self.multicast_locator_list.clone();
         let dr_qos_builder = DataReaderQosBuilder::new();
         let qos = dr_qos_builder
             .durability(self.durability.unwrap_or_default())
@@ -248,6 +250,8 @@ impl SDPBuiltinData {
             expects_inline_qos,
             unicast_locator_list,
             multicast_locator_list,
+            default_unicast_locator_list,
+            default_multicast_locator_list,
             qos,
             history_cache,
         ))
@@ -256,6 +260,8 @@ impl SDPBuiltinData {
     pub fn gen_writerproxy(
         &mut self,
         history_cache: Arc<RwLock<HistoryCache>>,
+        default_unicast_locator_list: Vec<Locator>,
+        default_multicast_locator_list: Vec<Locator>,
     ) -> Option<WriterProxy> {
         let remote_guid = match self.remote_guid {
             Some(rg) => rg,
@@ -267,26 +273,8 @@ impl SDPBuiltinData {
                 return None;
             }
         };
-        let unicast_locator_list = match self.unicast_locator_list.take() {
-            Some(ull) => ull,
-            None => {
-                eprintln!(
-                    "<{}>: couldn't gen WriterProxy, not found unicast_locator_list",
-                    "SDPBuiltinData: Err".red()
-                );
-                return None;
-            }
-        };
-        let multicast_locator_list = match self.multicast_locator_list.take() {
-            Some(mll) => mll,
-            None => {
-                eprintln!(
-                    "<{}>: couldn't gen WriterProxy, not found multicast_locator_list",
-                    "SDPBuiltinData: Error".red()
-                );
-                return None;
-            }
-        };
+        let unicast_locator_list = self.unicast_locator_list.clone();
+        let multicast_locator_list = self.multicast_locator_list.clone();
         let data_max_size_serialized = self.data_max_size_serialized.unwrap_or(0); // TODO: Which default value should I set?
         let dw_qos_builder = DataWriterQosBuilder::new();
         let qos = dw_qos_builder
@@ -306,6 +294,8 @@ impl SDPBuiltinData {
             remote_guid,
             unicast_locator_list,
             multicast_locator_list,
+            default_unicast_locator_list,
+            default_multicast_locator_list,
             data_max_size_serialized,
             qos,
             history_cache,
@@ -470,15 +460,15 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                 let mut vendor_id: Option<VendorId> = None;
                 let mut expects_inline_qos: Option<bool> = None;
                 let mut available_builtin_endpoint: Option<BitFlags<BuiltinEndpoint>> = None;
-                let mut metarraffic_unicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
-                let mut metarraffic_multicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
-                let mut default_unicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
-                let mut default_multicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
+                let mut metarraffic_unicast_locator_list: Vec<Locator> = Vec::new();
+                let mut metarraffic_multicast_locator_list: Vec<Locator> = Vec::new();
+                let mut default_unicast_locator_list: Vec<Locator> = Vec::new();
+                let mut default_multicast_locator_list: Vec<Locator> = Vec::new();
                 let mut manual_liveliness_count: Option<Count> = None;
                 let mut lease_duration: Option<Duration> = None;
                 let mut remote_guid: Option<GUID> = None;
-                let mut unicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
-                let mut multicast_locator_list: Option<Vec<Locator>> = Some(Vec::new());
+                let mut unicast_locator_list: Vec<Locator> = Vec::new();
+                let mut multicast_locator_list: Vec<Locator> = Vec::new();
                 let mut data_max_size_serialized: Option<i32> = None;
                 let mut type_name: Option<String> = None;
                 let mut topic_name: Option<String> = None;
@@ -520,12 +510,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         let address: [u8; 16] = seq
                             .next_element()?
                             .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                        match &mut $ll {
-                            Some(v) => {
-                                v.push(Locator::new(kind, port, address));
-                            }
-                            None => unreachable!(),
-                        }
+                        $ll.push(Locator::new(kind, port, address));
                     }};
                 }
                 loop {

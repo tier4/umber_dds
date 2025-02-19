@@ -88,6 +88,8 @@ impl Reader {
             self.expectsinline_qos,
             self.unicast_locator_list.clone(),
             self.multicast_locator_list.clone(),
+            Vec::new(),
+            Vec::new(),
             self.qos.clone(),
             Arc::new(RwLock::new(HistoryCache::new())),
         );
@@ -111,11 +113,11 @@ impl Reader {
             for (eid, reader) in self.matched_writers.iter() {
                 eprintln!("\t\treader guid: {:?}", eid);
                 eprintln!("\tunicast locators");
-                for loc in &reader.unicast_locator_list {
+                for loc in reader.get_unicast_locator_list() {
                     eprintln!("\t\t{:?}", loc)
                 }
                 eprintln!("\tmulticast locators");
-                for loc in &reader.multicast_locator_list {
+                for loc in reader.get_multicast_locator_list() {
                     eprintln!("\t\t{:?}", loc)
                 }
             }
@@ -203,6 +205,28 @@ impl Reader {
         data_max_size_serialized: i32,
         qos: DataWriterQosPolicies,
     ) {
+        self.matched_writer_add_with_default_locator(
+            remote_writer_guid,
+            unicast_locator_list,
+            multicast_locator_list,
+            Vec::new(),
+            Vec::new(),
+            data_max_size_serialized,
+            qos,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn matched_writer_add_with_default_locator(
+        &mut self,
+        remote_writer_guid: GUID,
+        unicast_locator_list: Vec<Locator>,
+        multicast_locator_list: Vec<Locator>,
+        default_unicast_locator_list: Vec<Locator>,
+        default_multicast_locator_list: Vec<Locator>,
+        data_max_size_serialized: i32,
+        qos: DataWriterQosPolicies,
+    ) {
         eprintln!(
             "<{}>: add matched Writer which has {:?}",
             "Reader: Info".green(),
@@ -227,6 +251,8 @@ impl Reader {
                 remote_writer_guid,
                 unicast_locator_list,
                 multicast_locator_list,
+                default_unicast_locator_list,
+                default_multicast_locator_list,
                 data_max_size_serialized,
                 qos,
                 self.reader_cache.clone(),
@@ -246,6 +272,7 @@ impl Reader {
             ))
             .expect("couldn't send reader_state_notifier");
     }
+
     pub fn is_writer_match(&self, topic_name: &str, data_type: &str) -> bool {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type
     }
@@ -400,7 +427,7 @@ impl Reader {
             let message_buf = message
                 .write_to_vec_with_ctx(self.endianness)
                 .expect("couldn't serialize message");
-            for uni_loc in &writer_proxy.unicast_locator_list {
+            for uni_loc in writer_proxy.get_unicast_locator_list() {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
                     let addr = uni_loc.address;
@@ -421,7 +448,7 @@ impl Reader {
                 }
             }
             // if there is Participant on same host, umber_dds need to send acknack to multicast
-            for mul_loc in &writer_proxy.multicast_locator_list {
+            for mul_loc in writer_proxy.get_multicast_locator_list() {
                 if mul_loc.kind == Locator::KIND_UDPV4 {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;

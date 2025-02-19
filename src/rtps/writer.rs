@@ -110,6 +110,8 @@ impl Writer {
             self.guid,
             self.unicast_locator_list.clone(),
             self.multicast_locator_list.clone(),
+            Vec::new(),
+            Vec::new(),
             self.data_max_size_serialized,
             self.qos.clone(),
             Arc::new(RwLock::new(HistoryCache::new())),
@@ -183,11 +185,11 @@ impl Writer {
             for (eid, reader) in self.matched_readers.iter() {
                 eprintln!("\t\treader guid: {:?}", eid);
                 eprintln!("\t\tunicast locators");
-                for loc in &reader.unicast_locator_list {
+                for loc in reader.get_unicast_locator_list() {
                     eprintln!("\t\t\t{:?}", loc)
                 }
                 eprintln!("\t\tmulticast locators");
-                for loc in &reader.multicast_locator_list {
+                for loc in reader.get_multicast_locator_list() {
                     eprintln!("\t\t\t{:?}", loc)
                 }
             }
@@ -233,7 +235,7 @@ impl Writer {
             .expect("couldn't serialize message");
         // send message_buf to multicast
         for reader_proxy in self.matched_readers.values_mut() {
-            for mul_loc in &reader_proxy.multicast_locator_list {
+            for mul_loc in reader_proxy.get_multicast_locator_list() {
                 if mul_loc.kind == Locator::KIND_UDPV4 {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
@@ -304,7 +306,7 @@ impl Writer {
 
                         // TODO:
                         // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
-                        for uni_loc in &reader_proxy.unicast_locator_list {
+                        for uni_loc in reader_proxy.get_unicast_locator_list() {
                             if uni_loc.kind == Locator::KIND_UDPV4 {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
@@ -324,7 +326,7 @@ impl Writer {
                                 );
                             }
                         }
-                        for mul_loc in &reader_proxy.multicast_locator_list {
+                        for mul_loc in reader_proxy.get_multicast_locator_list() {
                             if mul_loc.kind == Locator::KIND_UDPV4 {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
@@ -366,7 +368,7 @@ impl Writer {
                         .expect("couldn't serialize message");
                     // TODO:
                     // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
-                    for uni_loc in &reader_proxy.unicast_locator_list {
+                    for uni_loc in reader_proxy.get_unicast_locator_list() {
                         if uni_loc.kind == Locator::KIND_UDPV4 {
                             let port = uni_loc.port;
                             let addr = uni_loc.address;
@@ -386,7 +388,7 @@ impl Writer {
                             );
                         }
                     }
-                    for mul_loc in &reader_proxy.multicast_locator_list {
+                    for mul_loc in reader_proxy.get_multicast_locator_list() {
                         if mul_loc.kind == Locator::KIND_UDPV4 {
                             let port = mul_loc.port;
                             let addr = mul_loc.address;
@@ -437,7 +439,7 @@ impl Writer {
             let message_buf = msg
                 .write_to_vec_with_ctx(self.endianness)
                 .expect("couldn't serialize message");
-            for uni_loc in &reader_proxy.unicast_locator_list {
+            for uni_loc in reader_proxy.get_unicast_locator_list() {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
                     let addr = uni_loc.address;
@@ -457,7 +459,7 @@ impl Writer {
                     );
                 }
             }
-            for mul_loc in &reader_proxy.multicast_locator_list {
+            for mul_loc in reader_proxy.get_multicast_locator_list() {
                 if mul_loc.kind == Locator::KIND_UDPV4 {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
@@ -570,7 +572,7 @@ impl Writer {
 
                         // TODO:
                         // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
-                        for uni_loc in &reader_proxy.unicast_locator_list {
+                        for uni_loc in reader_proxy.get_unicast_locator_list() {
                             if uni_loc.kind == Locator::KIND_UDPV4 {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
@@ -590,7 +592,7 @@ impl Writer {
                                 );
                             }
                         }
-                        for mul_loc in &reader_proxy.multicast_locator_list {
+                        for mul_loc in reader_proxy.get_multicast_locator_list() {
                             if mul_loc.kind == Locator::KIND_UDPV4 {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
@@ -631,7 +633,7 @@ impl Writer {
                         let message_buf = msg
                             .write_to_vec_with_ctx(self.endianness)
                             .expect("couldn't serialize message");
-                        for uni_loc in &reader_proxy.unicast_locator_list {
+                        for uni_loc in reader_proxy.get_unicast_locator_list() {
                             if uni_loc.kind == Locator::KIND_UDPV4 {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
@@ -651,7 +653,7 @@ impl Writer {
                                 );
                             }
                         }
-                        for mul_loc in &reader_proxy.multicast_locator_list {
+                        for mul_loc in reader_proxy.get_multicast_locator_list() {
                             if mul_loc.kind == Locator::KIND_UDPV4 {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
@@ -691,7 +693,7 @@ impl Writer {
                         .expect("couldn't serialize message");
                     // TODO:
                     // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
-                    for uni_loc in &reader_proxy.unicast_locator_list {
+                    for uni_loc in reader_proxy.get_unicast_locator_list() {
                         if uni_loc.kind == Locator::KIND_UDPV4 {
                             let port = uni_loc.port;
                             let addr = uni_loc.address;
@@ -711,7 +713,7 @@ impl Writer {
                             );
                         }
                     }
-                    for mul_loc in &reader_proxy.multicast_locator_list {
+                    for mul_loc in reader_proxy.get_multicast_locator_list() {
                         if mul_loc.kind == Locator::KIND_UDPV4 {
                             let port = mul_loc.port;
                             let addr = mul_loc.address;
@@ -745,6 +747,28 @@ impl Writer {
         multicast_locator_list: Vec<Locator>,
         qos: DataReaderQosPolicies,
     ) {
+        self.matched_reader_add_with_default_locator(
+            remote_reader_guid,
+            expects_inline_qos,
+            unicast_locator_list,
+            multicast_locator_list,
+            Vec::new(),
+            Vec::new(),
+            qos,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn matched_reader_add_with_default_locator(
+        &mut self,
+        remote_reader_guid: GUID,
+        expects_inline_qos: bool,
+        unicast_locator_list: Vec<Locator>,
+        multicast_locator_list: Vec<Locator>,
+        default_unicast_locator_list: Vec<Locator>,
+        default_multicast_locator_list: Vec<Locator>,
+        qos: DataReaderQosPolicies,
+    ) {
         eprintln!(
             "<{}>: add matched Reader which has {:?}",
             "Writer: Info".green(),
@@ -771,6 +795,8 @@ impl Writer {
                 expects_inline_qos,
                 unicast_locator_list,
                 multicast_locator_list,
+                default_unicast_locator_list,
+                default_multicast_locator_list,
                 qos,
                 self.writer_cache.clone(),
             ),
