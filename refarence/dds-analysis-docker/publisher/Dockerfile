@@ -15,9 +15,10 @@ RUN . /opt/Fast-DDS/install/setup.bash && colcon build
 
 FROM cyclonedds_img:latest AS cyclone_builder
 
+WORKDIR /home
 # build shapes_demo_cyclonedds
-RUN --mount=type=bind,src=./shapes_demo_cyclonedds,target=../shapes_demo_cyclonedds mkdir build && cd build \
-   && cmake ../shapes_demo_cyclonedds && cmake --build .
+RUN --mount=type=bind,src=./dds-analysis-docker/cyclone_shapesdemo,target=./cyclone_shapesdemo mkdir cyclone_build && cd cyclone_build \
+   && cmake ../cyclone_shapesdemo && cmake --build .
 
 FROM ubuntu:jammy AS runner
 
@@ -34,6 +35,8 @@ COPY --from=fast_builder /home/hw_build /home/DDSHelloWorld
 COPY --from=fast_builder /home/ShapesDemo /home/ShapesDemo
 # copy cyclonedds from cyclonedds_img
 COPY --from=cyclone_builder /opt/cyclonedds /opt/cyclonedds
+# copy cyclonedds from cyclone_shapedemo
+COPY --from=cyclone_builder /home/cyclone_build /home/cyclone_shapesdemo
 
 WORKDIR /home
 

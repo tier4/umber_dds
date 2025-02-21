@@ -17,7 +17,6 @@ services:
         volumes:
             - ../../target:/home/UmberDDS/target
             -  /tmp/.X11-unix/:/tmp/.X11-unix
-            - ./cyclone_shapedemo:/home/cyclone_shapedemo
     publisher2:
         depends_on:
             - publisher
@@ -34,7 +33,6 @@ services:
         volumes:
             - ../../target:/home/UmberDDS/target
             -  /tmp/.X11-unix/:/tmp/.X11-unix
-            - ./cyclone_shapedemo:/home/cyclone_shapedemo
     subscriber:
         build:
             context: .

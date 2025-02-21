@@ -10,7 +10,7 @@
 # SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 #
 cmake_minimum_required(VERSION 3.16)
-project(cycloneshapedemo LANGUAGES C)
+project(cycloneshapesdemo LANGUAGES C)
 
 if(NOT TARGET CycloneDDS::ddsc)
   # Find the CycloneDDS package.
@@ -24,10 +24,10 @@ endif()
 idlc_generate(TARGET ShapeType_lib FILES "Shape.idl" WARNINGS no-implicit-extensibility)
 
 # Both executables have only one related source file.
-add_executable(ShapeDemoPublisher publisher.c)
-add_executable(ShapeDemoSubscriber subscriber.c)
+add_executable(ShapesDemoPublisher publisher.c)
+add_executable(ShapesDemoSubscriber subscriber.c)
 
 # Both executables need to be linked to the idl data type library and
 # the ddsc API library.
-target_link_libraries(ShapeDemoPublisher ShapeType_lib CycloneDDS::ddsc)
-target_link_libraries(ShapeDemoSubscriber ShapeType_lib CycloneDDS::ddsc)
+target_link_libraries(ShapesDemoPublisher ShapeType_lib CycloneDDS::ddsc)
+target_link_libraries(ShapesDemoSubscriber ShapeType_lib CycloneDDS::ddsc)
