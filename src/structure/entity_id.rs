@@ -126,7 +126,7 @@ impl EntityId {
         let u1 = self.entity_key[1] as u32;
         let u2 = self.entity_key[2] as u32;
         let u3 = self.entity_kind.value as u32;
-        (u0 << 24 | u1 << 16 | u2 << 8 | u3) as usize
+        ((u0 << 24) | (u1 << 16) | (u2 << 8) | u3) as usize
     }
 
     pub fn from_usize(n: usize) -> Self {
