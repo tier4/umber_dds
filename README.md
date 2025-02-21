@@ -59,7 +59,7 @@ besteffort subscriber
     - [x] Reliable StatefulWriter Behavior
     - [ ] Best-Effort StatelessReader Behavior
     - [ ] Reliable StatelessReader Behavior
-- [ ] RTPS Writer Liveliness Protocol
+- [x] RTPS Writer Liveliness Protocol
 - [ ] Logging
 - [ ] Topics kinds: with_key and no_key
 - [ ] IPC (Inter-Process Communication)
