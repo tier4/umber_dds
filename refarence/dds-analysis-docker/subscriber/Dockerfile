@@ -1,4 +1,4 @@
-FROM fastdds_img:latest AS builder
+FROM fastdds_img:latest AS fast_builder
 
 WORKDIR /home
 RUN mkdir workspace
@@ -13,9 +13,9 @@ RUN apt-get update && apt-get install -y \
     iproute2 tmux gdb lsof libtinyxml2-dev
 
 # copy fastdds from fastdds_img
-COPY --from=builder /opt/Fast-DDS /opt/Fast-DDS
+COPY --from=fast_builder /opt/Fast-DDS /opt/Fast-DDS
 # copy DDSHelloWorld from fastdds_img
-COPY --from=builder /home/build /home/DDSHelloWorld
+COPY --from=fast_builder /home/build /home/DDSHelloWorld
 
 WORKDIR /home
 
