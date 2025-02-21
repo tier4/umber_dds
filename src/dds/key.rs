@@ -16,6 +16,7 @@ impl KeyHash {
 
 pub trait Keyed {
     fn gen_key(&self) -> KeyHash;
+    fn is_with_key() -> bool;
 }
 
 pub trait Key: std::fmt::Debug + Serialize {}

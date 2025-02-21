@@ -23,6 +23,8 @@ pub fn derive_keyed(input: TokenStream) -> TokenStream {
         }
     }
 
+    let keys_count = keys.len();
+
     let constract_key = keys.iter().map(|key| {
         quote! {
             let mut serialize_data = cdr::serialize::<_,_, CdrBe>(&self.#key, Infinite).expect("");
@@ -49,6 +51,9 @@ pub fn derive_keyed(input: TokenStream) -> TokenStream {
                     let md5 = compute(result);
                     KeyHash::new(&md5.0)
                 }
+            }
+            fn is_with_key() -> bool {
+                #keys_count != 0
             }
         }
     };
