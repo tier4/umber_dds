@@ -37,13 +37,18 @@ besteffort subscriber
 ```
 
 ## Interoperability
-- [ ] FastDDS (%1),(%2)
+- [ ] FastDDS (%1)
+    - [x] WithKey Topic
+    - [ ] NoKey Topic
 - [x] RustDDS (%1)
-- [ ] CycloneDDS
+    - [x] WithKey Topic
+    - [x] NoKey Topic
+- [ ] Cyclone DDS (%1)
+    - [x] WithKey Topic
+    - [ ] NoKey Topic
 
-(%1) These implementations use IPC (Inter-Process Communication) instead of UDP for communication when Participants are on the same host. Since UmberDDS does not implement IPC, it cannot communicate with Participants of these implementations on the same host. If you need to communicate with these implementations on the same host, run UmberDDS in an isolated network namespace using tools like Docker.
+(%1) These implementations use IPC (Inter-Process Communication) instead of UDP for communication when Participants are on the same host. Since UmberDDS does not implement IPC, it cannot communicate with Participants of these implementations on the same host. If you need to communicate with these implementations on the same host, disable IPC or run UmberDDS in an isolated network namespace using tools like Docker.
 
-(%2) It has been confirmed that `example/shapes_demo.rs can` communicate with [FastDDS ShapesDemo](https://github.com/eProsima/ShapesDemo). However, communication between UmberDDS and FastDDS using other programs has not been successful.
 
 ## Progress
 
@@ -54,7 +59,7 @@ besteffort subscriber
     - [x] Reliable StatefulWriter Behavior
     - [ ] Best-Effort StatelessReader Behavior
     - [ ] Reliable StatelessReader Behavior
-- [ ] RTPS Writer Liveliness Protocol
+- [x] RTPS Writer Liveliness Protocol
 - [ ] Logging
 - [ ] Topics kinds: with_key and no_key
 - [ ] IPC (Inter-Process Communication)
@@ -71,7 +76,7 @@ Unsuporting QoS can be set, but it dosn't effect behavior of UmberDDS.
 - [ ] Deadline
 - [ ] History
 - [ ] Lifespan
-- [ ] Liveliness
+- [x] Liveliness (ManualByTopic is not suported)
 
 #### ROS 2 unsuported QoS
 - [ ] DurabilityService

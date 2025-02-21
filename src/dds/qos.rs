@@ -113,46 +113,63 @@ pub struct DataWriterQosPolicies {
 
 impl DataWriterQosPolicies {
     pub fn is_compatible(&self, qos: &DataReaderQosPolicies) -> Result<(), String> {
-        let mut msg = String::new();
+        let mut msg = String::from("```\n");
+        let mut is_ok = true;
         if !Durability::is_compatible(self.durability, qos.durability) {
+            is_ok = false;
             msg += &format!(
-                "durability is not compatible. self: {:?}, writer: {:?}\n",
+                "durability is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
                 self.durability, qos.durability
             );
-        } else if !Deadline::is_compatible(self.deadline, qos.deadline) {
+        }
+        if !Deadline::is_compatible(self.deadline, qos.deadline) {
+            is_ok = false;
             msg += &format!(
-                "deadline is not compatible. self: {:?}, writer: {:?}\n",
+                "deadline is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
                 self.deadline, qos.deadline
             );
-        } else if !LatencyBudget::is_compatible(self.latency_budget, qos.latency_budget) {
+        }
+        if !LatencyBudget::is_compatible(self.latency_budget, qos.latency_budget) {
+            is_ok = false;
             msg += &format!(
-                "latency_budget is not compatible. self: {:?}, writer: {:?}\n",
+                "latency_budget is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
                 self.latency_budget, qos.latency_budget
             );
-        } else if !Ownership::is_compatible(self.ownership, qos.ownership) {
+        }
+        if !Ownership::is_compatible(self.ownership, qos.ownership) {
+            is_ok = false;
             msg += &format!(
-                "ownership is not compatible. self: {:?}, writer: {:?}\n",
+                "ownership is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
                 self.ownership, qos.ownership
             );
-        } else if !Liveliness::is_compatible(self.liveliness, qos.liveliness) {
+        }
+        if !Liveliness::is_compatible(self.liveliness, qos.liveliness) {
+            is_ok = false;
             msg += &format!(
-                "liveliness is not compatible. self: {:?}, writer: {:?}\n",
+                "liveliness is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
                 self.liveliness, qos.liveliness
             );
-        } else if !Reliability::is_compatible(self.reliability, qos.reliability) {
+        }
+        if !Reliability::is_compatible(self.reliability, qos.reliability) {
+            is_ok = false;
             msg += &format!(
-                "reliability is not compatible. self: {:?}, writer: {:?}\n",
+                "reliability is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
                 self.reliability, qos.reliability
             );
-        } else if !DestinationOrder::is_compatible(self.destination_order, qos.destination_order) {
+        }
+        if !DestinationOrder::is_compatible(self.destination_order, qos.destination_order) {
+            is_ok = false;
             msg += &format!(
-                "destination_order is not compatible. self: {:?}, writer: {:?}\n",
+                "destination_order is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
                 self.destination_order, qos.destination_order
             );
-        } else {
-            return Ok(());
         }
-        Err(msg)
+        if is_ok {
+            Ok(())
+        } else {
+            msg += "```\n";
+            Err(msg)
+        }
     }
 
     pub fn combine(&mut self, policies: Self) {
@@ -236,46 +253,63 @@ pub struct DataReaderQosPolicies {
 }
 impl DataReaderQosPolicies {
     pub fn is_compatible(&self, qos: &DataWriterQosPolicies) -> Result<(), String> {
-        let mut msg = String::new();
+        let mut msg = String::from("```\n");
+        let mut is_ok = true;
         if !Durability::is_compatible(qos.durability, self.durability) {
+            is_ok = false;
             msg += &format!(
-                "durability is not compatible. self: {:?}, writer: {:?}\n",
+                "durability is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
                 self.durability, qos.durability
             );
-        } else if !Deadline::is_compatible(qos.deadline, self.deadline) {
+        }
+        if !Deadline::is_compatible(qos.deadline, self.deadline) {
+            is_ok = false;
             msg += &format!(
-                "deadline is not compatible. self: {:?}, writer: {:?}\n",
+                "deadline is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
                 self.deadline, qos.deadline
             );
-        } else if !LatencyBudget::is_compatible(qos.latency_budget, self.latency_budget) {
+        }
+        if !LatencyBudget::is_compatible(qos.latency_budget, self.latency_budget) {
+            is_ok = false;
             msg += &format!(
-                "latency_budget is not compatible. self: {:?}, writer: {:?}\n",
+                "latency_budget is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
                 self.latency_budget, qos.latency_budget
             );
-        } else if !Ownership::is_compatible(qos.ownership, self.ownership) {
+        }
+        if !Ownership::is_compatible(qos.ownership, self.ownership) {
+            is_ok = false;
             msg += &format!(
-                "ownership is not compatible. self: {:?}, writer: {:?}\n",
+                "ownership is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
                 self.ownership, qos.ownership
             );
-        } else if !Liveliness::is_compatible(qos.liveliness, self.liveliness) {
+        }
+        if !Liveliness::is_compatible(qos.liveliness, self.liveliness) {
+            is_ok = false;
             msg += &format!(
-                "liveliness is not compatible. self: {:?}, writer: {:?}\n",
+                "liveliness is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
                 self.liveliness, qos.liveliness
             );
-        } else if !Reliability::is_compatible(qos.reliability, self.reliability) {
+        }
+        if !Reliability::is_compatible(qos.reliability, self.reliability) {
+            is_ok = false;
             msg += &format!(
-                "reliability is not compatible. self: {:?}, writer: {:?}\n",
+                "reliability is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
                 self.reliability, qos.reliability
             );
-        } else if !DestinationOrder::is_compatible(qos.destination_order, self.destination_order) {
+        }
+        if !DestinationOrder::is_compatible(qos.destination_order, self.destination_order) {
+            is_ok = false;
             msg += &format!(
-                "destination_order is not compatible. self: {:?}, writer: {:?}\n",
+                "destination_order is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
                 self.destination_order, qos.destination_order
             );
-        } else {
-            return Ok(());
         }
-        Err(msg)
+        if is_ok {
+            Ok(())
+        } else {
+            msg += "```\n";
+            Err(msg)
+        }
     }
 
     pub fn combine(&mut self, policies: Self) {

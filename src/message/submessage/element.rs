@@ -107,7 +107,7 @@ impl SequenceNumberSet {
             let bitmap_end = min(32, self.num_bits - map_line as u32 * 32);
             for offset in 0..bitmap_end {
                 // if bit m is set
-                if (map & 1 << (31 - offset)) == 1 << (31 - offset) {
+                if (map & (1 << (31 - offset))) == 1 << (31 - offset) {
                     let sn = self.bitmap_base.0 + 32 * map_line as i64 + offset as i64;
                     let seq_num = SequenceNumber(sn);
                     set.push(seq_num);

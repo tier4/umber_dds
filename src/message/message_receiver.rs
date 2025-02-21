@@ -410,15 +410,29 @@ impl MessageReceiver {
                 "<{}>: successed for deserialize sedp(w)",
                 "MessageReceiver: Info".green()
             );
-            let writer_proxy =
-                match deserialized.gen_writerproxy(Arc::new(RwLock::new(HistoryCache::new()))) {
+            let writer_proxy = if let Some(participant_data) =
+                disc_db.read_participant_data(self.source_guid_prefix)
+            {
+                let default_unicast_locator_list = participant_data.default_unicast_locator_list;
+                let default_multicast_locator_list =
+                    participant_data.default_multicast_locator_list;
+                match deserialized.gen_writerproxy(
+                    Arc::new(RwLock::new(HistoryCache::new())),
+                    default_unicast_locator_list,
+                    default_multicast_locator_list,
+                ) {
                     Some(wp) => wp,
                     None => {
                         return Err(MessageError(
                             "failed generate writer_proxy form received DATA(w)".to_string(),
                         ));
                     }
-                };
+                }
+            } else {
+                return Err(MessageError(
+                    "received sedp(w) from unknown participant".to_string(),
+                ));
+            };
             let (topic_name, data_type) = match deserialized.topic_info() {
                 Some((tn, dt)) => (tn, dt),
                 None => {
@@ -433,10 +447,12 @@ impl MessageReceiver {
                         "<{}>: matched writer add to reader",
                         "MessageReceiver: Info".green()
                     );
-                    reader.matched_writer_add(
+                    reader.matched_writer_add_with_default_locator(
                         writer_proxy.remote_writer_guid,
                         writer_proxy.unicast_locator_list.clone(),
                         writer_proxy.multicast_locator_list.clone(),
+                        writer_proxy.default_unicast_locator_list.clone(),
+                        writer_proxy.default_multicast_locator_list.clone(),
                         writer_proxy.data_max_size_serialized,
                         writer_proxy.qos.clone(),
                     );
@@ -479,15 +495,29 @@ impl MessageReceiver {
                 "<{}>: successed for deserialize sedp(r)",
                 "MessageReceiver: Info".green()
             );
-            let reader_proxy =
-                match deserialized.gen_readerpoxy(Arc::new(RwLock::new(HistoryCache::new()))) {
+            let reader_proxy = if let Some(participant_data) =
+                disc_db.read_participant_data(self.source_guid_prefix)
+            {
+                let default_unicast_locator_list = participant_data.default_unicast_locator_list;
+                let default_multicast_locator_list =
+                    participant_data.default_multicast_locator_list;
+                match deserialized.gen_readerpoxy(
+                    Arc::new(RwLock::new(HistoryCache::new())),
+                    default_unicast_locator_list,
+                    default_multicast_locator_list,
+                ) {
                     Some(rp) => rp,
                     None => {
                         return Err(MessageError(
                             "failed generate reader_proxy form received DATA(r)".to_string(),
                         ));
                     }
-                };
+                }
+            } else {
+                return Err(MessageError(
+                    "received sedp(r) from unknown participant".to_string(),
+                ));
+            };
             let (topic_name, data_type) = match deserialized.topic_info() {
                 Some((tn, dt)) => (tn, dt),
                 None => {
@@ -502,11 +532,13 @@ impl MessageReceiver {
                         "<{}>: matched reader add to writer",
                         "MessageReceiver: Info".green()
                     );
-                    writer.matched_reader_add(
+                    writer.matched_reader_add_with_default_locator(
                         reader_proxy.remote_reader_guid,
                         reader_proxy.expects_inline_qos,
                         reader_proxy.unicast_locator_list.clone(),
                         reader_proxy.multicast_locator_list.clone(),
+                        reader_proxy.default_unicast_locator_list.clone(),
+                        reader_proxy.default_multicast_locator_list.clone(),
                         reader_proxy.qos.clone(),
                     )
                 }

@@ -123,8 +123,8 @@ fn main() {
                                                 _ => unreachable!(),
                                             }
                                         }
-                                        DataWriterStatusChanged::OfferedIncompatibleQos => {
-                                            println!("OfferedIncompatibleQos");
+                                        DataWriterStatusChanged::OfferedIncompatibleQos(e) => {
+                                            println!("OfferedIncompatibleQos:\n{}", e);
                                         }
                                         DataWriterStatusChanged::LivelinessLost => {
                                             println!("LivelinessLost");
@@ -189,8 +189,8 @@ fn main() {
                                                 _ => unreachable!(),
                                             }
                                         }
-                                        DataReaderStatusChanged::RequestedIncompatibleQos => {
-                                            println!("RequestedIncompatibleQos");
+                                        DataReaderStatusChanged::RequestedIncompatibleQos(e) => {
+                                            println!("RequestedIncompatibleQos:\n{}", e);
                                         }
                                         DataReaderStatusChanged::LivelinessChanged => {
                                             println!("LivelinessChanged");

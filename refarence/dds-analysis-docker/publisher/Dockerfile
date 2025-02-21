@@ -1,4 +1,4 @@
-FROM fastdds_img:latest AS builder
+FROM fastdds_img:latest AS fast_builder
 
 WORKDIR /home
 RUN mkdir hw_workspace
@@ -13,6 +13,13 @@ COPY ./ShapesDemo /home/ShapesDemo
 WORKDIR /home/ShapesDemo
 RUN . /opt/Fast-DDS/install/setup.bash && colcon build
 
+FROM cyclonedds_img:latest AS cyclone_builder
+
+WORKDIR /home
+# build shapes_demo_cyclonedds
+RUN --mount=type=bind,src=./dds-analysis-docker/cyclone_shapesdemo,target=./cyclone_shapesdemo mkdir cyclone_build && cd cyclone_build \
+   && cmake ../cyclone_shapesdemo && cmake --build .
+
 FROM ubuntu:jammy AS runner
 
 WORKDIR /home
@@ -21,17 +28,21 @@ RUN apt-get update && apt-get install -y libtinyxml2-dev \
     # libssl-dev qtbase5-dev iproute2 tmux python3 curl locales netcat python3-pip
 
 # copy fastdds from fastdds_img
-COPY --from=builder /opt/Fast-DDS /opt/Fast-DDS
+COPY --from=fast_builder /opt/Fast-DDS /opt/Fast-DDS
 # copy DDSHelloWorld from fastdds_img
-COPY --from=builder /home/hw_build /home/DDSHelloWorld
+COPY --from=fast_builder /home/hw_build /home/DDSHelloWorld
 # copy ShapesDemo from fastdds_img
-COPY --from=builder /home/ShapesDemo /home/ShapesDemo
+COPY --from=fast_builder /home/ShapesDemo /home/ShapesDemo
+# copy cyclonedds from cyclonedds_img
+COPY --from=cyclone_builder /opt/cyclonedds /opt/cyclonedds
+# copy cyclonedds from cyclone_shapedemo
+COPY --from=cyclone_builder /home/cyclone_build /home/cyclone_shapesdemo
 
 WORKDIR /home
 
 RUN mkdir -p UmberDDS/target
 
-ENV USERNAME foo
+ENV USERNAME=foo
 RUN mkdir /etc/sudoers.d
 RUN useradd -M $USERNAME && \
         echo "$USERNAME:$USERNAME" | chpasswd && \

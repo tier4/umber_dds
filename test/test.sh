@@ -22,7 +22,7 @@ if [ "$?" -ne 0 ];then
     echo "[test.sh] start containers failed!"
     exit
 fi
-echo "[test.sh] tests start: it takes about 1.5 minutes"
+echo "[test.sh] tests start: it takes about 2.5 minutes"
 
 echo "[test.sh] execting test1. log is save to test1.log"
 ./test_cases/test_case1.sh &> test1.log
@@ -35,6 +35,14 @@ res2=$?
 echo "[test.sh] execting test3. log is save to test3.log"
 ./test_cases/test_case3.sh &> test3.log
 res3=$?
+
+echo "[test.sh] execting test4. log is save to test4.log"
+./test_cases/test_case4.sh &> test4.log
+res4=$?
+
+echo "[test.sh] execting test5. log is save to test5.log"
+./test_cases/test_case5.sh &> test5.log
+res5=$?
 
 function show_resut() {
     if [ "$1" -eq 0 ];then
@@ -52,3 +60,18 @@ show_resut $res2
 
 echo "[test.sh] test_case3: UmberDDS to UmberDDS"
 show_resut $res3
+
+echo "[test.sh] test_case4: Cyclone DDS to UmberDDS"
+show_resut $res4
+
+echo "[test.sh] test_case5: UmberDDS to Cyclone DDS"
+show_resut $res5
+
+
+if [ $(($res1+$res2+$res3+$res4+$res5)) -eq 0 ];then
+    echo "[test.sh] all succeeded"
+    exit 0
+else
+    echo "[test.sh] failed"
+    exit -1
+fi
