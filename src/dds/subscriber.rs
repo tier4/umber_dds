@@ -10,7 +10,7 @@ use crate::rtps::{
     cache::HistoryCache,
     reader::{DataReaderStatusChanged, ReaderIngredients},
 };
-use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
+use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, TopicKind, GUID};
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use mio_extras::channel as mio_channel;
@@ -184,15 +184,16 @@ impl InnerSubscriber {
         };
         let (reader_state_notifier, reader_state_receiver) =
             mio_channel::channel::<DataReaderStatusChanged>();
+        let entity_kind = match topic.kind() {
+            TopicKind::WithKey => EntityKind::READER_WITH_KEY_USER_DEFIND,
+            TopicKind::NoKey => EntityKind::READER_NO_KEY_USER_DEFIND,
+        };
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
         let reliability_level = dr_qos.reliability.kind;
         let reader_ing = ReaderIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
-                EntityId::new_with_entity_kind(
-                    self.dp.gen_entity_key(),
-                    EntityKind::READER_WITH_KEY_USER_DEFIND,
-                ),
+                EntityId::new_with_entity_kind(self.dp.gen_entity_key(), entity_kind),
             ),
             reliability_level,
             unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(

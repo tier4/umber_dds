@@ -8,7 +8,7 @@ use crate::dds::{
 use crate::message::submessage::element::Locator;
 use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
 use crate::rtps::writer::{DataWriterStatusChanged, WriterCmd, WriterIngredients};
-use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, GUID};
+use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, TopicKind, GUID};
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use mio_extras::channel as mio_channel;
@@ -188,14 +188,15 @@ impl InnerPublisher {
             mio_channel::channel::<DataWriterStatusChanged>();
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
+        let entity_kind = match topic.kind() {
+            TopicKind::WithKey => EntityKind::WRITER_WITH_KEY_USER_DEFIND,
+            TopicKind::NoKey => EntityKind::WRITER_NO_KEY_USER_DEFIND,
+        };
         let reliability_level = dw_qos.reliability.kind;
         let writer_ing = WriterIngredients {
             guid: GUID::new(
                 self.dp.guid_prefix(),
-                EntityId::new_with_entity_kind(
-                    self.dp.gen_entity_key(),
-                    EntityKind::WRITER_WITH_KEY_USER_DEFIND,
-                ),
+                EntityId::new_with_entity_kind(self.dp.gen_entity_key(), entity_kind),
             ),
             reliability_level,
             unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
