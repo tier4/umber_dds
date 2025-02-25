@@ -82,7 +82,7 @@ impl Discovery {
         let subscriber = dp.create_subscriber(SubscriberQos::Default);
 
         // For SPDP
-        let spdp_topic = dp.create_topic(
+        let spdp_topic = dp.create_builtin_topic(
             "DCPSParticipant".to_string(),
             "SPDPDiscoveredParticipantData".to_string(),
             TopicKind::WithKey,
@@ -134,7 +134,7 @@ impl Discovery {
                 .reliability(Reliability::default_reliable())
                 .build(),
         );
-        let sedp_publication_topic = dp.create_topic(
+        let sedp_publication_topic = dp.create_builtin_topic(
             "DCPSPublication".to_string(),
             "PublicationBuiltinTopicData".to_string(),
             TopicKind::WithKey,
@@ -154,7 +154,7 @@ impl Discovery {
                 sedp_publication_topic.clone(),
                 sedp_pub_reader_entity_id,
             );
-        let sedp_subscription_topic = dp.create_topic(
+        let sedp_subscription_topic = dp.create_builtin_topic(
             "DCPSSucscription".to_string(),
             "SubscriptionBuiltinTopicData".to_string(),
             TopicKind::WithKey,
@@ -200,7 +200,7 @@ impl Discovery {
                 depth: 1,
             })
             .build();
-        let p2p_builtin_participant_topic = dp.create_topic(
+        let p2p_builtin_participant_topic = dp.create_builtin_topic(
             "DCPSParticipantMessage".to_string(),
             "ParticipantMessageData".to_string(),
             TopicKind::WithKey,

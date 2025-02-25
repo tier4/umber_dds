@@ -19,6 +19,7 @@ use crate::{
         subscriber::Subscriber,
         tokens::*,
         topic::Topic,
+        DdsData,
     },
     network::udp_listinig_socket::*,
     structure::{EntityId, EntityKind, GuidPrefix, TopicKind, GUID},
@@ -101,7 +102,13 @@ impl DomainParticipant {
             .lock(&mut node)
             .create_subscriber(self.clone(), qos)
     }
-    pub fn create_topic(
+    pub fn create_topic<D: DdsData>(&self, name: String, qos: TopicQos) -> Topic {
+        let mut node = MCSNode::new();
+        self.inner
+            .lock(&mut node)
+            .create_topic::<D>(self.clone(), name, qos)
+    }
+    pub(crate) fn create_builtin_topic(
         &self,
         name: String,
         type_desc: String,
@@ -111,7 +118,7 @@ impl DomainParticipant {
         let mut node = MCSNode::new();
         self.inner
             .lock(&mut node)
-            .create_topic(self.clone(), name, type_desc, kind, qos)
+            .create_builtin_topic(self.clone(), name, type_desc, kind, qos)
     }
     pub fn domain_id(&self) -> u16 {
         let mut node = MCSNode::new();
@@ -184,7 +191,15 @@ impl DomainParticipantDisc {
     pub fn create_subscriber(&self, dp: DomainParticipant, qos: SubscriberQos) -> Subscriber {
         self.inner.read().create_subscriber(dp, qos)
     }
-    pub fn create_topic(
+    pub fn create_topic<D: DdsData>(
+        &self,
+        dp: DomainParticipant,
+        name: String,
+        qos: TopicQos,
+    ) -> Topic {
+        self.inner.read().create_topic::<D>(dp, name, qos)
+    }
+    pub(crate) fn create_builtin_topic(
         &self,
         dp: DomainParticipant,
         name: String,
@@ -194,7 +209,7 @@ impl DomainParticipantDisc {
     ) -> Topic {
         self.inner
             .read()
-            .create_topic(dp, name, type_desc, kind, qos)
+            .create_builtin_topic(dp, name, type_desc, kind, qos)
     }
     pub fn domain_id(&self) -> u16 {
         self.inner.read().domain_id
@@ -392,7 +407,19 @@ impl DomainParticipantInner {
         }
     }
 
-    fn create_topic(
+    fn create_topic<D: DdsData>(
+        &self,
+        dp: DomainParticipant,
+        name: String,
+        qos: TopicQos,
+    ) -> Topic {
+        match qos {
+            TopicQos::Default => Topic::new::<D>(name, dp, self.default_topic_qos.clone()),
+            TopicQos::Policies(q) => Topic::new::<D>(name, dp, q),
+        }
+    }
+
+    fn create_builtin_topic(
         &self,
         dp: DomainParticipant,
         name: String,
@@ -402,9 +429,9 @@ impl DomainParticipantInner {
     ) -> Topic {
         match qos {
             TopicQos::Default => {
-                Topic::new(name, type_desc, dp, self.default_topic_qos.clone(), kind)
+                Topic::new_builtin(name, type_desc, dp, kind, self.default_topic_qos.clone())
             }
-            TopicQos::Policies(q) => Topic::new(name, type_desc, dp, q, kind),
+            TopicQos::Policies(q) => Topic::new_builtin(name, type_desc, dp, kind, q),
         }
     }
 

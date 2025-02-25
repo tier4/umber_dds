@@ -1,5 +1,5 @@
 use crate::dds::participant::DomainParticipant;
-use crate::dds::qos::TopicQosPolicies;
+use crate::dds::{key::DdsData, qos::TopicQosPolicies};
 use crate::discovery::structure::data::{
     PublicationBuiltinTopicData, SubscriptionBuiltinTopicData,
 };
@@ -13,12 +13,34 @@ pub struct Topic {
 }
 
 impl Topic {
-    pub fn new(
+    pub fn new<D: DdsData>(
+        name: String,
+        my_domain_participant: DomainParticipant,
+        my_qos_policies: TopicQosPolicies,
+    ) -> Self {
+        let type_desc = D::type_name();
+        let kind = if D::is_with_key() {
+            TopicKind::WithKey
+        } else {
+            TopicKind::NoKey
+        };
+        Self {
+            inner: Arc::new(InnerTopic::new(
+                name,
+                type_desc,
+                my_domain_participant,
+                my_qos_policies,
+                kind,
+            )),
+        }
+    }
+
+    pub(crate) fn new_builtin(
         name: String,
         type_desc: String,
         my_domain_participant: DomainParticipant,
-        my_qos_policies: TopicQosPolicies,
         kind: TopicKind,
+        my_qos_policies: TopicQosPolicies,
     ) -> Self {
         Self {
             inner: Arc::new(InnerTopic::new(
