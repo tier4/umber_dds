@@ -1,4 +1,4 @@
-use keyed_derive::Keyed;
+use ddsdata_derive::DdsData;
 use serde::ser::Serialize;
 
 #[derive(Debug)]
@@ -14,8 +14,9 @@ impl KeyHash {
     }
 }
 
-pub trait Keyed {
+pub trait DdsData {
     fn gen_key(&self) -> KeyHash;
+    fn type_name() -> String;
     fn is_with_key() -> bool;
 }
 
@@ -35,11 +36,11 @@ impl Key for u64 {}
 impl Key for String {}
 
 mod test {
-    use super::{Key, KeyHash, Keyed};
+    use super::{DdsData, Key, KeyHash};
     use cdr::{calc_serialized_size, CdrBe, Infinite};
     use md5::compute;
 
-    #[derive(Keyed, Debug)]
+    #[derive(DdsData, Debug)]
     struct Shape {
         #[key]
         color: String,

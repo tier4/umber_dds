@@ -1,14 +1,28 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DeriveInput, Fields, LitStr};
 
-#[proc_macro_derive(Keyed, attributes(key))]
-pub fn derive_keyed(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(DdsData, attributes(key, dds_data))]
+pub fn derive_ddsdata(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
-    let mut keys = Vec::new();
+    let mut user_type_name = None;
+    for attr in &input.attrs {
+        if attr.path().is_ident("dds_data") {
+            let _ = attr.parse_nested_meta(|meta| {
+                // #[keyed(type_name = "...")]
+                if meta.path.is_ident("type_name") {
+                    let expr = meta.value()?;
+                    let s: LitStr = expr.parse()?;
+                    user_type_name = Some(s.value());
+                }
+                Ok(())
+            });
+        }
+    }
 
+    let mut keys = Vec::new();
     if let Data::Struct(data_struct) = &input.data {
         if let Fields::Named(fields) = &data_struct.fields {
             for field in &fields.named {
@@ -23,6 +37,12 @@ pub fn derive_keyed(input: TokenStream) -> TokenStream {
         }
     }
 
+    let default_type_name = name.to_string();
+    let final_type_name = match user_type_name {
+        Some(custom) => custom,
+        None => default_type_name,
+    };
+
     let keys_count = keys.len();
 
     let constract_key = keys.iter().map(|key| {
@@ -36,7 +56,7 @@ pub fn derive_keyed(input: TokenStream) -> TokenStream {
     });
 
     let expanded = quote! {
-        impl Keyed for #name {
+        impl DdsData for #name {
             fn gen_key(&self) -> KeyHash {
                 let mut cdr_size = 0;
                 let mut result: Vec<u8> = Vec::new();
@@ -51,6 +71,9 @@ pub fn derive_keyed(input: TokenStream) -> TokenStream {
                     let md5 = compute(result);
                     KeyHash::new(&md5.0)
                 }
+            }
+            fn type_name() -> String {
+                #final_type_name.to_string()
             }
             fn is_with_key() -> bool {
                 #keys_count != 0

@@ -13,11 +13,11 @@ panic = 'abort'
 panic = 'abort'
 
 [workspace]
-members = [".", "keyed_derive"]
+members = [".", "ddsdata_derive"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-keyed_derive = { version = "0.1.0", path = "keyed_derive" }
+ddsdata_derive = { version = "0.1.0", path = "ddsdata_derive" }
 byteorder = { version = "1.4.3", default-features = false }
 bytes = { version = "1.7", default-features = false }
 enumflags2 = { version = "0.7.7", default-features = false, features = [
