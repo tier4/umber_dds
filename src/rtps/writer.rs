@@ -79,7 +79,7 @@ impl Writer {
     ) -> Self {
         Self {
             guid: wi.guid,
-            _topic_kind: wi.topic_kind,
+            _topic_kind: wi.topic.kind(),
             reliability_level: wi.reliability_level,
             unicast_locator_list: wi.unicast_locator_list,
             multicast_locator_list: wi.multicast_locator_list,
@@ -899,7 +899,6 @@ pub struct WriterIngredients {
     // Entity
     pub guid: GUID,
     // Endpoint
-    pub topic_kind: TopicKind,
     pub reliability_level: ReliabilityQosKind,
     pub unicast_locator_list: Vec<Locator>,
     pub multicast_locator_list: Vec<Locator>,

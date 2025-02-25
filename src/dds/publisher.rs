@@ -197,7 +197,6 @@ impl InnerPublisher {
                     EntityKind::WRITER_WITH_KEY_USER_DEFIND,
                 ),
             ),
-            topic_kind: topic.kind(),
             reliability_level,
             unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
                 self.dp.domain_id(),
@@ -250,7 +249,6 @@ impl InnerPublisher {
         };
         let writer_ing = WriterIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
-            topic_kind: topic.kind(),
             reliability_level,
             unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
                 self.dp.domain_id(),

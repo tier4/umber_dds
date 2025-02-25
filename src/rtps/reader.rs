@@ -57,7 +57,7 @@ impl Reader {
     ) -> Self {
         Self {
             guid: ri.guid,
-            _topic_kind: ri.topic_kind,
+            _topic_kind: ri.topic.kind(),
             reliability_level: ri.reliability_level,
             unicast_locator_list: ri.unicast_locator_list,
             multicast_locator_list: ri.multicast_locator_list,
@@ -572,7 +572,6 @@ pub struct ReaderIngredients {
     // Entity
     pub guid: GUID,
     // Endpoint
-    pub topic_kind: TopicKind,
     pub reliability_level: ReliabilityQosKind,
     pub unicast_locator_list: Vec<Locator>,
     pub multicast_locator_list: Vec<Locator>,
