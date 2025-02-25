@@ -236,6 +236,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
+name = "ddsdata_derive"
+version = "0.1.0"
+dependencies = [
+ "cdr",
+ "md5",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "enumflags2"
 version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -357,16 +367,6 @@ checksum = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 dependencies = [
  "winapi 0.2.8",
  "winapi-build",
-]
-
-[[package]]
-name = "keyed_derive"
-version = "0.1.0"
-dependencies = [
- "cdr",
- "md5",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -774,9 +774,9 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "syn"
-version = "2.0.96"
+version = "2.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5d0adab1ae378d7f53bdebc67a39f1f151407ef230f0ce2883572f5d8985c80"
+checksum = "36147f1a48ae0ec2b5b3bc5b537d267457555a10dc06f3dbc8cb11ba3006d3b1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -874,9 +874,9 @@ dependencies = [
  "clap",
  "clap_derive",
  "colored",
+ "ddsdata_derive",
  "enumflags2",
  "if-addrs",
- "keyed_derive",
  "md5",
  "mio 0.6.23",
  "mio 0.8.11",
