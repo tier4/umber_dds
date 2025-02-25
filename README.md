@@ -13,6 +13,40 @@ git clone --recursive https://github.com/tier4/umber_dds.git
 
 UmberDDS has not yet implemented proper logging, so all debug information is output directly to `stderr`. Therefore, if you do not need debug information, it is recommended to redirect `stderr` to `/dev/null`.
 
+## How to define exchanged data
+I'll explain using the following IDL as an example.
+```
+// Shape.idl
+struct ShapeType
+{
+  @key string color;
+  long x;
+  long y;
+  long shapesize;
+};
+```
+
+The structure representing the exchanged data must implement three traits: `serde::{Serialize, Deserialize}`, and `umberdds::DdsData`.
+`serde::{Serialize, Deserialize}` is necessary for serializing and deserializing the data into the RTPS message format.
+`umberdds::DdsData` is required to specify the DataType name and the key.
+If some keys exists, annotate it with `#[key]`.
+If the structure name does not match the DataType name, specify the DataType name using `#[dds_data(type_name = "{name}")]`.
+```
+use umber_dds::{DdsData, kye::KeyHash};
+use md5::compute;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, DdsData)]
+#[dds_data(type_name = "ShapeType")]
+struct Shape {
+    #[key]
+    color: String,
+    x: i32,
+    y: i32,
+    shapesize: i32,
+}
+```
+
 ### examples/shapes_deme
 ```
 # build examples
@@ -37,15 +71,9 @@ besteffort subscriber
 ```
 
 ## Interoperability
-- [ ] FastDDS (%1)
-    - [x] WithKey Topic
-    - [ ] NoKey Topic
+- [x] Fast DDS (%1)
 - [x] RustDDS (%1)
-    - [x] WithKey Topic
-    - [x] NoKey Topic
-- [ ] Cyclone DDS (%1)
-    - [x] WithKey Topic
-    - [ ] NoKey Topic
+- [x] Cyclone DDS (%1)
 
 (%1) These implementations use IPC (Inter-Process Communication) instead of UDP for communication when Participants are on the same host. Since UmberDDS does not implement IPC, it cannot communicate with Participants of these implementations on the same host. If you need to communicate with these implementations on the same host, disable IPC or run UmberDDS in an isolated network namespace using tools like Docker.
 
@@ -61,7 +89,8 @@ besteffort subscriber
     - [ ] Reliable StatelessReader Behavior
 - [x] RTPS Writer Liveliness Protocol
 - [ ] Logging
-- [ ] Topics kinds: with_key and no_key
+- [x] Topics kinds: with_key and no_key
+- [ ] Instance
 - [ ] IPC (Inter-Process Communication)
 
 ### Supporting QoS
