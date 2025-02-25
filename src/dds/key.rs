@@ -7,7 +7,7 @@ pub struct KeyHash {
 }
 
 impl KeyHash {
-    fn new(bytes: &[u8]) -> Self {
+    pub fn new(bytes: &[u8]) -> Self {
         let mut hash_in = [0u8; 16];
         hash_in.copy_from_slice(&bytes);
         Self { hash: hash_in }
