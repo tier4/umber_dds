@@ -1048,7 +1048,7 @@ pub mod policy {
     }
 }
 
-#[allow(unused_imports)]
+#[cfg(test)]
 mod test {
     use super::policy;
     use crate::structure::Duration;

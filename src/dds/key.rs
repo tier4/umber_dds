@@ -1,16 +1,15 @@
-use ddsdata_derive::DdsData;
 use serde::ser::Serialize;
 
 #[derive(Debug)]
 pub struct KeyHash {
-    hash: [u8; 16],
+    _hash: [u8; 16],
 }
 
 impl KeyHash {
     pub fn new(bytes: &[u8]) -> Self {
         let mut hash_in = [0u8; 16];
-        hash_in.copy_from_slice(&bytes);
-        Self { hash: hash_in }
+        hash_in.copy_from_slice(bytes);
+        Self { _hash: hash_in }
     }
 }
 
@@ -35,32 +34,38 @@ impl Key for u64 {}
 
 impl Key for String {}
 
+#[cfg(test)]
 mod test {
-    use super::{DdsData, Key, KeyHash};
-    use cdr::{calc_serialized_size, CdrBe, Infinite};
+    use super::KeyHash;
+    use crate::DdsData;
+    use cdr::{CdrBe, Infinite};
     use md5::compute;
 
     #[derive(DdsData, Debug)]
     struct Shape {
         #[key]
         color: String,
-        x: i32,
-        y: i32,
-        #[key]
-        shapesize: i32,
+        _x: i32,
+        _y: i32,
+        _shapesize: i32,
     }
 
     #[test]
     fn test() {
         let shape = Shape {
-            color: String::from("red"),
-            x: 10,
-            y: 20,
-            shapesize: 30,
+            color: String::from("RED"),
+            _x: 10,
+            _y: 20,
+            _shapesize: 30,
         };
 
         let keyhash = shape.gen_key();
-        // TODO: check keyhash is correct
-        panic!("{:?}", keyhash); // for check keyhash value
+        assert_eq!(
+            keyhash._hash,
+            [
+                0x00, 0x00, 0x00, 0x04, 0x52, 0x45, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00
+            ]
+        )
     }
 }
