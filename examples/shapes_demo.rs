@@ -1,19 +1,35 @@
+use cdr::{CdrBe, Infinite};
 use clap::{Arg, Command};
+use md5::compute;
 use mio_extras::timer::Timer;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
+use umberdds::dds::key::KeyHash;
 use umberdds::dds::{qos::*, DataReaderStatusChanged, DataWriterStatusChanged, DomainParticipant};
-use umberdds::structure::TopicKind;
+use umberdds::DdsData;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, DdsData)]
+#[dds_data(type_name = "ShapeType")]
 struct Shape {
+    #[key]
     color: String,
     x: i32,
     y: i32,
     shapesize: i32,
 }
+/*
+Shape.idl
+```
+struct ShapeType {
+    @key string color;
+    long x;
+    long y;
+    long shapesize;
+};
+```
+*/
 
 fn main() {
     let args = Command::new("shapes_demo")
@@ -66,12 +82,8 @@ fn main() {
             policy::Reliability::default_besteffort()
         })
         .build();
-    let topic = participant.create_topic(
-        "Square".to_string(),
-        "ShapeType".to_string(),
-        TopicKind::WithKey,
-        TopicQos::Policies(topic_qos),
-    );
+    let topic =
+        participant.create_topic::<Shape>("Square".to_string(), TopicQos::Policies(topic_qos));
 
     if let Some(pub_sub) = args.get_one::<String>("mode").map(String::as_str) {
         match pub_sub {
