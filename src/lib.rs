@@ -9,9 +9,13 @@
 //! use serde::{Deserialize, Serialize};
 //! use std::time::{Duration, SystemTime};
 //! use umberdds::dds::{qos::*, DomainParticipant};
-//! use umberdds::structure::TopicKind;
+//! use umberdds::DdsData;
 //!
-//! #[derive(Serialize, Deserialize, Clone, Debug)]
+//! // for DdsData
+//! use md5::compute;
+//! use umberdds::dds::key::KeyHash;
+//!
+//! #[derive(Serialize, Deserialize, Clone, Debug, DdsData)]
 //! struct HelloWorld {
 //!     index: u32,
 //!     message: String,
@@ -28,12 +32,8 @@
 //!     let topic_qos = TopicQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
-//!     let topic = participant.create_topic(
-//!         "HelloWorldTopic".to_string(),
-//!         "HelloWorld".to_string(),
-//!         TopicKind::WithKey,
-//!         TopicQos::Policies(topic_qos),
-//!     );
+//!     let topic = participant
+//!         .create_topic::<HelloWorld>("HelloWorldTopic".to_string(), TopicQos::Policies(topic_qos));
 //!
 //!     let poll = Poll::new().unwrap();
 //!
@@ -85,9 +85,13 @@
 //! use serde::{Deserialize, Serialize};
 //! use std::time::SystemTime;
 //! use umberdds::dds::{qos::*, DataReaderStatusChanged, DomainParticipant};
-//! use umberdds::structure::TopicKind;
+//! use umberdds::DdsData;
 //!
-//! #[derive(Serialize, Deserialize, Clone, Debug)]
+//! // for DdsData
+//! use md5::compute;
+//! use umberdds::dds::key::KeyHash;
+//!
+//! #[derive(Serialize, Deserialize, Clone, Debug, DdsData)]
 //! struct HelloWorld {
 //!     index: u32,
 //!     message: String,
@@ -104,12 +108,8 @@
 //!     let topic_qos = TopicQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
-//!     let topic = participant.create_topic(
-//!         "HelloWorldTopic".to_string(),
-//!         "HelloWorld".to_string(),
-//!         TopicKind::WithKey,
-//!         TopicQos::Policies(topic_qos),
-//!     );
+//!     let topic = participant
+//!         .create_topic::<HelloWorld>("HelloWorldTopic".to_string(), TopicQos::Policies(topic_qos));
 //!
 //!     let poll = Poll::new().unwrap();
 //!
