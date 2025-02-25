@@ -169,4 +169,7 @@ pub mod helper;
 mod message;
 pub mod structure;
 
+pub use dds::key::DdsData;
+pub use ddsdata_derive::DdsData;
+
 extern crate alloc;
