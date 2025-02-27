@@ -9,6 +9,7 @@ use crate::message::submessage::element::Locator;
 use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
 use crate::rtps::writer::{DataWriterStatusChanged, WriterCmd, WriterIngredients};
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, TopicKind, GUID};
+use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use mio_extras::channel as mio_channel;
@@ -92,7 +93,7 @@ impl Publisher {
     /// ```ignore
     /// publisher.create_datawriter::<Hoge>(publisher.get_default_datawriter_qos(), &topic)
     /// ```
-    pub fn create_datawriter<D: serde::Serialize>(
+    pub fn create_datawriter<D: serde::Serialize + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
@@ -103,7 +104,7 @@ impl Publisher {
     }
 
     /// See [`Self::create_datawriter`] for a note of qos.
-    pub fn create_datawriter_with_entityid<D: serde::Serialize>(
+    pub fn create_datawriter_with_entityid<D: serde::Serialize + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
@@ -158,7 +159,7 @@ impl InnerPublisher {
         self.qos = qos;
     }
 
-    pub fn create_datawriter<D: serde::Serialize>(
+    pub fn create_datawriter<D: serde::Serialize + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
@@ -228,7 +229,7 @@ impl InnerPublisher {
             writer_state_receiver,
         )
     }
-    pub fn create_datawriter_with_entityid<D: serde::Serialize>(
+    pub fn create_datawriter_with_entityid<D: serde::Serialize + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,

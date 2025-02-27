@@ -1,6 +1,7 @@
 use crate::dds::{qos::DataReaderQosPolicies, subscriber::Subscriber, topic::Topic};
 use crate::discovery::structure::cdr::deserialize;
 use crate::rtps::{cache::HistoryCache, reader::DataReaderStatusChanged};
+use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::marker::PhantomData;
@@ -10,7 +11,7 @@ use serde::Deserialize;
 use std::io;
 
 /// DDS DataReader
-pub struct DataReader<D: for<'de> Deserialize<'de>> {
+pub struct DataReader<D: for<'de> Deserialize<'de> + DdsData> {
     data_phantom: PhantomData<D>,
     _qos: DataReaderQosPolicies,
     _topic: Topic,
@@ -19,7 +20,7 @@ pub struct DataReader<D: for<'de> Deserialize<'de>> {
     reader_state_receiver: mio_channel::Receiver<DataReaderStatusChanged>,
 }
 
-impl<D: for<'de> Deserialize<'de>> DataReader<D> {
+impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
     pub(crate) fn new(
         qos: DataReaderQosPolicies,
         topic: Topic,
@@ -82,7 +83,7 @@ impl<D: for<'de> Deserialize<'de>> DataReader<D> {
     }
 }
 
-impl<D: for<'de> Deserialize<'de>> Evented for DataReader<D> {
+impl<D: for<'de> Deserialize<'de> + DdsData> Evented for DataReader<D> {
     fn register(
         &self,
         poll: &Poll,

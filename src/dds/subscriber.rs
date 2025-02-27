@@ -11,6 +11,7 @@ use crate::rtps::{
     reader::{DataReaderStatusChanged, ReaderIngredients},
 };
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, TopicKind, GUID};
+use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use mio_extras::channel as mio_channel;
@@ -82,7 +83,7 @@ impl Subscriber {
     /// ```ignore
     /// subscriber.create_datareader::<Hoge>(subscriber.get_default_datareader_qos(), &topic)
     /// ```
-    pub fn create_datareader<D: for<'de> Deserialize<'de>>(
+    pub fn create_datareader<D: for<'de> Deserialize<'de> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
@@ -93,7 +94,7 @@ impl Subscriber {
     }
 
     /// See [`Self::create_datareader`] for a note of qos.
-    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
+    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
@@ -156,7 +157,7 @@ impl InnerSubscriber {
         self.qos = qos
     }
 
-    pub fn create_datareader<D: for<'de> Deserialize<'de>>(
+    pub fn create_datareader<D: for<'de> Deserialize<'de> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
@@ -223,7 +224,7 @@ impl InnerSubscriber {
         )
     }
 
-    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de>>(
+    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,

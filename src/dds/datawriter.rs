@@ -1,4 +1,5 @@
 use crate::dds::{
+    key::DdsData,
     publisher::Publisher,
     qos::{policy::LivelinessQosKind, DataWriterQosPolicies},
     topic::Topic,
@@ -14,7 +15,7 @@ use std::io;
 
 /// DDS DataWriter
 #[allow(dead_code)]
-pub struct DataWriter<D: Serialize> {
+pub struct DataWriter<D: Serialize + DdsData> {
     data_phantom: PhantomData<D>,
     qos: DataWriterQosPolicies,
     topic: Topic,
@@ -25,7 +26,7 @@ pub struct DataWriter<D: Serialize> {
     writer_state_receiver: mio_channel::Receiver<DataWriterStatusChanged>,
 }
 
-impl<D: Serialize> DataWriter<D> {
+impl<D: Serialize + DdsData> DataWriter<D> {
     pub(crate) fn new(
         writer_command_sender: mio_channel::SyncSender<WriterCmd>,
         qos: DataWriterQosPolicies,
@@ -90,7 +91,7 @@ impl<D: Serialize> DataWriter<D> {
     }
 }
 
-impl<D: Serialize> Evented for DataWriter<D> {
+impl<D: Serialize + DdsData> Evented for DataWriter<D> {
     fn register(
         &self,
         poll: &Poll,

@@ -1,20 +1,25 @@
+use crate::dds::key::KeyHash;
 use crate::dds::qos::{policy::*, DataReaderQosBuilder, DataWriterQosBuilder};
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator};
 use crate::rtps::cache::HistoryCache;
 use crate::structure::{Duration, ParameterId, ReaderProxy, VendorId, WriterProxy, GUID};
+use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
+use cdr::{CdrBe, Infinite};
 use colored::*;
 use enumflags2::BitFlags;
+use md5::compute;
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::{ser::SerializeStruct, Serialize};
 use std::fmt;
 
 /// rtps spec, 9.6.2.1 Data Representation for the ParticipantMessageData Built-in Endpoints
-#[derive(Clone, Serialize, serde::Deserialize)]
+#[derive(Clone, Serialize, serde::Deserialize, DdsData)]
 pub struct ParticipantMessageData {
+    #[key]
     pub guid: GUID,
     pub kind: ParticipantMessageKind,
     pub data: Vec<u8>,
@@ -42,12 +47,13 @@ impl ParticipantMessageKind {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Default)]
+#[derive(Clone, Default, DdsData)]
 pub struct SDPBuiltinData {
     // SPDPdiscoveredParticipantData
     pub domain_id: Option<u16>,
     pub domain_tag: Option<String>,
     pub protocol_version: Option<ProtocolVersion>,
+    #[key]
     pub guid: Option<GUID>,
     pub vendor_id: Option<VendorId>,
     pub expects_inline_qos: Option<bool>,
@@ -1198,14 +1204,19 @@ impl Serialize for PublicationBuiltinTopicData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, DdsData)]
 pub struct DiscoveredReaderData {
+    #[key]
+    key: (),
+    // Normally, we would use the key and publication_key from builtin_topic_data to compute the Key, but implementing this is difficult.
+    // Since there's currently no need to compute the key, we are using this approach as a temporary solution.
     proxy: ReaderProxy,
     builtin_topic_data: SubscriptionBuiltinTopicData,
 }
 impl DiscoveredReaderData {
     pub fn new(proxy: ReaderProxy, builtin_topic_data: SubscriptionBuiltinTopicData) -> Self {
         Self {
+            key: (),
             proxy,
             builtin_topic_data,
         }
@@ -1231,14 +1242,19 @@ impl Serialize for DiscoveredReaderData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, DdsData)]
 pub struct DiscoveredWriterData {
+    #[key]
+    key: (),
+    // Normally, we would use the key and publication_key from builtin_topic_data to compute the Key, but implementing this is difficult.
+    // Since there's currently no need to compute the key, we are using this approach as a temporary solution.
     proxy: WriterProxy,
     builtin_topic_data: PublicationBuiltinTopicData,
 }
 impl DiscoveredWriterData {
     pub fn new(proxy: WriterProxy, builtin_topic_data: PublicationBuiltinTopicData) -> Self {
         Self {
+            key: (),
             proxy,
             builtin_topic_data,
         }
@@ -1264,12 +1280,13 @@ impl Serialize for DiscoveredWriterData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, DdsData)]
 pub struct SPDPdiscoveredParticipantData {
     pub domain_id: u16,
     pub _domain_tag: String,
     pub protocol_version: ProtocolVersion,
-    pub guid: GUID,
+    #[key]
+    pub guid: GUID, // Key
     pub vendor_id: VendorId,
     pub expects_inline_qos: bool,
     pub available_builtin_endpoint: BitFlags<BuiltinEndpoint>, // parameter_id: ParameterId::PID_BUILTIN_ENDPOINT_SET
