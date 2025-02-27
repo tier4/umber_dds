@@ -34,7 +34,7 @@ pub struct Writer {
     // Entity
     guid: GUID,
     // Endpoint
-    _topic_kind: TopicKind,
+    topic_kind: TopicKind,
     reliability_level: ReliabilityQosKind,
     unicast_locator_list: Vec<Locator>,
     multicast_locator_list: Vec<Locator>,
@@ -79,7 +79,7 @@ impl Writer {
     ) -> Self {
         Self {
             guid: wi.guid,
-            _topic_kind: wi.topic.kind(),
+            topic_kind: wi.topic.kind(),
             reliability_level: wi.reliability_level,
             unicast_locator_list: wi.unicast_locator_list,
             multicast_locator_list: wi.multicast_locator_list,
@@ -103,6 +103,10 @@ impl Writer {
             hb_counter: 0,
             an_state: AckNackState::Waiting,
         }
+    }
+
+    pub fn topic_kind(&self) -> TopicKind {
+        self.topic_kind
     }
 
     pub fn sedp_data(&self) -> DiscoveredWriterData {

@@ -29,7 +29,7 @@ pub struct Reader {
     // Entity
     guid: GUID,
     // Endpoint
-    _topic_kind: TopicKind,
+    topic_kind: TopicKind,
     reliability_level: ReliabilityQosKind,
     unicast_locator_list: Vec<Locator>,
     multicast_locator_list: Vec<Locator>,
@@ -57,7 +57,7 @@ impl Reader {
     ) -> Self {
         Self {
             guid: ri.guid,
-            _topic_kind: ri.topic.kind(),
+            topic_kind: ri.topic.kind(),
             reliability_level: ri.reliability_level,
             unicast_locator_list: ri.unicast_locator_list,
             multicast_locator_list: ri.multicast_locator_list,
@@ -80,6 +80,10 @@ impl Reader {
             ReliabilityQosKind::Reliable => true,
             ReliabilityQosKind::BestEffort => false,
         }
+    }
+
+    pub fn topic_kind(&self) -> TopicKind {
+        self.topic_kind
     }
 
     pub fn sedp_data(&self) -> DiscoveredReaderData {

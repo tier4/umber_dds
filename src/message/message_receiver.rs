@@ -447,6 +447,19 @@ impl MessageReceiver {
                         "<{}>: matched writer add to reader",
                         "MessageReceiver: Info".green()
                     );
+                    let remote_writer_topic_kind =
+                        writer_proxy.remote_writer_guid.entity_id.topic_kind();
+                    if let Some(tk) = remote_writer_topic_kind {
+                        if reader.topic_kind() != tk {
+                            eprintln!(
+                                "<{}>: reader found matched writer, but not match topic_kind. reader: {:?}, writer: {:?}",
+                                "MessageReceiver: Warn".yellow(),
+                                reader.topic_kind(),
+                                tk,
+                            );
+                            return Ok(());
+                        }
+                    }
                     reader.matched_writer_add_with_default_locator(
                         writer_proxy.remote_writer_guid,
                         writer_proxy.unicast_locator_list.clone(),
@@ -532,6 +545,19 @@ impl MessageReceiver {
                         "<{}>: matched reader add to writer",
                         "MessageReceiver: Info".green()
                     );
+                    let remote_reader_topic_kind =
+                        reader_proxy.remote_reader_guid.entity_id.topic_kind();
+                    if let Some(tk) = remote_reader_topic_kind {
+                        if writer.topic_kind() != tk {
+                            eprintln!(
+                                "<{}>: writer found matched reader, but not match topic_kind. writer: {:?}, reader: {:?}",
+                                "MessageReceiver: Warn".yellow(),
+                                writer.topic_kind(),
+                                tk,
+                            );
+                            return Ok(());
+                        }
+                    }
                     writer.matched_reader_add_with_default_locator(
                         reader_proxy.remote_reader_guid,
                         reader_proxy.expects_inline_qos,

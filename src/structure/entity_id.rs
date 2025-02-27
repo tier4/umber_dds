@@ -1,3 +1,4 @@
+use crate::structure::TopicKind;
 use crate::{Deserialize, Serialize};
 use alloc::fmt;
 use mio_v06::Token;
@@ -50,6 +51,10 @@ impl EntityId {
                 | EntityKind::WRITER_NO_KEY_USER_DEFIND
                 | EntityKind::WRITER_WITH_KEY_USER_DEFIND
         )
+    }
+
+    pub fn topic_kind(&self) -> Option<TopicKind> {
+        self.entity_kind.topic_kind()
     }
 
     pub fn entity_kind(&self) -> EntityKind {
@@ -214,6 +219,22 @@ impl EntityKind {
     // self difined
     pub const PUBLISHER: Self = Self { value: 0x40 };
     pub const SUBSCRIBER: Self = Self { value: 0x41 };
+}
+
+impl EntityKind {
+    fn topic_kind(&self) -> Option<TopicKind> {
+        match *self {
+            Self::WRITER_WITH_KEY_USER_DEFIND
+            | Self::WRITER_WITH_KEY_BUILT_IN
+            | Self::READER_WITH_KEY_USER_DEFIND
+            | Self::READER_WITH_KEY_BUILT_IN => Some(TopicKind::WithKey),
+            Self::WRITER_NO_KEY_USER_DEFIND
+            | Self::WRITER_NO_KEY_BUILT_IN
+            | Self::READER_NO_KEY_USER_DEFIND
+            | Self::READER_NO_KEY_BUILT_IN => Some(TopicKind::NoKey),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Debug for EntityKind {
