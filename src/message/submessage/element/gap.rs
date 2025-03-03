@@ -2,6 +2,7 @@ use crate::message::submessage::element::*;
 use crate::message::submessage_flag::GapFlag;
 use crate::structure::EntityId;
 use enumflags2::BitFlags;
+use log::warn;
 use speedy::{Readable, Writable};
 
 #[derive(Readable, Clone)]
@@ -36,13 +37,11 @@ impl Gap {
         // rtps 2.3 spec 8.3.7.4 Gap
         // validation
         if self.gap_start <= SequenceNumber(0) {
-            // gapStart is zero or negative
-            eprintln!("Invalid Gap Submessage received");
+            warn!("Invalid Gap Submessage: gapStart is zero or negative");
             return false;
         }
         if !self.gap_list.is_valid() {
-            // gapList is invalid
-            eprintln!("Invalid Gap Submessage received");
+            warn!("Invalid Gap Submessage: gapList is invalid");
             return false;
         }
         if flag.contains(GapFlag::GroupInfo) {
@@ -50,31 +49,28 @@ impl Gap {
             match self.gap_start_gsn {
                 Some(gs_gsn) => {
                     if gs_gsn <= SequenceNumber(0) {
-                        // gapStartGSN.value is zero or negative
-                        eprintln!("Invalid Gap Submessage received");
+                        warn!("Invalid Gap Submessage: gapStartGSN.value is zero or negative");
                         return false;
                     }
                 }
                 None => {
-                    eprintln!("Invalid Gap Submessage received");
+                    warn!("Invalid Gap Submessage: GroupInfoFlag is set, but no gap_start_gsn");
                     return false;
                 }
             }
             match self.gap_end_gsn {
                 Some(ge_gsn) => {
                     if ge_gsn <= SequenceNumber(0) {
-                        // gapEndGSN.value is zero or negative
-                        eprintln!("Invalid Gap Submessage received");
+                        warn!("Invalid Gap Submessage: gapEndGSN.value is zero or negative");
                         return false;
                     }
                     if ge_gsn < self.gap_start_gsn.unwrap() - SequenceNumber(1) {
-                        // gapEndGSN.value < gapStartGSN.value-1
-                        eprintln!("Invalid Gap Submessage received");
+                        warn!("Invalid Gap Submessage: gapEndGSN.value < gapStartGSN.value-1");
                         return false;
                     }
                 }
                 None => {
-                    eprintln!("Invalid Gap Submessage received");
+                    warn!("Invalid Gap Submessage: GroupInfoFlag is set, but no gap_end_gsn");
                     return false;
                 }
             }

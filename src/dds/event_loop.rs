@@ -16,6 +16,7 @@ use alloc::rc::Rc;
 use bytes::BytesMut;
 use colored::*;
 use core::time::Duration as CoreDuration;
+use log::{debug, error, info, trace, warn};
 use mio_extras::{
     channel as mio_channel,
     timer::{Timeout, Timer},
@@ -217,10 +218,6 @@ impl EventLoop {
                                 if writer.entity_id()
                                     == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
                                 {
-                                    eprintln!(
-                                        "<{}>: add ReaderProxy to SPDP Writer",
-                                        "EventLoop: Info".green()
-                                    );
                                     // this is for sending discovery message
                                     // readerEntityId of SPDP message from Rust DDS:
                                     // ENTITYID_BUILT_IN_SDP_PARTICIPANT_READER
@@ -242,11 +239,10 @@ impl EventLoop {
                                     );
                                 }
                                 if writer.is_reliable() {
-                                    eprintln!(
-                                        "<{}>: set Writer Heartbeat timer({:?}, {:?})",
-                                        "EventLoop: Info".green(),
-                                        writer.heartbeat_period(),
+                                    trace!(
+                                        "set Writer {:?} Heartbeat timer({:?}s)",
                                         writer.entity_id(),
+                                        writer.heartbeat_period(),
                                     );
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
@@ -301,7 +297,7 @@ impl EventLoop {
                             }
                         }
                         DISCOVERY_SEND_TOKEN => {
-                            eprintln!("=== @event_loop Discovery cmd received ===");
+                            info!("=== @event_loop Discovery cmd received ===");
                             todo!(); // send spdp msg
                         }
                         DISCOVERY_DB_UPDATE => {
@@ -309,20 +305,15 @@ impl EventLoop {
                         }
                         WRITER_HEARTBEAT_TIMER => {
                             while let Some(eid) = self.writer_hb_timer.poll() {
-                                eprintln!(
-                                    "<{}>: fired Writer Heartbeat timer({:?})",
-                                    "EventLoop: Info".green(),
-                                    eid,
-                                );
+                                trace!("fired Writer Heartbeat timer({:?})", eid);
                                 if let Some(writer) = self.writers.get_mut(&eid) {
                                     writer.send_heart_beat();
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
-                                    eprintln!(
-                                        "<{}>: set Writer Heartbeat timer({:?}, {:?})",
-                                        "EventLoop: Info".green(),
-                                        writer.heartbeat_period(),
+                                    trace!(
+                                        "set Writer {:?} Heartbeat timer({:?}s)",
                                         writer.entity_id(),
+                                        writer.heartbeat_period(),
                                     );
                                 };
                             }
@@ -333,11 +324,10 @@ impl EventLoop {
                             {
                                 if let Some(reader) = self.readers.get(&reader_entity_id) {
                                     let mut reader_hb_timer = Timer::default();
-                                    eprintln!(
-                                        "<{}>: set Reader Heartbeat timer({:?}, ({:?}, {:?}))",
-                                        "EventLoop: Info".green(),
-                                        reader.heartbeat_response_delay(),
+                                    trace!(
+                                        "set Reader {:?} Heartbeat response delay timer({:?}s) to Writer {:?}",
                                         reader_entity_id,
+                                        reader.heartbeat_response_delay(),
                                         writer_guid
                                     );
                                     reader_hb_timer.set_timeout(
@@ -362,11 +352,10 @@ impl EventLoop {
                             {
                                 if let Some(writer) = self.writers.get(&writer_entity_id) {
                                     let mut writedr_an_timer = Timer::default();
-                                    eprintln!(
-                                        "<{}>: set Writer AckNack timer({:?}, ({:?}, {:?}))",
-                                        "EventLoop: Info".green(),
-                                        writer.nack_response_delay(),
+                                    trace!(
+                                        "set Writer {:?} AckNack timer({:?}s) to Reader {:?}",
                                         writer_entity_id,
+                                        writer.nack_response_delay(),
                                         reader_guid
                                     );
                                     writedr_an_timer.set_timeout(
@@ -390,9 +379,8 @@ impl EventLoop {
                                 if let Some(eid) = wlp_timer.poll() {
                                     if let Some(reader) = self.readers.get_mut(&eid) {
                                         reader.check_liveliness(&self.discovery_db);
-                                        eprintln!(
-                                            "<{}>: checked liveliness of reader: {:?}",
-                                            "EventLoop: Info".green(),
+                                        trace!(
+                                            "checked liveliness of Reader {:?}",
                                             reader.entity_id()
                                         );
                                         *to = wlp_timer.set_timeout(
@@ -431,10 +419,7 @@ impl EventLoop {
                         READER_HEARTBEAT_TIMER => {
                             for rhb_timer in &mut self.reader_hb_timers {
                                 if let Some((reid, wguid)) = rhb_timer.poll() {
-                                    eprintln!(
-                                        "<{}>: fired Reader Heartbeat timer",
-                                        "EventLoop: Info".green(),
-                                    );
+                                    trace!("fired Reader {:?} Heartbeat timer", reid);
                                     if let Some(reader) = self.readers.get_mut(&reid) {
                                         reader.handle_hb_response_timeout(wguid);
                                     }
@@ -444,10 +429,7 @@ impl EventLoop {
                         WRITER_NACK_TIMER => {
                             for wan_timer in &mut self.writer_nack_timers {
                                 if let Some((weid, rguid)) = wan_timer.poll() {
-                                    eprintln!(
-                                        "<{}>: fired Writer AcnNack timer",
-                                        "EventLoop: Info".green(),
-                                    );
+                                    trace!("fired Writer {:?} AcnNack timer", weid);
                                     if let Some(writer) = self.writers.get_mut(&weid) {
                                         writer.handle_nack_response_timeout(rguid);
                                     }
@@ -479,7 +461,7 @@ impl EventLoop {
                                 }
                             }
                         }
-                        Token(n) => eprintln!("@event_loop: Token(0x{:02X}) is not implemented", n),
+                        Token(n) => info!("@event_loop: Token(0x{:02X}) is not implemented", n),
                     },
                     TokenDec::Entity(eid) => {
                         if eid.is_writer() {
@@ -490,23 +472,18 @@ impl EventLoop {
                                 );
                                 writer.handle_writer_cmd();
                             } else {
-                                eprintln!(
-                                    "<{}>: writer_cmd to Unregisterd Writer. eid: {:?}",
-                                    "EventLoop: Err".red(),
+                                error!(
+                                    "EventLoop's poll received event with Token of unregisterd Writer {:?}",
                                     eid
                                 );
                             }
                         } else if eid.is_reader() {
-                            eprintln!(
-                                "<{}>: receive reader_cmd from reader: {:?}, but reader_cmd not implimented",
-                                "EventLoop: Err".red(),
-                                eid
+                            unreachable!(
+                                "EventLoop's poll received event with TokenDec::Entity(Reader entityid)"
                             );
                         } else {
-                            eprintln!(
-                                "<{}>: receive message from unknown entity: {:?}",
-                                "EventLoop: Err".red(),
-                                eid
+                            unreachable!(
+                                "EventLoop's poll received event with TokenDec::Entity(UNKNOW entityid)"
                             );
                         }
                     }
@@ -544,12 +521,9 @@ impl EventLoop {
 
     fn handle_participant_discovery(&mut self) {
         // configure sedp_builtin_{pub/sub}_writer based on reseived spdp_data
-        eprintln!(
-            "<{}>: handle_participant_discovery",
-            "EventLoop: Info".green(),
-        );
 
         while let Ok(guid_prefix) = self.discdb_update_receiver.try_recv() {
+            trace!("handle_participant_discovery: {:?}", guid_prefix);
             if let Some(spdp_data) = self.discovery_db.read_participant_data(guid_prefix) {
                 if spdp_data.domain_id != self.domain_id {
                     continue;
@@ -566,10 +540,7 @@ impl EventLoop {
                             .writers
                             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER)
                         {
-                            eprintln!(
-                                "<{}>: sedp_writer.matched_reader_add(remote_sedp_pub_reader)",
-                                "EventLoop: Info".green()
-                            );
+                            trace!("sedp_writer.matched_reader_add(remote_sedp_pub_reader)");
                             let qos = DataReaderQosBuilder::new()
                                 .reliability(Reliability::default_besteffort())
                                 .build();
@@ -593,10 +564,7 @@ impl EventLoop {
                             .readers
                             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR)
                         {
-                            eprintln!(
-                                "<{}>: sedp_reader.matched_writer_add(remote_sedp_pub_writer)",
-                                "EventLoop: Info".green()
-                            );
+                            trace!("sedp_reader.matched_writer_add(remote_sedp_pub_writer)");
                             let qos = DataWriterQosBuilder::new()
                                 .reliability(Reliability::default_reliable())
                                 .build();
@@ -620,10 +588,7 @@ impl EventLoop {
                             .writers
                             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER)
                         {
-                            eprintln!(
-                                "<{}>: sedp_writer.matched_reader_add(remote_sedp_sub_reader)",
-                                "EventLoop".green()
-                            );
+                            trace!("sedp_writer.matched_reader_add(remote_sedp_sub_reader)");
                             let qos = DataReaderQosBuilder::new()
                                 .reliability(Reliability::default_reliable())
                                 .build();
@@ -647,10 +612,7 @@ impl EventLoop {
                             .readers
                             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR)
                         {
-                            eprintln!(
-                                "<{}>: sedp_reader.matched_writer_add(remote_sedp_sub_writer)",
-                                "EventLoop: Info".green()
-                            );
+                            trace!("sedp_reader.matched_writer_add(remote_sedp_sub_writer)");
                             let qos = DataWriterQosBuilder::new()
                                 .reliability(Reliability::default_reliable())
                                 .build();
@@ -674,10 +636,7 @@ impl EventLoop {
                             .writers
                             .get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER)
                         {
-                            eprintln!(
-                                "<{}>: p2p_msg_writer.matched_reader_add(remote_p2p_msg_reader)",
-                                "EventLoop: Info".green()
-                            );
+                            trace!("p2p_msg_writer.matched_reader_add(remote_p2p_msg_reader)");
                             // rtps 2.3 sepc, 8.4.13.3 BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader QoS
                             // If the ParticipantProxy::builtinEndpointQos is included in the SPDPdiscoveredParticipantData, then the
                             // BuiltinParticipantMessageWriter shall treat the BuiltinParticipantMessageReader as indicated by the flags If the
@@ -706,10 +665,7 @@ impl EventLoop {
                             .readers
                             .get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER)
                         {
-                            eprintln!(
-                                "<{}>: p2p_msg_reader.matched_writer_add(remote_p2p_msg_writer)",
-                                "EventLoop: Info".green()
-                            );
+                            trace!("p2p_msg_reader.matched_writer_add(remote_p2p_msg_writer)");
                             let qos = DataWriterQosBuilder::new()
                                 .reliability(Reliability::default_reliable())
                                 .build();

@@ -21,8 +21,8 @@ use crate::network::net_util::{
 };
 use crate::structure::{Duration, EntityId, GuidPrefix, RTPSEntity, TopicKind, VendorId};
 use alloc::collections::BTreeMap;
-use colored::*;
 use enumflags2::make_bitflags;
+use log::info;
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use std::time::Duration as StdDuration;
@@ -317,11 +317,7 @@ impl Discovery {
                                 self.sedp_builtin_pub_writer
                                     .write_builtin_data(data.clone());
                                 self.local_writers_data.insert(eid, data);
-                                eprintln!(
-                                    "<{}>: add writer which has {:?} to writers",
-                                    "Discovery: Info".green(),
-                                    eid
-                                );
+                                info!("add Writer {:?} to Discovery's writers", eid);
                             }
                         }
                         DISC_READER_ADD => {
@@ -329,11 +325,7 @@ impl Discovery {
                                 self.sedp_builtin_sub_writer
                                     .write_builtin_data(data.clone());
                                 self.local_readers_data.insert(eid, data);
-                                eprintln!(
-                                    "<{}>: add reader which has {:?} to readers",
-                                    "Discovery: Info".green(),
-                                    eid
-                                );
+                                info!("add Reader {:?} to Discovery's readers", eid);
                             }
                         }
                         Token(n) => {
@@ -362,7 +354,10 @@ impl Discovery {
                     continue;
                 } else {
                     let guid_prefix = spdp_data.guid.guid_prefix;
-                    eprintln!("<{}>: discovery_db wite", "Discovery: Info".green());
+                    info!(
+                        "write Participant {:?} data to discovery_db",
+                        spdp_data.guid
+                    );
                     self.discovery_db.write_participant(
                         spdp_data.guid.guid_prefix,
                         Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
@@ -385,21 +380,19 @@ impl Discovery {
                 ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE
                 | ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
                     let writer_guid = d.guid;
-                    eprintln!(
-                        "<{}>: receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}}",
-                        "Discovery: Info".green()
+                    info!(
+                        "receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}}",
                     );
                 }
                 ParticipantMessageKind::UNKNOWN => {
-                    eprintln!(
-                        "<{}>: receved DATA(m) with ParticipantMessageKind::UNKNOWN, which is not processed",
-                        "Discovery: Warn".yellow()
+                    info!(
+                        "receved DATA(m) with ParticipantMessageKind::UNKNOWN, which is not processed",
                     );
                 }
                 k => {
-                    eprintln!(
-                        "<{}>: receved DATA(m) with ParticipantMessageKind::{:?}, which is not processed",
-                        "Discovery: Warn".yellow(), k.value
+                    info!(
+                        "receved DATA(m) with ParticipantMessageKind::{:?}, which is not processed",
+                        k.value
                     );
                 }
             }

@@ -22,9 +22,9 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
-use colored::*;
 use core::net::Ipv4Addr;
 use core::time::Duration as CoreDuration;
+use log::{info, trace, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
@@ -175,28 +175,30 @@ impl Writer {
 
     fn print_self_info(&self) {
         if cfg!(debug_assertions) {
-            eprintln!("<{}>: Writer info", "Writer: Info".green(),);
-            eprintln!("\tguid: {:?}", self.guid);
-            eprintln!("\tunicast locators");
+            let mut msg = String::new();
+            msg += "Writer info";
+            msg += &format!("\tguid: {:?}", self.guid);
+            msg += "\tunicast locators";
             for loc in &self.unicast_locator_list {
-                eprintln!("\t\t{:?}", loc)
+                msg += &format!("\t\t{:?}", loc);
             }
-            eprintln!("\tmulticast locators");
+            msg += "\tmulticast locators";
             for loc in &self.multicast_locator_list {
-                eprintln!("\t\t{:?}", loc)
+                msg += &format!("\t\t{:?}", loc);
             }
-            eprintln!("\tmatched readers");
+            msg += "\tmatched readers";
             for (eid, reader) in self.matched_readers.iter() {
-                eprintln!("\t\treader guid: {:?}", eid);
-                eprintln!("\t\tunicast locators");
+                msg += &format!("\t\treader guid: {:?}", eid);
+                msg += "\t\tunicast locators";
                 for loc in reader.get_unicast_locator_list() {
-                    eprintln!("\t\t\t{:?}", loc)
+                    msg += &format!("\t\t\t{:?}", loc)
                 }
-                eprintln!("\t\tmulticast locators");
+                msg += "\t\tmulticast locators";
                 for loc in reader.get_multicast_locator_list() {
-                    eprintln!("\t\t\t{:?}", loc)
+                    msg += &format!("\t\t\t{:?}", loc)
                 }
             }
+            trace!("{}", msg);
         }
     }
 
@@ -243,14 +245,9 @@ impl Writer {
                 if mul_loc.kind == Locator::KIND_UDPV4 {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
-                    eprintln!(
-                        "<{}>: send data(m) message to {}.{}.{}.{}:{}",
-                        "Writer: Info".green(),
-                        addr[12],
-                        addr[13],
-                        addr[14],
-                        addr[15],
-                        port
+                    info!(
+                        "Writer {:?} send data(m) message to {}.{}.{}.{}:{}",
+                        self.guid, addr[12], addr[13], addr[14], addr[15], port
                     );
                     self.sender.send_to_multicast(
                         &message_buf,
@@ -314,14 +311,9 @@ impl Writer {
                             if uni_loc.kind == Locator::KIND_UDPV4 {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
-                                eprintln!(
-                                    "<{}>: send data message to {}.{}.{}.{}:{}",
-                                    "Writer: Info".green(),
-                                    addr[12],
-                                    addr[13],
-                                    addr[14],
-                                    addr[15],
-                                    port
+                                info!(
+                                    "Writer {:?} send data message to {}.{}.{}.{}:{}",
+                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
                                 );
                                 self.sender.send_to_unicast(
                                     &message_buf,
@@ -334,14 +326,9 @@ impl Writer {
                             if mul_loc.kind == Locator::KIND_UDPV4 {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
-                                eprintln!(
-                                    "<{}>: send data message to {}.{}.{}.{}:{}",
-                                    "Writer: Info".green(),
-                                    addr[12],
-                                    addr[13],
-                                    addr[14],
-                                    addr[15],
-                                    port
+                                info!(
+                                    "Writer {:?} send data message to {}.{}.{}.{}:{}",
+                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
                                 );
                                 self.sender.send_to_multicast(
                                     &message_buf,
@@ -376,14 +363,9 @@ impl Writer {
                         if uni_loc.kind == Locator::KIND_UDPV4 {
                             let port = uni_loc.port;
                             let addr = uni_loc.address;
-                            eprintln!(
-                                "<{}>: send data message to {}.{}.{}.{}:{}",
-                                "Writer: Info".green(),
-                                addr[12],
-                                addr[13],
-                                addr[14],
-                                addr[15],
-                                port
+                            info!(
+                                "Writer {:?} send data message to {}.{}.{}.{}:{}",
+                                self.guid, addr[12], addr[13], addr[14], addr[15], port
                             );
                             self.sender.send_to_unicast(
                                 &message_buf,
@@ -396,14 +378,9 @@ impl Writer {
                         if mul_loc.kind == Locator::KIND_UDPV4 {
                             let port = mul_loc.port;
                             let addr = mul_loc.address;
-                            eprintln!(
-                                "<{}>: send data message to {}.{}.{}.{}:{}",
-                                "Writer: Info".green(),
-                                addr[12],
-                                addr[13],
-                                addr[14],
-                                addr[15],
-                                port
+                            info!(
+                                "Writer {:?} send data message to {}.{}.{}.{}:{}",
+                                self.guid, addr[12], addr[13], addr[14], addr[15], port
                             );
                             self.sender.send_to_multicast(
                                 &message_buf,
@@ -447,14 +424,9 @@ impl Writer {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
                     let addr = uni_loc.address;
-                    eprintln!(
-                        "<{}>: send heartbeat message to {}.{}.{}.{}:{}",
-                        "Writer: Info".green(),
-                        addr[12],
-                        addr[13],
-                        addr[14],
-                        addr[15],
-                        port
+                    info!(
+                        "Writer {:?} send heartbeat message to {}.{}.{}.{}:{}",
+                        self.guid, addr[12], addr[13], addr[14], addr[15], port
                     );
                     self.sender.send_to_unicast(
                         &message_buf,
@@ -467,14 +439,9 @@ impl Writer {
                 if mul_loc.kind == Locator::KIND_UDPV4 {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
-                    eprintln!(
-                        "<{}>: send heartbeat message to {}.{}.{}.{}:{}",
-                        "Writer: Info".green(),
-                        addr[12],
-                        addr[13],
-                        addr[14],
-                        addr[15],
-                        port
+                    info!(
+                        "Writer {:?} send heartbeat message to {}.{}.{}.{}:{}",
+                        self.guid, addr[12], addr[13], addr[14], addr[15], port
                     );
                     self.sender.send_to_multicast(
                         &message_buf,
@@ -506,10 +473,9 @@ impl Writer {
 
     pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) {
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
-            eprintln!(
-                "<{}>: handle acknack from reader which has guid {:?}",
-                "Writer: Info".green(),
-                reader_guid
+            info!(
+                "Writer {:?} handle acknack from Reader {:?}",
+                self.guid, reader_guid
             );
             reader_proxy.acked_changes_set(acknack.reader_sn_state.base() - SequenceNumber(1));
             reader_proxy.requested_changes_set(acknack.reader_sn_state.set());
@@ -534,10 +500,9 @@ impl Writer {
                 AckNackState::Repairing => unreachable!(),
             }
         } else {
-            eprintln!(
-                "<{}>: couldn't find reader_proxy which has guid {:?}",
-                "Writer: Warn".yellow(),
-                reader_guid
+            warn!(
+                "Writer {:?} tried handle ACKNACK from unmatched Reader {:?}",
+                self.guid, reader_guid
             );
         }
     }
@@ -580,14 +545,9 @@ impl Writer {
                             if uni_loc.kind == Locator::KIND_UDPV4 {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
-                                eprintln!(
-                                    "<{}>: resend data message to {}.{}.{}.{}:{}",
-                                    "Writer: Info".green(),
-                                    addr[12],
-                                    addr[13],
-                                    addr[14],
-                                    addr[15],
-                                    port
+                                info!(
+                                    "Writer {:?} resend data message to {}.{}.{}.{}:{}",
+                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
                                 );
                                 self.sender.send_to_unicast(
                                     &message_buf,
@@ -600,14 +560,9 @@ impl Writer {
                             if mul_loc.kind == Locator::KIND_UDPV4 {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
-                                eprintln!(
-                                    "<{}>: resend data message to {}.{}.{}.{}:{}",
-                                    "Writer: Info".green(),
-                                    addr[12],
-                                    addr[13],
-                                    addr[14],
-                                    addr[15],
-                                    port
+                                info!(
+                                    "Writer {:?} resend data message to {}.{}.{}.{}:{}",
+                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
                                 );
                                 self.sender.send_to_multicast(
                                     &message_buf,
@@ -641,14 +596,9 @@ impl Writer {
                             if uni_loc.kind == Locator::KIND_UDPV4 {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
-                                eprintln!(
-                                    "<{}>: send heartbeat message to {}.{}.{}.{}:{}",
-                                    "Writer: Info".green(),
-                                    addr[12],
-                                    addr[13],
-                                    addr[14],
-                                    addr[15],
-                                    port
+                                info!(
+                                    "Writer {:?} send heartbeat message to {}.{}.{}.{}:{}",
+                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
                                 );
                                 self.sender.send_to_unicast(
                                     &message_buf,
@@ -661,14 +611,9 @@ impl Writer {
                             if mul_loc.kind == Locator::KIND_UDPV4 {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
-                                eprintln!(
-                                    "<{}>: send heartbeat message to {}.{}.{}.{}:{}",
-                                    "Writer: Info".green(),
-                                    addr[12],
-                                    addr[13],
-                                    addr[14],
-                                    addr[15],
-                                    port
+                                info!(
+                                    "Writer {:?} send heartbeat message to {}.{}.{}.{}:{}",
+                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
                                 );
                                 self.sender.send_to_multicast(
                                     &message_buf,
@@ -701,14 +646,9 @@ impl Writer {
                         if uni_loc.kind == Locator::KIND_UDPV4 {
                             let port = uni_loc.port;
                             let addr = uni_loc.address;
-                            eprintln!(
-                                "<{}>: send gap message to {}.{}.{}.{}:{}",
-                                "Writer: Info".green(),
-                                addr[12],
-                                addr[13],
-                                addr[14],
-                                addr[15],
-                                port
+                            info!(
+                                "Writer {:?} send gap message to {}.{}.{}.{}:{}",
+                                self.guid, addr[12], addr[13], addr[14], addr[15], port
                             );
                             self.sender.send_to_unicast(
                                 &message_buf,
@@ -721,14 +661,9 @@ impl Writer {
                         if mul_loc.kind == Locator::KIND_UDPV4 {
                             let port = mul_loc.port;
                             let addr = mul_loc.address;
-                            eprintln!(
-                                "<{}>: send gap data message to {}.{}.{}.{}:{}",
-                                "Writer: Info".green(),
-                                addr[12],
-                                addr[13],
-                                addr[14],
-                                addr[15],
-                                port
+                            info!(
+                                "Writer {:?} send gap data message to {}.{}.{}.{}:{}",
+                                self.guid, addr[12], addr[13], addr[14], addr[15], port
                             );
                             self.sender.send_to_multicast(
                                 &message_buf,
@@ -773,21 +708,18 @@ impl Writer {
         default_multicast_locator_list: Vec<Locator>,
         qos: DataReaderQosPolicies,
     ) {
-        eprintln!(
-            "<{}>: add matched Reader which has {:?}",
-            "Writer: Info".green(),
-            remote_reader_guid
+        info!(
+            "Writer {:?} added matched Reader {:?}",
+            self.guid, remote_reader_guid
         );
 
         if let Err(e) = self.qos.is_compatible(&qos) {
             self.writer_state_notifier
                 .send(DataWriterStatusChanged::OfferedIncompatibleQos(e.clone()))
                 .expect("couldn't send writer_state_notifier");
-            eprintln!(
-                "<{}>: add matched Reader which has {:?} failed. {}",
-                "Writer: Warn".yellow(),
-                remote_reader_guid,
-                e
+            warn!(
+                "Writer {:?} offered incompatible qos from Reader {:?}: {}",
+                self.guid, remote_reader_guid, e
             );
             return;
         }

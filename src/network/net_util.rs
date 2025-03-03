@@ -1,6 +1,6 @@
 use bytes::BytesMut;
-use colored::*;
 use if_addrs::get_if_addrs;
+use log::warn;
 use std::net::SocketAddr;
 use std::net::{IpAddr, Ipv4Addr};
 
@@ -45,9 +45,8 @@ pub fn get_local_interfaces() -> Vec<IpAddr> {
             local_addrs
         }
         Err(e) => {
-            eprintln!(
-                "<{}>: couldn't get local interface address because {:?}, use only loopback",
-                "net_ulit: Err".red(),
+            warn!(
+                "failed get local interface address because {:?}, use only loopback (127.0.0.1)",
                 e
             );
             vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))]
