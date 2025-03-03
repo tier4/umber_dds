@@ -194,6 +194,8 @@ impl Message {
         for sub_msg in &self.submessages {
             r += &format!("{:?}, ", sub_msg.header.get_submessagekind());
         }
+        r.pop();
+        r.pop();
         r
     }
 }

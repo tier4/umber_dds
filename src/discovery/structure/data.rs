@@ -9,8 +9,9 @@ use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use cdr::{CdrBe, Infinite};
-use colored::*;
 use enumflags2::BitFlags;
+use log::error;
+use log::info;
 use md5::compute;
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::{ser::SerializeStruct, Serialize};
@@ -232,7 +233,13 @@ impl SDPBuiltinData {
         default_unicast_locator_list: Vec<Locator>,
         default_multicast_locator_list: Vec<Locator>,
     ) -> Option<ReaderProxy> {
-        let remote_guid = self.remote_guid?;
+        let remote_guid = match self.remote_guid {
+            Some(rg) => rg,
+            None => {
+                error!("couldn't gen ReaderProxy from SDPBuiltinData, not found remote_guid",);
+                return None;
+            }
+        };
         let expects_inline_qos = self.expects_inline_qos.unwrap_or(false);
         let unicast_locator_list = self.unicast_locator_list.clone();
         let multicast_locator_list = self.multicast_locator_list.clone();
@@ -272,10 +279,7 @@ impl SDPBuiltinData {
         let remote_guid = match self.remote_guid {
             Some(rg) => rg,
             None => {
-                eprintln!(
-                    "<{}>: couldn't gen WriterProxy, not found remote_guid",
-                    "SDPBuiltinData: Err".red()
-                );
+                error!("couldn't gen WriterProxy from SDPBuiltinData, not found remote_guid",);
                 return None;
             }
         };
@@ -689,11 +693,7 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                                     .next_element()?
                                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                             }
-                            eprintln!(
-                                "<{}>: unimplemented ParameterId: 0x{:04X} received",
-                                "SDPBuiltinData: Warn".yellow(),
-                                pid
-                            );
+                            info!("unimplemented ParameterId: 0x{:04X} received", pid);
                         }
                     }
                 }

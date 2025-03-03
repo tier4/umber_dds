@@ -17,10 +17,10 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
-use colored::*;
 use core::net::Ipv4Addr;
 use core::time::Duration as StdDuration;
 use enumflags2::BitFlags;
+use log::{debug, info, trace, warn};
 use mio_extras::channel as mio_channel;
 use speedy::{Endianness, Writable};
 
@@ -103,28 +103,30 @@ impl Reader {
 
     fn print_self_info(&self) {
         if cfg!(debug_assertions) {
-            eprintln!("<{}>: Reader info", "Reader: Info".green());
-            eprintln!("\tguid: {:?}", self.guid);
-            eprintln!("\tunicast locators");
+            let mut msg = String::new();
+            msg += &format!("Reader info");
+            msg += &format!("\tguid: {:?}", self.guid);
+            msg += "\tunicast locators";
             for loc in &self.unicast_locator_list {
-                eprintln!("\t\t{:?}", loc)
+                msg += &format!("\t\t{:?}", loc);
             }
-            eprintln!("\tmulticast locators");
+            msg += &format!("\tmulticast locators");
             for loc in &self.multicast_locator_list {
-                eprintln!("\t\t{:?}", loc)
+                msg += &format!("\t\t{:?}", loc);
             }
-            eprintln!("\tmatched writers");
+            msg += "\tmatched writers";
             for (eid, reader) in self.matched_writers.iter() {
-                eprintln!("\t\treader guid: {:?}", eid);
-                eprintln!("\tunicast locators");
+                msg += &format!("\t\treader guid: {:?}", eid);
+                msg += "\tunicast locators";
                 for loc in reader.get_unicast_locator_list() {
-                    eprintln!("\t\t{:?}", loc)
+                    msg += &format!("\t\t{:?}", loc)
                 }
-                eprintln!("\tmulticast locators");
+                msg += "\tmulticast locators";
                 for loc in reader.get_multicast_locator_list() {
-                    eprintln!("\t\t{:?}", loc)
+                    msg += &format!("\t\t{:?}", loc)
                 }
             }
+            trace!("{}", msg);
         }
     }
 
@@ -140,10 +142,6 @@ impl Reader {
             {
                 return;
             }
-            eprintln!(
-                "<{}>: reliable reader, add change to reader_cache",
-                "Reader: Info".green()
-            );
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::DataAvailable)
                 .expect("couldn't send channel 'reader_state_notifier'");
@@ -172,10 +170,6 @@ impl Reader {
                     {
                         return;
                     }
-                    eprintln!(
-                        "<{}>: besteffort reader, add change to reader_cache",
-                        "Reader: Info".green()
-                    );
                     self.reader_state_notifier
                         .send(DataReaderStatusChanged::DataAvailable)
                         .expect("couldn't send reader_state_notifier");
@@ -188,14 +182,13 @@ impl Reader {
                         writer_proxy_mut.lost_changes_update(change.sequence_number);
                     }
                 } else {
-                    eprintln!("<{}>: dosen't write change to reader_cache, because change.sequence_number < expected_seq_num. This Reader is BestEffort, so resned won't execute.", "Reader: Warn".yellow());
+                    debug!("BestEffort Reader {:?} receive change whose sequence_number < expected_seq_num from {:?}", self.guid, writer_guid);
                 }
             } else {
                 self.print_self_info();
-                eprintln!(
-                    "<{}>: couldn't find writer_proxy which has guid {:?}",
-                    "Reader: Warn".yellow(),
-                    writer_guid
+                warn!(
+                    "BestEffort Reader {:?} tried add change from unmatched Writer {:?}",
+                    self.guid, writer_guid
                 );
             }
         }
@@ -231,20 +224,17 @@ impl Reader {
         data_max_size_serialized: i32,
         qos: DataWriterQosPolicies,
     ) {
-        eprintln!(
-            "<{}>: add matched Writer which has {:?}",
-            "Reader: Info".green(),
-            remote_writer_guid
+        info!(
+            "Reader {:?} added matched Writer {:?}",
+            self.guid, remote_writer_guid
         );
         if let Err(e) = self.qos.is_compatible(&qos) {
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::RequestedIncompatibleQos(e.clone()))
                 .expect("couldn't send reader_state_notifier");
-            eprintln!(
-                "<{}>: add matched Writer which has {:?} failed. {}",
-                "Reader: Warn".yellow(),
-                remote_writer_guid,
-                e
+            warn!(
+                "Reader {:?} requested incompatible qos from Writer {:?}: {}",
+                self.guid, remote_writer_guid, e
             );
             return;
         }
@@ -313,6 +303,11 @@ impl Reader {
             for seq_num in gap.gap_list.set() {
                 writer_proxy.irrelevant_change_set(seq_num);
             }
+        } else {
+            warn!(
+                "Reader {:?} tried handle GAP from unmatched writer: {:?}",
+                self.guid, writer_guid
+            );
         }
     }
 
@@ -323,9 +318,9 @@ impl Reader {
         heartbeat: Heartbeat,
     ) {
         if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
-            eprintln!(
-                "<{}>: handle heartbeat {{ first_sn: {}, last_sn: {} }} from writer which has {:?}",
-                "Reader: Info".green(),
+            trace!(
+                "Reader {:?} handle heartbeat {{ first_sn: {}, last_sn: {} }} from Writer {:?}",
+                self.guid,
                 heartbeat.first_sn.0,
                 heartbeat.last_sn.0,
                 writer_guid,
@@ -334,10 +329,9 @@ impl Reader {
             writer_proxy.missing_changes_update(heartbeat.first_sn, heartbeat.last_sn);
             writer_proxy.lost_changes_update(heartbeat.first_sn);
         } else {
-            eprintln!(
-                "<{}>: couldn't find reader which has {:?}",
-                "Reader: Warn".yellow(),
-                writer_guid
+            warn!(
+                "Reader {:?} tried handle Heartbeat from unmatched writer: {:?}",
+                self.guid, writer_guid
             );
             return;
         }
@@ -346,16 +340,13 @@ impl Reader {
             // Transition: T5
             // set timer whose duration is self.heartbeat_response_delay
             if self.heartbeat_response_delay == Duration::ZERO {
-                eprintln!(
-                    "<{}>: heartbeat_response_delay == 0",
-                    "Reader: Info".green(),
+                trace!(
+                    "Reader {:?} received Heartbeat: heartbeat_response_delay == 0",
+                    self.guid
                 );
                 self.handle_hb_response_timeout(writer_guid);
             } else {
-                eprintln!(
-                    "<{}>: set_reader_hb_timer_sender sned",
-                    "Reader: Info".green(),
-                );
+                trace!("Reader {:?} send set_reader_hb_timer_sender", self.guid);
                 self.set_reader_hb_timer_sender
                     .send((self.entity_id(), writer_guid))
                     .expect("couldn't send channel 'set_reader_hb_timer_sender'");
@@ -374,16 +365,13 @@ impl Reader {
                     // Transition: T5
                     // set timer whose duration is self.heartbeat_response_delay
                     if self.heartbeat_response_delay == Duration::ZERO {
-                        eprintln!(
-                            "<{}>: heartbeat_response_delay == 0",
-                            "Reader: Info".green(),
+                        trace!(
+                            "Reader {:?} received Heartbeat: heartbeat_response_delay == 0",
+                            self.guid
                         );
                         self.handle_hb_response_timeout(writer_guid);
                     } else {
-                        eprintln!(
-                            "<{}>: set_reader_hb_timer_sender sned",
-                            "Reader: Info".green(),
-                        );
+                        trace!("Reader {:?} send set_reader_hb_timer_sender", self.guid);
                         self.set_reader_hb_timer_sender
                             .send((self.entity_id(), writer_guid))
                             .expect("couldn't send channel 'set_reader_hb_timer_sender'");
@@ -435,14 +423,9 @@ impl Reader {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
                     let addr = uni_loc.address;
-                    eprintln!(
-                        "<{}>: sned acknack(heartbeat response) message to {}.{}.{}.{}:{}",
-                        "Reader: Info".green(),
-                        addr[12],
-                        addr[13],
-                        addr[14],
-                        addr[15],
-                        port
+                    info!(
+                        "Reader {:?} sned acknack(heartbeat response) message to {}.{}.{}.{}:{}",
+                        self.guid, addr[12], addr[13], addr[14], addr[15], port
                     );
                     self.sender.send_to_unicast(
                         &message_buf,
@@ -456,14 +439,9 @@ impl Reader {
                 if mul_loc.kind == Locator::KIND_UDPV4 {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
-                    eprintln!(
-                        "<{}>: sned acknack(heartbeat response) message to {}.{}.{}.{}:{}",
-                        "Reader: Info".green(),
-                        addr[12],
-                        addr[13],
-                        addr[14],
-                        addr[15],
-                        port
+                    info!(
+                        "Reader {:?} sned acknack(heartbeat response) message to {}.{}.{}.{}:{}",
+                        self.guid, addr[12], addr[13], addr[14], addr[15], port
                     );
                     self.sender.send_to_unicast(
                         &message_buf,
@@ -473,10 +451,9 @@ impl Reader {
                 }
             }
         } else {
-            eprintln!(
-                "<{}>: couldn't find reader which has {:?}",
-                "Reader: Warn".yellow(),
-                writer_guid
+            warn!(
+                "Reader {:?} tried send Heartbeat to Writer {:?} but, not found",
+                self.guid, writer_guid
             );
         }
     }

@@ -4,6 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr}; // RustDDS use mio::net::UdpSocket
                                               // std::net::UdpSocket so, I use std::net::UdpSocket.
 use crate::network::net_util;
 use colored::*;
+use log::{debug, error, info, trace, warn};
 use std::io;
 
 pub struct UdpSender {
@@ -55,25 +56,16 @@ impl UdpSender {
 
     pub fn send_to_unicast(&self, data: &[u8], addr: Ipv4Addr, port: u16) {
         if let Err(e) = self.unicast_socket.send_to(data, (addr, port)) {
-            eprintln!(
-                "<{}>: couldn't send data to {}:{} because '{:?}'",
-                "UdpSender: Err".red(),
-                addr,
-                port,
-                e
-            );
+            error!("failed send data to {}:{} because '{:?}'", addr, port, e);
         }
     }
 
     pub fn send_to_multicast(&self, data: &[u8], multicast_group: Ipv4Addr, port: u16) {
         for msocket in &self.multicast_sockets {
             if let Err(e) = msocket.send_to(data, (multicast_group, port)) {
-                eprintln!(
-                    "<{}>: couldn't send data to {}:{} because '{:?}'",
-                    "UdpSender: Err".red(),
-                    multicast_group,
-                    port,
-                    e
+                error!(
+                    "failed send data to {}:{} because '{:?}'",
+                    multicast_group, port, e
                 );
             }
         }

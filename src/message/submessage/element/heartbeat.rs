@@ -2,6 +2,7 @@ use crate::message::submessage::element::*;
 use crate::message::submessage_flag::HeartbeatFlag;
 use crate::structure::EntityId;
 use enumflags2::BitFlags;
+use log::warn;
 use speedy::{Readable, Writable};
 
 #[derive(Readable, Clone)]
@@ -59,50 +60,41 @@ impl Heartbeat {
     pub fn is_valid(&self, flag: BitFlags<HeartbeatFlag>) -> bool {
         // rtps 2.3 spec 8.3.7.5 Heartbeat
         if self.first_sn <= SequenceNumber(0) {
-            // first_sn is zero or negative
-            eprintln!("Invalid Heartbeat Submessage received");
+            warn!("Invalid Heartbeat Submessage: first_sn is zero of negative");
             return false;
         }
         if self.last_sn < SequenceNumber(0) {
-            // last_sn is negative
-            eprintln!("Invalid Heartbeat Submessage received");
+            warn!("Invalid Heartbeat Submessage: last_sn is negative");
             return false;
         }
         if self.last_sn < self.first_sn - SequenceNumber(1) {
-            // lastSN.value < firstSN.value - 1
-            eprintln!("Invalid Heartbeat Submessage received");
+            warn!("Invalid Heartbeat Submessage: lastSN.value < firstSN.value - 1");
             return false;
         }
         if flag.contains(HeartbeatFlag::GroupInfo) {
             // TODO: GrupuInfo falgが立っていれば、必ず*_gsnがNoneでないかどうか確認
             if self.current_gsn.unwrap() <= SequenceNumber(0) {
-                // currentGNS is zero or negative
-                eprintln!("Invalid Heartbeat Submessage received");
+                warn!("Invalid Heartbeat Submessage: currentGNS is zero or negative");
                 return false;
             }
             if self.first_gsn.unwrap() <= SequenceNumber(0) {
-                // firstGSN is zero or negative
-                eprintln!("Invalid Heartbeat Submessage received");
+                warn!("Invalid Heartbeat Submessage: firstGSN is zero or negative");
                 return false;
             }
             if self.last_gsn.unwrap() < SequenceNumber(0) {
-                // lastGSN is negative
-                eprintln!("Invalid Heartbeat Submessage received");
+                warn!("Invalid Heartbeat Submessage: lastGSN is negative");
                 return false;
             }
             if self.last_gsn.unwrap() < self.first_gsn.unwrap() - SequenceNumber(1) {
-                // lastGSN.value < firstGSN.value - 1
-                eprintln!("Invalid Heartbeat Submessage received");
+                warn!("Invalid Heartbeat Submessage: lastGSN.value < firstGSN.value - 1");
                 return false;
             }
             if self.current_gsn.unwrap() < self.first_gsn.unwrap() {
-                // currentGNS.value < firstGSN.value
-                eprintln!("Invalid Heartbeat Submessage received");
+                warn!("Invalid Heartbeat Submessage: currentGNS.value < firstGSN.value");
                 return false;
             }
             if self.current_gsn.unwrap() < self.last_gsn.unwrap() {
-                // currentGNS.value < lastGSN.value
-                eprintln!("Invalid Heartbeat Submessage received");
+                warn!("Invalid Heartbeat Submessage: currentGNS.value < lastGSN.value");
                 return false;
             }
         }
