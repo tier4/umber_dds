@@ -104,13 +104,13 @@ impl Reader {
     fn print_self_info(&self) {
         if cfg!(debug_assertions) {
             let mut msg = String::new();
-            msg += &format!("Reader info");
+            msg += "Reader info";
             msg += &format!("\tguid: {:?}", self.guid);
             msg += "\tunicast locators";
             for loc in &self.unicast_locator_list {
                 msg += &format!("\t\t{:?}", loc);
             }
-            msg += &format!("\tmulticast locators");
+            msg += "\tmulticast locators";
             for loc in &self.multicast_locator_list {
                 msg += &format!("\t\t{:?}", loc);
             }
