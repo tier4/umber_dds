@@ -1051,7 +1051,6 @@ pub mod policy {
 #[cfg(test)]
 mod test {
     use super::policy;
-    use crate::structure::Duration;
     use cdr::{Infinite, PlCdrLe};
 
     #[test]
@@ -1061,6 +1060,7 @@ mod test {
             depth: 100,
         };
         let serialized = cdr::serialize::<_, _, PlCdrLe>(&history, Infinite).unwrap();
+        /*
         let mut serialized_str = String::new();
         let mut count = 0;
         for b in serialized {
@@ -1072,7 +1072,11 @@ mod test {
                 serialized_str += " ";
             }
         }
-        eprintln!("~~~~~~~~~~~~~~~~~~\n{}\n~~~~~~~~~~~~~~~~~~", serialized_str);
+        */
+        assert_eq!(
+            serialized,
+            vec![0x00, 0x3, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00]
+        );
     }
     #[test]
     fn test_deserialize() {
