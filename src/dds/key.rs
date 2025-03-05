@@ -13,9 +13,46 @@ impl KeyHash {
     }
 }
 
+/// Trait for Data that exchanged via DDS
+///
+/// UmberDDS specifies exchanged data using a struct instead of IDL.
+/// This trait is used for define exchanged data.
+///
+/// As shown in the following example, implement this trait for your struct by using the provided macro.
+/// ```
+/// use umber_dds::{DdsData, key::KeyHash};
+/// use md5::compute;
+/// use cdr::{CdrBe, Infinite}; // If key is specified
+///
+/// // Struct Shape is same to following idl on other DDS.
+/// // struct ShapeType {
+/// //     @key string color;
+/// //     long x;
+/// //     long y;
+/// //     long shapesize;
+/// // }
+///
+/// #[derive(DdsData)]
+/// #[dds_data(type_name = "ShapeType")]
+/// struct Shape {
+///     #[key]
+///     color: String,
+///     x: i32,
+///     y: i32,
+///     shapesize: i32,
+/// }
+/// ```
+/// You need to import `umber_dds::key::KeyHash` and `md5::compute`.
+/// You can specify key to any type that implements the [`Key`] trait.
+/// If some key is specified, you need to import `cdr::{CdrBe, Infinite}`
 pub trait DdsData {
     fn gen_key(&self) -> KeyHash;
+    /// Return type name of Topic.
+    ///
+    /// The default value is the name of the struct.
+    /// If you want to change it, specify `#[dds_data(type_name = "{name}")]`.
     fn type_name() -> String;
+    /// Returns whether this type has a key.
     fn is_with_key() -> bool;
 }
 
