@@ -20,7 +20,6 @@ use alloc::collections::BTreeMap;
 use alloc::fmt;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
-use colored::*;
 use log::{debug, error, info, trace, warn};
 use mio_extras::channel as mio_channel;
 use std::error;

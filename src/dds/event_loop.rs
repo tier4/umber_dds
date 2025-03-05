@@ -14,7 +14,6 @@ use crate::structure::{Duration, EntityId, GuidPrefix, RTPSEntity, GUID};
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use bytes::BytesMut;
-use colored::*;
 use core::time::Duration as CoreDuration;
 use log::{debug, error, info, trace, warn};
 use mio_extras::{
