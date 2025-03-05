@@ -19,7 +19,7 @@ impl KeyHash {
 /// This trait is used for define exchanged data.
 ///
 /// As shown in the following example, implement this trait for your struct by using the provided macro.
-/// ```
+/// ```ignore
 /// use umber_dds::{DdsData, key::KeyHash};
 /// use md5::compute;
 /// use cdr::{CdrBe, Infinite}; // If key is specified
