@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use speedy::{Readable, Writable};
 
-#[derive(Readable, Writable, Debug, Clone, Copy, Deserialize)]
+#[derive(Readable, Writable, Debug, Clone, Copy, Deserialize, PartialEq)]
 pub struct VendorId {
     pub vendor_id: [u8; 2],
 }
