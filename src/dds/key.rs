@@ -21,18 +21,20 @@ pub trait DdsData {
 
 pub trait Key: std::fmt::Debug + Serialize {}
 
-impl Key for bool {}
-impl Key for char {}
-impl Key for i8 {}
-impl Key for u8 {}
-impl Key for i16 {}
-impl Key for u16 {}
-impl Key for i32 {}
-impl Key for u32 {}
-impl Key for i64 {}
-impl Key for u64 {}
+impl Key for bool {} // IDL: boolean
+impl Key for char {} // IDL: char
+impl Key for u8 {} // IDL: octet
+impl Key for i16 {} // IDL: short
+impl Key for u16 {} // IDL: unsigned short
+impl Key for i32 {} // IDL: long
+impl Key for u32 {} // IDL: unsigned long
+impl Key for i64 {} // IDL: long long
+impl Key for u64 {} // IDL: unsigned long long
+impl Key for f32 {} // IDL: float
+impl Key for f64 {} // IDL: double
 
-impl Key for String {}
+impl Key for String {} // IDL: String
+impl<K: Key> Key for Vec<K> {} // IDL: sequence<K: Key>
 
 #[cfg(test)]
 mod test {
