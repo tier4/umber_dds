@@ -361,7 +361,7 @@ impl Discovery {
                 } else {
                     let guid_prefix = spdp_data.guid.guid_prefix;
                     info!(
-                        "write Participant {:?} data to discovery_db",
+                        "write Participant data to discovery_db\n\tParticipant: {:?}",
                         spdp_data.guid
                     );
                     self.discovery_db.write_participant(

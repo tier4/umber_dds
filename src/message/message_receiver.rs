@@ -428,7 +428,7 @@ impl MessageReceiver {
                     if let Some(tk) = remote_writer_topic_kind {
                         if reader.topic_kind() != tk {
                             error!(
-                                "Reader found Writer which has same topic_name: {} & data_type: {} , but not match topic_kind. Reader: {:?}, Writer: {:?}",
+                                "Reader found Writer which has same topic_name: {} & data_type: {} , but not match topic_kind\n\tReader: {:?}\n\tWriter: {:?}",
                                 topic_name, data_type,
                                 reader.topic_kind(),
                                 tk,
@@ -437,7 +437,7 @@ impl MessageReceiver {
                         }
                     }
                     info!(
-                        "Reader {:?} found matched Writer {:?}",
+                        "Reader found matched Writer Reader: {:?}\n\tWriter: {:?}",
                         eid, writer_proxy.remote_writer_guid
                     );
                     reader.matched_writer_add_with_default_locator(
@@ -521,7 +521,7 @@ impl MessageReceiver {
                     if let Some(tk) = remote_reader_topic_kind {
                         if writer.topic_kind() != tk {
                             error!(
-                                "Writer found Reader which has same topic_name: {} & data_type: {} , but not match topic_kind. Reader: {:?}, Writer: {:?}",
+                                "Writer found Reader which has same topic_name: {} & data_type: {} , but not match topic_kind\n\tReader: {:?}\n\tWriter: {:?}",
                                 topic_name, data_type,
                                 writer.topic_kind(),
                                 tk,
@@ -530,7 +530,7 @@ impl MessageReceiver {
                         }
                     }
                     info!(
-                        "Writer {:?} found matched Reader {:?}",
+                        "Writer found matched Reader\n\tWriter: {:?}\n\tWriter: {:?}",
                         eid, reader_proxy.remote_reader_guid
                     );
                     writer.matched_reader_add_with_default_locator(
