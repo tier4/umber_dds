@@ -317,7 +317,10 @@ impl Discovery {
                                 self.sedp_builtin_pub_writer
                                     .write_builtin_data(data.clone());
                                 self.local_writers_data.insert(eid, data);
-                                info!("add Writer {:?} to Discovery's writers", eid);
+                                info!(
+                                    "add Writer to Discovery's local_writers\n\tWriter: {:?} ",
+                                    eid
+                                );
                             }
                         }
                         DISC_READER_ADD => {
@@ -325,7 +328,10 @@ impl Discovery {
                                 self.sedp_builtin_sub_writer
                                     .write_builtin_data(data.clone());
                                 self.local_readers_data.insert(eid, data);
-                                info!("add Reader {:?} to Discovery's readers", eid);
+                                info!(
+                                    "add Reader to Discovery's local_readers\n\tReader: {:?} ",
+                                    eid
+                                );
                             }
                         }
                         Token(n) => {

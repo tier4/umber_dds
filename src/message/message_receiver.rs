@@ -241,9 +241,8 @@ impl MessageReceiver {
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
-            return Err(MessageError(
-                "message from same Participant & dest_guid_prefix is not UNKNOWN".to_string(),
-            ));
+            debug!("message from same Participant & dest_guid_prefix is not UNKNOWN");
+            return Ok(());
         }
 
         let _writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);
@@ -286,9 +285,8 @@ impl MessageReceiver {
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
-            return Err(MessageError(
-                "message from same Participant & dest_guid_prefix is not UNKNOWN".to_string(),
-            ));
+            debug!("message from same Participant & dest_guid_prefix is not UNKNOWN");
+            return Ok(());
         }
 
         // validation
@@ -648,9 +646,8 @@ impl MessageReceiver {
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
-            return Err(MessageError(
-                "message from same Participant & dest_guid_prefix is not UNKNOWN".to_string(),
-            ));
+            debug!("message from same Participant & dest_guid_prefix is not UNKNOWN");
+            return Ok(());
         }
 
         let writer_guid = GUID::new(self.source_guid_prefix, gap.writer_id);
@@ -692,9 +689,8 @@ impl MessageReceiver {
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
-            return Err(MessageError(
-                "message from same Participant & dest_guid_prefix is not UNKNOWN".to_string(),
-            ));
+            debug!("message from same Participant & dest_guid_prefix is not UNKNOWN");
+            return Ok(());
         }
 
         let writer_guid = GUID::new(self.source_guid_prefix, heartbeat.writer_id);

@@ -28,6 +28,7 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::net::Ipv4Addr;
 use core::sync::atomic::{AtomicU32, Ordering};
+use log::info;
 use mio_extras::channel as mio_channel;
 use mio_v06::net::UdpSocket;
 use rand::rngs::SmallRng;
@@ -88,6 +89,7 @@ impl DomainParticipant {
         disc_thread_sender
             .send(discovery_handler)
             .expect("couldn't send channel 'disc_thread_sender'");
+        info!("created new Participant {:?}", dp.guid());
         dp
     }
     pub fn create_publisher(&self, qos: PublisherQos) -> Publisher {
