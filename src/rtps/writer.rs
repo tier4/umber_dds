@@ -87,11 +87,11 @@ impl Writer {
             msg += &format!("\t\t{:?}\n", loc);
         }
         info!(
-            "created new Writer with {:?} of Topic ({}, {}) with Locators\n{}",
-            wi.guid,
+            "created new Writer of Topic ({}, {}) with Locators\n{}\tWriter: {:?}",
             wi.topic.name(),
             wi.topic.type_desc(),
-            msg
+            msg,
+            wi.guid,
         );
         Self {
             guid: wi.guid,
@@ -703,7 +703,7 @@ impl Writer {
                 .send(DataWriterStatusChanged::OfferedIncompatibleQos(e.clone()))
                 .expect("couldn't send writer_state_notifier");
             warn!(
-                "Writer offered incompatible qos from Reader\n\tWriter: {:?}\n\tReader: {:?}\n\terror:\n {}",
+                "Writer offered incompatible qos from Reader\n\tWriter: {:?}\n\tReader: {:?}\n\terror:\n{}",
                 self.guid, remote_reader_guid, e
             );
             return;

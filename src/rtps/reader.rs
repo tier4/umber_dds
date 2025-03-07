@@ -65,11 +65,11 @@ impl Reader {
             msg += &format!("\t\t{:?}\n", loc);
         }
         info!(
-            "created new Reader with {:?} of Topic ({}, {}) with Locators\n{}",
-            ri.guid,
+            "created new Reader of Topic ({}, {}) with Locators\n{}\tReader: {:?}",
             ri.topic.name(),
             ri.topic.type_desc(),
             msg,
+            ri.guid,
         );
         Self {
             guid: ri.guid,
@@ -169,11 +169,11 @@ impl Reader {
                         writer_proxy_mut.lost_changes_update(change.sequence_number);
                     }
                 } else {
-                    debug!("BestEffort Reader {:?} receive change whose sequence_number < expected_seq_num from {:?}", self.guid, writer_guid);
+                    debug!("BestEffort Reader receive change whose sequence_number < expected_seq_num from {:?}\n\tReader: {:?}", writer_guid, self.guid);
                 }
             } else {
                 warn!(
-                    "BestEffort Reader {:?} tried add change from unmatched Writer {:?}",
+                    "BestEffort Reader tried add change from unmatched Writer\n\tReader: {:?}\n\tWriter: {:?}",
                     self.guid, writer_guid
                 );
             }
@@ -219,7 +219,7 @@ impl Reader {
                 .send(DataReaderStatusChanged::RequestedIncompatibleQos(e.clone()))
                 .expect("couldn't send reader_state_notifier");
             warn!(
-                "Reader requested incompatible qos from Writer\n\tWriter: {:?}\n\tReader: {:?}\n\terror:\n {}",
+                "Reader requested incompatible qos from Writer\n\tWriter: {:?}\n\tReader: {:?}\n\terror:\n{}",
                 self.guid, remote_writer_guid, e
             );
             return;
@@ -291,7 +291,7 @@ impl Reader {
             }
         } else {
             warn!(
-                "Reader {:?} tried handle GAP from unmatched writer: {:?}",
+                "Reader tried handle GAP from unmatched Writer\n\tReader: {:?}\n\tWriter: {:?}",
                 self.guid, writer_guid
             );
         }
@@ -305,10 +305,10 @@ impl Reader {
     ) {
         if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
             trace!(
-                "Reader {:?} handle heartbeat {{ first_sn: {}, last_sn: {} }} from Writer {:?}",
-                self.guid,
+                "Reader handle heartbeat {{ first_sn: {}, last_sn: {} }} from Writer\n\tReader: {:?}\n\tWriter: {:?}",
                 heartbeat.first_sn.0,
                 heartbeat.last_sn.0,
+                self.guid,
                 writer_guid,
             );
 
@@ -316,7 +316,7 @@ impl Reader {
             writer_proxy.lost_changes_update(heartbeat.first_sn);
         } else {
             warn!(
-                "Reader {:?} tried handle Heartbeat from unmatched writer: {:?}",
+                "Reader tried handle Heartbeat from unmatched Writer\n\tReader: {:?}\n\tWriter: {:?}",
                 self.guid, writer_guid
             );
             return;
@@ -327,12 +327,15 @@ impl Reader {
             // set timer whose duration is self.heartbeat_response_delay
             if self.heartbeat_response_delay == Duration::ZERO {
                 trace!(
-                    "Reader {:?} received Heartbeat: heartbeat_response_delay == 0",
+                    "Reader received Heartbeat: heartbeat_response_delay == 0\n\tReader: {:?}",
                     self.guid
                 );
                 self.handle_hb_response_timeout(writer_guid);
             } else {
-                trace!("Reader {:?} send set_reader_hb_timer_sender", self.guid);
+                trace!(
+                    "Reader send set_reader_hb_timer_sender to set Heartbeat timer\n\tReader: {:?}",
+                    self.guid
+                );
                 self.set_reader_hb_timer_sender
                     .send((self.entity_id(), writer_guid))
                     .expect("couldn't send channel 'set_reader_hb_timer_sender'");
@@ -352,12 +355,15 @@ impl Reader {
                     // set timer whose duration is self.heartbeat_response_delay
                     if self.heartbeat_response_delay == Duration::ZERO {
                         trace!(
-                            "Reader {:?} received Heartbeat: heartbeat_response_delay == 0",
+                            "Reader received Heartbeat: heartbeat_response_delay == 0\n\tReader: {:?}",
                             self.guid
                         );
                         self.handle_hb_response_timeout(writer_guid);
                     } else {
-                        trace!("Reader {:?} send set_reader_hb_timer_sender", self.guid);
+                        trace!(
+                            "Reader send set_reader_hb_timer_sender to set Heartbeat timer\n\tReader: {:?}",
+                            self.guid
+                        );
                         self.set_reader_hb_timer_sender
                             .send((self.entity_id(), writer_guid))
                             .expect("couldn't send channel 'set_reader_hb_timer_sender'");
@@ -410,8 +416,8 @@ impl Reader {
                     let port = uni_loc.port;
                     let addr = uni_loc.address;
                     info!(
-                        "Reader {:?} sned acknack(heartbeat response) message to {}.{}.{}.{}:{}",
-                        self.guid, addr[12], addr[13], addr[14], addr[15], port
+                        "Reader sned acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {:?}",
+                        addr[12], addr[13], addr[14], addr[15], port,self.guid,
                     );
                     self.sender.send_to_unicast(
                         &message_buf,
@@ -426,8 +432,8 @@ impl Reader {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
                     info!(
-                        "Reader {:?} sned acknack(heartbeat response) message to {}.{}.{}.{}:{}",
-                        self.guid, addr[12], addr[13], addr[14], addr[15], port
+                        "Reader sned acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {:?}",
+                        addr[12], addr[13], addr[14], addr[15], port,self.guid,
                     );
                     self.sender.send_to_unicast(
                         &message_buf,
@@ -438,7 +444,7 @@ impl Reader {
             }
         } else {
             warn!(
-                "Reader {:?} tried send Heartbeat to Writer {:?} but, not found",
+                "Reader tried send Heartbeat to Writer but, not found\n\tReader: {:?}\n\tWriter: {:?}",
                 self.guid, writer_guid
             );
         }
