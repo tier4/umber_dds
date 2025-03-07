@@ -45,6 +45,8 @@ const TIMTER: Token = Token(4);
 
 #[allow(clippy::too_many_lines)]
 fn main() {
+    println!("--- shapes_demo_rustdds start");
+
     let matches = get_matches();
 
     // Process command line arguments
@@ -262,6 +264,7 @@ fn main() {
                                             );
                                             received += 1;
                                             if received > 5 {
+                                                println!("--- shapes_demo_rustdds end");
                                                 std::process::exit(0);
                                             }
                                         }
@@ -346,6 +349,7 @@ fn main() {
                     }
                 }
                 TIMTER => {
+                    println!("--- shapes_demo_rustdds end");
                     if is_subscriber {
                         std::process::exit(-1);
                     } else {

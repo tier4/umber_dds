@@ -17,6 +17,8 @@ int main (int argc, char ** argv)
   (void)argc;
   (void)argv;
 
+  printf("--- shapes_demo_cyclonedds/publisher start\n");
+
   /* Create a Participant. */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
   if (participant < 0)
@@ -88,5 +90,6 @@ int main (int argc, char ** argv)
   if (rc != DDS_RETCODE_OK)
     DDS_FATAL("dds_delete: %s\n", dds_strretcode(-rc));
 
+  printf("--- shapes_demo_cyclonedds/publisher end\n");
   return EXIT_SUCCESS;
 }
