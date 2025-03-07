@@ -77,6 +77,22 @@ impl Writer {
         sender: Rc<UdpSender>,
         set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
     ) -> Self {
+        let mut msg = String::new();
+        msg += "\tunicast locators\n";
+        for loc in &wi.unicast_locator_list {
+            msg += &format!("\t\t{:?}\n", loc);
+        }
+        msg += "\tmulticast locators\n";
+        for loc in &wi.multicast_locator_list {
+            msg += &format!("\t\t{:?}\n", loc);
+        }
+        info!(
+            "created new Writer with {:?} of Topic ({}, {}) with Locators\n{}",
+            wi.guid,
+            wi.topic.name(),
+            wi.topic.type_desc(),
+            msg
+        );
         Self {
             guid: wi.guid,
             topic_kind: wi.topic.kind(),
@@ -173,35 +189,6 @@ impl Writer {
         self.entity_id().as_token()
     }
 
-    fn print_self_info(&self) {
-        if cfg!(debug_assertions) {
-            let mut msg = String::new();
-            msg += "Writer info";
-            msg += &format!("\tguid: {:?}", self.guid);
-            msg += "\tunicast locators";
-            for loc in &self.unicast_locator_list {
-                msg += &format!("\t\t{:?}", loc);
-            }
-            msg += "\tmulticast locators";
-            for loc in &self.multicast_locator_list {
-                msg += &format!("\t\t{:?}", loc);
-            }
-            msg += "\tmatched readers";
-            for (eid, reader) in self.matched_readers.iter() {
-                msg += &format!("\t\treader guid: {:?}", eid);
-                msg += "\t\tunicast locators";
-                for loc in reader.get_unicast_locator_list() {
-                    msg += &format!("\t\t\t{:?}", loc)
-                }
-                msg += "\t\tmulticast locators";
-                for loc in reader.get_multicast_locator_list() {
-                    msg += &format!("\t\t\t{:?}", loc)
-                }
-            }
-            trace!("{}", msg);
-        }
-    }
-
     pub fn handle_writer_cmd(&mut self) {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
             match cmd {
@@ -246,8 +233,8 @@ impl Writer {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
                     info!(
-                        "Writer {:?} send data(m) message to {}.{}.{}.{}:{}",
-                        self.guid, addr[12], addr[13], addr[14], addr[15], port
+                        "Writer send data(m) message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                        addr[12], addr[13], addr[14], addr[15], port, self.guid,
                     );
                     self.sender.send_to_multicast(
                         &message_buf,
@@ -276,7 +263,6 @@ impl Writer {
             return;
         }
         let self_guid_prefix = self.guid_prefix();
-        self.print_self_info();
         for reader_proxy in self.matched_readers.values_mut() {
             while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
                 reader_proxy.update_cache_state(
@@ -312,8 +298,8 @@ impl Writer {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
                                 info!(
-                                    "Writer {:?} send data message to {}.{}.{}.{}:{}",
-                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                    "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                    addr[12], addr[13], addr[14], addr[15], port, self.guid,
                                 );
                                 self.sender.send_to_unicast(
                                     &message_buf,
@@ -327,8 +313,8 @@ impl Writer {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
                                 info!(
-                                    "Writer {:?} send data message to {}.{}.{}.{}:{}",
-                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                    "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                    addr[12], addr[13], addr[14], addr[15], port, self.guid,
                                 );
                                 self.sender.send_to_multicast(
                                     &message_buf,
@@ -364,8 +350,8 @@ impl Writer {
                             let port = uni_loc.port;
                             let addr = uni_loc.address;
                             info!(
-                                "Writer {:?} send data message to {}.{}.{}.{}:{}",
-                                self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                addr[12], addr[13], addr[14], addr[15], port, self.guid,
                             );
                             self.sender.send_to_unicast(
                                 &message_buf,
@@ -379,8 +365,8 @@ impl Writer {
                             let port = mul_loc.port;
                             let addr = mul_loc.address;
                             info!(
-                                "Writer {:?} send data message to {}.{}.{}.{}:{}",
-                                self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                addr[12], addr[13], addr[14], addr[15], port, self.guid,
                             );
                             self.sender.send_to_multicast(
                                 &message_buf,
@@ -400,7 +386,6 @@ impl Writer {
         self.hb_counter += 1;
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
-        self.print_self_info();
         for reader_proxy in self.matched_readers.values_mut() {
             let mut message_builder = MessageBuilder::new();
             message_builder.info_ts(Endianness::LittleEndian, time_stamp);
@@ -425,8 +410,8 @@ impl Writer {
                     let port = uni_loc.port;
                     let addr = uni_loc.address;
                     info!(
-                        "Writer {:?} send heartbeat message to {}.{}.{}.{}:{}",
-                        self.guid, addr[12], addr[13], addr[14], addr[15], port
+                        "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                        addr[12], addr[13], addr[14], addr[15], port, self.guid,
                     );
                     self.sender.send_to_unicast(
                         &message_buf,
@@ -440,8 +425,8 @@ impl Writer {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
                     info!(
-                        "Writer {:?} send heartbeat message to {}.{}.{}.{}:{}",
-                        self.guid, addr[12], addr[13], addr[14], addr[15], port
+                        "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                        addr[12], addr[13], addr[14], addr[15], port, self.guid,
                     );
                     self.sender.send_to_multicast(
                         &message_buf,
@@ -474,7 +459,7 @@ impl Writer {
     pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) {
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
             info!(
-                "Writer {:?} handle acknack from Reader {:?}",
+                "Writer handle acknack from Reader\n\tWriter: {:?}\n\tReader: {:?}",
                 self.guid, reader_guid
             );
             reader_proxy.acked_changes_set(acknack.reader_sn_state.base() - SequenceNumber(1));
@@ -501,7 +486,7 @@ impl Writer {
             }
         } else {
             warn!(
-                "Writer {:?} tried handle ACKNACK from unmatched Reader {:?}",
+                "Writer tried handle ACKNACK from unmatched Reader\n\tWriter: {:?}\n\tReader: {:?}",
                 self.guid, reader_guid
             );
         }
@@ -546,8 +531,8 @@ impl Writer {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
                                 info!(
-                                    "Writer {:?} resend data message to {}.{}.{}.{}:{}",
-                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                    "Writer resend data message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                    addr[12], addr[13], addr[14], addr[15], port, self.guid,
                                 );
                                 self.sender.send_to_unicast(
                                     &message_buf,
@@ -561,8 +546,8 @@ impl Writer {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
                                 info!(
-                                    "Writer {:?} resend data message to {}.{}.{}.{}:{}",
-                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                    "Writer resend data message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                    addr[12], addr[13], addr[14], addr[15], port, self.guid,
                                 );
                                 self.sender.send_to_multicast(
                                     &message_buf,
@@ -597,8 +582,8 @@ impl Writer {
                                 let port = uni_loc.port;
                                 let addr = uni_loc.address;
                                 info!(
-                                    "Writer {:?} send heartbeat message to {}.{}.{}.{}:{}",
-                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                    "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                     addr[12], addr[13], addr[14], addr[15], port, self.guid
                                 );
                                 self.sender.send_to_unicast(
                                     &message_buf,
@@ -612,8 +597,8 @@ impl Writer {
                                 let port = mul_loc.port;
                                 let addr = mul_loc.address;
                                 info!(
-                                    "Writer {:?} send heartbeat message to {}.{}.{}.{}:{}",
-                                    self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                    "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                     addr[12], addr[13], addr[14], addr[15], port, self.guid
                                 );
                                 self.sender.send_to_multicast(
                                     &message_buf,
@@ -647,8 +632,8 @@ impl Writer {
                             let port = uni_loc.port;
                             let addr = uni_loc.address;
                             info!(
-                                "Writer {:?} send gap message to {}.{}.{}.{}:{}",
-                                self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                "Writer send gap message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                addr[12], addr[13], addr[14], addr[15], port, self.guid,
                             );
                             self.sender.send_to_unicast(
                                 &message_buf,
@@ -662,8 +647,8 @@ impl Writer {
                             let port = mul_loc.port;
                             let addr = mul_loc.address;
                             info!(
-                                "Writer {:?} send gap data message to {}.{}.{}.{}:{}",
-                                self.guid, addr[12], addr[13], addr[14], addr[15], port
+                                "Writer send gap message to {}.{}.{}.{}:{}\n\tWriter: {:?}",
+                                addr[12], addr[13], addr[14], addr[15], port, self.guid,
                             );
                             self.sender.send_to_multicast(
                                 &message_buf,
@@ -709,7 +694,7 @@ impl Writer {
         qos: DataReaderQosPolicies,
     ) {
         info!(
-            "Writer {:?} added matched Reader {:?}",
+            "Writer found matched Reader\n\tWriter: {:?}\n\tReader: {:?}",
             self.guid, remote_reader_guid
         );
 
@@ -718,7 +703,7 @@ impl Writer {
                 .send(DataWriterStatusChanged::OfferedIncompatibleQos(e.clone()))
                 .expect("couldn't send writer_state_notifier");
             warn!(
-                "Writer {:?} offered incompatible qos from Reader {:?}: {}",
+                "Writer offered incompatible qos from Reader\n\tWriter: {:?}\n\tReader: {:?}\n\terror:\n {}",
                 self.guid, remote_reader_guid, e
             );
             return;

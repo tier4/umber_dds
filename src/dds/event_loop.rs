@@ -239,9 +239,9 @@ impl EventLoop {
                                 }
                                 if writer.is_reliable() {
                                     trace!(
-                                        "set Writer {:?} Heartbeat timer({:?}s)",
-                                        writer.entity_id(),
+                                        "set Writer Heartbeat timer({:?}s) of Writer with {:?}",
                                         writer.heartbeat_period(),
+                                        writer.entity_id(),
                                     );
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
@@ -310,9 +310,9 @@ impl EventLoop {
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
                                     trace!(
-                                        "set Writer {:?} Heartbeat timer({:?}s)",
-                                        writer.entity_id(),
+                                        "set Writer Heartbeat timer({:?}s) of Writer with {:?}",
                                         writer.heartbeat_period(),
+                                        writer.entity_id(),
                                     );
                                 };
                             }
@@ -324,9 +324,9 @@ impl EventLoop {
                                 if let Some(reader) = self.readers.get(&reader_entity_id) {
                                     let mut reader_hb_timer = Timer::default();
                                     trace!(
-                                        "set Reader {:?} Heartbeat response delay timer({:?}s) to Writer {:?}",
-                                        reader_entity_id,
+                                        "set Heartbeat response delay timer({:?}s) of Reader with {:?} to Writer with {:?}",
                                         reader.heartbeat_response_delay(),
+                                        reader_entity_id,
                                         writer_guid
                                     );
                                     reader_hb_timer.set_timeout(
@@ -352,9 +352,9 @@ impl EventLoop {
                                 if let Some(writer) = self.writers.get(&writer_entity_id) {
                                     let mut writedr_an_timer = Timer::default();
                                     trace!(
-                                        "set Writer {:?} AckNack timer({:?}s) to Reader {:?}",
-                                        writer_entity_id,
+                                        "set Writer AckNack timer({:?}s) of Writer with {:?} to Reader with {:?}",
                                         writer.nack_response_delay(),
+                                        writer_entity_id,
                                         reader_guid
                                     );
                                     writedr_an_timer.set_timeout(

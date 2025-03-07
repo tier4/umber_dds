@@ -55,6 +55,22 @@ impl Reader {
         sender: Rc<UdpSender>,
         set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
     ) -> Self {
+        let mut msg = String::new();
+        msg += "\tunicast locators\n";
+        for loc in &ri.unicast_locator_list {
+            msg += &format!("\t\t{:?}\n", loc);
+        }
+        msg += "\tmulticast locators\n";
+        for loc in &ri.multicast_locator_list {
+            msg += &format!("\t\t{:?}\n", loc);
+        }
+        info!(
+            "created new Reader with {:?} of Topic ({}, {}) with Locators\n{}",
+            ri.guid,
+            ri.topic.name(),
+            ri.topic.type_desc(),
+            msg,
+        );
         Self {
             guid: ri.guid,
             topic_kind: ri.topic.kind(),
@@ -99,35 +115,6 @@ impl Reader {
         );
         let sub_data = self.topic.sub_builtin_topic_data();
         DiscoveredReaderData::new(proxy, sub_data)
-    }
-
-    fn print_self_info(&self) {
-        if cfg!(debug_assertions) {
-            let mut msg = String::new();
-            msg += "Reader info";
-            msg += &format!("\tguid: {:?}", self.guid);
-            msg += "\tunicast locators";
-            for loc in &self.unicast_locator_list {
-                msg += &format!("\t\t{:?}", loc);
-            }
-            msg += "\tmulticast locators";
-            for loc in &self.multicast_locator_list {
-                msg += &format!("\t\t{:?}", loc);
-            }
-            msg += "\tmatched writers";
-            for (eid, reader) in self.matched_writers.iter() {
-                msg += &format!("\t\treader guid: {:?}", eid);
-                msg += "\tunicast locators";
-                for loc in reader.get_unicast_locator_list() {
-                    msg += &format!("\t\t{:?}", loc)
-                }
-                msg += "\tmulticast locators";
-                for loc in reader.get_multicast_locator_list() {
-                    msg += &format!("\t\t{:?}", loc)
-                }
-            }
-            trace!("{}", msg);
-        }
     }
 
     pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {
@@ -185,7 +172,6 @@ impl Reader {
                     debug!("BestEffort Reader {:?} receive change whose sequence_number < expected_seq_num from {:?}", self.guid, writer_guid);
                 }
             } else {
-                self.print_self_info();
                 warn!(
                     "BestEffort Reader {:?} tried add change from unmatched Writer {:?}",
                     self.guid, writer_guid
@@ -225,7 +211,7 @@ impl Reader {
         qos: DataWriterQosPolicies,
     ) {
         info!(
-            "Reader {:?} added matched Writer {:?}",
+            "Reader found matched Writer\n\tReader: {:?}\n\tWriter: {:?}",
             self.guid, remote_writer_guid
         );
         if let Err(e) = self.qos.is_compatible(&qos) {
@@ -233,7 +219,7 @@ impl Reader {
                 .send(DataReaderStatusChanged::RequestedIncompatibleQos(e.clone()))
                 .expect("couldn't send reader_state_notifier");
             warn!(
-                "Reader {:?} requested incompatible qos from Writer {:?}: {}",
+                "Reader requested incompatible qos from Writer\n\tWriter: {:?}\n\tReader: {:?}\n\terror:\n {}",
                 self.guid, remote_writer_guid, e
             );
             return;
