@@ -1,5 +1,11 @@
 use cdr::{CdrBe, Infinite};
 use clap::{Arg, Command};
+use log::LevelFilter;
+use log4rs::{
+    append::console::ConsoleAppender,
+    config::{Appender, Config, Root},
+    encode::pattern::PatternEncoder,
+};
 use md5::compute;
 use mio_extras::timer::Timer;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
@@ -40,6 +46,20 @@ enum Entity {
 }
 
 fn main() {
+    println!("--- shapes_demo_for_autotest start");
+    let stdout = ConsoleAppender::builder()
+        .encoder(Box::new(PatternEncoder::new(
+            "[{l}] [{d(%s%.f)}] [{t}] [pid: {P}]: {m}{n}",
+        )))
+        .build();
+
+    let config = Config::builder()
+        .appender(Appender::builder().build("stdout", Box::new(stdout)))
+        .build(Root::builder().appender("stdout").build(LevelFilter::Trace))
+        .unwrap();
+
+    log4rs::init_config(config).unwrap();
+
     let args = Command::new("shapes_demo")
         .arg(
             Arg::new("mode")
@@ -187,6 +207,7 @@ fn main() {
         for event in events.iter() {
             match event.token() {
                 END_TIMER => {
+                    println!("--- shapes_demo_for_autotest end");
                     if datareader.is_some() {
                         std::process::exit(-1);
                     } else {
@@ -213,6 +234,7 @@ fn main() {
                                         println!("received: {:?}", shape);
                                     }
                                     if received > 5 {
+                                        println!("--- shapes_demo_for_autotest end");
                                         std::process::exit(0);
                                     }
                                 }
