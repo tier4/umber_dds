@@ -44,8 +44,18 @@ int main (int argc, char ** argv)
   if (rc != DDS_RETCODE_OK)
     DDS_FATAL("dds_set_status_mask: %s\n", dds_strretcode(-rc));
 
+  start_time = time(NULL);
+  if (start_time == (time_t)-1) {
+    printf ("get time failed");
+    return -1;
+  }
+
   while(!(status & DDS_PUBLICATION_MATCHED_STATUS))
   {
+    if (difftime(time(NULL), start_time) > 30.0) {
+      printf("--- shapes_demo_cyclonedds/publisher end\n");
+      return EXIT_SUCCESS;
+    }
     rc = dds_get_status_changes (writer, &status);
     if (rc != DDS_RETCODE_OK)
       DDS_FATAL("dds_get_status_changes: %s\n", dds_strretcode(-rc));
@@ -59,12 +69,6 @@ int main (int argc, char ** argv)
   msg.x = 42;
   msg.y = 42;
   msg.shapesize = 42;
-
-  start_time = time(NULL);
-  if (start_time == (time_t)-1) {
-    printf ("get time failed");
-    return -1;
-  }
 
   while (true){
     if (difftime(time(NULL), start_time) > 30.0) {
