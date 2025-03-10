@@ -321,6 +321,9 @@ impl Locator {
     };
 
     pub fn new(kind: i32, port: u32, address: [u8; 16]) -> Self {
+        if kind == Self::KIND_UDPV4 {
+            assert_eq!(address[..12], [0; 12]);
+        }
         Locator {
             kind,
             port,
@@ -361,6 +364,59 @@ impl Locator {
             port,
             address: addr,
         }
+    }
+}
+
+impl fmt::Display for Locator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Locator: ")?;
+        match self.kind {
+            Self::KIND_INVALID => {
+                write!(
+                    f,
+                    "kidn: INVALID, port: {}, address: {:?}",
+                    self.port, self.address
+                )?;
+            }
+            Self::KIND_RESERVED => {
+                write!(
+                    f,
+                    "kind: RESERVED, port: {}, address: {:?}",
+                    self.port, self.address
+                )?;
+            }
+            Self::KIND_UDPV4 => {
+                write!(f, "kind: UDPv4, port: {}, address: ", self.port)?;
+                assert_eq!(self.address[..12], [0; 12]);
+                for (i, a) in self.address[12..].iter().enumerate() {
+                    if i != 3 {
+                        write!(f, "{}.", a)?;
+                    } else {
+                        write!(f, "{}", a)?;
+                    }
+                }
+            }
+            Self::KIND_UDPV6 => {
+                write!(f, "kind: UDPv6, port: {}, address: ", self.port)?;
+                for (i, a) in self.address.iter().enumerate() {
+                    if i % 2 == 0 {
+                        write!(f, "{:02x}", a)?;
+                    } else if i != 15 {
+                        write!(f, "{:02x}:", a)?;
+                    } else {
+                        write!(f, "{:02x}", a)?;
+                    }
+                }
+            }
+            k => {
+                write!(
+                    f,
+                    "kind: {}, port: {}, address: {:?}",
+                    k, self.port, self.address
+                )?;
+            }
+        }
+        Ok(())
     }
 }
 

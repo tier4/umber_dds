@@ -1,4 +1,5 @@
 use crate::structure::entity_id::*;
+use alloc::fmt;
 use rand::{self, rngs::SmallRng, Rng};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -30,6 +31,12 @@ impl GUID {
     }
 }
 
+impl fmt::Display for GUID {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "GUID {{ {}, {:?} }}", self.guid_prefix, self.entity_id)
+    }
+}
+
 #[derive(
     Readable, Writable, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord,
 )]
@@ -58,5 +65,19 @@ impl GuidPrefix {
         bytes[0] = crate::structure::vendor_id::VendorId::THIS_IMPLEMENTATION.vendor_id[0];
         bytes[1] = crate::structure::vendor_id::VendorId::THIS_IMPLEMENTATION.vendor_id[1];
         Self { guid_prefix: bytes }
+    }
+}
+
+impl fmt::Display for GuidPrefix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "guid_prefix: ")?;
+        for (i, b) in self.guid_prefix.iter().enumerate() {
+            if i != 11 {
+                write!(f, "{:02x}:", b)?;
+            } else {
+                write!(f, "{:02x}", b)?;
+            }
+        }
+        Ok(())
     }
 }
