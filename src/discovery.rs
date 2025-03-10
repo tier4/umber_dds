@@ -318,7 +318,7 @@ impl Discovery {
                                     .write_builtin_data(data.clone());
                                 self.local_writers_data.insert(eid, data);
                                 info!(
-                                    "add Writer to Discovery's local_writers\n\tWriter: {:?} ",
+                                    "add Writer to Discovery's local_writers\n\tWriter: {} ",
                                     eid
                                 );
                             }
@@ -329,7 +329,7 @@ impl Discovery {
                                     .write_builtin_data(data.clone());
                                 self.local_readers_data.insert(eid, data);
                                 info!(
-                                    "add Reader to Discovery's local_readers\n\tReader: {:?} ",
+                                    "add Reader to Discovery's local_readers\n\tReader: {} ",
                                     eid
                                 );
                             }
@@ -361,7 +361,7 @@ impl Discovery {
                 } else {
                     let guid_prefix = spdp_data.guid.guid_prefix;
                     info!(
-                        "write Participant data to discovery_db\n\tParticipant: {:?}",
+                        "write Participant data to discovery_db\n\tParticipant: {}",
                         spdp_data.guid
                     );
                     self.discovery_db.write_participant(

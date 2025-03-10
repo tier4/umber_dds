@@ -109,7 +109,7 @@ impl MessageReceiver {
                 }
             };
             info!(
-                "receive RTPS message form {:?} with {}",
+                "receive RTPS message form {} with {}",
                 rtps_message.header.guid_prefix,
                 rtps_message.summary()
             );
@@ -256,13 +256,13 @@ impl MessageReceiver {
             // this is invalid AckNack but, WireShark call this Preemptive ACKNACK
             // I think Preemptive ACKNACK is the ACKNACK message which sent before discover remote
             // reader.
-            info!("received Preemptive ACKNACK from Reader {:?}", reader_guid);
+            info!("received Preemptive ACKNACK from Reader {}", reader_guid);
             return Ok(());
         }
 
         if !ackanck.is_valid() {
             return Err(MessageError(format!(
-                "Invalid AckNack Submessage from Reader {:?}",
+                "Invalid AckNack Submessage from Reader {}",
                 reader_guid
             )));
         }
@@ -353,7 +353,7 @@ impl MessageReceiver {
                 None => return Err(MessageError("received incomplete spdp message".to_string())),
             };
             let guid_prefix = new_data.guid.guid_prefix;
-            info!("handle SPDP message from: {:?}", guid_prefix);
+            info!("handle SPDP message from: {}", guid_prefix);
             match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
                 Some(r) => {
                     r.matched_writer_add(
@@ -437,7 +437,7 @@ impl MessageReceiver {
                         }
                     }
                     info!(
-                        "Reader found matched Writer Reader: {:?}\n\tWriter: {:?}",
+                        "Reader found matched Writer Reader: {}\n\tWriter: {}",
                         eid, writer_proxy.remote_writer_guid
                     );
                     reader.matched_writer_add_with_default_locator(
@@ -530,7 +530,7 @@ impl MessageReceiver {
                         }
                     }
                     info!(
-                        "Writer found matched Reader\n\tWriter: {:?}\n\tWriter: {:?}",
+                        "Writer found matched Reader\n\tWriter: {}\n\tWriter: {}",
                         eid, reader_proxy.remote_reader_guid
                     );
                     writer.matched_reader_add_with_default_locator(
@@ -578,7 +578,7 @@ impl MessageReceiver {
                 ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE
                 | ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
                     info!(
-                        "receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}} from Participant: {:?}",
+                        "receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}} from Participant: {}",
                          self.source_guid_prefix
                     );
                     disc_db.write_remote_writer(deserialized.guid, ts);
@@ -620,10 +620,7 @@ impl MessageReceiver {
                     r.add_change(self.source_guid_prefix, change)
                 }
                 None => {
-                    warn!(
-                        "recieved DATA message to unknown Reader {:?}",
-                        data.reader_id
-                    );
+                    warn!("recieved DATA message to unknown Reader {}", data.reader_id);
                 }
             };
         }
@@ -656,7 +653,7 @@ impl MessageReceiver {
         // validation
         if !gap.is_valid(flag) {
             return Err(MessageError(format!(
-                "Invalid Gap Submessage from Writer {:?}",
+                "Invalid Gap Submessage from Writer\n\tWriter: {}",
                 writer_guid,
             )));
         }
@@ -671,7 +668,7 @@ impl MessageReceiver {
             match readers.get_mut(&gap.reader_id) {
                 Some(r) => r.handle_gap(writer_guid, gap),
                 None => {
-                    warn!("receved GAP message to unknown Reader {:?}", gap.reader_id);
+                    warn!("receved GAP message to unknown Reader {}", gap.reader_id);
                 }
             };
         }
@@ -699,17 +696,13 @@ impl MessageReceiver {
         // validation
         if !heartbeat.is_valid(flag) {
             return Err(MessageError(format!(
-                "Invalid Heartbeat Submessage from Writer {:?}",
+                "Invalid Heartbeat Submessage from Writer\n\tWriter: {}",
                 writer_guid
             )));
         }
 
         let ts = Timestamp::now().expect("failed get Timestamp::new()");
 
-        let mut reader_eids = String::new();
-        for (eid, _reader) in readers.iter_mut() {
-            reader_eids += &format!("{:?}\n", eid);
-        }
         if heartbeat.reader_id == EntityId::UNKNOW {
             match heartbeat.writer_id {
                 EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER => {
@@ -746,7 +739,7 @@ impl MessageReceiver {
                 }
                 None => {
                     warn!(
-                        "receved HEARTBEAT message to unknown Reader {:?}",
+                        "receved HEARTBEAT message to unknown Reader {}",
                         heartbeat.reader_id,
                     );
                 }

@@ -33,7 +33,7 @@ impl GUID {
 
 impl fmt::Display for GUID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "GUID {{ {}, {:?} }}", self.guid_prefix, self.entity_id)
+        write!(f, "GUID {{ {}, {} }}", self.guid_prefix, self.entity_id)
     }
 }
 
