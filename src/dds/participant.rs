@@ -89,7 +89,7 @@ impl DomainParticipant {
         disc_thread_sender
             .send(discovery_handler)
             .expect("couldn't send channel 'disc_thread_sender'");
-        info!("created new Participant {:?}", dp.guid());
+        info!("created new Participant {}", dp.guid());
         dp
     }
     pub fn create_publisher(&self, qos: PublisherQos) -> Publisher {

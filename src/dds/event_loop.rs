@@ -239,7 +239,7 @@ impl EventLoop {
                                 }
                                 if writer.is_reliable() {
                                     trace!(
-                                        "set Writer Heartbeat timer({:?}s) of Writer with {:?}",
+                                        "set Writer Heartbeat timer({:?}) of Writer with {}",
                                         writer.heartbeat_period(),
                                         writer.entity_id(),
                                     );
@@ -304,13 +304,13 @@ impl EventLoop {
                         }
                         WRITER_HEARTBEAT_TIMER => {
                             while let Some(eid) = self.writer_hb_timer.poll() {
-                                trace!("fired Writer Heartbeat timer({:?})", eid);
+                                trace!("fired Writer Heartbeat timer({})", eid);
                                 if let Some(writer) = self.writers.get_mut(&eid) {
                                     writer.send_heart_beat();
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
                                     trace!(
-                                        "set Writer Heartbeat timer({:?}s) of Writer with {:?}",
+                                        "set Writer Heartbeat timer({:?}) of Writer with {}",
                                         writer.heartbeat_period(),
                                         writer.entity_id(),
                                     );
@@ -324,7 +324,7 @@ impl EventLoop {
                                 if let Some(reader) = self.readers.get(&reader_entity_id) {
                                     let mut reader_hb_timer = Timer::default();
                                     trace!(
-                                        "set Heartbeat response delay timer({:?}s) of Reader with {:?} to Writer with {:?}",
+                                        "set Heartbeat response delay timer({:?}) of Reader\n\tReader: {}\n\tWriter: {}",
                                         reader.heartbeat_response_delay(),
                                         reader_entity_id,
                                         writer_guid
@@ -352,7 +352,7 @@ impl EventLoop {
                                 if let Some(writer) = self.writers.get(&writer_entity_id) {
                                     let mut writedr_an_timer = Timer::default();
                                     trace!(
-                                        "set Writer AckNack timer({:?}s) of Writer with {:?} to Reader with {:?}",
+                                        "set Writer AckNack timer({:?})\n\tWriter: {}\n\tReader: {}",
                                         writer.nack_response_delay(),
                                         writer_entity_id,
                                         reader_guid
@@ -379,7 +379,7 @@ impl EventLoop {
                                     if let Some(reader) = self.readers.get_mut(&eid) {
                                         reader.check_liveliness(&self.discovery_db);
                                         trace!(
-                                            "checked liveliness of Reader {:?}",
+                                            "checked liveliness of Reader\n\tReader: {}",
                                             reader.entity_id()
                                         );
                                         *to = wlp_timer.set_timeout(
@@ -418,7 +418,7 @@ impl EventLoop {
                         READER_HEARTBEAT_TIMER => {
                             for rhb_timer in &mut self.reader_hb_timers {
                                 if let Some((reid, wguid)) = rhb_timer.poll() {
-                                    trace!("fired Reader {:?} Heartbeat timer", reid);
+                                    trace!("fired Reader Heartbeat timer\n\tReader: {}", reid);
                                     if let Some(reader) = self.readers.get_mut(&reid) {
                                         reader.handle_hb_response_timeout(wguid);
                                     }
@@ -428,7 +428,7 @@ impl EventLoop {
                         WRITER_NACK_TIMER => {
                             for wan_timer in &mut self.writer_nack_timers {
                                 if let Some((weid, rguid)) = wan_timer.poll() {
-                                    trace!("fired Writer {:?} AcnNack timer", weid);
+                                    trace!("fired Writer AcnNack timer\n\tWriter: {}", weid);
                                     if let Some(writer) = self.writers.get_mut(&weid) {
                                         writer.handle_nack_response_timeout(rguid);
                                     }
@@ -472,7 +472,7 @@ impl EventLoop {
                                 writer.handle_writer_cmd();
                             } else {
                                 error!(
-                                    "EventLoop's poll received event with Token of unregisterd Writer {:?}",
+                                    "EventLoop's poll received event with Token of unregisterd Writer {}",
                                     eid
                                 );
                             }
@@ -522,7 +522,7 @@ impl EventLoop {
         // configure sedp_builtin_{pub/sub}_writer based on reseived spdp_data
 
         while let Ok(guid_prefix) = self.discdb_update_receiver.try_recv() {
-            trace!("handle_participant_discovery: {:?}", guid_prefix);
+            trace!("handle_participant_discovery: {}", guid_prefix);
             if let Some(spdp_data) = self.discovery_db.read_participant_data(guid_prefix) {
                 if spdp_data.domain_id != self.domain_id {
                     continue;
