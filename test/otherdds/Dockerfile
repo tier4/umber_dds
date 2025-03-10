@@ -9,6 +9,8 @@ FROM fastdds_img:latest AS fast_installer
 
 FROM ubuntu:jammy AS runner
 
+RUN apt-get update && apt-get install -y gdb
+
 # copy fastdds from fastdds_img
 COPY --from=fast_installer /opt/Fast-DDS /opt/Fast-DDS
 # copy cyclonedds from cyclonedds_img

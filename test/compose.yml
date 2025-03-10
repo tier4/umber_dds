@@ -10,6 +10,10 @@ services:
             docker-pcap:
                 ipv4_address: 192.168.209.2
         tty: true
+        cap_add:
+          - SYS_PTRACE
+        security_opt:
+          - seccomp=unconfined
         command: /bin/bash
         volumes:
             - ./umberdds:/home
@@ -23,6 +27,10 @@ services:
             docker-pcap:
                 ipv4_address: 192.168.209.5
         tty: true
+        cap_add:
+          - SYS_PTRACE
+        security_opt:
+          - seccomp=unconfined
         command: /bin/bash
         volumes:
             - ./umberdds:/home
@@ -38,6 +46,10 @@ services:
             docker-pcap:
                 ipv4_address: 192.168.209.3
         tty: true
+        cap_add:
+          - SYS_PTRACE
+        security_opt:
+          - seccomp=unconfined
         command: /bin/bash
         volumes:
             - ./otherdds/shapes_demo_rustdds:/home/shapes_demo_rustdds
