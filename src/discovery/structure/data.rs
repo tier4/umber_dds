@@ -17,7 +17,10 @@ use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::{ser::SerializeStruct, Serialize};
 use std::fmt;
 
+/// rtps spec, 8.4.13.4 Data Types Associated with Built-in Endpoints used by Writer Liveliness Protocol
 /// rtps spec, 9.6.2.1 Data Representation for the ParticipantMessageData Built-in Endpoints
+/// TODO: this type difinition may wrong. ParticipantMessageData from Cyclone DDS is different from
+/// this. A guid was not included; instead, a guid_prefix was included.
 #[derive(Clone, Serialize, serde::Deserialize, DdsData)]
 pub struct ParticipantMessageData {
     #[key]
