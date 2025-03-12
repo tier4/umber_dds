@@ -1,5 +1,12 @@
 use cdr::{CdrBe, Infinite};
 use clap::{Arg, Command};
+use log::LevelFilter;
+use log4rs::{
+    append::console::ConsoleAppender,
+    config::{Appender, Config, Deserializers, Root},
+    encode::pattern::PatternEncoder,
+    init_config, init_file,
+};
 use md5::compute;
 use mio_extras::timer::Timer;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
@@ -32,6 +39,20 @@ struct ShapeType {
 */
 
 fn main() {
+    if let Err(_e) = init_file("shapes_logging.yml", Deserializers::default()) {
+        let stdout = ConsoleAppender::builder()
+            .encoder(Box::new(PatternEncoder::new(
+                "[{l}] [{d(%s%.f)}] [{t}]: {m}{n}",
+            )))
+            .build();
+
+        let config = Config::builder()
+            .appender(Appender::builder().build("stdout", Box::new(stdout)))
+            .build(Root::builder().appender("stdout").build(LevelFilter::Info))
+            .unwrap();
+
+        init_config(config).unwrap();
+    }
     let args = Command::new("shapes_demo")
         .arg(
             Arg::new("mode")

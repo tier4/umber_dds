@@ -1,0 +1,24 @@
+# Scan this file for changes every 30 seconds
+refresh_rate: 30 seconds
+
+appenders:
+  # An appender named "stdout" that writes to stdout
+  stdout:
+    kind: console
+    encoder:
+      pattern: "[{l}] [{d(%f%.f)}] [{t}]: {m}{n}"
+
+  # An appender named "requests" that writes to a file with a custom pattern encoder
+  requests:
+    kind: file
+    path: "log/umber_dds.log"
+    encoder:
+      pattern: "[{l}] [{d(%f%.f)}] [{t}]: {m}{n}"
+      # [INFO] [1741324690.449828871] [shape_listener]: listening
+
+root:
+  level: info
+  appenders:
+    - stdout
+    - requests
+
