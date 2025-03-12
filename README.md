@@ -11,7 +11,8 @@ When cloning this repository, please use the --recursive option to clone the dep
 git clone --recursive https://github.com/tier4/umber_dds.git
 ```
 
-UmberDDS has not yet implemented proper logging, so all debug information is output directly to `stderr`. Therefore, if you do not need debug information, it is recommended to redirect `stderr` to `/dev/null`.
+UmberDDS implement logging using [log crate](https://docs.rs/log/latest/log/).
+You can log behavior of the UmberDDS using logger implementation compatible with the facade.
 
 ## How to define exchanged data
 I'll explain using the following IDL as an example.
@@ -62,12 +63,12 @@ The default is BestEffort.
 
 reliable publisher
 ```
-./target/debug/examples/shapes_demo -m p -r b 2> /dev/null
+./target/debug/examples/shapes_demo -m p -r b
 ```
 
 besteffort subscriber
 ```
-./target/debug/examples/shapes_demo -m s 2> /dev/null
+./target/debug/examples/shapes_demo -m s
 ```
 
 ## Interoperability
@@ -88,7 +89,7 @@ besteffort subscriber
     - [ ] Best-Effort StatelessReader Behavior
     - [ ] Reliable StatelessReader Behavior
 - [x] RTPS Writer Liveliness Protocol
-- [ ] Logging
+- [x] Logging
 - [x] Topics kinds: with_key and no_key
 - [ ] Instance
 - [ ] IPC (Inter-Process Communication)
