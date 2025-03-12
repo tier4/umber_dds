@@ -1339,12 +1339,15 @@ impl Serialize for SPDPdiscoveredParticipantData {
         S: serde::Serializer,
     {
         let mut s = serializer.serialize_struct("SPDPdiscoveredParticipantData", 4)?;
+
         // domain_id
         s.serialize_field("parameterId", &ParameterId::PID_DOMAIN_ID.value)?;
         s.serialize_field::<u16>("parameterLength", &4)?;
         s.serialize_field("domain_id", &self.domain_id)?;
         s.serialize_field::<u16>("protocol_version: padding", &0)?;
 
+        /*
+         if send DATA(p) with domain_tag to Cyclone DDS, Cyclone DDS don't work properly
         // domain_tag
         if !self._domain_tag.is_empty() {
             s.serialize_field("parameterId", &ParameterId::PID_DOMAIN_TAG.value)?;
@@ -1357,6 +1360,7 @@ impl Serialize for SPDPdiscoveredParticipantData {
                 s.serialize_field::<u8>("padding", &0)?;
             }
         }
+        */
 
         // ProtocolVersion
         s.serialize_field("parameterId", &ParameterId::PID_PROTOCOL_VERSION.value)?;
@@ -1596,7 +1600,7 @@ mod test {
             .gen_spdp_discoverd_participant_data()
             .expect("couldn't get spdp data from SDPBuiltinData");
         assert_eq!(data.domain_id, new_data.domain_id);
-        assert_eq!(data._domain_tag, new_data._domain_tag);
+        // assert_eq!(data._domain_tag, new_data._domain_tag);
         assert_eq!(data.protocol_version, new_data.protocol_version);
         assert_eq!(data.guid, new_data.guid);
         assert_eq!(data.vendor_id, new_data.vendor_id);
