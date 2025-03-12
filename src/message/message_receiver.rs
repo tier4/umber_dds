@@ -575,10 +575,16 @@ impl MessageReceiver {
                     }
                 };
             match deserialized.kind {
-                ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE
-                | ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
+                ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
                     info!(
-                        "receved DATA(m) with ParticipantMessageKind::{{MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE}} from Participant: {}",
+                        "receved DATA(m) with ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE from Participant: {}",
+                         self.source_guid_prefix
+                    );
+                    disc_db.write_remote_writer(deserialized.guid, ts);
+                }
+                ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE => {
+                    info!(
+                        "receved DATA(m) with ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE from Participant: {}",
                          self.source_guid_prefix
                     );
                     disc_db.write_remote_writer(deserialized.guid, ts);
