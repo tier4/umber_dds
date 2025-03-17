@@ -113,61 +113,63 @@ pub struct DataWriterQosPolicies {
 
 impl DataWriterQosPolicies {
     pub fn is_compatible(&self, qos: &DataReaderQosPolicies) -> Result<(), String> {
-        let mut msg = String::from("```\n");
+        let mut msg = String::from("{ ");
         let mut is_ok = true;
         if !Durability::is_compatible(self.durability, qos.durability) {
             is_ok = false;
             msg += &format!(
-                "durability is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
+                "{{ durability is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.durability, qos.durability
             );
         }
         if !Deadline::is_compatible(self.deadline, qos.deadline) {
             is_ok = false;
             msg += &format!(
-                "deadline is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
+                "{{ deadline is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.deadline, qos.deadline
             );
         }
         if !LatencyBudget::is_compatible(self.latency_budget, qos.latency_budget) {
             is_ok = false;
             msg += &format!(
-                "latency_budget is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
+                "{{ latency_budget is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.latency_budget, qos.latency_budget
             );
         }
         if !Ownership::is_compatible(self.ownership, qos.ownership) {
             is_ok = false;
             msg += &format!(
-                "ownership is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
+                "{{ ownership is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.ownership, qos.ownership
             );
         }
         if !Liveliness::is_compatible(self.liveliness, qos.liveliness) {
             is_ok = false;
             msg += &format!(
-                "liveliness is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
+                "{{ liveliness is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.liveliness, qos.liveliness
             );
         }
         if !Reliability::is_compatible(self.reliability, qos.reliability) {
             is_ok = false;
             msg += &format!(
-                "reliability is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
+                "{{ reliability is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.reliability, qos.reliability
             );
         }
         if !DestinationOrder::is_compatible(self.destination_order, qos.destination_order) {
             is_ok = false;
             msg += &format!(
-                "destination_order is not compatible. writer(self): {:?}, reader(remote): {:?}\n",
+                "{{ destination_order is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.destination_order, qos.destination_order
             );
         }
         if is_ok {
             Ok(())
         } else {
-            msg += "```\n";
+            msg.pop();
+            msg.pop();
+            msg += " }";
             Err(msg)
         }
     }
@@ -253,61 +255,63 @@ pub struct DataReaderQosPolicies {
 }
 impl DataReaderQosPolicies {
     pub fn is_compatible(&self, qos: &DataWriterQosPolicies) -> Result<(), String> {
-        let mut msg = String::from("```\n");
+        let mut msg = String::from("{ ");
         let mut is_ok = true;
         if !Durability::is_compatible(qos.durability, self.durability) {
             is_ok = false;
             msg += &format!(
-                "durability is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
+                "{{ durability is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.durability, qos.durability
             );
         }
         if !Deadline::is_compatible(qos.deadline, self.deadline) {
             is_ok = false;
             msg += &format!(
-                "deadline is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
+                "{{ deadline is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.deadline, qos.deadline
             );
         }
         if !LatencyBudget::is_compatible(qos.latency_budget, self.latency_budget) {
             is_ok = false;
             msg += &format!(
-                "latency_budget is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
+                "{{ latency_budget is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.latency_budget, qos.latency_budget
             );
         }
         if !Ownership::is_compatible(qos.ownership, self.ownership) {
             is_ok = false;
             msg += &format!(
-                "ownership is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
+                "{{ ownership is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.ownership, qos.ownership
             );
         }
         if !Liveliness::is_compatible(qos.liveliness, self.liveliness) {
             is_ok = false;
             msg += &format!(
-                "liveliness is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
+                "{{ liveliness is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.liveliness, qos.liveliness
             );
         }
         if !Reliability::is_compatible(qos.reliability, self.reliability) {
             is_ok = false;
             msg += &format!(
-                "reliability is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
+                "{{ reliability is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.reliability, qos.reliability
             );
         }
         if !DestinationOrder::is_compatible(qos.destination_order, self.destination_order) {
             is_ok = false;
             msg += &format!(
-                "destination_order is not compatible. reader(self): {:?}, writer(remote): {:?}\n",
+                "{{ destination_order is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.destination_order, qos.destination_order
             );
         }
         if is_ok {
             Ok(())
         } else {
-            msg += "```\n";
+            msg.pop();
+            msg.pop();
+            msg += " }";
             Err(msg)
         }
     }

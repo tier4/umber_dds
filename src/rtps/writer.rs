@@ -703,7 +703,7 @@ impl Writer {
                 .send(DataWriterStatusChanged::OfferedIncompatibleQos(e.clone()))
                 .expect("couldn't send writer_state_notifier");
             warn!(
-                "Writer offered incompatible qos from Reader\n\tWriter: {}\n\tReader: {}\n\terror:\n{}",
+                "Writer offered incompatible qos from Reader\n\tWriter: {}\n\tReader: {}\n\terror: {}",
                 self.guid, remote_reader_guid, e
             );
             return;

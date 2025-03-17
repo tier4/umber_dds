@@ -219,7 +219,7 @@ impl Reader {
                 .send(DataReaderStatusChanged::RequestedIncompatibleQos(e.clone()))
                 .expect("couldn't send reader_state_notifier");
             warn!(
-                "Reader requested incompatible qos from Writer\n\tWriter: {}\n\tReader: {}\n\terror:\n{}",
+                "Reader requested incompatible qos from Writer\n\tWriter: {}\n\tReader: {}\n\terror: {}",
                 self.guid, remote_writer_guid, e
             );
             return;
