@@ -437,7 +437,7 @@ impl MessageReceiver {
                         }
                     }
                     info!(
-                        "Reader found matched Writer Reader: {}\n\tWriter: {}",
+                        "Reader found matched Writer\n\tReader: {}\n\tWriter: {}",
                         eid, writer_proxy.remote_writer_guid
                     );
                     reader.matched_writer_add_with_default_locator(
