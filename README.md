@@ -48,11 +48,18 @@ struct Shape {
 }
 ```
 
-### examples/shapes_deme
+### examples
 ```
 # build examples
 cargo build --examples
 ```
+
+#### shapes_demo
+
+This can be used to demonstrate the capabilities of UmberDDS or as a proof of interoperability with other DDS/RTPS-compliant implementations.
+
+ShapesDemo of Fast DDS: https://github.com/eProsima/ShapesDemo
+ShapesDemo of RustDDS: https://github.com/Atostek/RustDDS/tree/master/examples/shapes_demo
 
 You can choose to start either a Publisher or a Subscriber using `-m`.
 To start the Publisher, use `-m p` or `-m P`. To start the Subscriber, use `-m s` or `-m S`.
@@ -70,6 +77,12 @@ besteffort subscriber
 ```
 ./target/debug/examples/shapes_demo -m s
 ```
+
+At the beginning of this program, logging for UmberDDS behavior is initialized using log4rs. If the `shapes_logging.yml` file is found, its configuration is used; otherwise, logs whose level is Warn or higher are output to the console.
+
+#### shapes_demo_for_autotest
+
+This is used for test/test.sh.
 
 ## Interoperability
 - [x] Fast DDS (%1)
