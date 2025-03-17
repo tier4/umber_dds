@@ -15,7 +15,7 @@ use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use bytes::BytesMut;
 use core::time::Duration as CoreDuration;
-use log::{debug, error, info, trace, warn};
+use log::{error, info, trace};
 use mio_extras::{
     channel as mio_channel,
     timer::{Timeout, Timer},

@@ -24,7 +24,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::net::Ipv4Addr;
 use core::time::Duration as CoreDuration;
-use log::{info, trace, warn};
+use log::{info, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
