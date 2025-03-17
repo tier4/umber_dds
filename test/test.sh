@@ -22,27 +22,50 @@ if [ "$?" -ne 0 ];then
     echo "[test.sh] start containers failed!"
     exit
 fi
+
+source test_nic
+
 echo "[test.sh] tests start: it takes about 2.5 minutes"
 
-echo "[test.sh] execting test1. log is save to test1.log"
+echo "[test.sh] execting test1. log is save to test1.log. packet capture is save to capture1.pcap."
+sudo tcpdump -i $TEST_NIC -w capture1.pcap &
+TCPDUMP_PID=$!
 ./test_cases/test_case1.sh &> test1.log
 res1=$?
+sudo pkill -SIGINT -P "$TCPDUMP_PID"
+wait "$TCPDUMP_PID" 2>/dev/null
 
-echo "[test.sh] execting test2. log is save to test2.log"
+echo "[test.sh] execting test2. log is save to test2.log. packet capture is save to capture2.pcap."
+sudo tcpdump -i $TEST_NIC -w capture2.pcap &
+TCPDUMP_PID=$!
 ./test_cases/test_case2.sh &> test2.log
 res2=$?
+sudo pkill -SIGINT -P "$TCPDUMP_PID"
+wait "$TCPDUMP_PID" 2>/dev/null
 
-echo "[test.sh] execting test3. log is save to test3.log"
+echo "[test.sh] execting test3. log is save to test3.log. packet capture is save to capture3.pcap."
+sudo tcpdump -i $TEST_NIC -w capture3.pcap &
+TCPDUMP_PID=$!
 ./test_cases/test_case3.sh &> test3.log
 res3=$?
+sudo pkill -SIGINT -P "$TCPDUMP_PID"
+wait "$TCPDUMP_PID" 2>/dev/null
 
-echo "[test.sh] execting test4. log is save to test4.log"
+echo "[test.sh] execting test4. log is save to test4.log. packet capture is save to capture4.pcap."
+sudo tcpdump -i "$TEST_NIC" -w capture4.pcap &
+TCPDUMP_PID=$!
 ./test_cases/test_case4.sh &> test4.log
 res4=$?
+sudo pkill -SIGINT -P "$TCPDUMP_PID"
+wait "$TCPDUMP_PID" 2>/dev/null
 
-echo "[test.sh] execting test5. log is save to test5.log"
+echo "[test.sh] execting test5. log is save to test5.log. packet capture is save to capture5.pcap."
+sudo tcpdump -i $TEST_NIC -w capture5.pcap &
+TCPDUMP_PID=$!
 ./test_cases/test_case5.sh &> test5.log
 res5=$?
+sudo pkill -SIGINT -P "$TCPDUMP_PID"
+wait "$TCPDUMP_PID" 2>/dev/null
 
 function show_resut() {
     if [ "$1" -eq 0 ];then

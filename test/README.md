@@ -16,6 +16,11 @@ docker network create \
     docker-pcap-test
 ```
 
+and write name of created NIC to test_nic
+```
+echo "TEST_NIC={name of NIC}" > test_nic
+```
+
 2. build docker container
 ```
 ./build.sh
