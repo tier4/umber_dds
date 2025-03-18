@@ -24,7 +24,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::net::Ipv4Addr;
 use core::time::Duration as CoreDuration;
-use log::{info, warn};
+use log::{debug, info, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
@@ -259,7 +259,11 @@ impl Writer {
             InstantHandle {},
         );
         // register a_change to writer HistoryCache
-        if self.add_change_to_hc(a_change.clone()).is_err() {
+        if let Err(e) = self.add_change_to_hc(a_change.clone()) {
+            debug!(
+                "add_change to Reader failed: {}\n\tWriter: {}",
+                e, self.guid
+            );
             return;
         }
         let self_guid_prefix = self.guid_prefix();
@@ -438,7 +442,7 @@ impl Writer {
         }
     }
 
-    fn add_change_to_hc(&mut self, change: CacheChange) -> Result<(), ()> {
+    fn add_change_to_hc(&mut self, change: CacheChange) -> Result<(), String> {
         // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
         self.writer_cache.write().add_change(change)?;
         for reader_proxy in self.matched_readers.values_mut() {

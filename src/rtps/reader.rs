@@ -121,12 +121,11 @@ impl Reader {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if self.is_reliable() {
             // Reliable Reader Behavior
-            if self
-                .reader_cache
-                .write()
-                .add_change(change.clone())
-                .is_err()
-            {
+            if let Err(e) = self.reader_cache.write().add_change(change.clone()) {
+                debug!(
+                    "add_change to Reader failed: {}\n\tReader: {}\n\tWriter: {}",
+                    e, self.guid, change.writer_guid
+                );
                 return;
             }
             self.reader_state_notifier
@@ -149,12 +148,11 @@ impl Reader {
                     flag = change.sequence_number >= expected_seq_num;
                 }
                 if flag {
-                    if self
-                        .reader_cache
-                        .write()
-                        .add_change(change.clone())
-                        .is_err()
-                    {
+                    if let Err(e) = self.reader_cache.write().add_change(change.clone()) {
+                        info!(
+                            "add_change to Reader failed: {}\n\tReader: {}\n\tWriter: {}",
+                            e, self.guid, change.writer_guid
+                        );
                         return;
                     }
                     self.reader_state_notifier

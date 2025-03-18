@@ -151,11 +151,11 @@ impl HistoryCache {
             max_seq_num: None,
         }
     }
-    pub fn add_change(&mut self, change: CacheChange) -> Result<(), ()> {
+    pub fn add_change(&mut self, change: CacheChange) -> Result<(), String> {
         let key = HCKey::new(change.writer_guid, change.sequence_number);
         if let Some(c) = self.changes.get(&key) {
             if c.data_value == change.data_value {
-                Err(())
+                Err("attempted to add a change that was already added".to_string())
             } else {
                 self.last_added.insert(key.guid, change.timestamp);
                 self.changes.insert(key, change);

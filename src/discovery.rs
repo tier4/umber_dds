@@ -22,7 +22,7 @@ use crate::network::net_util::{
 use crate::structure::{Duration, EntityId, GuidPrefix, RTPSEntity, TopicKind, VendorId};
 use alloc::collections::BTreeMap;
 use enumflags2::make_bitflags;
-use log::info;
+use log::{debug, error, info, trace};
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use std::time::Duration as StdDuration;
@@ -306,6 +306,7 @@ impl Discovery {
                 match TokenDec::decode(event.token()) {
                     TokenDec::ReservedToken(token) => match token {
                         SPDP_SEND_TIMER => {
+                            trace!("fired SPDP_SEND_TIMER");
                             self.spdp_builtin_participant_writer
                                 .write_builtin_data(data.clone());
                             self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
@@ -357,6 +358,11 @@ impl Discovery {
         for mut d in vd {
             if let Some(spdp_data) = d.gen_spdp_discoverd_participant_data() {
                 if spdp_data.domain_id != self.dp.domain_id() {
+                    debug!(
+                        "receved SPDP message from different Domain. Self: {}, Remote: {}",
+                        self.dp.domain_id(),
+                        spdp_data.domain_id
+                    );
                     continue;
                 } else {
                     let guid_prefix = spdp_data.guid.guid_prefix;
@@ -373,6 +379,8 @@ impl Discovery {
                         .send(guid_prefix)
                         .expect("couldn't send update notification to discdb_update_sender");
                 }
+            } else {
+                error!("failed generate SPDPdiscoveredParticipantData from received DATA(P)");
             }
         }
     }
