@@ -440,7 +440,7 @@ impl EventLoop {
                         WRITER_NACK_TIMER => {
                             for wan_timer in &mut self.writer_nack_timers {
                                 if let Some((weid, rguid)) = wan_timer.poll() {
-                                    trace!("fired Writer AcnNack timer\n\tWriter: {}", weid);
+                                    trace!("fired Writer AckNack timer\n\tWriter: {}", weid);
                                     if let Some(writer) = self.writers.get_mut(&weid) {
                                         writer.handle_nack_response_timeout(rguid);
                                     } else {
