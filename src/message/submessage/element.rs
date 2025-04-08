@@ -152,7 +152,7 @@ impl SequenceNumberSet {
         // They both claim almost the same thing.
         self.bitmap_base >= SequenceNumber(1)
             && self.num_bits < 256
-            && self.bitmap.len() as u32 == (self.num_bits + 31) / 32
+            && self.bitmap.len() as u32 == self.num_bits.div_ceil(32)
     }
 }
 
@@ -176,7 +176,7 @@ pub type FragmentNumberSet = NumberSet<FragmentNumber>;
 pub struct NumberSet<T> {
     pub bitmap_base: T,
     pub num_bits: u32,
-    #[speedy(length = (num_bits + 31) / 32)]
+    #[speedy(length = num_bits.div_ceil(32))]
     pub bitmap: Vec<u32>,
 }
 
