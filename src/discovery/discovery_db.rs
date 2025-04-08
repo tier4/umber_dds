@@ -76,10 +76,11 @@ impl DiscoveryDB {
         inner.read_local_reader(guid)
     }
     */
-    pub fn _read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
+    /// Read the time when data was last sent by a local writer with a GUID from the discovery_db.
+    pub fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
         let mut node = MCSNode::new();
         let inner = self.inner.lock(&mut node);
-        inner._read_local_writer(guid)
+        inner.read_local_writer(guid)
     }
     /*
     pub fn read_remote_reader(&self, guid: GUID) -> Option<Timestamp> {
@@ -88,6 +89,7 @@ impl DiscoveryDB {
         inner.read_remote_reader(guid)
     }
     */
+    /// Read the time when data was last sent by a remote writer with a GUID from the discovery_db.
     pub fn read_remote_writer(&self, guid: GUID) -> Option<Timestamp> {
         let mut node = MCSNode::new();
         let inner = self.inner.lock(&mut node);
@@ -164,7 +166,7 @@ impl DiscoveryDBInner {
         self.local_reader_data.get(&guid).copied()
     }
     */
-    fn _read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
+    fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
         self.local_writer_data.get(&guid).copied()
     }
     /*
