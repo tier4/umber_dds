@@ -30,3 +30,11 @@ echo "TEST_NIC={name of NIC}" > test_nic
 ```
 ./test.sh
 ```
+
+If you only want to run a specific test_case, pass a number to test.sh in which the bit corresponding to that test_case’s index is set.
+For example, to run test_case2 and test_case3, you would do:
+```
+# run test_case2 and test_case3
+# 0b110 = 6
+./test.sh 6
+```
