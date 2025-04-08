@@ -4,7 +4,7 @@ use crate::dds::{
         PublisherQos, SubscriberQos, TopicQos, TopicQosBuilder,
     },
     tokens::*,
-    DataReader, DataWriter, DomainParticipant, Publisher, Subscriber,
+    DataReader, DataReaderStatusChanged, DataWriter, DomainParticipant, Publisher, Subscriber,
 };
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
@@ -311,7 +311,32 @@ impl Discovery {
                                 .write_builtin_data(data.clone());
                             self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
                         }
-                        SPDP_PARTICIPANT_DETECTOR => self.handle_participant_discovery(),
+                        SPDP_PARTICIPANT_DETECTOR => {
+                            while let Ok(drc) = self.spdp_builtin_participant_reader.try_recv() {
+                                match drc {
+                                    DataReaderStatusChanged::DataAvailable => {
+                                        info!("SPDP_PARTICIPANT_DETECTOR: DataAvailable");
+                                        self.handle_participant_discovery()
+                                    }
+                                    DataReaderStatusChanged::LivelinessChanged => {
+                                        info!("SPDP_PARTICIPANT_DETECTOR: LivelinessChanged");
+                                    }
+                                    DataReaderStatusChanged::RequestedIncompatibleQos(m) => {
+                                        info!(
+                                            "SPDP_PARTICIPANT_DETECTOR: RequestedIncompatibleQos('{}')",
+                                            m
+                                        );
+                                    }
+                                    DataReaderStatusChanged::SubscriptionMatched(sm) => {
+                                        info!(
+                                            "SPDP_PARTICIPANT_DETECTOR: SubscriptionMatched('{:?}')",
+                                            sm.guid
+                                        );
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
                         PARTICIPANT_MESSAGE_READER => { /*self.handle_participant_message()*/ }
                         DISC_WRITER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_writer_receiver.try_recv() {
@@ -355,6 +380,7 @@ impl Discovery {
 
     fn handle_participant_discovery(&mut self) {
         let vd = self.spdp_builtin_participant_reader.take();
+        info!("handle_participant_discovery: {}", vd.len());
         for mut d in vd {
             if let Some(spdp_data) = d.gen_spdp_discoverd_participant_data() {
                 if spdp_data.domain_id != self.dp.domain_id() {
