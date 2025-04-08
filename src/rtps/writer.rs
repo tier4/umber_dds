@@ -24,7 +24,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::net::Ipv4Addr;
 use core::time::Duration as CoreDuration;
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
@@ -663,6 +663,11 @@ impl Writer {
                     }
                 };
             }
+        } else {
+            error!(
+                "not found Reader which attempt to send nack response from Writer\n\tReader: {}\n\tWriter: {}",
+                reader_guid,  self.guid
+            );
         }
         self.an_state = AckNackState::Waiting;
     }

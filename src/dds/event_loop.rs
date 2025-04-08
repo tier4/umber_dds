@@ -15,7 +15,7 @@ use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use bytes::BytesMut;
 use core::time::Duration as CoreDuration;
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use mio_extras::{
     channel as mio_channel,
     timer::{Timeout, Timer},
@@ -314,7 +314,9 @@ impl EventLoop {
                                         writer.heartbeat_period(),
                                         writer.entity_id(),
                                     );
-                                };
+                                } else {
+                                    error!("not found Writer which fired Heartbeat timer\n\tWriter: {}", eid);
+                                }
                             }
                         }
                         SET_READER_HEARTBEAT_TIMER => {
@@ -342,6 +344,8 @@ impl EventLoop {
                                         )
                                         .expect("coludn't register reader_hb_timer to poll");
                                     self.reader_hb_timers.push(reader_hb_timer);
+                                } else {
+                                    error!("not found Reader which attempt to set heartbeat timer\n\tReader: {}", reader_entity_id);
                                 }
                             }
                         }
@@ -370,6 +374,8 @@ impl EventLoop {
                                         )
                                         .expect("coludn't register writedr_an_timer to poll");
                                     self.writer_nack_timers.push(writedr_an_timer);
+                                } else {
+                                    error!("not found Writer which attempt to set nack response timer\n\tWriter: {}", writer_entity_id);
                                 }
                             }
                         }
@@ -386,6 +392,8 @@ impl EventLoop {
                                             reader.get_min_remote_writer_lease_duration(),
                                             reader.entity_id(),
                                         );
+                                    } else {
+                                        error!("not found Reader which fired check liveliness timer\n\tReader: {}", eid);
                                     }
                                 }
                             }
@@ -410,6 +418,8 @@ impl EventLoop {
                                             Vec::new(),
                                         );
                                     }
+                                } else {
+                                    debug!("not found local Writer which attempt to assert liveliness\n\tWriter: {}", guid);
                                 }
                             }
                             self.assert_liveliness_timer
@@ -421,6 +431,8 @@ impl EventLoop {
                                     trace!("fired Reader Heartbeat timer\n\tReader: {}", reid);
                                     if let Some(reader) = self.readers.get_mut(&reid) {
                                         reader.handle_hb_response_timeout(wguid);
+                                    } else {
+                                        error!("not found Reader which fired Heartbeat timer\n\tReader: {}", reid);
                                     }
                                 }
                             }
@@ -431,6 +443,8 @@ impl EventLoop {
                                     trace!("fired Writer AcnNack timer\n\tWriter: {}", weid);
                                     if let Some(writer) = self.writers.get_mut(&weid) {
                                         writer.handle_nack_response_timeout(rguid);
+                                    } else {
+                                        error!("not found Writer which fired Heartbeat timer\n\tWriter: {}", weid);
                                     }
                                 }
                             }
@@ -457,6 +471,8 @@ impl EventLoop {
                                     }
                                     self.wlp_timers
                                         .insert(reader.entity_id(), (wlp_timer, timeout));
+                                } else {
+                                    error!("not found Reader which attempt to set WriterLivelinessTimer\n\tReader: {}", reader_eid);
                                 }
                             }
                         }
@@ -550,6 +566,8 @@ impl EventLoop {
                                 spdp_data.metarraffic_multicast_locator_list.clone(),
                                 qos,
                             );
+                        } else {
+                            error!("not found self::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER");
                         }
                     }
                     if available_builtin_endpoint
@@ -574,6 +592,8 @@ impl EventLoop {
                                 0, // TODO: What value should I set?
                                 qos,
                             );
+                        } else {
+                            error!("not found self::SEDP_BUILTIN_PUBLICATIONS_DETECTOR");
                         }
                     }
                     if available_builtin_endpoint
@@ -598,6 +618,8 @@ impl EventLoop {
                                 spdp_data.metarraffic_multicast_locator_list.clone(),
                                 qos,
                             );
+                        } else {
+                            error!("not found self::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER");
                         }
                     }
                     if available_builtin_endpoint
@@ -622,6 +644,8 @@ impl EventLoop {
                                 0, // TODO: What value should I set?
                                 qos,
                             );
+                        } else {
+                            error!("not found self::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR");
                         }
                     }
                     if available_builtin_endpoint
@@ -651,6 +675,8 @@ impl EventLoop {
                                 spdp_data.metarraffic_multicast_locator_list.clone(),
                                 qos,
                             );
+                        } else {
+                            error!("not found self::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER");
                         }
                     }
                     if available_builtin_endpoint
@@ -676,6 +702,8 @@ impl EventLoop {
                                 0, // TODO: What value should I set?
                                 qos,
                             );
+                        } else {
+                            error!("not found self::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER");
                         }
                     }
                 }
@@ -694,6 +722,8 @@ impl EventLoop {
             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER)
         {
             sedp_builtin_pub_writer.matched_reader_remove(guid);
+        } else {
+            error!("not found self::SEDP_BUILTIN_PUBLICATIONS_DETECTOR");
         }
 
         let guid = GUID::new(
@@ -705,6 +735,8 @@ impl EventLoop {
             .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR)
         {
             sedp_builtin_pub_reader.matched_writer_remove(guid);
+        } else {
+            error!("not found self::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER");
         }
 
         let guid = GUID::new(
@@ -716,6 +748,8 @@ impl EventLoop {
             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER)
         {
             sedp_builtin_sub_writer.matched_reader_remove(guid);
+        } else {
+            error!("not found self::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR");
         }
 
         let guid = GUID::new(
@@ -727,6 +761,8 @@ impl EventLoop {
             .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR)
         {
             sedp_builtin_sub_reader.matched_writer_remove(guid);
+        } else {
+            error!("not found self::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER");
         }
     }
 }
