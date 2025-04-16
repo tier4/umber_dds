@@ -580,14 +580,14 @@ impl MessageReceiver {
                         "receved DATA(m) with ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE from Participant: {}",
                          self.source_guid_prefix
                     );
-                    disc_db.write_remote_writer(deserialized.guid, ts);
+                    disc_db.write_participant_ts(deserialized.guid_prefix, ts);
                 }
                 ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE => {
                     info!(
                         "receved DATA(m) with ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE from Participant: {}",
                          self.source_guid_prefix
                     );
-                    disc_db.write_remote_writer(deserialized.guid, ts);
+                    disc_db.write_participant_ts(deserialized.guid_prefix, ts);
                 }
                 ParticipantMessageKind::UNKNOWN => {
                     warn!(

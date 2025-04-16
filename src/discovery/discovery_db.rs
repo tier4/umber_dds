@@ -27,6 +27,14 @@ impl DiscoveryDB {
         inner.write_participant(guid_prefix, timestamp, data)
     }
 
+    pub fn write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) {
+        let mut node = MCSNode::new();
+        let mut inner = self.inner.lock(&mut node);
+        if let Some(data) = inner.read_participant_data(guid_prefix) {
+            inner.write_participant(guid_prefix, timestamp, data)
+        }
+    }
+
     /*
     pub fn write_local_reader(&mut self, guid: GUID, timestamp: Timestamp) {
         let mut node = MCSNode::new();

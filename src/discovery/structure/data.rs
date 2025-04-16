@@ -4,7 +4,9 @@ use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::message::message_header::ProtocolVersion;
 use crate::message::submessage::element::{Count, Locator};
 use crate::rtps::cache::HistoryCache;
-use crate::structure::{Duration, ParameterId, ReaderProxy, VendorId, WriterProxy, GUID};
+use crate::structure::{
+    Duration, GuidPrefix, ParameterId, ReaderProxy, VendorId, WriterProxy, GUID,
+};
 use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
@@ -19,18 +21,25 @@ use std::fmt;
 
 /// rtps spec, 8.4.13.4 Data Types Associated with Built-in Endpoints used by Writer Liveliness Protocol
 /// rtps spec, 9.6.2.1 Data Representation for the ParticipantMessageData Built-in Endpoints
-/// TODO: this type difinition may wrong. ParticipantMessageData from Cyclone DDS is different from
-/// this. A guid was not included; instead, a guid_prefix was included.
+/// The former shows that the first member of ParticipantMessageData is GUID, but the later said
+/// that the first member of ParticipantMessageData is serialized to GuidPrefix.
+/// You can watch Participant of Cyclone DDS sending ParticipantMessageData with GuidPrefix.
+/// This implementation send ParticipantMessageData with GuidPrefix.
 #[derive(Clone, Serialize, serde::Deserialize, DdsData)]
 pub struct ParticipantMessageData {
     #[key]
-    pub guid: GUID,
+    // To serialize the first member of ParticipantMessageData to GuidPrefix.
+    pub guid_prefix: GuidPrefix,
     pub kind: ParticipantMessageKind,
     pub data: Vec<u8>,
 }
 impl ParticipantMessageData {
-    pub fn new(guid: GUID, kind: ParticipantMessageKind, data: Vec<u8>) -> Self {
-        Self { guid, kind, data }
+    pub fn new(guid_prefix: GuidPrefix, kind: ParticipantMessageKind, data: Vec<u8>) -> Self {
+        Self {
+            guid_prefix,
+            kind,
+            data,
+        }
     }
 }
 
