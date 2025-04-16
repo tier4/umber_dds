@@ -6,7 +6,7 @@ use crate::dds::tokens::*;
 use crate::discovery::{
     discovery_db::DiscoveryDB,
     structure::builtin_endpoint::BuiltinEndpoint,
-    structure::data::{DiscoveredReaderData, DiscoveredWriterData, ParticipantMessageKind},
+    structure::data::{DiscoveredReaderData, DiscoveredWriterData},
 };
 use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterIngredients};
@@ -306,7 +306,7 @@ impl EventLoop {
                             while let Some(eid) = self.writer_hb_timer.poll() {
                                 trace!("fired Writer Heartbeat timer({})", eid);
                                 if let Some(writer) = self.writers.get_mut(&eid) {
-                                    writer.send_heart_beat();
+                                    writer.send_heart_beat(false);
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
                                     trace!(
@@ -413,10 +413,7 @@ impl EventLoop {
                                         continue;
                                     }
                                     if duration > liveliness.lease_duration.half() {
-                                        writer.assert_liveliness(
-                                            ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE,
-                                            Vec::new(),
-                                        );
+                                        writer.assert_liveliness();
                                     }
                                 } else {
                                     debug!("not found local Writer which attempt to assert liveliness\n\tWriter: {}", guid);

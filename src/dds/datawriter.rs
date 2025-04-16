@@ -4,7 +4,6 @@ use crate::dds::{
     qos::{policy::LivelinessQosKind, DataWriterQosPolicies},
     topic::Topic,
 };
-use crate::discovery::structure::data::ParticipantMessageKind;
 use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
 use crate::rtps::writer::*;
 use core::marker::PhantomData;
@@ -71,10 +70,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
 
     pub fn assert_liveliness(&self) {
         if let LivelinessQosKind::ManualByParticipant = self.qos.liveliness.kind {
-            let writer_cmd = WriterCmd::AssertLiveliness((
-                ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE,
-                Vec::new(),
-            ));
+            let writer_cmd = WriterCmd::AssertLiveliness;
             self.writer_command_sender
                 .send(writer_cmd)
                 .expect("couldn't send message");

@@ -2,14 +2,11 @@ use crate::dds::{
     qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
     Topic,
 };
-use crate::discovery::structure::data::{
-    DiscoveredWriterData, ParticipantMessageData, ParticipantMessageKind,
-};
+use crate::discovery::structure::data::DiscoveredWriterData;
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
-        AckNack, Count, Locator, RepresentationIdentifier, SequenceNumber, SequenceNumberSet,
-        SerializedPayload, Timestamp,
+        AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, SerializedPayload, Timestamp,
     },
 };
 use crate::network::udp_sender::UdpSender;
@@ -193,57 +190,15 @@ impl Writer {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
             match cmd {
                 WriterCmd::WriteData(sp) => self.handle_write_data_cmd(sp),
-                WriterCmd::AssertLiveliness((k, d)) => self.assert_liveliness(k, d),
+                WriterCmd::AssertLiveliness => self.assert_liveliness(),
             }
         }
     }
 
-    pub fn assert_liveliness(&mut self, kind: ParticipantMessageKind, data: Vec<u8>) {
-        let data = ParticipantMessageData::new(self.guid, kind, data);
-        let serialized_payload =
-            SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
-        let ts = Timestamp::now().expect("failed get Timestamp::now()");
-        let a_change = CacheChange::new(
-            ChangeKind::Alive,
-            self.guid,
-            SequenceNumber(1), // TODO: what should I set?
-            // analyzing the packet capture, it appeared that CycloneDDS fixed this value to 1.
-            ts,
-            Some(serialized_payload),
-            InstantHandle {},
-        );
-        // build RTPS Message
-        let mut message_builder = MessageBuilder::new();
-        let time_stamp = Timestamp::now();
-        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-        message_builder.data(
-            Endianness::LittleEndian,
-            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
-            EntityId::UNKNOW,
-            a_change,
-        );
-        let message = message_builder.build(self.guid_prefix());
-        let message_buf = message
-            .write_to_vec_with_ctx(self.endianness)
-            .expect("couldn't serialize message");
-        // send message_buf to multicast
-        for reader_proxy in self.matched_readers.values_mut() {
-            for mul_loc in reader_proxy.get_multicast_locator_list() {
-                if mul_loc.kind == Locator::KIND_UDPV4 {
-                    let port = mul_loc.port;
-                    let addr = mul_loc.address;
-                    info!(
-                        "Writer send data(m) message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                        addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                    );
-                    self.sender.send_to_multicast(
-                        &message_buf,
-                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                        port as u16,
-                    );
-                }
-            }
-        }
+    pub fn assert_liveliness(&mut self) {
+        // rtps 2.3 spec, 8.3.7.5 Heartbeat, Table 8.38 - Structure of the Heartbeat Submessage
+        // > LivelinessFlag: Appears in the Submessage header flags. Indicates that the DDS DataWriter associated with the RTPS Writer of the message has manually asserted its LIVELINESS.
+        self.send_heart_beat(true);
     }
 
     fn handle_write_data_cmd(&mut self, serialized_payload: Option<SerializedPayload>) {
@@ -384,7 +339,7 @@ impl Writer {
         }
     }
 
-    pub fn send_heart_beat(&mut self) {
+    pub fn send_heart_beat(&mut self, liveliness: bool) {
         let time_stamp = Timestamp::now();
         let writer_cache = self.writer_cache.read();
         self.hb_counter += 1;
@@ -398,6 +353,7 @@ impl Writer {
             }
             message_builder.heartbeat(
                 self.endianness,
+                liveliness,
                 self_entity_id,
                 reader_proxy.remote_reader_guid.entity_id,
                 writer_cache.get_seq_num_min(),
@@ -570,6 +526,7 @@ impl Writer {
                         message_builder.info_ts(Endianness::LittleEndian, time_stamp);
                         message_builder.heartbeat(
                             self.endianness,
+                            false,
                             self_entity_id,
                             reader_proxy.remote_reader_guid.entity_id,
                             change.seq_num + SequenceNumber(1),
@@ -846,5 +803,5 @@ pub struct WriterIngredients {
 }
 pub enum WriterCmd {
     WriteData(Option<SerializedPayload>),
-    AssertLiveliness((ParticipantMessageKind, Vec<u8>)),
+    AssertLiveliness,
 }

@@ -105,6 +105,7 @@ impl MessageBuilder {
     pub fn heartbeat(
         &mut self,
         endiannes: Endianness,
+        liveliness: bool,
         writer_id: EntityId,
         reader_id: EntityId,
         first_sn: SequenceNumber,
@@ -119,6 +120,9 @@ impl MessageBuilder {
         let mut hb_flag = HeartbeatFlag::from_enndianness(endiannes);
         if is_final {
             hb_flag |= HeartbeatFlag::Final;
+        }
+        if liveliness {
+            hb_flag |= HeartbeatFlag::Liveliness;
         }
         let hb_body = SubMessageBody::Entity(EntitySubmessage::HeartBeat(hb, hb_flag));
         let hb_header = SubMessageHeader::new(

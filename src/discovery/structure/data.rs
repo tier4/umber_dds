@@ -34,7 +34,7 @@ pub struct ParticipantMessageData {
     pub data: Vec<u8>,
 }
 impl ParticipantMessageData {
-    pub fn new(guid_prefix: GuidPrefix, kind: ParticipantMessageKind, data: Vec<u8>) -> Self {
+    pub fn _new(guid_prefix: GuidPrefix, kind: ParticipantMessageKind, data: Vec<u8>) -> Self {
         Self {
             guid_prefix,
             kind,
