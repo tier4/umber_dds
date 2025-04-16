@@ -184,9 +184,15 @@ impl Discovery {
                 depth: 1,
             })
             .build();
+        // rtps 2.3 sepc, 8.4.13.3 BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader QoS
+        // > For interoperability, both the BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader shall use the following QoS values:
+        // > + durability.kind = TRANSIENT_LOCAL_DURABILITY
+        //
+        // But Durability QoS of BuiltinParticipantMessage{Writer/Reader} of Cyclone DDS and RustDDS is Volatile.
+        // So, in this implementation use Volatile.
         let p2p_builtin_participant_writer_qos = DataWriterQosBuilder::new()
             .reliability(Reliability::default_reliable())
-            .durability(Durability::TransientLocal)
+            .durability(Durability::Volatile)
             .history(History {
                 kind: HistoryQosKind::KeepLast,
                 depth: 1,
@@ -194,7 +200,7 @@ impl Discovery {
             .build();
         let p2p_builtin_participant_reader_qos = DataReaderQosBuilder::new()
             .reliability(Reliability::default_reliable())
-            .durability(Durability::TransientLocal)
+            .durability(Durability::Volatile)
             .history(History {
                 kind: HistoryQosKind::KeepLast,
                 depth: 1,
