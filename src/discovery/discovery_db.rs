@@ -5,6 +5,10 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use awkernel_sync::{mcs::MCSNode, mutex::Mutex};
 
+/// DiscoveryDB has following three purposes
+/// 1. Manege remote Participant data.
+/// 2. Manege liveliness of Participant.
+/// 3. Manege Writer Liveliness.
 #[derive(Clone)]
 pub struct DiscoveryDB {
     inner: Arc<Mutex<DiscoveryDBInner>>,
@@ -27,12 +31,24 @@ impl DiscoveryDB {
         inner.write_participant(guid_prefix, timestamp, data)
     }
 
+    /// Write the time when liveliness of Participant with guid_prefix was last updated to the discovery_db.
     pub fn write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
         if let Some(data) = inner.read_participant_data(guid_prefix) {
             inner.write_participant(guid_prefix, timestamp, data)
         }
+    }
+
+    /// Write the time when liveliness of remote Writers with guid_prefix was last updated to the discovery_db.
+    pub fn update_liveliness_with_guid_prefix(
+        &mut self,
+        guid_prefix: GuidPrefix,
+        timestamp: Timestamp,
+    ) {
+        let mut node = MCSNode::new();
+        let mut inner = self.inner.lock(&mut node);
+        inner.update_liveliness_with_guid_prefix(guid_prefix, timestamp)
     }
 
     /*
@@ -42,7 +58,7 @@ impl DiscoveryDB {
         inner.write_local_reader(guid, timestamp)
     }
     */
-    /// Write the time when data was last sent by a local writer with a GUID to the discovery_db.
+    /// Write the time when liveliness of a local writer with guid was last updated to the discovery_db.
     pub fn write_local_writer(&mut self, guid: GUID, timestamp: Timestamp) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
@@ -55,7 +71,7 @@ impl DiscoveryDB {
         inner.write_remote_reader(guid, timestamp)
     }
     */
-    /// Write the time when data was last received from a remote writer with a GUID to the discovery_db.
+    /// Write the time when livelienss of a remote writer with guid was last updated to the discovery_db.
     pub fn write_remote_writer(&mut self, guid: GUID, timestamp: Timestamp) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
@@ -84,7 +100,7 @@ impl DiscoveryDB {
         inner.read_local_reader(guid)
     }
     */
-    /// Read the time when data was last sent by a local writer with a GUID from the discovery_db.
+    /// Read the time when livelienss of a local writer with guid was last updated from the discovery_db.
     pub fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
         let mut node = MCSNode::new();
         let inner = self.inner.lock(&mut node);
@@ -97,7 +113,7 @@ impl DiscoveryDB {
         inner.read_remote_reader(guid)
     }
     */
-    /// Read the time when data was last sent by a remote writer with a GUID from the discovery_db.
+    /// Read the time when livelienss of a remote writer with guid was last updated from the discovery_db.
     pub fn read_remote_writer(&self, guid: GUID) -> Option<Timestamp> {
         let mut node = MCSNode::new();
         let inner = self.inner.lock(&mut node);
@@ -131,6 +147,22 @@ impl DiscoveryDBInner {
         data: SPDPdiscoveredParticipantData,
     ) {
         self.participant_data.insert(guid_prefix, (timestamp, data));
+    }
+
+    fn update_liveliness_with_guid_prefix(
+        &mut self,
+        guid_prefix: GuidPrefix,
+        timestamp: Timestamp,
+    ) {
+        let to_update: Vec<GUID> = self
+            .remote_writer_data
+            .iter()
+            .filter(|&(k, _v)| k.guid_prefix == guid_prefix)
+            .map(|(k, _v)| *k)
+            .collect();
+        for w_guid in to_update {
+            self.remote_writer_data.insert(w_guid, timestamp);
+        }
     }
 
     /*
