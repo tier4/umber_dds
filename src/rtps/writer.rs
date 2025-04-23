@@ -64,7 +64,7 @@ pub struct Writer {
 enum AckNackState {
     Waiting,
     Repairing,
-    MutsRepair,
+    MustRepair,
 }
 
 #[allow(dead_code)]
@@ -435,11 +435,11 @@ impl Writer {
                             self.set_writer_nack_sender
                                 .send((self.entity_id(), reader_guid))
                                 .expect("couldn't send channel 'set_writer_nack_sender'");
-                            self.an_state = AckNackState::MutsRepair
+                            self.an_state = AckNackState::MustRepair
                         }
                     }
                 }
-                AckNackState::MutsRepair => {
+                AckNackState::MustRepair => {
                     // Transistion T10
                 }
                 AckNackState::Repairing => unreachable!(),
