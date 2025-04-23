@@ -252,6 +252,7 @@ impl Writer {
 
                         // TODO:
                         // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
+                        let mut is_send = false;
                         for uni_loc in reader_proxy.get_unicast_locator_list() {
                             if uni_loc.kind == Locator::KIND_UDPV4 {
                                 let port = uni_loc.port;
@@ -265,6 +266,7 @@ impl Writer {
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
                                 );
+                                is_send = true;
                             }
                         }
                         for mul_loc in reader_proxy.get_multicast_locator_list() {
@@ -280,7 +282,11 @@ impl Writer {
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
                                 );
+                                is_send = true;
                             }
+                        }
+                        if !is_send {
+                            error!("attempt to send data, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_proxy.remote_reader_guid);
                         }
                     } else {
                         unreachable!();
@@ -304,6 +310,7 @@ impl Writer {
                         .expect("couldn't serialize message");
                     // TODO:
                     // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
+                    let mut is_send = false;
                     for uni_loc in reader_proxy.get_unicast_locator_list() {
                         if uni_loc.kind == Locator::KIND_UDPV4 {
                             let port = uni_loc.port;
@@ -317,6 +324,7 @@ impl Writer {
                                 Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                 port as u16,
                             );
+                            is_send = true;
                         }
                     }
                     for mul_loc in reader_proxy.get_multicast_locator_list() {
@@ -332,7 +340,11 @@ impl Writer {
                                 Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                 port as u16,
                             );
+                            is_send = true;
                         }
+                    }
+                    if !is_send {
+                        error!("attempt to send data, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_proxy.remote_reader_guid);
                     }
                 }
             }
@@ -365,6 +377,7 @@ impl Writer {
             let message_buf = msg
                 .write_to_vec_with_ctx(self.endianness)
                 .expect("couldn't serialize message");
+            let mut is_send = false;
             for uni_loc in reader_proxy.get_unicast_locator_list() {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
@@ -378,6 +391,7 @@ impl Writer {
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,
                     );
+                    is_send = true;
                 }
             }
             for mul_loc in reader_proxy.get_multicast_locator_list() {
@@ -393,7 +407,11 @@ impl Writer {
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,
                     );
+                    is_send = true;
                 }
+            }
+            if !is_send {
+                error!("attempt to send heartbeat, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_proxy.remote_reader_guid);
             }
         }
     }
@@ -418,12 +436,15 @@ impl Writer {
 
     pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) {
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
+            let req_seq_num_set = acknack.reader_sn_state.set();
             info!(
-                "Writer handle acknack from Reader\n\tWriter: {}\n\tReader: {}",
+                "Writer handle acknack from Reader\n\tSNState: {}, Set: {:?}\n\tWriter: {}\n\tReader: {}",
+                acknack.reader_sn_state.base().0,
+                req_seq_num_set,
                 self.guid, reader_guid
             );
             reader_proxy.acked_changes_set(acknack.reader_sn_state.base() - SequenceNumber(1));
-            reader_proxy.requested_changes_set(acknack.reader_sn_state.set());
+            reader_proxy.requested_changes_set(req_seq_num_set);
             match self.an_state {
                 AckNackState::Waiting => {
                     // Transistion T9
@@ -457,7 +478,9 @@ impl Writer {
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
+            let mut resend_count = 0;
             while let Some(change) = reader_proxy.next_requested_change() {
+                resend_count += 1;
                 reader_proxy.update_cache_state(
                     change.seq_num,
                     change._is_relevant,
@@ -486,6 +509,7 @@ impl Writer {
 
                         // TODO:
                         // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
+                        let mut is_resend = false;
                         for uni_loc in reader_proxy.get_unicast_locator_list() {
                             if uni_loc.kind == Locator::KIND_UDPV4 {
                                 let port = uni_loc.port;
@@ -499,6 +523,7 @@ impl Writer {
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
                                 );
+                                is_resend = true;
                             }
                         }
                         for mul_loc in reader_proxy.get_multicast_locator_list() {
@@ -514,7 +539,11 @@ impl Writer {
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
                                 );
+                                is_resend = true;
                             }
+                        }
+                        if !is_resend {
+                            error!("attempt to resend data, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_guid);
                         }
                     } else {
                         // rtps spec, 8.4.2.2.4 Writers must eventually respond to a negative acknowledgment (reliable only)
@@ -538,6 +567,7 @@ impl Writer {
                         let message_buf = msg
                             .write_to_vec_with_ctx(self.endianness)
                             .expect("couldn't serialize message");
+                        let mut is_send = false;
                         for uni_loc in reader_proxy.get_unicast_locator_list() {
                             if uni_loc.kind == Locator::KIND_UDPV4 {
                                 let port = uni_loc.port;
@@ -551,6 +581,7 @@ impl Writer {
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
                                 );
+                                is_send = true;
                             }
                         }
                         for mul_loc in reader_proxy.get_multicast_locator_list() {
@@ -566,7 +597,11 @@ impl Writer {
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
                                 );
+                                is_send = true;
                             }
+                        }
+                        if !is_send {
+                            error!("attempt to send heartbeat, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_guid);
                         }
                     }
                 } else {
@@ -588,6 +623,7 @@ impl Writer {
                         .expect("couldn't serialize message");
                     // TODO:
                     // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
+                    let mut is_send = false;
                     for uni_loc in reader_proxy.get_unicast_locator_list() {
                         if uni_loc.kind == Locator::KIND_UDPV4 {
                             let port = uni_loc.port;
@@ -601,6 +637,7 @@ impl Writer {
                                 Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                 port as u16,
                             );
+                            is_send = true;
                         }
                     }
                     for mul_loc in reader_proxy.get_multicast_locator_list() {
@@ -616,9 +653,16 @@ impl Writer {
                                 Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                 port as u16,
                             );
+                            is_send = true;
                         }
                     }
+                    if !is_send {
+                        error!("attempt to send gap, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_guid);
+                    }
                 };
+            }
+            if resend_count == 0 {
+                error!("handle_nack_response_timeout called, but there is no change to handle\n\tWriter: {}\n\tReader: {}", self.guid, reader_guid);
             }
         } else {
             error!(

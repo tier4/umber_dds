@@ -20,7 +20,7 @@ use awkernel_sync::rwlock::RwLock;
 use core::net::Ipv4Addr;
 use core::time::Duration as StdDuration;
 use enumflags2::BitFlags;
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use mio_extras::channel as mio_channel;
 use speedy::{Endianness, Writable};
 
@@ -409,6 +409,7 @@ impl Reader {
             let message_buf = message
                 .write_to_vec_with_ctx(self.endianness)
                 .expect("couldn't serialize message");
+            let mut is_send = false;
             for uni_loc in writer_proxy.get_unicast_locator_list() {
                 if uni_loc.kind == Locator::KIND_UDPV4 {
                     let port = uni_loc.port;
@@ -422,6 +423,7 @@ impl Reader {
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,
                     );
+                    is_send = true;
                 }
             }
             // if there is Participant on same host, umber_dds need to send acknack to multicast
@@ -438,7 +440,11 @@ impl Reader {
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,
                     );
+                    is_send = true;
                 }
+            }
+            if !is_send {
+                error!("attempt to send acknack, but not found UDP_V4 locator of Writer\n\tReader: {}\n\tWriter: {}", self.guid, writer_proxy.remote_writer_guid);
             }
         } else {
             warn!(
