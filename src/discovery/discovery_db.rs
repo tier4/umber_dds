@@ -32,7 +32,7 @@ impl DiscoveryDB {
     }
 
     /// Write the time when liveliness of Participant with guid_prefix was last updated to the discovery_db.
-    pub fn write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) {
+    pub fn _write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
         if let Some(data) = inner.read_participant_data(guid_prefix) {
@@ -41,7 +41,7 @@ impl DiscoveryDB {
     }
 
     /// Write the time when liveliness of remote Writers with guid_prefix was last updated to the discovery_db.
-    pub fn update_liveliness_with_guid_prefix(
+    pub fn _update_liveliness_with_guid_prefix(
         &mut self,
         guid_prefix: GuidPrefix,
         timestamp: Timestamp,
@@ -59,10 +59,15 @@ impl DiscoveryDB {
     }
     */
     /// Write the time when liveliness of a local writer with guid was last updated to the discovery_db.
-    pub fn write_local_writer(&mut self, guid: GUID, timestamp: Timestamp) {
+    pub fn write_local_writer(
+        &mut self,
+        guid: GUID,
+        timestamp: Timestamp,
+        is_manual_by_participant: bool,
+    ) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
-        inner.write_local_writer(guid, timestamp)
+        inner.write_local_writer(guid, timestamp, is_manual_by_participant)
     }
     /*
     pub fn write_remote_reader(&mut self, guid: GUID, timestamp: Timestamp) {
@@ -72,10 +77,15 @@ impl DiscoveryDB {
     }
     */
     /// Write the time when livelienss of a remote writer with guid was last updated to the discovery_db.
-    pub fn write_remote_writer(&mut self, guid: GUID, timestamp: Timestamp) {
+    pub fn write_remote_writer(
+        &mut self,
+        guid: GUID,
+        timestamp: Timestamp,
+        is_manual_by_participant: bool,
+    ) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
-        inner.write_remote_writer(guid, timestamp)
+        inner.write_remote_writer(guid, timestamp, is_manual_by_participant)
     }
 
     pub fn read_participant_data(
@@ -124,9 +134,9 @@ impl DiscoveryDB {
 struct DiscoveryDBInner {
     participant_data: BTreeMap<GuidPrefix, (Timestamp, SPDPdiscoveredParticipantData)>,
     // local_reader_data: BTreeMap<GUID, Timestamp>,
-    local_writer_data: BTreeMap<GUID, Timestamp>,
+    local_writer_data: BTreeMap<GUID, (Timestamp, bool)>,
     // remote_reader_data: BTreeMap<GUID, Timestamp>,
-    remote_writer_data: BTreeMap<GUID, Timestamp>,
+    remote_writer_data: BTreeMap<GUID, (Timestamp, bool)>,
 }
 
 impl DiscoveryDBInner {
@@ -154,14 +164,15 @@ impl DiscoveryDBInner {
         guid_prefix: GuidPrefix,
         timestamp: Timestamp,
     ) {
-        let to_update: Vec<GUID> = self
+        let to_update: Vec<(GUID, bool)> = self
             .remote_writer_data
             .iter()
             .filter(|&(k, _v)| k.guid_prefix == guid_prefix)
-            .map(|(k, _v)| *k)
+            .map(|(k, v)| (*k, v.1))
             .collect();
-        for w_guid in to_update {
-            self.remote_writer_data.insert(w_guid, timestamp);
+        for (w_guid, is_manual_by_participant) in to_update {
+            self.remote_writer_data
+                .insert(w_guid, (timestamp, is_manual_by_participant));
         }
     }
 
@@ -170,16 +181,40 @@ impl DiscoveryDBInner {
         self.local_reader_data.insert(guid, timestamp);
     }
     */
-    fn write_local_writer(&mut self, guid: GUID, timestamp: Timestamp) {
-        self.local_writer_data.insert(guid, timestamp);
+    fn write_local_writer(
+        &mut self,
+        guid: GUID,
+        timestamp: Timestamp,
+        is_manual_by_participant: bool,
+    ) {
+        // DDS 1.4 spec, 2.2.3.11 LIVELINESS
+        // The setting MANUAL_BY_PARTICIPANT requires only that one Entity within the publisher is asserted to be alive to deduce all other Entity objects within the same DomainParticipant are also alive.
+        if is_manual_by_participant {
+            self.update_liveliness_with_guid_prefix(guid.guid_prefix, timestamp)
+        } else {
+            self.local_writer_data
+                .insert(guid, (timestamp, is_manual_by_participant));
+        }
     }
     /*
     fn write_remote_reader(&mut self, guid: GUID, timestamp: Timestamp) {
         self.remote_reader_data.insert(guid, timestamp);
     }
     */
-    fn write_remote_writer(&mut self, guid: GUID, timestamp: Timestamp) {
-        self.remote_writer_data.insert(guid, timestamp);
+    fn write_remote_writer(
+        &mut self,
+        guid: GUID,
+        timestamp: Timestamp,
+        is_manual_by_participant: bool,
+    ) {
+        // DDS 1.4 spec, 2.2.3.11 LIVELINESS
+        // The setting MANUAL_BY_PARTICIPANT requires only that one Entity within the publisher is asserted to be alive to deduce all other Entity objects within the same DomainParticipant are also alive.
+        if is_manual_by_participant {
+            self.update_liveliness_with_guid_prefix(guid.guid_prefix, timestamp)
+        } else {
+            self.remote_writer_data
+                .insert(guid, (timestamp, is_manual_by_participant));
+        }
     }
 
     fn read_participant_data(
@@ -207,7 +242,11 @@ impl DiscoveryDBInner {
     }
     */
     fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
-        self.local_writer_data.get(&guid).copied()
+        if let Some((ts, _)) = self.local_writer_data.get(&guid) {
+            Some(*ts)
+        } else {
+            None
+        }
     }
     /*
     fn read_remote_reader(&self, guid: GUID) -> Option<Timestamp> {
@@ -215,6 +254,10 @@ impl DiscoveryDBInner {
     }
     */
     fn read_remote_writer(&self, guid: GUID) -> Option<Timestamp> {
-        self.remote_writer_data.get(&guid).copied()
+        if let Some((ts, _)) = self.remote_writer_data.get(&guid) {
+            Some(*ts)
+        } else {
+            None
+        }
     }
 }
