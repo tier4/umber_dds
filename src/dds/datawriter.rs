@@ -68,12 +68,19 @@ impl<D: Serialize + DdsData> DataWriter<D> {
             .expect("couldn't send message");
     }
 
+    /// assert liveliness of the DataWriter manually
+    ///
+    /// DDS 1.4 spec, 2.2.2.4.2.22 assert_liveliness
+    /// > This operation need only be used if the LIVELINESS setting is either MANUAL_BY_PARTICIPANT or MANUAL_BY_TOPIC. Otherwise, it has no effect.
     pub fn assert_liveliness(&self) {
-        if let LivelinessQosKind::ManualByParticipant = self.qos.liveliness.kind {
-            let writer_cmd = WriterCmd::AssertLiveliness;
-            self.writer_command_sender
-                .send(writer_cmd)
-                .expect("couldn't send message");
+        match self.qos.liveliness.kind {
+            LivelinessQosKind::Automatic => (),
+            LivelinessQosKind::ManualByTopic | LivelinessQosKind::ManualByParticipant => {
+                let writer_cmd = WriterCmd::AssertLiveliness;
+                self.writer_command_sender
+                    .send(writer_cmd)
+                    .expect("couldn't send message");
+            }
         }
     }
 
