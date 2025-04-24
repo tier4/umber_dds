@@ -416,7 +416,7 @@ impl Reader {
                     let port = uni_loc.port;
                     let addr = uni_loc.address;
                     info!(
-                        "Reader sned acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {}",
+                        "Reader send acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {}",
                         addr[12], addr[13], addr[14], addr[15], port,self.guid,
                     );
                     self.sender.send_to_unicast(
@@ -433,7 +433,7 @@ impl Reader {
                     let port = mul_loc.port;
                     let addr = mul_loc.address;
                     info!(
-                        "Reader sned acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {}",
+                        "Reader send acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {}",
                         addr[12], addr[13], addr[14], addr[15], port,self.guid,
                     );
                     self.sender.send_to_unicast(
