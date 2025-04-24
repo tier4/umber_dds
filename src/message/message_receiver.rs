@@ -1,4 +1,4 @@
-use crate::dds::qos::DataWriterQosBuilder;
+use crate::dds::qos::{policy::LivelinessQosKind, DataWriterQosBuilder};
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::{
     cdr::deserialize,
@@ -580,14 +580,16 @@ impl MessageReceiver {
                         "receved DATA(m) with ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE from Participant: {}",
                          self.source_guid_prefix
                     );
-                    disc_db.write_participant_ts(deserialized.guid_prefix, ts);
+                    // TODO: update liveliness
+                    // disc_db.write_participant_ts(deserialized.guid_prefix, ts);
                 }
                 ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE => {
                     info!(
                         "receved DATA(m) with ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE from Participant: {}",
                          self.source_guid_prefix
                     );
-                    disc_db.write_participant_ts(deserialized.guid_prefix, ts);
+                    // TODO: update liveliness
+                    // disc_db.write_participant_ts(deserialized.guid_prefix, ts);
                 }
                 ParticipantMessageKind::UNKNOWN => {
                     warn!(
@@ -615,14 +617,26 @@ impl MessageReceiver {
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(GUID::new(self.source_guid_prefix, data.writer_id)) {
-                    disc_db.write_remote_writer(writer_guid, ts);
+                    if let LivelinessQosKind::ManualByParticipant =
+                        reader.get_matched_writer_qos(writer_guid).liveliness.kind
+                    {
+                        disc_db.write_remote_writer(writer_guid, ts, true);
+                    } else {
+                        disc_db.write_remote_writer(writer_guid, ts, false);
+                    }
                     reader.add_change(self.source_guid_prefix, change.clone())
                 }
             }
         } else {
             match readers.get_mut(&data.reader_id) {
                 Some(r) => {
-                    disc_db.write_remote_writer(writer_guid, ts);
+                    if let LivelinessQosKind::ManualByParticipant =
+                        r.get_matched_writer_qos(writer_guid).liveliness.kind
+                    {
+                        disc_db.write_remote_writer(writer_guid, ts, true);
+                    } else {
+                        disc_db.write_remote_writer(writer_guid, ts, false);
+                    }
                     r.add_change(self.source_guid_prefix, change)
                 }
                 None => {
@@ -709,11 +723,27 @@ impl MessageReceiver {
 
         let ts = Timestamp::now().expect("failed get Timestamp::new()");
 
+        macro_rules! update_liveliness_if_need {
+            ($r: expr, $ts: expr) => {
+                if flag.contains(HeartbeatFlag::Liveliness) {
+                    disc_db.write_remote_writer(
+                        writer_guid,
+                        $ts,
+                        $r.get_matched_writer_qos(writer_guid).liveliness.kind
+                            == LivelinessQosKind::ManualByParticipant,
+                    );
+                }
+            };
+        }
+
         if heartbeat.reader_id == EntityId::UNKNOW {
             match heartbeat.writer_id {
                 EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER => {
                     match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
-                        Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
+                        Some(r) => {
+                            r.handle_heartbeat(writer_guid, flag, heartbeat);
+                            update_liveliness_if_need!(r, ts);
+                        }
                         None => {
                             unreachable!("not found SEDP_BUILTIN_PUBLICATIONS_DETECTOR");
                         }
@@ -721,7 +751,10 @@ impl MessageReceiver {
                 }
                 EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER => {
                     match readers.get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR) {
-                        Some(r) => r.handle_heartbeat(writer_guid, flag, heartbeat),
+                        Some(r) => {
+                            r.handle_heartbeat(writer_guid, flag, heartbeat);
+                            update_liveliness_if_need!(r, ts);
+                        }
                         None => {
                             unreachable!("not found SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR");
                         }
@@ -731,8 +764,8 @@ impl MessageReceiver {
                     for reader in readers.values_mut() {
                         if reader.is_contain_writer(GUID::new(self.source_guid_prefix, writer_eid))
                         {
-                            disc_db.write_remote_writer(writer_guid, ts);
                             reader.handle_heartbeat(writer_guid, flag, heartbeat.clone());
+                            update_liveliness_if_need!(reader, ts);
                         }
                     }
                 }
@@ -740,8 +773,8 @@ impl MessageReceiver {
         } else {
             match readers.get_mut(&heartbeat.reader_id) {
                 Some(r) => {
-                    disc_db.write_remote_writer(writer_guid, ts);
-                    r.handle_heartbeat(writer_guid, flag, heartbeat)
+                    r.handle_heartbeat(writer_guid, flag, heartbeat);
+                    update_liveliness_if_need!(r, ts);
                 }
                 None => {
                     warn!(
