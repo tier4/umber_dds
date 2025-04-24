@@ -719,9 +719,10 @@ impl Writer {
             return;
         }
 
-        self.matched_readers.insert(
-            remote_reader_guid,
-            ReaderProxy::new(
+        if let std::collections::btree_map::Entry::Vacant(e) =
+            self.matched_readers.entry(remote_reader_guid)
+        {
+            e.insert(ReaderProxy::new(
                 remote_reader_guid,
                 expects_inline_qos,
                 unicast_locator_list,
@@ -730,19 +731,19 @@ impl Writer {
                 default_multicast_locator_list,
                 qos,
                 self.writer_cache.clone(),
-            ),
-        );
-        self.total_matched_readers.insert(remote_reader_guid);
-        let pub_match_state = PublicationMatchedStatus::new(
-            self.total_matched_readers.len() as i32,
-            1,
-            self.matched_readers.len() as i32,
-            1,
-            remote_reader_guid,
-        );
-        self.writer_state_notifier
-            .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
-            .expect("couldn't send writer_state_notifier");
+            ));
+            self.total_matched_readers.insert(remote_reader_guid);
+            let pub_match_state = PublicationMatchedStatus::new(
+                self.total_matched_readers.len() as i32,
+                1,
+                self.matched_readers.len() as i32,
+                1,
+                remote_reader_guid,
+            );
+            self.writer_state_notifier
+                .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
+                .expect("couldn't send writer_state_notifier");
+        }
     }
     pub fn is_reader_match(&self, topic_name: &str, data_type: &str) -> bool {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type

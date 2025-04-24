@@ -223,9 +223,10 @@ impl Reader {
             return;
         }
 
-        self.matched_writers.insert(
-            remote_writer_guid,
-            WriterProxy::new(
+        if let std::collections::btree_map::Entry::Vacant(e) =
+            self.matched_writers.entry(remote_writer_guid)
+        {
+            e.insert(WriterProxy::new(
                 remote_writer_guid,
                 unicast_locator_list,
                 multicast_locator_list,
@@ -234,21 +235,21 @@ impl Reader {
                 data_max_size_serialized,
                 qos,
                 self.reader_cache.clone(),
-            ),
-        );
-        self.total_matched_writers.insert(remote_writer_guid);
-        let sub_match_state = SubscriptionMatchedStatus::new(
-            self.total_matched_writers.len() as i32,
-            1,
-            self.matched_writers.len() as i32,
-            1,
-            remote_writer_guid,
-        );
-        self.reader_state_notifier
-            .send(DataReaderStatusChanged::SubscriptionMatched(
-                sub_match_state,
-            ))
-            .expect("couldn't send reader_state_notifier");
+            ));
+            self.total_matched_writers.insert(remote_writer_guid);
+            let sub_match_state = SubscriptionMatchedStatus::new(
+                self.total_matched_writers.len() as i32,
+                1,
+                self.matched_writers.len() as i32,
+                1,
+                remote_writer_guid,
+            );
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::SubscriptionMatched(
+                    sub_match_state,
+                ))
+                .expect("couldn't send reader_state_notifier");
+        }
     }
 
     pub fn is_writer_match(&self, topic_name: &str, data_type: &str) -> bool {
