@@ -49,7 +49,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
         self.qos = qos;
     }
 
-    /// publish data for matching DataWriter
+    /// publish data for matching DataReader
     pub fn write(&self, data: D) {
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
