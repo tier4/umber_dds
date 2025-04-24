@@ -489,6 +489,18 @@ impl Reader {
         }
         false
     }
+    pub fn get_matched_writer_qos(&self, writer_guid: GUID) -> DataWriterQosPolicies {
+        self.matched_writers
+            .get(&writer_guid)
+            .unwrap_or_else(|| {
+                panic!(
+                    "not found Writer matched to Reader\n\tReader: {}\n\tWriter: {}",
+                    self.guid, writer_guid,
+                )
+            })
+            .qos
+            .clone()
+    }
 
     pub fn check_liveliness(&mut self, disc_db: &DiscoveryDB) {
         let mut todo_remove = Vec::new();
