@@ -481,8 +481,7 @@ impl EventLoop {
                                 self.discovery_db.write_local_writer(
                                     GUID::new(self.guid_prefix, eid),
                                     Timestamp::now().expect("failed get Timestamp"),
-                                    writer.get_qos().liveliness.kind
-                                        == LivelinessQosKind::ManualByParticipant,
+                                    writer.get_qos().liveliness.kind,
                                 );
                                 writer.handle_writer_cmd();
                             } else {
