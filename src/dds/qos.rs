@@ -92,7 +92,7 @@ pub enum DataWriterQos {
 }
 
 /// A collection of QoS policies for configuring the behavior of a DataWriter
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct DataWriterQosPolicies {
     pub durability: Durability,
     pub durability_service: DurabilityService,
@@ -238,7 +238,7 @@ pub enum DataReaderQos {
 }
 
 /// A collection of QoS policies for configuring the behavior of a DataReader
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct DataReaderQosPolicies {
     pub durability: Durability,
     pub deadline: Deadline,

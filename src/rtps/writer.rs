@@ -703,25 +703,25 @@ impl Writer {
         default_multicast_locator_list: Vec<Locator>,
         qos: DataReaderQosPolicies,
     ) {
-        info!(
-            "Writer found matched Reader\n\tWriter: {}\n\tReader: {}",
-            self.guid, remote_reader_guid
-        );
-
-        if let Err(e) = self.qos.is_compatible(&qos) {
-            self.writer_state_notifier
-                .send(DataWriterStatusChanged::OfferedIncompatibleQos(e.clone()))
-                .expect("couldn't send writer_state_notifier");
-            warn!(
-                "Writer offered incompatible qos from Reader\n\tWriter: {}\n\tReader: {}\n\terror: {}",
-                self.guid, remote_reader_guid, e
-            );
-            return;
-        }
-
         if let std::collections::btree_map::Entry::Vacant(e) =
             self.matched_readers.entry(remote_reader_guid)
         {
+            if let Err(e) = self.qos.is_compatible(&qos) {
+                self.writer_state_notifier
+                    .send(DataWriterStatusChanged::OfferedIncompatibleQos(e.clone()))
+                    .expect("couldn't send writer_state_notifier");
+                warn!(
+                "Writer offered incompatible qos from Reader\n\tWriter: {}\n\tReader: {}\n\terror: {}",
+                self.guid, remote_reader_guid, e
+            );
+                return;
+            }
+
+            info!(
+                "Writer found matched Reader\n\tWriter: {}\n\tReader: {}",
+                self.guid, remote_reader_guid
+            );
+
             e.insert(ReaderProxy::new(
                 remote_reader_guid,
                 expects_inline_qos,
@@ -743,6 +743,25 @@ impl Writer {
             self.writer_state_notifier
                 .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
                 .expect("couldn't send writer_state_notifier");
+        } else {
+            let remote_reader = self.matched_readers.get_mut(&remote_reader_guid).unwrap();
+            macro_rules! update_proxy_if_need {
+                ($name:ident) => {
+                    if remote_reader.$name != $name {
+                        remote_reader.$name = $name;
+                        info!(
+                            "Writer update matched Reader info\n\tWriter: {}\n\tReader: {}",
+                            self.guid, remote_reader_guid
+                        );
+                    }
+                };
+            }
+            update_proxy_if_need!(qos);
+            update_proxy_if_need!(expects_inline_qos);
+            update_proxy_if_need!(unicast_locator_list);
+            update_proxy_if_need!(multicast_locator_list);
+            update_proxy_if_need!(default_unicast_locator_list);
+            update_proxy_if_need!(default_multicast_locator_list);
         }
     }
     pub fn is_reader_match(&self, topic_name: &str, data_type: &str) -> bool {

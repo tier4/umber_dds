@@ -208,24 +208,25 @@ impl Reader {
         data_max_size_serialized: i32,
         qos: DataWriterQosPolicies,
     ) {
-        info!(
-            "Reader found matched Writer\n\tReader: {}\n\tWriter: {}",
-            self.guid, remote_writer_guid
-        );
-        if let Err(e) = self.qos.is_compatible(&qos) {
-            self.reader_state_notifier
-                .send(DataReaderStatusChanged::RequestedIncompatibleQos(e.clone()))
-                .expect("couldn't send reader_state_notifier");
-            warn!(
-                "Reader requested incompatible qos from Writer\n\tWriter: {}\n\tReader: {}\n\terror: {}",
-                self.guid, remote_writer_guid, e
-            );
-            return;
-        }
-
         if let std::collections::btree_map::Entry::Vacant(e) =
             self.matched_writers.entry(remote_writer_guid)
         {
+            if let Err(e) = self.qos.is_compatible(&qos) {
+                self.reader_state_notifier
+                    .send(DataReaderStatusChanged::RequestedIncompatibleQos(e.clone()))
+                    .expect("couldn't send reader_state_notifier");
+                warn!(
+                "Reader requested incompatible qos from Writer\n\tWriter: {}\n\tReader: {}\n\terror: {}",
+                self.guid, remote_writer_guid, e
+            );
+                return;
+            }
+
+            info!(
+                "Reader found matched Writer\n\tReader: {}\n\tWriter: {}",
+                self.guid, remote_writer_guid
+            );
+
             e.insert(WriterProxy::new(
                 remote_writer_guid,
                 unicast_locator_list,
@@ -249,6 +250,25 @@ impl Reader {
                     sub_match_state,
                 ))
                 .expect("couldn't send reader_state_notifier");
+        } else {
+            let remote_writer = self.matched_writers.get_mut(&remote_writer_guid).unwrap();
+            macro_rules! update_proxy_if_need {
+                ($name:ident) => {
+                    if remote_writer.$name != $name {
+                        remote_writer.$name = $name;
+                        info!(
+                            "Reader update matched Writer info\n\tReader: {}\n\tWriter: {}",
+                            self.guid, remote_writer_guid
+                        );
+                    }
+                };
+            }
+            update_proxy_if_need!(qos);
+            update_proxy_if_need!(unicast_locator_list);
+            update_proxy_if_need!(multicast_locator_list);
+            update_proxy_if_need!(default_unicast_locator_list);
+            update_proxy_if_need!(default_multicast_locator_list);
+            update_proxy_if_need!(data_max_size_serialized);
         }
     }
 
