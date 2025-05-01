@@ -1,3 +1,4 @@
+use crate::dds::qos::policy::LivelinessQosKind;
 use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
 use crate::message::submessage::element::Timestamp;
 use crate::structure::{GuidPrefix, GUID};
@@ -41,14 +42,15 @@ impl DiscoveryDB {
     }
 
     /// Write the time when liveliness of remote Writers with guid_prefix was last updated to the discovery_db.
-    pub fn _update_liveliness_with_guid_prefix(
+    pub fn update_liveliness_with_guid_prefix(
         &mut self,
         guid_prefix: GuidPrefix,
         timestamp: Timestamp,
+        liveliness_kind: LivelinessQosKind,
     ) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
-        inner.update_liveliness_with_guid_prefix(guid_prefix, timestamp)
+        inner.update_liveliness_with_guid_prefix_with_kind(guid_prefix, timestamp, liveliness_kind)
     }
 
     /*
@@ -63,11 +65,11 @@ impl DiscoveryDB {
         &mut self,
         guid: GUID,
         timestamp: Timestamp,
-        is_manual_by_participant: bool,
+        liveliness_kind: LivelinessQosKind,
     ) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
-        inner.write_local_writer(guid, timestamp, is_manual_by_participant)
+        inner.write_local_writer(guid, timestamp, liveliness_kind)
     }
     /*
     pub fn write_remote_reader(&mut self, guid: GUID, timestamp: Timestamp) {
@@ -81,11 +83,11 @@ impl DiscoveryDB {
         &mut self,
         guid: GUID,
         timestamp: Timestamp,
-        is_manual_by_participant: bool,
+        liveliness_kind: LivelinessQosKind,
     ) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
-        inner.write_remote_writer(guid, timestamp, is_manual_by_participant)
+        inner.write_remote_writer(guid, timestamp, liveliness_kind)
     }
 
     pub fn read_participant_data(
@@ -134,9 +136,9 @@ impl DiscoveryDB {
 struct DiscoveryDBInner {
     participant_data: BTreeMap<GuidPrefix, (Timestamp, SPDPdiscoveredParticipantData)>,
     // local_reader_data: BTreeMap<GUID, Timestamp>,
-    local_writer_data: BTreeMap<GUID, (Timestamp, bool)>,
+    local_writer_data: BTreeMap<GUID, (Timestamp, LivelinessQosKind)>,
     // remote_reader_data: BTreeMap<GUID, Timestamp>,
-    remote_writer_data: BTreeMap<GUID, (Timestamp, bool)>,
+    remote_writer_data: BTreeMap<GUID, (Timestamp, LivelinessQosKind)>,
 }
 
 impl DiscoveryDBInner {
@@ -159,20 +161,38 @@ impl DiscoveryDBInner {
         self.participant_data.insert(guid_prefix, (timestamp, data));
     }
 
+    fn update_liveliness_with_guid_prefix_with_kind(
+        &mut self,
+        guid_prefix: GuidPrefix,
+        timestamp: Timestamp,
+        liveliness_kind: LivelinessQosKind,
+    ) {
+        let to_update: Vec<(GUID, LivelinessQosKind)> = self
+            .remote_writer_data
+            .iter()
+            .filter(|&(k, v)| k.guid_prefix == guid_prefix && v.1 == liveliness_kind)
+            .map(|(k, v)| (*k, v.1))
+            .collect();
+        for (w_guid, liveliness_kind) in to_update {
+            self.remote_writer_data
+                .insert(w_guid, (timestamp, liveliness_kind));
+        }
+    }
+
     fn update_liveliness_with_guid_prefix(
         &mut self,
         guid_prefix: GuidPrefix,
         timestamp: Timestamp,
     ) {
-        let to_update: Vec<(GUID, bool)> = self
+        let to_update: Vec<(GUID, LivelinessQosKind)> = self
             .remote_writer_data
             .iter()
             .filter(|&(k, _v)| k.guid_prefix == guid_prefix)
             .map(|(k, v)| (*k, v.1))
             .collect();
-        for (w_guid, is_manual_by_participant) in to_update {
+        for (w_guid, liveliness_kind) in to_update {
             self.remote_writer_data
-                .insert(w_guid, (timestamp, is_manual_by_participant));
+                .insert(w_guid, (timestamp, liveliness_kind));
         }
     }
 
@@ -185,15 +205,17 @@ impl DiscoveryDBInner {
         &mut self,
         guid: GUID,
         timestamp: Timestamp,
-        is_manual_by_participant: bool,
+        // is_manual_by_participant: bool,
+        liveliness_kind: LivelinessQosKind,
     ) {
         // DDS 1.4 spec, 2.2.3.11 LIVELINESS
         // The setting MANUAL_BY_PARTICIPANT requires only that one Entity within the publisher is asserted to be alive to deduce all other Entity objects within the same DomainParticipant are also alive.
-        if is_manual_by_participant {
+        // if is_manual_by_participant {
+        if liveliness_kind == LivelinessQosKind::ManualByParticipant {
             self.update_liveliness_with_guid_prefix(guid.guid_prefix, timestamp)
         } else {
             self.local_writer_data
-                .insert(guid, (timestamp, is_manual_by_participant));
+                .insert(guid, (timestamp, liveliness_kind));
         }
     }
     /*
@@ -205,15 +227,17 @@ impl DiscoveryDBInner {
         &mut self,
         guid: GUID,
         timestamp: Timestamp,
-        is_manual_by_participant: bool,
+        // is_manual_by_participant: bool,
+        liveliness_kind: LivelinessQosKind,
     ) {
         // DDS 1.4 spec, 2.2.3.11 LIVELINESS
         // The setting MANUAL_BY_PARTICIPANT requires only that one Entity within the publisher is asserted to be alive to deduce all other Entity objects within the same DomainParticipant are also alive.
-        if is_manual_by_participant {
+        // if is_manual_by_participant {
+        if liveliness_kind == LivelinessQosKind::ManualByParticipant {
             self.update_liveliness_with_guid_prefix(guid.guid_prefix, timestamp)
         } else {
             self.remote_writer_data
-                .insert(guid, (timestamp, is_manual_by_participant));
+                .insert(guid, (timestamp, liveliness_kind));
         }
     }
 

@@ -580,16 +580,22 @@ impl MessageReceiver {
                         "receved DATA(m) with ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE from Participant: {}",
                          self.source_guid_prefix
                     );
-                    // TODO: update liveliness
-                    // disc_db.write_participant_ts(deserialized.guid_prefix, ts);
+                    disc_db.update_liveliness_with_guid_prefix(
+                        deserialized.guid_prefix,
+                        ts,
+                        LivelinessQosKind::Automatic,
+                    );
                 }
                 ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE => {
                     info!(
                         "receved DATA(m) with ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE from Participant: {}",
                          self.source_guid_prefix
                     );
-                    // TODO: update liveliness
-                    // disc_db.write_participant_ts(deserialized.guid_prefix, ts);
+                    disc_db.update_liveliness_with_guid_prefix(
+                        deserialized.guid_prefix,
+                        ts,
+                        LivelinessQosKind::ManualByParticipant,
+                    );
                 }
                 ParticipantMessageKind::UNKNOWN => {
                     warn!(
@@ -617,26 +623,22 @@ impl MessageReceiver {
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(GUID::new(self.source_guid_prefix, data.writer_id)) {
-                    if let LivelinessQosKind::ManualByParticipant =
-                        reader.get_matched_writer_qos(writer_guid).liveliness.kind
-                    {
-                        disc_db.write_remote_writer(writer_guid, ts, true);
-                    } else {
-                        disc_db.write_remote_writer(writer_guid, ts, false);
-                    }
+                    disc_db.write_remote_writer(
+                        writer_guid,
+                        ts,
+                        reader.get_matched_writer_qos(writer_guid).liveliness.kind,
+                    );
                     reader.add_change(self.source_guid_prefix, change.clone())
                 }
             }
         } else {
             match readers.get_mut(&data.reader_id) {
                 Some(r) => {
-                    if let LivelinessQosKind::ManualByParticipant =
-                        r.get_matched_writer_qos(writer_guid).liveliness.kind
-                    {
-                        disc_db.write_remote_writer(writer_guid, ts, true);
-                    } else {
-                        disc_db.write_remote_writer(writer_guid, ts, false);
-                    }
+                    disc_db.write_remote_writer(
+                        writer_guid,
+                        ts,
+                        r.get_matched_writer_qos(writer_guid).liveliness.kind,
+                    );
                     r.add_change(self.source_guid_prefix, change)
                 }
                 None => {
@@ -729,8 +731,7 @@ impl MessageReceiver {
                     disc_db.write_remote_writer(
                         writer_guid,
                         $ts,
-                        $r.get_matched_writer_qos(writer_guid).liveliness.kind
-                            == LivelinessQosKind::ManualByParticipant,
+                        $r.get_matched_writer_qos(writer_guid).liveliness.kind,
                     );
                 }
             };
