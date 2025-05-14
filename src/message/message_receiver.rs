@@ -354,6 +354,10 @@ impl MessageReceiver {
             };
             let guid_prefix = new_data.guid.guid_prefix;
             info!("handle SPDP message from: {}", guid_prefix);
+            disc_db.write_participant_ts(
+                guid_prefix,
+                Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
+            );
             match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
                 Some(r) => {
                     r.matched_writer_add(

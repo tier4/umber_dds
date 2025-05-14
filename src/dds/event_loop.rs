@@ -4,7 +4,7 @@ use crate::dds::qos::{
 };
 use crate::dds::tokens::*;
 use crate::discovery::{
-    discovery_db::DiscoveryDB,
+    discovery_db::{DiscoveryDB, EndpointState},
     structure::builtin_endpoint::BuiltinEndpoint,
     structure::data::{DiscoveredReaderData, DiscoveredWriterData},
 };
@@ -403,7 +403,9 @@ impl EventLoop {
                             let now = Timestamp::now().unwrap_or(Timestamp::TIME_INVALID);
                             for writer in self.writers.values_mut() {
                                 let guid = writer.guid();
-                                if let Some(ts) = self.discovery_db.read_local_writer(guid) {
+                                if let EndpointState::Live(ts) =
+                                    self.discovery_db.read_local_writer(guid)
+                                {
                                     let duration = now - ts;
                                     let liveliness = writer.get_qos().liveliness;
                                     if liveliness.kind != LivelinessQosKind::Automatic {

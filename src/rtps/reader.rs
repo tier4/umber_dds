@@ -2,7 +2,10 @@ use crate::dds::{
     qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
     Topic,
 };
-use crate::discovery::{discovery_db::DiscoveryDB, structure::data::DiscoveredReaderData};
+use crate::discovery::{
+    discovery_db::{DiscoveryDB, EndpointState},
+    structure::data::DiscoveredReaderData,
+};
 use crate::message::message_builder::MessageBuilder;
 use crate::message::submessage::{
     element::{Gap, Heartbeat, Locator, SequenceNumber, SequenceNumberSet, Timestamp},
@@ -509,12 +512,16 @@ impl Reader {
             if wld == Duration::INFINITE {
                 continue;
             }
-            let last_added = disc_db
-                .read_remote_writer(*guid)
-                .expect("not found data from discovery_db");
-            let elapse = Timestamp::now().expect("failed get Timestamp::now()") - last_added;
-            if elapse > wld {
-                todo_remove.push(*guid);
+            match disc_db.read_remote_writer(*guid) {
+                EndpointState::Live(last_added) => {
+                    let elapse =
+                        Timestamp::now().expect("failed get Timestamp::now()") - last_added;
+                    if elapse > wld {
+                        todo_remove.push(*guid);
+                    }
+                }
+                EndpointState::Lost => todo_remove.push(*guid),
+                EndpointState::Unknown => unreachable!(),
             }
         }
         for g in todo_remove {
