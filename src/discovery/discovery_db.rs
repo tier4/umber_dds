@@ -5,6 +5,14 @@ use crate::structure::{GuidPrefix, GUID};
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use awkernel_sync::{mcs::MCSNode, mutex::Mutex};
+use core::time::Duration as CoreDuration;
+
+#[derive(Clone, Copy)]
+pub enum EndpointState {
+    Live(Timestamp),
+    Lost,
+    Unknown,
+}
 
 /// DiscoveryDB has following three purposes
 /// 1. Manege remote Participant data.
@@ -33,12 +41,18 @@ impl DiscoveryDB {
     }
 
     /// Write the time when liveliness of Participant with guid_prefix was last updated to the discovery_db.
-    pub fn _write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) {
+    pub fn write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
         if let Some(data) = inner.read_participant_data(guid_prefix) {
             inner.write_participant(guid_prefix, timestamp, data)
         }
+    }
+
+    pub fn check_participant_liveliness(&mut self, timestamp: Timestamp) -> CoreDuration {
+        let mut node = MCSNode::new();
+        let mut inner = self.inner.lock(&mut node);
+        inner.check_participant_liveliness(timestamp)
     }
 
     /// Write the time when liveliness of remote Writers with guid_prefix was last updated to the discovery_db.
@@ -113,7 +127,7 @@ impl DiscoveryDB {
     }
     */
     /// Read the time when livelienss of a local writer with guid was last updated from the discovery_db.
-    pub fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
+    pub fn read_local_writer(&self, guid: GUID) -> EndpointState {
         let mut node = MCSNode::new();
         let inner = self.inner.lock(&mut node);
         inner.read_local_writer(guid)
@@ -126,7 +140,7 @@ impl DiscoveryDB {
     }
     */
     /// Read the time when livelienss of a remote writer with guid was last updated from the discovery_db.
-    pub fn read_remote_writer(&self, guid: GUID) -> Option<Timestamp> {
+    pub fn read_remote_writer(&self, guid: GUID) -> EndpointState {
         let mut node = MCSNode::new();
         let inner = self.inner.lock(&mut node);
         inner.read_remote_writer(guid)
@@ -134,11 +148,11 @@ impl DiscoveryDB {
 }
 
 struct DiscoveryDBInner {
-    participant_data: BTreeMap<GuidPrefix, (Timestamp, SPDPdiscoveredParticipantData)>,
+    participant_data: BTreeMap<GuidPrefix, (EndpointState, SPDPdiscoveredParticipantData)>,
     // local_reader_data: BTreeMap<GUID, Timestamp>,
-    local_writer_data: BTreeMap<GUID, (Timestamp, LivelinessQosKind)>,
+    local_writer_data: BTreeMap<GUID, (EndpointState, LivelinessQosKind)>,
     // remote_reader_data: BTreeMap<GUID, Timestamp>,
-    remote_writer_data: BTreeMap<GUID, (Timestamp, LivelinessQosKind)>,
+    remote_writer_data: BTreeMap<GUID, (EndpointState, LivelinessQosKind)>,
 }
 
 impl DiscoveryDBInner {
@@ -158,7 +172,31 @@ impl DiscoveryDBInner {
         timestamp: Timestamp,
         data: SPDPdiscoveredParticipantData,
     ) {
-        self.participant_data.insert(guid_prefix, (timestamp, data));
+        self.participant_data
+            .insert(guid_prefix, (EndpointState::Live(timestamp), data));
+    }
+
+    pub fn check_participant_liveliness(&mut self, timestamp: Timestamp) -> CoreDuration {
+        let mut next_duration = CoreDuration::MAX;
+        for (_prefix, (es, data)) in &self.participant_data {
+            if let EndpointState::Live(ts) = es {
+                if timestamp - *ts > data.lease_duration {
+                    // liveliness lost
+                    let _ = self
+                        .remote_writer_data
+                        .iter_mut()
+                        .filter(|(k, _v)| k.guid_prefix == *_prefix)
+                        .map(|(_k, (es, _l))| *es = EndpointState::Lost);
+                } else {
+                    next_duration = data.lease_duration.half().to_core_duration();
+                }
+            }
+        }
+        if next_duration == CoreDuration::MAX {
+            CoreDuration::new(5, 0)
+        } else {
+            next_duration
+        }
     }
 
     fn update_liveliness_with_guid_prefix_with_kind(
@@ -175,7 +213,7 @@ impl DiscoveryDBInner {
             .collect();
         for (w_guid, liveliness_kind) in to_update {
             self.remote_writer_data
-                .insert(w_guid, (timestamp, liveliness_kind));
+                .insert(w_guid, (EndpointState::Live(timestamp), liveliness_kind));
         }
     }
 
@@ -192,7 +230,7 @@ impl DiscoveryDBInner {
             .collect();
         for (w_guid, liveliness_kind) in to_update {
             self.remote_writer_data
-                .insert(w_guid, (timestamp, liveliness_kind));
+                .insert(w_guid, (EndpointState::Live(timestamp), liveliness_kind));
         }
     }
 
@@ -215,7 +253,7 @@ impl DiscoveryDBInner {
             self.update_liveliness_with_guid_prefix(guid.guid_prefix, timestamp)
         } else {
             self.local_writer_data
-                .insert(guid, (timestamp, liveliness_kind));
+                .insert(guid, (EndpointState::Live(timestamp), liveliness_kind));
         }
     }
     /*
@@ -237,7 +275,7 @@ impl DiscoveryDBInner {
             self.update_liveliness_with_guid_prefix(guid.guid_prefix, timestamp)
         } else {
             self.remote_writer_data
-                .insert(guid, (timestamp, liveliness_kind));
+                .insert(guid, (EndpointState::Live(timestamp), liveliness_kind));
         }
     }
 
@@ -253,7 +291,7 @@ impl DiscoveryDBInner {
     }
 
     fn _read_participant_ts(&self, guid_prefix: GuidPrefix) -> Option<Timestamp> {
-        if let Some((ts, _data)) = self.participant_data.get(&guid_prefix) {
+        if let Some((EndpointState::Live(ts), _data)) = self.participant_data.get(&guid_prefix) {
             Some(*ts)
         } else {
             None
@@ -265,11 +303,11 @@ impl DiscoveryDBInner {
         self.local_reader_data.get(&guid).copied()
     }
     */
-    fn read_local_writer(&self, guid: GUID) -> Option<Timestamp> {
-        if let Some((ts, _)) = self.local_writer_data.get(&guid) {
-            Some(*ts)
+    fn read_local_writer(&self, guid: GUID) -> EndpointState {
+        if let Some((es, _)) = self.local_writer_data.get(&guid) {
+            *es
         } else {
-            None
+            EndpointState::Unknown
         }
     }
     /*
@@ -277,11 +315,11 @@ impl DiscoveryDBInner {
         self.remote_reader_data.get(&guid).copied()
     }
     */
-    fn read_remote_writer(&self, guid: GUID) -> Option<Timestamp> {
-        if let Some((ts, _)) = self.remote_writer_data.get(&guid) {
-            Some(*ts)
+    fn read_remote_writer(&self, guid: GUID) -> EndpointState {
+        if let Some((es, _)) = self.remote_writer_data.get(&guid) {
+            *es
         } else {
-            None
+            EndpointState::Unknown
         }
     }
 }

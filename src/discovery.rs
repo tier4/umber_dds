@@ -21,11 +21,11 @@ use crate::network::net_util::{
 };
 use crate::structure::{Duration, EntityId, GuidPrefix, RTPSEntity, TopicKind, VendorId};
 use alloc::collections::BTreeMap;
+use core::time::Duration as CoreDuration;
 use enumflags2::make_bitflags;
 use log::{debug, error, info, trace};
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
-use std::time::Duration as StdDuration;
 
 pub mod discovery_db;
 pub mod structure;
@@ -63,6 +63,7 @@ pub struct Discovery {
     p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData>,
     p2p_builtin_participant_msg_reader: DataReader<ParticipantMessageData>,
     spdp_send_timer: Timer<()>,
+    participant_liveliness_timer: Timer<()>,
     local_writers_data: BTreeMap<EntityId, DiscoveredWriterData>,
     notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
     local_readers_data: BTreeMap<EntityId, DiscoveredReaderData>,
@@ -233,7 +234,7 @@ impl Discovery {
         .expect("couldn't register p2p_builtin_participant_msg_reader to poll");
 
         let mut spdp_send_timer: Timer<()> = Timer::default();
-        spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
+        spdp_send_timer.set_timeout(CoreDuration::new(3, 0), ());
         poll.register(
             &spdp_send_timer,
             SPDP_SEND_TIMER,
@@ -241,6 +242,15 @@ impl Discovery {
             PollOpt::edge(),
         )
         .expect("couldn't register spdp_send_timer to poll");
+        let mut participant_liveliness_timer: Timer<()> = Timer::default();
+        participant_liveliness_timer.set_timeout(CoreDuration::new(5, 0), ());
+        poll.register(
+            &participant_liveliness_timer,
+            SPDP_SEND_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("couldn't register participant_liveliness_timer to poll");
         poll.register(
             &notify_new_writer_receiver,
             DISC_WRITER_ADD,
@@ -271,6 +281,7 @@ impl Discovery {
             p2p_builtin_participant_msg_writer,
             p2p_builtin_participant_msg_reader,
             spdp_send_timer,
+            participant_liveliness_timer,
             local_writers_data: BTreeMap::new(),
             notify_new_writer_receiver,
             local_readers_data: BTreeMap::new(),
@@ -315,7 +326,8 @@ impl Discovery {
                             trace!("fired SPDP_SEND_TIMER");
                             self.spdp_builtin_participant_writer
                                 .write_builtin_data(data.clone());
-                            self.spdp_send_timer.set_timeout(StdDuration::new(3, 0), ());
+                            self.spdp_send_timer
+                                .set_timeout(CoreDuration::new(3, 0), ());
                         }
                         SPDP_PARTICIPANT_DETECTOR => {
                             while let Ok(drc) = self.spdp_builtin_participant_reader.try_recv() {
@@ -344,6 +356,12 @@ impl Discovery {
                             }
                         }
                         PARTICIPANT_MESSAGE_READER => { /*self.handle_participant_message()*/ }
+                        PARTICIPANT_LIVELINESS_TIMER => {
+                            let ts = Timestamp::now().unwrap_or(Timestamp::TIME_INVALID);
+                            let next_duration = self.discovery_db.check_participant_liveliness(ts);
+                            self.participant_liveliness_timer
+                                .set_timeout(next_duration, ());
+                        }
                         DISC_WRITER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_writer_receiver.try_recv() {
                                 self.sedp_builtin_pub_writer

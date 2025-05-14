@@ -1,4 +1,5 @@
 use core::cmp::{Ord, Ordering, PartialOrd};
+use core::time::Duration as CoreDuration;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -30,6 +31,10 @@ impl Duration {
         } else {
             self
         }
+    }
+
+    pub fn to_core_duration(self) -> CoreDuration {
+        CoreDuration::new(self.seconds as u64, self.fraction)
     }
 }
 
