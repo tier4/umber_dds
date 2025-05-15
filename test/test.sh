@@ -25,20 +25,23 @@ fi
 
 source test_nic
 
-if [ $# -gt  0 ]; then
-    num_of_case=0
+test_count=0
+success_count=0
+
+if [ $# -gt 0 ]; then
     for i in {0..4}; do
         ibit=$((1<<$i))
         if [ $(($1&$ibit)) -gt 0 ]; then
-            num_of_case=`expr $num_of_case + 1`
+            test_count=$((test_count+=1))
         fi
     done
-    if [ $num_of_case -eq 0 ]; then
+    if [ $test_count -eq 0 ]; then
         echo "[test.sh] no test case to run"
         exit
     fi
-    echo "[test.sh] tests start: it takes about 0.5 * $num_of_case minutes"
+    echo "[test.sh] tests start: it takes about 0.5 * $test_count minutes"
 else
+    test_count=5
     echo "[test.sh] tests start: it takes about 2.5 minutes"
 fi
 
@@ -109,9 +112,10 @@ fi
 
 function show_resut() {
     if [ "$1" -eq 0 ];then
-        echo "[test.sh] succeeded"
+        echo -e "[test.sh] \e[0;32msucceeded\e[0m"
+        success_count=$((success_count+=1))
     else
-        echo "[test.sh] failed"
+        echo -e "[test.sh] \e[0;31mfailed\e[0m"
     fi
 }
 
@@ -141,10 +145,11 @@ if [ $# -eq 0 ] || [ $(($1&16)) -gt 0 ]; then
 fi
 
 
-if [ $(($res1+$res2+$res3+$res4+$res5)) -eq 0 ];then
-    echo "[test.sh] all succeeded"
+echo "[test.sh] $success_count/$test_count succeeded"
+if [ "$success_count" -eq "$test_count" ];then
+    echo -e "[test.sh] \e[0;32mall test succeeded\e[0m"
     exit 0
 else
-    echo "[test.sh] failed"
+    echo -e "[test.sh] \e[0;31m$(($test_count-$success_count))/$test_count failed\e[0m"
     exit -1
 fi
