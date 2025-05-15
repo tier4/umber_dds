@@ -521,7 +521,7 @@ impl Reader {
                     }
                 }
                 EndpointState::Lost => todo_remove.push(*guid),
-                EndpointState::Unknown => unreachable!(),
+                EndpointState::Unknown => debug!("reader requested check liveliness of Unknown Writer\n\tReader: {}\n\tWriter: {}", self.guid, guid),
             }
         }
         for g in todo_remove {

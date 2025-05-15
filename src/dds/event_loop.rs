@@ -110,6 +110,10 @@ impl EventLoop {
         .expect("coludn't register writer_hb_timer to poll");
         let mut assert_liveliness_timer = Timer::default();
         assert_liveliness_timer.set_timeout(CoreDuration::from_secs(ASSERT_LIVELINESS_PERIOD), ());
+        trace!(
+            "set Writer assert_liveliness timer({})",
+            ASSERT_LIVELINESS_PERIOD
+        );
         poll.register(
             &assert_liveliness_timer,
             ASSERT_LIVELINESS_TIMER,
@@ -400,6 +404,7 @@ impl EventLoop {
                         }
                         ASSERT_LIVELINESS_TIMER => {
                             self.assert_liveliness_timer.poll();
+                            trace!("fired Writer assert_liveliness timer");
                             let now = Timestamp::now().unwrap_or(Timestamp::TIME_INVALID);
                             for writer in self.writers.values_mut() {
                                 let guid = writer.guid();
@@ -423,6 +428,10 @@ impl EventLoop {
                             }
                             self.assert_liveliness_timer
                                 .set_timeout(CoreDuration::from_secs(ASSERT_LIVELINESS_PERIOD), ());
+                            trace!(
+                                "set Writer assert_liveliness timer({})",
+                                ASSERT_LIVELINESS_PERIOD
+                            );
                         }
                         READER_HEARTBEAT_TIMER => {
                             for rhb_timer in &mut self.reader_hb_timers {
