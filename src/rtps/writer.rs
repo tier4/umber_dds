@@ -190,12 +190,16 @@ impl Writer {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
             match cmd {
                 WriterCmd::WriteData(sp) => self.handle_write_data_cmd(sp),
-                WriterCmd::AssertLiveliness => self.assert_liveliness(),
+                WriterCmd::AssertLiveliness => self.assert_liveliness_manually(),
             }
         }
     }
 
     pub fn assert_liveliness(&mut self) {
+        todo!();
+    }
+
+    fn assert_liveliness_manually(&mut self) {
         // rtps 2.3 spec, 8.3.7.5 Heartbeat, Table 8.38 - Structure of the Heartbeat Submessage
         // > LivelinessFlag: Appears in the Submessage header flags. Indicates that the DDS DataWriter associated with the RTPS Writer of the message has manually asserted its LIVELINESS.
         self.send_heart_beat(true);
