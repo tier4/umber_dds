@@ -16,7 +16,7 @@ use crate::rtps::cache::{CacheChange, HistoryCache};
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
 };
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
@@ -42,7 +42,7 @@ pub struct Reader {
     reader_cache: Arc<RwLock<HistoryCache>>,
     // StatefulReader
     matched_writers: BTreeMap<GUID, WriterProxy>,
-    total_matched_writers: BTreeSet<GUID>,
+    unmatched_writers: BTreeMap<GUID, WriterProxy>,
     // This implementation spesific
     topic: Topic,
     qos: DataReaderQosPolicies,
@@ -84,7 +84,7 @@ impl Reader {
             heartbeat_response_delay: ri.heartbeat_response_delay,
             reader_cache: ri.rhc,
             matched_writers: BTreeMap::new(),
-            total_matched_writers: BTreeSet::new(),
+            unmatched_writers: BTreeMap::new(),
             topic: ri.topic,
             qos: ri.qos,
             endianness: Endianness::LittleEndian,
@@ -139,7 +139,8 @@ impl Reader {
             }
         } else {
             // BestEffort Reader Behavior
-            if self.matched_writer_lookup(writer_guid).is_some() {
+            // if self.matched_writer_lookup(writer_guid).is_some() {
+            if self.matched_writers.get(&writer_guid).is_some() {
                 let flag;
                 let expected_seq_num;
                 {
@@ -172,6 +173,8 @@ impl Reader {
                 } else {
                     debug!("BestEffort Reader receive change whose sequence_number < expected_seq_num\n\tReader: {}\n\tWriter: {}", self.guid, writer_guid);
                 }
+            } else if self.unmatched_writers.get(&writer_guid).is_some() {
+                // TODO
             } else {
                 warn!(
                     "BestEffort Reader tried add change from unmatched Writer\n\tReader: {}\n\tWriter: {}",
@@ -240,9 +243,8 @@ impl Reader {
                 qos,
                 self.reader_cache.clone(),
             ));
-            self.total_matched_writers.insert(remote_writer_guid);
             let sub_match_state = SubscriptionMatchedStatus::new(
-                self.total_matched_writers.len() as i32,
+                (self.matched_writers.len() + self.unmatched_writers.len()) as i32,
                 1,
                 self.matched_writers.len() as i32,
                 1,
@@ -253,6 +255,17 @@ impl Reader {
                     sub_match_state,
                 ))
                 .expect("couldn't send reader_state_notifier");
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::LivelinessChanged(
+                    LivelinessChangedStatus::new(
+                        self.matched_writers.len() as i32,
+                        1,
+                        self.unmatched_writers.len() as i32,
+                        0,
+                        remote_writer_guid,
+                    ),
+                ))
+                .expect("couldn't send channel 'reader_state_notifier'");
         } else {
             let remote_writer = self.matched_writers.get_mut(&remote_writer_guid).unwrap();
             macro_rules! update_proxy_if_need {
@@ -278,27 +291,44 @@ impl Reader {
     pub fn is_writer_match(&self, topic_name: &str, data_type: &str) -> bool {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type
     }
+    /*
     pub fn matched_writer_lookup(&mut self, guid: GUID) -> Option<WriterProxy> {
         self.matched_writers
             .get_mut(&guid)
             .map(|proxy| proxy.clone())
     }
+    */
 
     pub fn matched_writer_remove(&mut self, guid: GUID) {
-        self.matched_writers.remove(&guid);
-        let sub_match_state = SubscriptionMatchedStatus::new(
-            self.total_matched_writers.len() as i32,
-            0,
-            self.matched_writers.len() as i32,
-            -1,
-            guid,
-        );
-
-        self.reader_state_notifier
-            .send(DataReaderStatusChanged::SubscriptionMatched(
-                sub_match_state,
-            ))
-            .expect("couldn't send reader_state_notifier");
+        if let Some(writer_proxy) = self.matched_writers.remove(&guid) {
+            self.unmatched_writers.insert(guid, writer_proxy);
+            /*
+             * Cyclone DDS doesn't notice this situation
+            let sub_match_state = SubscriptionMatchedStatus::new(
+                (self.matched_writers.len() + self.unmatched_writers.len()) as i32,
+                0,
+                self.matched_writers.len() as i32,
+                -1,
+                guid,
+            );
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::SubscriptionMatched(
+                    sub_match_state,
+                ))
+                .expect("couldn't send reader_state_notifier");
+            */
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::LivelinessChanged(
+                    LivelinessChangedStatus::new(
+                        self.matched_writers.len() as i32,
+                        -1,
+                        self.unmatched_writers.len() as i32,
+                        1,
+                        guid,
+                    ),
+                ))
+                .expect("couldn't send channel 'reader_state_notifier'");
+        }
     }
 
     pub fn handle_gap(&mut self, writer_guid: GUID, gap: Gap) {
@@ -528,9 +558,6 @@ impl Reader {
         }
         for g in todo_remove {
             self.matched_writer_remove(g);
-            self.reader_state_notifier
-                .send(DataReaderStatusChanged::LivelinessChanged)
-                .expect("couldn't send channel 'reader_state_notifier'");
         }
     }
 
@@ -551,7 +578,7 @@ impl Reader {
 /// The content for each variant has not been implemented yet, but it is planned to be implemented in the future.
 pub enum DataReaderStatusChanged {
     SampleRejected,
-    LivelinessChanged,
+    LivelinessChanged(LivelinessChangedStatus),
     RequestedDeadlineMissed,
     RequestedIncompatibleQos(String),
     DataAvailable,
@@ -582,6 +609,34 @@ impl SubscriptionMatchedStatus {
             total_count_change,
             current_count,
             current_count_change,
+            guid,
+        }
+    }
+}
+
+pub struct LivelinessChangedStatus {
+    pub alive_count: i32,
+    pub not_alive_count: i32,
+    pub alive_count_change: i32,
+    pub not_alive_count_change: i32,
+    /// This is diffarent form DDS spec.
+    /// The GUID is remote writer's one.
+    pub guid: GUID,
+}
+
+impl LivelinessChangedStatus {
+    pub fn new(
+        alive_count: i32,
+        not_alive_count: i32,
+        alive_count_change: i32,
+        not_alive_count_change: i32,
+        guid: GUID,
+    ) -> Self {
+        Self {
+            alive_count,
+            not_alive_count,
+            alive_count_change,
+            not_alive_count_change,
             guid,
         }
     }

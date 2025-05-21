@@ -336,7 +336,7 @@ impl Discovery {
                                         info!("SPDP_PARTICIPANT_DETECTOR: DataAvailable");
                                         self.handle_participant_discovery()
                                     }
-                                    DataReaderStatusChanged::LivelinessChanged => {
+                                    DataReaderStatusChanged::LivelinessChanged(_) => {
                                         info!("SPDP_PARTICIPANT_DETECTOR: LivelinessChanged");
                                     }
                                     DataReaderStatusChanged::RequestedIncompatibleQos(m) => {
