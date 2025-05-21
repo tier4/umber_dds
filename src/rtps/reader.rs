@@ -517,8 +517,10 @@ impl Reader {
                     let elapse =
                         Timestamp::now().expect("failed get Timestamp::now()") - last_added;
                     if elapse > wld {
+                        debug!("checked liveliness of writer Lost, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
                         todo_remove.push(*guid);
                     }
+                    debug!("checked liveliness of writer, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
                 }
                 EndpointState::Lost => todo_remove.push(*guid),
                 EndpointState::Unknown => debug!("reader requested check liveliness of Unknown Writer\n\tReader: {}\n\tWriter: {}", self.guid, guid),

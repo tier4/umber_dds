@@ -357,6 +357,7 @@ impl Discovery {
                         }
                         PARTICIPANT_MESSAGE_READER => { /*self.handle_participant_message()*/ }
                         PARTICIPANT_LIVELINESS_TIMER => {
+                            trace!("fired PARTICIPANT_LIVELINESS_TIMER");
                             let ts = Timestamp::now().unwrap_or(Timestamp::TIME_INVALID);
                             let next_duration = self.discovery_db.check_participant_liveliness(ts);
                             self.participant_liveliness_timer
