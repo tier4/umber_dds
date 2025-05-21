@@ -488,7 +488,7 @@ impl SerializedPayload {
         let value = if buffer.len() > HEADER_LEN {
             buffer.slice(HEADER_LEN..)
         } else {
-            return Err(io::Error::new(io::ErrorKind::Other, "Data is too small"));
+            return Err(io::Error::other("Data is too small"));
         };
         Ok(Self {
             representation_identifier,
