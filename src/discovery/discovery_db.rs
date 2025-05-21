@@ -6,6 +6,7 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use awkernel_sync::{mcs::MCSNode, mutex::Mutex};
 use core::time::Duration as CoreDuration;
+use log::warn;
 
 #[derive(Clone, Copy)]
 pub enum EndpointState {
@@ -178,14 +179,19 @@ impl DiscoveryDBInner {
 
     pub fn check_participant_liveliness(&mut self, timestamp: Timestamp) -> CoreDuration {
         let mut next_duration = CoreDuration::MAX;
-        for (_prefix, (es, data)) in &self.participant_data {
+        for (prefix, (es, data)) in &mut self.participant_data {
             if let EndpointState::Live(ts) = es {
                 if timestamp - *ts > data.lease_duration {
                     // liveliness lost
+                    *es = EndpointState::Lost;
+                    warn!(
+                        "checked Liveliness of Participant Lost\n\tParticipant: {}",
+                        prefix
+                    );
                     let _ = self
                         .remote_writer_data
                         .iter_mut()
-                        .filter(|(k, _v)| k.guid_prefix == *_prefix)
+                        .filter(|(k, _v)| k.guid_prefix == *prefix)
                         .map(|(_k, (es, _l))| *es = EndpointState::Lost);
                 } else {
                     next_duration = data.lease_duration.half().to_core_duration();
@@ -249,11 +255,10 @@ impl DiscoveryDBInner {
         // DDS 1.4 spec, 2.2.3.11 LIVELINESS
         // The setting MANUAL_BY_PARTICIPANT requires only that one Entity within the publisher is asserted to be alive to deduce all other Entity objects within the same DomainParticipant are also alive.
         // if is_manual_by_participant {
+        self.local_writer_data
+            .insert(guid, (EndpointState::Live(timestamp), liveliness_kind));
         if liveliness_kind == LivelinessQosKind::ManualByParticipant {
             self.update_liveliness_with_guid_prefix(guid.guid_prefix, timestamp)
-        } else {
-            self.local_writer_data
-                .insert(guid, (EndpointState::Live(timestamp), liveliness_kind));
         }
     }
     /*
@@ -271,11 +276,10 @@ impl DiscoveryDBInner {
         // DDS 1.4 spec, 2.2.3.11 LIVELINESS
         // The setting MANUAL_BY_PARTICIPANT requires only that one Entity within the publisher is asserted to be alive to deduce all other Entity objects within the same DomainParticipant are also alive.
         // if is_manual_by_participant {
+        self.remote_writer_data
+            .insert(guid, (EndpointState::Live(timestamp), liveliness_kind));
         if liveliness_kind == LivelinessQosKind::ManualByParticipant {
             self.update_liveliness_with_guid_prefix(guid.guid_prefix, timestamp)
-        } else {
-            self.remote_writer_data
-                .insert(guid, (EndpointState::Live(timestamp), liveliness_kind));
         }
     }
 

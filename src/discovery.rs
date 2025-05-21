@@ -246,7 +246,7 @@ impl Discovery {
         participant_liveliness_timer.set_timeout(CoreDuration::new(5, 0), ());
         poll.register(
             &participant_liveliness_timer,
-            SPDP_SEND_TIMER,
+            PARTICIPANT_LIVELINESS_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
