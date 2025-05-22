@@ -19,12 +19,12 @@ static void on_offered_incompatible_qos(
 }
 
 static void on_publication_matched(
-    dds_entity_t reader,
+    dds_entity_t writer,
     const dds_publication_matched_status_t status,
     void *listener_data
 )
 {
-    (void)reader;
+    (void)writer;
     (void)listener_data;
 
     printf("[on_publication_matched]\n");
@@ -32,6 +32,21 @@ static void on_publication_matched(
     printf("  total_count_change  : %d\n", status.total_count_change);
     printf("  current_count       : %d\n", status.current_count);
     printf("  current_count_change: %d\n", status.current_count_change);
+
+}
+
+static void on_liveliness_lost(
+    dds_entity_t writer,
+    const dds_liveliness_lost_status_t status,
+    void *listener_data
+)
+{
+    (void)writer;
+    (void)listener_data;
+
+    printf("[on_liveliness_lost]\n");
+    printf("  total_count         : %d\n", status.total_count);
+    printf("  total_count_change  : %d\n", status.total_count_change);
 
 }
 
@@ -60,14 +75,16 @@ int main (int argc, char ** argv)
     DDS_FATAL("dds_create_topic: %s\n", dds_strretcode(-topic));
 
   /* Create listener register callback */
-  // listener = dds_create_listener(NULL);
-  // dds_lset_offered_incompatible_qos(listener, on_offered_incompatible_qos);
-  // dds_lset_publication_matched(listener, on_publication_matched);
-  listener = NULL;
+  listener = dds_create_listener(NULL);
+  dds_lset_offered_incompatible_qos(listener, on_offered_incompatible_qos);
+  dds_lset_publication_matched(listener, on_publication_matched);
+  dds_lset_liveliness_lost(listener, on_liveliness_lost);
+  // listener = NULL;
 
   /* Create a besteffort Writer. */
   qos = dds_create_qos ();
   dds_qset_reliability (qos, DDS_RELIABILITY_BEST_EFFORT, DDS_SECS (10));
+  // dds_qset_liveliness (qos, DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, DDS_SECS (5));
   writer = dds_create_writer (participant, topic, qos, listener);
   if (writer < 0)
     DDS_FATAL("dds_create_writer: %s\n", dds_strretcode(-writer));
@@ -75,6 +92,7 @@ int main (int argc, char ** argv)
   printf("=== [Publisher]  Waiting for a reader to be discovered ...\n");
   fflush (stdout);
 
+  /*
   rc = dds_set_status_mask(writer, DDS_PUBLICATION_MATCHED_STATUS);
   if (rc != DDS_RETCODE_OK)
     DDS_FATAL("dds_set_status_mask: %s\n", dds_strretcode(-rc));
@@ -85,9 +103,18 @@ int main (int argc, char ** argv)
     if (rc != DDS_RETCODE_OK)
       DDS_FATAL("dds_get_status_changes: %s\n", dds_strretcode(-rc));
 
-    /* Polling sleep. */
+    // Polling sleep.
     dds_sleepfor (DDS_MSECS (20));
   }
+  */
+  dds_publication_matched_status_t pm;
+  do {
+    dds_sleepfor (DDS_MSECS (20));
+    rc = dds_get_publication_matched_status (writer, &pm);
+    if (rc != DDS_RETCODE_OK)
+        DDS_FATAL("dds_get_publication_matched_status: %s\n",
+                  dds_strretcode (-rc));
+  } while (pm.current_count == 0);
 
   /* Create a message to write. */
   msg.color = "RED";

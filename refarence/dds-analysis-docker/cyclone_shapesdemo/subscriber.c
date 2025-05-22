@@ -39,6 +39,23 @@ static void on_subscription_matched(
 
 }
 
+static void on_liveliness_changed(
+    dds_entity_t reader,
+    const dds_liveliness_changed_status_t status,
+    void *listener_data
+)
+{
+    (void)reader;
+    (void)listener_data;
+
+    printf("[on_liveliness_changed]\n");
+    printf("  alive_count           : %d\n", status.alive_count);
+    printf("  not_alive_count       : %d\n", status.not_alive_count);
+    printf("  alive_count_change    : %d\n", status.alive_count_change);
+    printf("  not_alive_count_change: %d\n", status.not_alive_count_change);
+
+}
+
 int main (int argc, char ** argv)
 {
   dds_entity_t participant;
@@ -65,14 +82,16 @@ int main (int argc, char ** argv)
     DDS_FATAL("dds_create_topic: %s\n", dds_strretcode(-topic));
 
   /* Create listener register callback */
-  // listener = dds_create_listener(NULL);
-  // dds_lset_requested_incompatible_qos(listener, on_requested_incompatible_qos);
-  // dds_lset_subscription_matched(listener, on_subscription_matched);
-  listener = NULL;
+  listener = dds_create_listener(NULL);
+  dds_lset_requested_incompatible_qos(listener, on_requested_incompatible_qos);
+  dds_lset_subscription_matched(listener, on_subscription_matched);
+  dds_lset_liveliness_changed(listener, on_liveliness_changed);
+  // listener = NULL;
 
   /* Create a besteffort Reader. */
   qos = dds_create_qos ();
   dds_qset_reliability (qos, DDS_RELIABILITY_BEST_EFFORT, DDS_SECS (10));
+  // dds_qset_liveliness (qos, DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, DDS_SECS (7));
   reader = dds_create_reader (participant, topic, qos, listener);
   if (reader < 0)
     DDS_FATAL("dds_create_reader: %s\n", dds_strretcode(-reader));
