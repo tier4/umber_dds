@@ -122,6 +122,20 @@ impl Reader {
 
     pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
+        if let Some(wp) = self.unmatched_writers.remove(&writer_guid) {
+            self.matched_writers.insert(writer_guid, wp);
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::LivelinessChanged(
+                    LivelinessChangedStatus::new(
+                        self.matched_writers.len() as i32,
+                        self.unmatched_writers.len() as i32,
+                        1,
+                        -1,
+                        writer_guid,
+                    ),
+                ))
+                .expect("couldn't send channel 'reader_state_notifier'");
+        }
         if self.is_reliable() {
             // Reliable Reader Behavior
             if let Err(e) = self.reader_cache.write().add_change(change.clone()) {
@@ -139,8 +153,7 @@ impl Reader {
             }
         } else {
             // BestEffort Reader Behavior
-            // if self.matched_writer_lookup(writer_guid).is_some() {
-            if self.matched_writers.get(&writer_guid).is_some() {
+            if self.matched_writers.contains_key(&writer_guid) {
                 let flag;
                 let expected_seq_num;
                 {
@@ -173,8 +186,6 @@ impl Reader {
                 } else {
                     debug!("BestEffort Reader receive change whose sequence_number < expected_seq_num\n\tReader: {}\n\tWriter: {}", self.guid, writer_guid);
                 }
-            } else if self.unmatched_writers.get(&writer_guid).is_some() {
-                // TODO
             } else {
                 warn!(
                     "BestEffort Reader tried add change from unmatched Writer\n\tReader: {}\n\tWriter: {}",
@@ -259,8 +270,8 @@ impl Reader {
                 .send(DataReaderStatusChanged::LivelinessChanged(
                     LivelinessChangedStatus::new(
                         self.matched_writers.len() as i32,
-                        1,
                         self.unmatched_writers.len() as i32,
+                        1,
                         0,
                         remote_writer_guid,
                     ),
@@ -321,8 +332,8 @@ impl Reader {
                 .send(DataReaderStatusChanged::LivelinessChanged(
                     LivelinessChangedStatus::new(
                         self.matched_writers.len() as i32,
-                        -1,
                         self.unmatched_writers.len() as i32,
+                        -1,
                         1,
                         guid,
                     ),
@@ -332,6 +343,20 @@ impl Reader {
     }
 
     pub fn handle_gap(&mut self, writer_guid: GUID, gap: Gap) {
+        if let Some(wp) = self.unmatched_writers.remove(&writer_guid) {
+            self.matched_writers.insert(writer_guid, wp);
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::LivelinessChanged(
+                    LivelinessChangedStatus::new(
+                        self.matched_writers.len() as i32,
+                        self.unmatched_writers.len() as i32,
+                        1,
+                        -1,
+                        writer_guid,
+                    ),
+                ))
+                .expect("couldn't send channel 'reader_state_notifier'");
+        }
         if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
             let mut seq_num = gap.gap_start;
             while seq_num < gap.gap_list.base() {
@@ -355,6 +380,20 @@ impl Reader {
         hb_flag: BitFlags<HeartbeatFlag>,
         heartbeat: Heartbeat,
     ) {
+        if let Some(wp) = self.unmatched_writers.remove(&writer_guid) {
+            self.matched_writers.insert(writer_guid, wp);
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::LivelinessChanged(
+                    LivelinessChangedStatus::new(
+                        self.matched_writers.len() as i32,
+                        self.unmatched_writers.len() as i32,
+                        1,
+                        -1,
+                        writer_guid,
+                    ),
+                ))
+                .expect("couldn't send channel 'reader_state_notifier'");
+        }
         if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
             trace!(
                 "Reader handle heartbeat {{ first_sn: {}, last_sn: {} }} from Writer\n\tReader: {}\n\tWriter: {}",
@@ -515,24 +554,20 @@ impl Reader {
         )
     }
     pub fn is_contain_writer(&self, writer_guid: GUID) -> bool {
-        for guid in self.matched_writers.keys() {
-            if *guid == writer_guid {
-                return true;
-            }
-        }
-        false
+        self.matched_writers.contains_key(&writer_guid)
+            || self.unmatched_writers.contains_key(&writer_guid)
     }
     pub fn get_matched_writer_qos(&self, writer_guid: GUID) -> DataWriterQosPolicies {
-        self.matched_writers
-            .get(&writer_guid)
-            .unwrap_or_else(|| {
-                panic!(
-                    "not found Writer matched to Reader\n\tReader: {}\n\tWriter: {}",
-                    self.guid, writer_guid,
-                )
-            })
-            .qos
-            .clone()
+        if let Some(wp) = self.matched_writers.get(&writer_guid) {
+            wp.qos.clone()
+        } else if let Some(wp) = self.unmatched_writers.get(&writer_guid) {
+            wp.qos.clone()
+        } else {
+            panic!(
+                "not found Writer matched to Reader\n\tReader: {}\n\tWriter: {}",
+                self.guid, writer_guid,
+            )
+        }
     }
 
     pub fn check_liveliness(&mut self, disc_db: &DiscoveryDB) {

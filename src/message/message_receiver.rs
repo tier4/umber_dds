@@ -626,7 +626,7 @@ impl MessageReceiver {
             */
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
-                if reader.is_contain_writer(GUID::new(self.source_guid_prefix, data.writer_id)) {
+                if reader.is_contain_writer(writer_guid) {
                     disc_db.write_remote_writer(
                         writer_guid,
                         ts,
