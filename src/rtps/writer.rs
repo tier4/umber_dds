@@ -817,10 +817,27 @@ impl RTPSEntity for Writer {
 ///
 /// The content for each variant has not been implemented yet, but it is planned to be implemented in the future.
 pub enum DataWriterStatusChanged {
-    LivelinessLost,
+    LivelinessLost(LivelinessLostStatus),
     OfferedDeadlineMissed,
     OfferedIncompatibleQos(String),
     PublicationMatched(PublicationMatchedStatus),
+}
+
+pub struct LivelinessLostStatus {
+    pub total_count: i32,
+    pub total_count_change: i32,
+    /// This is diffarent form DDS spec.
+    /// The GUID is remote reader's one.
+    pub guid: GUID,
+}
+impl LivelinessLostStatus {
+    pub fn new(total_count: i32, total_count_change: i32, guid: GUID) -> Self {
+        Self {
+            total_count,
+            total_count_change,
+            guid,
+        }
+    }
 }
 
 pub struct PublicationMatchedStatus {

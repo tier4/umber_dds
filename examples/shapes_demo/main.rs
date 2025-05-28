@@ -159,7 +159,7 @@ fn main() {
                                         DataWriterStatusChanged::OfferedIncompatibleQos(e) => {
                                             println!("OfferedIncompatibleQos:\n{}", e);
                                         }
-                                        DataWriterStatusChanged::LivelinessLost => {
+                                        DataWriterStatusChanged::LivelinessLost(_) => {
                                             println!("LivelinessLost");
                                         }
                                         _ => (),
@@ -225,8 +225,8 @@ fn main() {
                                         DataReaderStatusChanged::RequestedIncompatibleQos(e) => {
                                             println!("RequestedIncompatibleQos:\n{}", e);
                                         }
-                                        DataReaderStatusChanged::LivelinessChanged => {
-                                            println!("LivelinessChanged");
+                                        DataReaderStatusChanged::LivelinessChanged(l) => {
+                                            println!("LivelinessChanged: alive:{}, not_alive: {}, guid: {}", l.alive_count_change, l.not_alive_count_change, l.guid);
                                         }
                                         _ => (), // TODO
                                     }
