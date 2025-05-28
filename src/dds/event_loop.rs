@@ -386,15 +386,22 @@ impl EventLoop {
                         WRITER_LIVELINESS_CHECK_TIMER => {
                             for (wlp_timer, to) in self.wlp_timers.values_mut() {
                                 if let Some(eid) = wlp_timer.poll() {
+                                    trace!(
+                                        "fired Reader liveliness check timer\n\tReader: {}",
+                                        eid
+                                    );
                                     if let Some(reader) = self.readers.get_mut(&eid) {
                                         reader.check_liveliness(&self.discovery_db);
                                         trace!(
                                             "checked liveliness of Reader\n\tReader: {}",
                                             reader.entity_id()
                                         );
-                                        *to = wlp_timer.set_timeout(
-                                            reader.get_min_remote_writer_lease_duration(),
-                                            reader.entity_id(),
+                                        let time = reader.get_min_remote_writer_lease_duration();
+                                        *to = wlp_timer.set_timeout(time, reader.entity_id());
+                                        trace!(
+                                            "set Reader liveliness check timer({:?})\n\tReader: {}",
+                                            time,
+                                            reader.entity_id()
                                         );
                                     } else {
                                         error!("not found Reader which fired check liveliness timer\n\tReader: {}", eid);

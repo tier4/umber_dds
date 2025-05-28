@@ -604,7 +604,11 @@ impl Reader {
                 min_ld = wld;
             }
         }
-        StdDuration::new(min_ld.seconds as u64, min_ld.fraction)
+        if min_ld == Duration::INFINITE {
+            StdDuration::new(10, 0)
+        } else {
+            StdDuration::new(min_ld.seconds as u64, min_ld.fraction)
+        }
     }
 }
 
