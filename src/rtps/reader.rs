@@ -608,7 +608,7 @@ impl Reader {
         }
     }
 
-    pub fn check_liveliness(&mut self, disc_db: &DiscoveryDB) {
+    pub fn check_liveliness(&mut self, disc_db: &mut DiscoveryDB) {
         let mut to_unmatch = Vec::new();
         for (guid, wp) in &self.matched_writers {
             let wld = wp.qos.liveliness.lease_duration;
@@ -625,11 +625,12 @@ impl Reader {
                     }
                     debug!("checked liveliness of writer, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
                 }
-                EndpointState::Lost => to_unmatch.push(*guid),
+                EndpointState::LivelinessLost => to_unmatch.push(*guid),
                 EndpointState::Unknown => debug!("reader requested check liveliness of Unknown Writer\n\tReader: {}\n\tWriter: {}", self.guid, guid),
             }
         }
         for g in to_unmatch {
+            disc_db.update_remote_writer_state(g, EndpointState::LivelinessLost);
             self.matched_writer_unmatch(g);
         }
     }

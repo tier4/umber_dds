@@ -60,6 +60,7 @@ pub struct Writer {
     sender: Rc<UdpSender>,
     hb_counter: Count,
     an_state: AckNackState,
+    unmatch_count: i32,
 }
 
 #[derive(PartialEq, Eq)]
@@ -117,6 +118,7 @@ impl Writer {
             sender,
             hb_counter: 0,
             an_state: AckNackState::Waiting,
+            unmatch_count: 0,
         }
     }
 
@@ -778,12 +780,14 @@ impl Writer {
     }
 
     fn matched_reader_unmatch(&mut self, guid: GUID) {
-        self.matched_readers.remove(&guid);
-        self.writer_state_notifier
-            .send(DataWriterStatusChanged::LivelinessLost(
-                LivelinessLostStatus::new(todo!(), 1, guid),
-            ))
-            .expect("couldn't send writer_state_notifier");
+        if self.matched_readers.remove(&guid).is_some() {
+            self.unmatch_count += 1;
+            self.writer_state_notifier
+                .send(DataWriterStatusChanged::LivelinessLost(
+                    LivelinessLostStatus::new(self.unmatch_count, 1, guid),
+                ))
+                .expect("couldn't send writer_state_notifier");
+        }
     }
 
     pub fn matched_reader_remove(&mut self, guid: GUID) {
@@ -800,7 +804,7 @@ impl Writer {
             .expect("couldn't send writer_state_notifier");
     }
 
-    fn delete_reader_proxy(&mut self, guid_prefix: GuidPrefix) {
+    pub fn delete_reader_proxy(&mut self, guid_prefix: GuidPrefix) {
         let to_delete: Vec<GUID> = self
             .matched_readers
             .keys()

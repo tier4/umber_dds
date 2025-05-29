@@ -1,7 +1,7 @@
 use crate::discovery::{
     discovery_db::DiscoveryDB,
     structure::data::{DiscoveredReaderData, DiscoveredWriterData},
-    Discovery,
+    Discovery, DiscoveryDBUpdateNotifier,
 };
 use crate::network::net_util::*;
 use crate::rtps::reader::ReaderIngredients;
@@ -22,7 +22,7 @@ use crate::{
         DdsData,
     },
     network::udp_listinig_socket::*,
-    structure::{EntityId, EntityKind, GuidPrefix, TopicKind, GUID},
+    structure::{EntityId, EntityKind, TopicKind, GUID},
 };
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
@@ -55,7 +55,8 @@ impl DomainParticipant {
     pub fn new(domain_id: u16, small_rng: &mut SmallRng) -> Self {
         let (disc_thread_sender, disc_thread_receiver) =
             mio_channel::channel::<thread::JoinHandle<()>>();
-        let (discdb_update_sender, discdb_update_receiver) = mio_channel::channel::<GuidPrefix>();
+        let (discdb_update_sender, discdb_update_receiver) =
+            mio_channel::channel::<DiscoveryDBUpdateNotifier>();
         let discovery_db = DiscoveryDB::new();
         let (notify_new_writer_sender, notify_new_writer_receiver) =
             mio_channel::channel::<(EntityId, DiscoveredWriterData)>();
@@ -170,7 +171,7 @@ impl DomainParticipantDisc {
         domain_id: u16,
         disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
         discovery_db: DiscoveryDB,
-        discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
+        discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
         notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         small_rng: &mut SmallRng,
@@ -272,7 +273,7 @@ impl DomainParticipantInner {
     pub fn new(
         domain_id: u16,
         discovery_db: DiscoveryDB,
-        discdb_update_receiver: mio_channel::Receiver<GuidPrefix>,
+        discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
         notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         small_rng: &mut SmallRng,

@@ -46,11 +46,16 @@ pub mod structure;
 // SEDPbuiltin{Publication/Sunscription}{Writer/Reader}
 // rtps 2.3 spec 8.5.4.2によると、reliableでStatefullな{Writer/Reader}
 
+pub enum DiscoveryDBUpdateNotifier {
+    AddParticipant(GuidPrefix),
+    DeleteParticipant(GuidPrefix),
+}
+
 #[allow(dead_code)]
 pub struct Discovery {
     dp: DomainParticipant,
     discovery_db: DiscoveryDB,
-    discdb_update_sender: mio_channel::Sender<GuidPrefix>,
+    discdb_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
     poll: Poll,
     publisher: Publisher,
     subscriber: Subscriber,
@@ -74,7 +79,7 @@ impl Discovery {
     pub fn new(
         dp: DomainParticipant,
         discovery_db: DiscoveryDB,
-        discdb_update_sender: mio_channel::Sender<GuidPrefix>,
+        discdb_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
         notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
     ) -> Self {
@@ -359,7 +364,15 @@ impl Discovery {
                         PARTICIPANT_LIVELINESS_TIMER => {
                             trace!("fired PARTICIPANT_LIVELINESS_TIMER");
                             let ts = Timestamp::now().unwrap_or(Timestamp::TIME_INVALID);
-                            let next_duration = self.discovery_db.check_participant_liveliness(ts);
+                            let (next_duration, lost_participants) =
+                                self.discovery_db.check_participant_liveliness(ts);
+                            for l in lost_participants {
+                                self.discdb_update_sender
+                                    .send(DiscoveryDBUpdateNotifier::DeleteParticipant(l))
+                                    .expect(
+                                        "couldn't send update notification to discdb_update_sender",
+                                    );
+                            }
                             self.participant_liveliness_timer
                                 .set_timeout(next_duration, ());
                         }
@@ -427,7 +440,7 @@ impl Discovery {
                         spdp_data,
                     );
                     self.discdb_update_sender
-                        .send(guid_prefix)
+                        .send(DiscoveryDBUpdateNotifier::AddParticipant(guid_prefix))
                         .expect("couldn't send update notification to discdb_update_sender");
                 }
             } else {

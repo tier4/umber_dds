@@ -11,7 +11,7 @@ use log::warn;
 #[derive(Clone, Copy)]
 pub enum EndpointState {
     Live(Timestamp),
-    Lost,
+    LivelinessLost,
     Unknown,
 }
 
@@ -50,7 +50,10 @@ impl DiscoveryDB {
         }
     }
 
-    pub fn check_participant_liveliness(&mut self, timestamp: Timestamp) -> CoreDuration {
+    pub fn check_participant_liveliness(
+        &mut self,
+        timestamp: Timestamp,
+    ) -> (CoreDuration, Vec<GuidPrefix>) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
         inner.check_participant_liveliness(timestamp)
@@ -103,6 +106,12 @@ impl DiscoveryDB {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
         inner.write_remote_writer(guid, timestamp, liveliness_kind)
+    }
+
+    pub fn update_remote_writer_state(&mut self, guid: GUID, state: EndpointState) {
+        let mut node = MCSNode::new();
+        let mut inner = self.inner.lock(&mut node);
+        inner.update_remote_writer_state(guid, state)
     }
 
     pub fn read_participant_data(
@@ -177,31 +186,32 @@ impl DiscoveryDBInner {
             .insert(guid_prefix, (EndpointState::Live(timestamp), data));
     }
 
-    pub fn check_participant_liveliness(&mut self, timestamp: Timestamp) -> CoreDuration {
+    pub fn check_participant_liveliness(
+        &mut self,
+        timestamp: Timestamp,
+    ) -> (CoreDuration, Vec<GuidPrefix>) {
         let mut next_duration = CoreDuration::MAX;
+        let mut lost = Vec::new();
         for (prefix, (es, data)) in &mut self.participant_data {
             if let EndpointState::Live(ts) = es {
                 if timestamp - *ts > data.lease_duration {
-                    // liveliness lost
-                    *es = EndpointState::Lost;
                     warn!(
                         "checked Liveliness of Participant Lost\n\tParticipant: {}",
                         prefix
                     );
-                    let _ = self
-                        .remote_writer_data
-                        .iter_mut()
-                        .filter(|(k, _v)| k.guid_prefix == *prefix)
-                        .map(|(_k, (es, _l))| *es = EndpointState::Lost);
+                    lost.push(*prefix);
                 } else {
                     next_duration = data.lease_duration.half().to_core_duration();
                 }
             }
         }
+        for l in &lost {
+            self.participant_data.remove(l);
+        }
         if next_duration == CoreDuration::MAX {
-            CoreDuration::new(5, 0)
+            (CoreDuration::new(5, 0), lost)
         } else {
-            next_duration
+            (next_duration, lost)
         }
     }
 
@@ -280,6 +290,12 @@ impl DiscoveryDBInner {
             .insert(guid, (EndpointState::Live(timestamp), liveliness_kind));
         if liveliness_kind == LivelinessQosKind::ManualByParticipant {
             self.update_liveliness_with_guid_prefix(guid.guid_prefix, timestamp)
+        }
+    }
+
+    fn update_remote_writer_state(&mut self, guid: GUID, state: EndpointState) {
+        if let Some((es, _l)) = self.remote_writer_data.get_mut(&guid) {
+            *es = state;
         }
     }
 
