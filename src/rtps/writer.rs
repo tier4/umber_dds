@@ -14,7 +14,9 @@ use crate::rtps::cache::{
     CacheChange, ChangeForReaderStatusKind, ChangeKind, HistoryCache, InstantHandle,
 };
 use crate::rtps::reader_locator::ReaderLocator;
-use crate::structure::{Duration, EntityId, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID};
+use crate::structure::{
+    Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
+};
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
@@ -774,6 +776,16 @@ impl Writer {
     pub fn matched_reader_loolup(&self, guid: GUID) -> Option<ReaderProxy> {
         self.matched_readers.get(&guid).cloned()
     }
+
+    fn matched_reader_unmatch(&mut self, guid: GUID) {
+        self.matched_readers.remove(&guid);
+        self.writer_state_notifier
+            .send(DataWriterStatusChanged::LivelinessLost(
+                LivelinessLostStatus::new(todo!(), 1, guid),
+            ))
+            .expect("couldn't send writer_state_notifier");
+    }
+
     pub fn matched_reader_remove(&mut self, guid: GUID) {
         self.matched_readers.remove(&guid);
         let pub_match_state = PublicationMatchedStatus::new(
@@ -786,6 +798,19 @@ impl Writer {
         self.writer_state_notifier
             .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
             .expect("couldn't send writer_state_notifier");
+    }
+
+    fn delete_reader_proxy(&mut self, guid_prefix: GuidPrefix) {
+        let to_delete: Vec<GUID> = self
+            .matched_readers
+            .keys()
+            .filter(|k| k.guid_prefix != guid_prefix)
+            .copied()
+            .collect();
+
+        for d in to_delete {
+            self.matched_reader_remove(d);
+        }
     }
 
     pub fn heartbeat_period(&self) -> CoreDuration {
