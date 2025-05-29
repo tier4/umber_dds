@@ -310,11 +310,38 @@ impl Reader {
     }
     */
 
-    pub fn matched_writer_remove(&mut self, guid: GUID) {
+    fn matched_writer_unmatch(&mut self, guid: GUID) {
         if let Some(writer_proxy) = self.matched_writers.remove(&guid) {
             self.unmatched_writers.insert(guid, writer_proxy);
-            /*
-             * Cyclone DDS doesn't notice this situation
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::LivelinessChanged(
+                    LivelinessChangedStatus::new(
+                        self.matched_writers.len() as i32,
+                        self.unmatched_writers.len() as i32,
+                        -1,
+                        1,
+                        guid,
+                    ),
+                ))
+                .expect("couldn't send channel 'reader_state_notifier'");
+        }
+    }
+
+    pub fn matched_writer_remove(&mut self, guid: GUID) {
+        if self.matched_writers.remove(&guid).is_some()
+            || self.unmatched_writers.remove(&guid).is_some()
+        {
+            self.reader_state_notifier
+                .send(DataReaderStatusChanged::LivelinessChanged(
+                    LivelinessChangedStatus::new(
+                        self.matched_writers.len() as i32,
+                        self.unmatched_writers.len() as i32,
+                        -1,
+                        1,
+                        guid,
+                    ),
+                ))
+                .expect("couldn't send channel 'reader_state_notifier'");
             let sub_match_state = SubscriptionMatchedStatus::new(
                 (self.matched_writers.len() + self.unmatched_writers.len()) as i32,
                 0,
@@ -327,18 +354,29 @@ impl Reader {
                     sub_match_state,
                 ))
                 .expect("couldn't send reader_state_notifier");
-            */
-            self.reader_state_notifier
-                .send(DataReaderStatusChanged::LivelinessChanged(
-                    LivelinessChangedStatus::new(
-                        self.matched_writers.len() as i32,
-                        self.unmatched_writers.len() as i32,
-                        -1,
-                        1,
-                        guid,
-                    ),
-                ))
-                .expect("couldn't send channel 'reader_state_notifier'");
+        }
+    }
+
+    pub fn delete_writer_proxy(&mut self, guid_prefix: GuidPrefix) {
+        let to_delete: Vec<GUID> = self
+            .matched_writers
+            .keys()
+            .filter(|k| k.guid_prefix != guid_prefix)
+            .copied()
+            .collect();
+
+        for d in to_delete {
+            self.matched_writer_remove(d);
+        }
+        let to_delete: Vec<GUID> = self
+            .unmatched_writers
+            .keys()
+            .filter(|k| k.guid_prefix != guid_prefix)
+            .copied()
+            .collect();
+
+        for d in to_delete {
+            self.matched_writer_remove(d);
         }
     }
 
@@ -571,7 +609,7 @@ impl Reader {
     }
 
     pub fn check_liveliness(&mut self, disc_db: &DiscoveryDB) {
-        let mut todo_remove = Vec::new();
+        let mut to_unmatch = Vec::new();
         for (guid, wp) in &self.matched_writers {
             let wld = wp.qos.liveliness.lease_duration;
             if wld == Duration::INFINITE {
@@ -583,16 +621,16 @@ impl Reader {
                         Timestamp::now().expect("failed get Timestamp::now()") - last_added;
                     if elapse > wld {
                         debug!("checked liveliness of writer Lost, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
-                        todo_remove.push(*guid);
+                        to_unmatch.push(*guid);
                     }
                     debug!("checked liveliness of writer, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
                 }
-                EndpointState::Lost => todo_remove.push(*guid),
+                EndpointState::Lost => to_unmatch.push(*guid),
                 EndpointState::Unknown => debug!("reader requested check liveliness of Unknown Writer\n\tReader: {}\n\tWriter: {}", self.guid, guid),
             }
         }
-        for g in todo_remove {
-            self.matched_writer_remove(g);
+        for g in to_unmatch {
+            self.matched_writer_unmatch(g);
         }
     }
 
