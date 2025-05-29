@@ -35,8 +35,8 @@ services:
             -  /tmp/.X11-unix/:/tmp/.X11-unix
     subscriber:
         build:
-            context: .
-            dockerfile: subscriber/Dockerfile
+            context: ..
+            dockerfile: dds-analysis-docker/subscriber/Dockerfile
             network: host
         image: subscriber_img
         container_name: dds_sub
