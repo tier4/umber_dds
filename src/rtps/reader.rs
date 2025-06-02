@@ -136,6 +136,10 @@ impl Reader {
                 ))
                 .expect("couldn't send channel 'reader_state_notifier'");
         }
+        info!(
+            "Reader add change from Writer, seq_num: {}\n\tReader: {}\n\tWriter: {}",
+            change.sequence_number.0, self.guid, writer_guid
+        );
         if self.is_reliable() {
             // Reliable Reader Behavior
             if let Err(e) = self.reader_cache.write().add_change(change.clone()) {

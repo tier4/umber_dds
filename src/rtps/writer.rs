@@ -362,22 +362,28 @@ impl Writer {
     pub fn send_heart_beat(&mut self, liveliness: bool) {
         let time_stamp = Timestamp::now();
         let writer_cache = self.writer_cache.read();
+        let first_sn = writer_cache.get_seq_num_min();
+        let last_sn = writer_cache.get_seq_num_max();
+        if first_sn.0 <= 0 || last_sn.0 < 0 || last_sn.0 < first_sn.0 - 1 {
+            warn!(
+                "heartbeat validation failed\n\tfirstSN: {}, lastSN: {}",
+                first_sn.0, last_sn.0
+            );
+            return;
+        }
         self.hb_counter += 1;
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
         for reader_proxy in self.matched_readers.values_mut() {
             let mut message_builder = MessageBuilder::new();
             message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-            if writer_cache.get_seq_num_min().0 <= 0 || writer_cache.get_seq_num_max().0 < 0 {
-                continue;
-            }
             message_builder.heartbeat(
                 self.endianness,
                 liveliness,
                 self_entity_id,
                 reader_proxy.remote_reader_guid.entity_id,
-                writer_cache.get_seq_num_min(),
-                writer_cache.get_seq_num_max(),
+                first_sn,
+                last_sn,
                 self.hb_counter - 1,
                 false,
             );
@@ -426,6 +432,10 @@ impl Writer {
 
     fn add_change_to_hc(&mut self, change: CacheChange) -> Result<(), String> {
         // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
+        info!(
+            "Writer add change: seq_num: {}\n\tWriter: {}",
+            change.sequence_number.0, self.guid
+        );
         self.writer_cache.write().add_change(change)?;
         for reader_proxy in self.matched_readers.values_mut() {
             reader_proxy.update_cache_state(
