@@ -2,7 +2,7 @@ use crate::dds::{
     qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
     Topic,
 };
-use crate::discovery::structure::data::DiscoveredWriterData;
+use crate::discovery::{discovery_db::DiscoveryDB, structure::data::DiscoveredWriterData};
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
@@ -17,7 +17,7 @@ use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
 };
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
@@ -49,7 +49,7 @@ pub struct Writer {
     reader_locators: Vec<ReaderLocator>,
     // StatefulWriter
     matched_readers: BTreeMap<GUID, ReaderProxy>,
-    total_matched_readers: BTreeSet<GUID>,
+    unmatched_readers: BTreeMap<GUID, ReaderProxy>,
     // This implementation spesific
     topic: Topic,
     qos: DataWriterQosPolicies,
@@ -108,7 +108,7 @@ impl Writer {
             data_max_size_serialized: wi.data_max_size_serialized,
             reader_locators: Vec::new(),
             matched_readers: BTreeMap::new(),
-            total_matched_readers: BTreeSet::new(),
+            unmatched_readers: BTreeMap::new(),
             topic: wi.topic,
             qos: wi.qos,
             endianness: Endianness::LittleEndian,
@@ -201,6 +201,7 @@ impl Writer {
 
     pub fn assert_liveliness(&mut self) {
         todo!();
+        // send ParticipantMessageData
     }
 
     fn assert_liveliness_manually(&mut self) {
@@ -433,7 +434,7 @@ impl Writer {
     fn add_change_to_hc(&mut self, change: CacheChange) -> Result<(), String> {
         // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
         info!(
-            "Writer add change: seq_num: {}\n\tWriter: {}",
+            "Writer add change, seq_num: {}\n\tWriter: {}",
             change.sequence_number.0, self.guid
         );
         self.writer_cache.write().add_change(change)?;
@@ -750,9 +751,8 @@ impl Writer {
                 qos,
                 self.writer_cache.clone(),
             ));
-            self.total_matched_readers.insert(remote_reader_guid);
             let pub_match_state = PublicationMatchedStatus::new(
-                self.total_matched_readers.len() as i32,
+                (self.matched_readers.len() + self.unmatched_readers.len()) as i32,
                 1,
                 self.matched_readers.len() as i32,
                 1,
@@ -785,12 +785,22 @@ impl Writer {
     pub fn is_reader_match(&self, topic_name: &str, data_type: &str) -> bool {
         self.topic.name() == topic_name && self.topic.type_desc() == data_type
     }
-    pub fn matched_reader_loolup(&self, guid: GUID) -> Option<ReaderProxy> {
+
+    /*
+    pub fn matched_reader_lookup(&self, guid: GUID) -> Option<ReaderProxy> {
         self.matched_readers.get(&guid).cloned()
     }
+    */
+
+    /*
+    pub fn check_liveliness(&mut self, disc_db: &mut DiscoveryDB) {
+        // TODO
+    }
+    */
 
     fn matched_reader_unmatch(&mut self, guid: GUID) {
-        if self.matched_readers.remove(&guid).is_some() {
+        if let Some(reader_proxy) = self.matched_readers.remove(&guid) {
+            self.unmatched_readers.insert(guid, reader_proxy);
             self.unmatch_count += 1;
             self.writer_state_notifier
                 .send(DataWriterStatusChanged::LivelinessLost(
@@ -800,18 +810,35 @@ impl Writer {
         }
     }
 
-    pub fn matched_reader_remove(&mut self, guid: GUID) {
-        self.matched_readers.remove(&guid);
-        let pub_match_state = PublicationMatchedStatus::new(
-            self.total_matched_readers.len() as i32,
-            0,
-            self.matched_readers.len() as i32,
-            -1,
-            guid,
-        );
+    #[inline]
+    fn send_pub_unmatch(&self, guid: GUID) {
         self.writer_state_notifier
-            .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
+            .send(DataWriterStatusChanged::PublicationMatched(
+                PublicationMatchedStatus::new(
+                    (self.matched_readers.len() + self.unmatched_readers.len()) as i32,
+                    0,
+                    self.matched_readers.len() as i32,
+                    -1,
+                    guid,
+                ),
+            ))
             .expect("couldn't send writer_state_notifier");
+    }
+
+    pub fn unmatched_reader_remove(&mut self, guid: GUID) {
+        self.unmatched_readers.remove(&guid);
+        self.send_pub_unmatch(guid);
+    }
+
+    pub fn matched_reader_remove(&mut self, guid: GUID) {
+        if self.matched_readers.remove(&guid).is_some() {
+            self.writer_state_notifier
+                .send(DataWriterStatusChanged::LivelinessLost(
+                    LivelinessLostStatus::new(self.unmatch_count, 1, guid),
+                ))
+                .expect("couldn't send writer_state_notifier");
+        }
+        self.send_pub_unmatch(guid);
     }
 
     pub fn delete_reader_proxy(&mut self, guid_prefix: GuidPrefix) {
@@ -821,9 +848,18 @@ impl Writer {
             .filter(|k| k.guid_prefix == guid_prefix)
             .copied()
             .collect();
-
         for d in to_delete {
             self.matched_reader_remove(d);
+        }
+
+        let to_delete: Vec<GUID> = self
+            .unmatched_readers
+            .keys()
+            .filter(|k| k.guid_prefix == guid_prefix)
+            .copied()
+            .collect();
+        for d in to_delete {
+            self.unmatched_reader_remove(d);
         }
     }
 
