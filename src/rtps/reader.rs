@@ -327,10 +327,29 @@ impl Reader {
         }
     }
 
+    #[inline]
+    fn send_sub_unmatch(&self, guid: GUID) {
+        self.reader_state_notifier
+            .send(DataReaderStatusChanged::SubscriptionMatched(
+                SubscriptionMatchedStatus::new(
+                    (self.matched_writers.len() + self.unmatched_writers.len()) as i32,
+                    0,
+                    self.matched_writers.len() as i32,
+                    -1,
+                    guid,
+                ),
+            ))
+            .expect("couldn't send reader_state_notifier");
+    }
+
+    pub fn unmatched_writer_remove(&mut self, guid: GUID) {
+        if self.unmatched_writers.remove(&guid).is_some() {
+            self.send_sub_unmatch(guid);
+        }
+    }
+
     pub fn matched_writer_remove(&mut self, guid: GUID) {
-        if self.matched_writers.remove(&guid).is_some()
-            || self.unmatched_writers.remove(&guid).is_some()
-        {
+        if self.matched_writers.remove(&guid).is_some() {
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
                     LivelinessChangedStatus::new(
@@ -342,18 +361,7 @@ impl Reader {
                     ),
                 ))
                 .expect("couldn't send channel 'reader_state_notifier'");
-            let sub_match_state = SubscriptionMatchedStatus::new(
-                (self.matched_writers.len() + self.unmatched_writers.len()) as i32,
-                0,
-                self.matched_writers.len() as i32,
-                -1,
-                guid,
-            );
-            self.reader_state_notifier
-                .send(DataReaderStatusChanged::SubscriptionMatched(
-                    sub_match_state,
-                ))
-                .expect("couldn't send reader_state_notifier");
+            self.send_sub_unmatch(guid);
         }
     }
 
@@ -361,7 +369,7 @@ impl Reader {
         let to_delete: Vec<GUID> = self
             .matched_writers
             .keys()
-            .filter(|k| k.guid_prefix != guid_prefix)
+            .filter(|k| k.guid_prefix == guid_prefix)
             .copied()
             .collect();
 
@@ -371,12 +379,12 @@ impl Reader {
         let to_delete: Vec<GUID> = self
             .unmatched_writers
             .keys()
-            .filter(|k| k.guid_prefix != guid_prefix)
+            .filter(|k| k.guid_prefix == guid_prefix)
             .copied()
             .collect();
 
         for d in to_delete {
-            self.matched_writer_remove(d);
+            self.unmatched_writer_remove(d);
         }
     }
 

@@ -808,7 +808,7 @@ impl Writer {
         let to_delete: Vec<GUID> = self
             .matched_readers
             .keys()
-            .filter(|k| k.guid_prefix != guid_prefix)
+            .filter(|k| k.guid_prefix == guid_prefix)
             .copied()
             .collect();
 
