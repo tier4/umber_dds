@@ -51,6 +51,10 @@ pub enum DiscoveryDBUpdateNotifier {
     DeleteParticipant(GuidPrefix),
 }
 
+pub enum ParticipantMessageCmd {
+    SendData(ParticipantMessageData),
+}
+
 #[allow(dead_code)]
 pub struct Discovery {
     dp: DomainParticipant,
@@ -73,6 +77,7 @@ pub struct Discovery {
     notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
     local_readers_data: BTreeMap<EntityId, DiscoveredReaderData>,
     notify_new_reader_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
+    participant_msg_cmd_reveiver: mio_channel::Receiver<ParticipantMessageCmd>,
 }
 
 impl Discovery {
@@ -82,6 +87,7 @@ impl Discovery {
         discdb_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
         notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
+        participant_msg_cmd_reveiver: mio_channel::Receiver<ParticipantMessageCmd>,
     ) -> Self {
         let poll = Poll::new().unwrap();
         let publisher = dp.create_publisher(PublisherQos::Default);
@@ -270,6 +276,13 @@ impl Discovery {
             PollOpt::edge(),
         )
         .expect("couldn't register notify_new_reader_receiver to poll");
+        poll.register(
+            &participant_msg_cmd_reveiver,
+            PARTICIPANT_MESSAGE_CMD_RECEIVER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("couldn't register notify_new_reader_receiver to poll");
         Self {
             dp,
             discovery_db,
@@ -291,6 +304,7 @@ impl Discovery {
             notify_new_writer_receiver,
             local_readers_data: BTreeMap::new(),
             notify_new_reader_receiver,
+            participant_msg_cmd_reveiver,
         }
     }
 
@@ -357,6 +371,15 @@ impl Discovery {
                                         );
                                     }
                                     _ => {}
+                                }
+                            }
+                        }
+                        PARTICIPANT_MESSAGE_CMD_RECEIVER => {
+                            while let Ok(cmd) = self.participant_msg_cmd_reveiver.try_recv() {
+                                match cmd {
+                                    ParticipantMessageCmd::SendData(data) => {
+                                        self.p2p_builtin_participant_msg_writer.write(data);
+                                    }
                                 }
                             }
                         }

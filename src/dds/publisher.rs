@@ -5,6 +5,7 @@ use crate::dds::{
     qos::{DataWriterQos, DataWriterQosBuilder, DataWriterQosPolicies, PublisherQosPolicies},
     topic::Topic,
 };
+use crate::discovery::ParticipantMessageCmd;
 use crate::message::submessage::element::Locator;
 use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
 use crate::rtps::writer::{DataWriterStatusChanged, WriterCmd, WriterIngredients};
@@ -33,6 +34,7 @@ struct InnerPublisher {
     default_dw_qos: DataWriterQosPolicies,
     dp: DomainParticipant,
     create_writer_sender: mio_channel::SyncSender<WriterIngredients>,
+    participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
 }
 
 impl Publisher {
@@ -41,6 +43,7 @@ impl Publisher {
         qos: PublisherQosPolicies,
         dp: DomainParticipant,
         create_writer_sender: mio_channel::SyncSender<WriterIngredients>,
+        participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
     ) -> Self {
         let default_dw_qos = DataWriterQosBuilder::new().build();
         Self {
@@ -50,6 +53,7 @@ impl Publisher {
                 default_dw_qos,
                 dp,
                 create_writer_sender,
+                participant_msg_cmd_sender,
             ))),
         }
     }
@@ -141,6 +145,7 @@ impl InnerPublisher {
         default_dw_qos: DataWriterQosPolicies,
         dp: DomainParticipant,
         create_writer_sender: mio_channel::SyncSender<WriterIngredients>,
+        participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
     ) -> Self {
         Self {
             guid,
@@ -148,6 +153,7 @@ impl InnerPublisher {
             default_dw_qos,
             dp,
             create_writer_sender,
+            participant_msg_cmd_sender,
         }
     }
 
@@ -217,6 +223,7 @@ impl InnerPublisher {
             qos: dw_qos.clone(),
             writer_command_receiver,
             writer_state_notifier,
+            participant_msg_cmd_sender: self.participant_msg_cmd_sender.clone(),
         };
         self.create_writer_sender
             .send(writer_ing)
@@ -269,6 +276,7 @@ impl InnerPublisher {
             qos: dw_qos.clone(),
             writer_command_receiver,
             writer_state_notifier,
+            participant_msg_cmd_sender: self.participant_msg_cmd_sender.clone(),
         };
         self.create_writer_sender
             .send(writer_ing)

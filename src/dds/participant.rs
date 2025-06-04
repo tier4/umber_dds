@@ -1,7 +1,7 @@
 use crate::discovery::{
     discovery_db::DiscoveryDB,
     structure::data::{DiscoveredReaderData, DiscoveredWriterData},
-    Discovery, DiscoveryDBUpdateNotifier,
+    Discovery, DiscoveryDBUpdateNotifier, ParticipantMessageCmd,
 };
 use crate::network::net_util::*;
 use crate::rtps::reader::ReaderIngredients;
@@ -62,6 +62,8 @@ impl DomainParticipant {
             mio_channel::channel::<(EntityId, DiscoveredWriterData)>();
         let (notify_new_reader_sender, notify_new_reader_receiver) =
             mio_channel::channel::<(EntityId, DiscoveredReaderData)>();
+        let (participant_msg_cmd_sender, participant_msg_cmd_receiver) =
+            mio_channel::sync_channel::<ParticipantMessageCmd>(32);
         let dp = Self {
             inner: Arc::new(Mutex::new(DomainParticipantDisc::new(
                 domain_id,
@@ -70,6 +72,7 @@ impl DomainParticipant {
                 discdb_update_receiver,
                 notify_new_writer_sender,
                 notify_new_reader_sender,
+                participant_msg_cmd_sender,
                 small_rng,
             ))),
         };
@@ -83,6 +86,7 @@ impl DomainParticipant {
                     discdb_update_sender,
                     notify_new_writer_receiver,
                     notify_new_reader_receiver,
+                    participant_msg_cmd_receiver,
                 );
                 discovery.discovery_loop();
             })
@@ -167,6 +171,7 @@ struct DomainParticipantDisc {
 }
 
 impl DomainParticipantDisc {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         domain_id: u16,
         disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
@@ -174,6 +179,7 @@ impl DomainParticipantDisc {
         discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
         notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
+        participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
         small_rng: &mut SmallRng,
     ) -> Self {
         Self {
@@ -183,6 +189,7 @@ impl DomainParticipantDisc {
                 discdb_update_receiver,
                 notify_new_writer_sender,
                 notify_new_reader_sender,
+                participant_msg_cmd_sender,
                 small_rng,
             ))),
             disc_thread_receiver,
@@ -267,6 +274,7 @@ struct DomainParticipantInner {
     default_publisher_qos: PublisherQosPolicies,
     default_subscriber_qos: SubscriberQosPolicies,
     default_topic_qos: TopicQosPolicies,
+    participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
 }
 
 impl DomainParticipantInner {
@@ -276,6 +284,7 @@ impl DomainParticipantInner {
         discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
         notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
+        participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
         small_rng: &mut SmallRng,
     ) -> DomainParticipantInner {
         let mut socket_list: BTreeMap<mio_v06::Token, UdpSocket> = BTreeMap::new();
@@ -370,6 +379,7 @@ impl DomainParticipantInner {
             default_publisher_qos,
             default_subscriber_qos,
             default_topic_qos,
+            participant_msg_cmd_sender,
         }
     }
 
@@ -385,10 +395,15 @@ impl DomainParticipantInner {
                 self.default_publisher_qos.clone(),
                 dp,
                 self.create_writer_sender.clone(),
+                self.participant_msg_cmd_sender.clone(),
             ),
-            PublisherQos::Policies(q) => {
-                Publisher::new(guid, q, dp, self.create_writer_sender.clone())
-            }
+            PublisherQos::Policies(q) => Publisher::new(
+                guid,
+                q,
+                dp,
+                self.create_writer_sender.clone(),
+                self.participant_msg_cmd_sender.clone(),
+            ),
         }
     }
 

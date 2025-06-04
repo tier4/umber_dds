@@ -2,7 +2,10 @@ use crate::dds::{
     qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
     Topic,
 };
-use crate::discovery::{discovery_db::DiscoveryDB, structure::data::DiscoveredWriterData};
+use crate::discovery::{
+    structure::data::{DiscoveredWriterData, ParticipantMessageData, ParticipantMessageKind},
+    ParticipantMessageCmd,
+};
 use crate::message::{
     message_builder::MessageBuilder,
     submessage::element::{
@@ -57,6 +60,7 @@ pub struct Writer {
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
     writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
     set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
+    participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
     sender: Rc<UdpSender>,
     hb_counter: Count,
     an_state: AckNackState,
@@ -115,6 +119,7 @@ impl Writer {
             writer_command_receiver: wi.writer_command_receiver,
             writer_state_notifier: wi.writer_state_notifier,
             set_writer_nack_sender,
+            participant_msg_cmd_sender: wi.participant_msg_cmd_sender,
             sender,
             hb_counter: 0,
             an_state: AckNackState::Waiting,
@@ -200,8 +205,24 @@ impl Writer {
     }
 
     pub fn assert_liveliness(&mut self) {
-        todo!();
-        // send ParticipantMessageData
+        let ld = self.qos.liveliness.lease_duration;
+        if ld == Duration::INFINITE {
+            return;
+        }
+        let writer_cache = self.writer_cache.read();
+        if let Some(ts) = writer_cache.get_last_added_ts(self.guid) {
+            let elapse = Timestamp::now().expect("failed get Timestamp::new()") - *ts;
+            if elapse > ld {
+                let data = ParticipantMessageData::new(
+                    self.guid_prefix(),
+                    ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE,
+                    vec![],
+                );
+                self.participant_msg_cmd_sender
+                    .send(ParticipantMessageCmd::SendData(data))
+                    .expect("couldn't send channel 'participant_msg_cmd_sender'");
+            }
+        }
     }
 
     fn assert_liveliness_manually(&mut self) {
@@ -960,6 +981,7 @@ pub struct WriterIngredients {
     pub qos: DataWriterQosPolicies,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
     pub writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
+    pub participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
 }
 pub enum WriterCmd {
     WriteData(Option<SerializedPayload>),
