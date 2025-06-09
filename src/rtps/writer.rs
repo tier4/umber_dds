@@ -65,6 +65,7 @@ pub struct Writer {
     hb_counter: Count,
     an_state: AckNackState,
     unmatch_count: i32,
+    is_alive: bool,
 }
 
 #[derive(PartialEq, Eq)]
@@ -124,6 +125,7 @@ impl Writer {
             hb_counter: 0,
             an_state: AckNackState::Waiting,
             unmatch_count: 0,
+            is_alive: true,
         }
     }
 
@@ -205,6 +207,7 @@ impl Writer {
     }
 
     pub fn assert_liveliness(&mut self) {
+        self.is_alive = true;
         let ld = self.qos.liveliness.lease_duration;
         if ld == Duration::INFINITE {
             return;
@@ -226,12 +229,14 @@ impl Writer {
     }
 
     fn assert_liveliness_manually(&mut self) {
+        self.is_alive = true;
         // rtps 2.3 spec, 8.3.7.5 Heartbeat, Table 8.38 - Structure of the Heartbeat Submessage
         // > LivelinessFlag: Appears in the Submessage header flags. Indicates that the DDS DataWriter associated with the RTPS Writer of the message has manually asserted its LIVELINESS.
         self.send_heart_beat(true);
     }
 
     fn handle_write_data_cmd(&mut self, serialized_payload: Option<SerializedPayload>) {
+        self.is_alive = true;
         // this is new_change
         self.last_change_sequence_number += SequenceNumber(1);
         let ts = Timestamp::now().expect("failed get Timestamp::now()");
@@ -382,12 +387,15 @@ impl Writer {
     }
 
     pub fn send_heart_beat(&mut self, liveliness: bool) {
+        if liveliness {
+            self.is_alive = true;
+        }
         let time_stamp = Timestamp::now();
         let writer_cache = self.writer_cache.read();
         let first_sn = writer_cache.get_seq_num_min();
         let last_sn = writer_cache.get_seq_num_max();
         if first_sn.0 <= 0 || last_sn.0 < 0 || last_sn.0 < first_sn.0 - 1 {
-            warn!(
+            debug!(
                 "heartbeat validation failed\n\tfirstSN: {}, lastSN: {}",
                 first_sn.0, last_sn.0
             );
@@ -815,20 +823,24 @@ impl Writer {
     */
 
     pub fn check_liveliness(&mut self) {
-        let ld = self.qos.liveliness.lease_duration;
-        if ld == Duration::INFINITE {
-            return;
-        }
-        let writer_cache = self.writer_cache.read();
-        if let Some(ts) = writer_cache.get_last_added_ts(self.guid) {
-            let elapse = Timestamp::now().expect("failed get Timestamp::new()") - *ts;
-            if elapse > ld {
-                self.unmatch_count += 1;
-                self.writer_state_notifier
-                    .send(DataWriterStatusChanged::LivelinessLost(
-                        LivelinessLostStatus::new(self.unmatch_count, 1, self.guid),
-                    ))
-                    .expect("couldn't send writer_state_notifier");
+        if self.is_alive {
+            let ld = self.qos.liveliness.lease_duration;
+            if ld == Duration::INFINITE {
+                return;
+            }
+            let writer_cache = self.writer_cache.read();
+            if let Some(ts) = writer_cache.get_last_added_ts(self.guid) {
+                let elapse = Timestamp::now().expect("failed get Timestamp::new()") - *ts;
+                if elapse > ld {
+                    self.unmatch_count += 1;
+                    self.is_alive = false;
+                    debug!("checked liveliness of local wirter Lost, ld: {:?}, elapse: {:?}\n\tWriter: {}", ld, elapse, self.guid.entity_id);
+                    self.writer_state_notifier
+                        .send(DataWriterStatusChanged::LivelinessLost(
+                            LivelinessLostStatus::new(self.unmatch_count, 1, self.guid),
+                        ))
+                        .expect("couldn't send writer_state_notifier");
+                }
             }
         }
     }
