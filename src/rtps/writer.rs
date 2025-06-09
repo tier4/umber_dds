@@ -813,11 +813,24 @@ impl Writer {
     }
     */
 
-    /*
-    pub fn check_liveliness(&mut self, disc_db: &mut DiscoveryDB) {
-        // TODO
+    pub fn check_liveliness(&mut self) {
+        let ld = self.qos.liveliness.lease_duration;
+        if ld == Duration::INFINITE {
+            return;
+        }
+        let writer_cache = self.writer_cache.read();
+        if let Some(ts) = writer_cache.get_last_added_ts(self.guid) {
+            let elapse = Timestamp::now().expect("failed get Timestamp::new()") - *ts;
+            if elapse > ld {
+                self.unmatch_count += 1;
+                self.writer_state_notifier
+                    .send(DataWriterStatusChanged::LivelinessLost(
+                        LivelinessLostStatus::new(self.unmatch_count, 1, self.guid),
+                    ))
+                    .expect("couldn't send writer_state_notifier");
+            }
+        }
     }
-    */
 
     fn matched_reader_unmatch(&mut self, guid: GUID) {
         if let Some(reader_proxy) = self.matched_readers.remove(&guid) {

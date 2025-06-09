@@ -63,6 +63,8 @@ pub struct EventLoop {
     wlp_timer_receiver: mio_channel::Receiver<EntityId>,
     wlp_timers: BTreeMap<EntityId, (Timer<EntityId>, Timeout)>, //  reader EntityId, reader EntityId
     assert_liveliness_timer: Timer<()>,
+    check_liveliness_timer: Timer<Vec<GUID>>,
+    check_liveliness_timer_to: Option<(CoreDuration, Timeout)>,
     // receive discovery_db update notification from Discovery
     discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
     discovery_db: DiscoveryDB,
@@ -117,11 +119,19 @@ impl EventLoop {
         );
         poll.register(
             &assert_liveliness_timer,
-            ASSERT_LIVELINESS_TIMER,
+            ASSERT_AUTOMATIC_LIVELINESS_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register discdb_update_receiver to poll");
+        .expect("coludn't register assert_liveliness_timer to poll");
+        let check_liveliness_timer = Timer::default();
+        poll.register(
+            &check_liveliness_timer,
+            CHECK_MANUAL_LIVELINESS_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("coludn't register check_liveliness_timer to poll");
         poll.register(
             &discdb_update_receiver,
             DISCOVERY_DB_UPDATE,
@@ -178,6 +188,8 @@ impl EventLoop {
             wlp_timer_receiver,
             wlp_timers: BTreeMap::new(),
             assert_liveliness_timer,
+            check_liveliness_timer,
+            check_liveliness_timer_to: None,
             discdb_update_receiver,
             discovery_db,
         }
@@ -250,6 +262,49 @@ impl EventLoop {
                                     );
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
+                                }
+                                let qos = writer.get_qos();
+                                match qos.liveliness.kind {
+                                    LivelinessQosKind::Automatic => (),
+                                    LivelinessQosKind::ManualByTopic
+                                    | LivelinessQosKind::ManualByParticipant => {
+                                        let ld = qos.liveliness.lease_duration;
+                                        if ld != Duration::INFINITE {
+                                            if let Some((d, to)) =
+                                                self.check_liveliness_timer_to.as_ref()
+                                            {
+                                                if let Some(mut w) =
+                                                    self.check_liveliness_timer.cancel_timeout(to)
+                                                {
+                                                    w.push(writer.guid());
+                                                    let duration = std::cmp::min(
+                                                        *d,
+                                                        ld.half().to_core_duration(),
+                                                    );
+                                                    let to = self
+                                                        .check_liveliness_timer
+                                                        .set_timeout(duration, w);
+                                                    self.check_liveliness_timer_to =
+                                                        Some((duration, to));
+                                                    trace!(
+                                                        "set Writer check_liveliness timer({:?})",
+                                                        duration
+                                                    );
+                                                }
+                                            } else {
+                                                let duration = ld.half().to_core_duration();
+                                                let to = self
+                                                    .check_liveliness_timer
+                                                    .set_timeout(duration, vec![writer.guid()]);
+                                                self.check_liveliness_timer_to =
+                                                    Some((duration, to));
+                                                trace!(
+                                                    "set Writer check_liveliness timer({:?})",
+                                                    duration
+                                                );
+                                            }
+                                        }
+                                    }
                                 }
                                 let token = writer.entity_token();
                                 self.poll
@@ -410,7 +465,7 @@ impl EventLoop {
                                 }
                             }
                         }
-                        ASSERT_LIVELINESS_TIMER => {
+                        ASSERT_AUTOMATIC_LIVELINESS_TIMER => {
                             self.assert_liveliness_timer.poll();
                             trace!("fired Writer assert_liveliness timer");
                             let now = Timestamp::now().unwrap_or(Timestamp::TIME_INVALID);
@@ -440,6 +495,27 @@ impl EventLoop {
                                 "set Writer assert_liveliness timer({})",
                                 ASSERT_LIVELINESS_PERIOD
                             );
+                        }
+                        CHECK_MANUAL_LIVELINESS_TIMER => {
+                            trace!("fired Writer check_liveliness timer");
+                            while let Some(wgs) = self.check_liveliness_timer.poll() {
+                                for wg in &wgs {
+                                    if let Some(w) = self.writers.get_mut(&wg.entity_id) {
+                                        trace!(
+                                            "checked liveliness of local Writer\n\tWriter: {}",
+                                            wg.entity_id
+                                        );
+                                        w.check_liveliness();
+                                    }
+                                }
+                                let duration = self.check_liveliness_timer_to.unwrap().0;
+                                let to = self.check_liveliness_timer.set_timeout(duration, wgs);
+                                self.check_liveliness_timer_to = Some((duration, to));
+                                trace!(
+                                    "set Writer check_liveliness timer({})",
+                                    ASSERT_LIVELINESS_PERIOD
+                                );
+                            }
                         }
                         READER_HEARTBEAT_TIMER => {
                             for rhb_timer in &mut self.reader_hb_timers {
