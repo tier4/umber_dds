@@ -143,13 +143,13 @@ fn main() {
                                             match state.current_count_change {
                                                 1 => {
                                                     println!(
-                                                        "PublicationMatched, guid: {:?}",
+                                                        "PublicationMatched, guid: {}",
                                                         state.guid
                                                     );
                                                 }
                                                 -1 => {
                                                     println!(
-                                                        "PublicationUnmatched, guid: {:?}",
+                                                        "PublicationUnmatched, guid: {}",
                                                         state.guid
                                                     );
                                                 }
@@ -209,13 +209,13 @@ fn main() {
                                             match state.current_count_change {
                                                 1 => {
                                                     println!(
-                                                        "SubscriptionMatched, guid: {:?}",
+                                                        "SubscriptionMatched, guid: {}",
                                                         state.guid
                                                     );
                                                 }
                                                 -1 => {
                                                     println!(
-                                                        "SubscriptionUnmatched, guid: {:?}",
+                                                        "SubscriptionUnmatched, guid: {}",
                                                         state.guid
                                                     );
                                                 }

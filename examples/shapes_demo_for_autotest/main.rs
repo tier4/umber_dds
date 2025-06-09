@@ -239,7 +239,11 @@ fn main() {
                                     }
                                 }
                                 DataReaderStatusChanged::SubscriptionMatched(state) => {
-                                    println!("SubscriptionMatched, guid: {:?}", state.guid);
+                                    if state.current_count_change == 1 {
+                                        println!("SubscriptionMatched, guid: {:?}", state.guid);
+                                    } else {
+                                        println!("SubscriptionUnmatched, guid: {:?}", state.guid);
+                                    }
                                 }
                                 _ => (),
                             }
@@ -251,7 +255,11 @@ fn main() {
                         while let Ok(w) = dw.try_recv() {
                             match w {
                                 DataWriterStatusChanged::PublicationMatched(state) => {
-                                    println!("PublicationMatched, guid: {:?}", state.guid);
+                                    if state.current_count_change == 1 {
+                                        println!("PublicationMatched, guid: {:?}", state.guid);
+                                    } else {
+                                        println!("PublicationUnmatched, guid: {:?}", state.guid);
+                                    }
                                 }
                                 _ => (),
                             }
