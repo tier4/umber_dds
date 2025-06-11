@@ -49,13 +49,13 @@ pub struct Reader {
     endianness: Endianness,
     reader_state_notifier: mio_channel::Sender<DataReaderStatusChanged>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
-    sender: Rc<UdpSender>,
+    udp_sender: Rc<UdpSender>,
 }
 
 impl Reader {
     pub fn new(
         ri: ReaderIngredients,
-        sender: Rc<UdpSender>,
+        udp_sender: Rc<UdpSender>,
         set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
     ) -> Self {
         let mut msg = String::new();
@@ -90,7 +90,7 @@ impl Reader {
             endianness: Endianness::LittleEndian,
             reader_state_notifier: ri.reader_state_notifier,
             set_reader_hb_timer_sender,
-            sender,
+            udp_sender,
         }
     }
 
@@ -561,7 +561,7 @@ impl Reader {
                         "Reader send acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {}",
                         addr[12], addr[13], addr[14], addr[15], port,self.guid,
                     );
-                    self.sender.send_to_unicast(
+                    self.udp_sender.send_to_unicast(
                         &message_buf,
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,
@@ -578,7 +578,7 @@ impl Reader {
                         "Reader send acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {}",
                         addr[12], addr[13], addr[14], addr[15], port,self.guid,
                     );
-                    self.sender.send_to_unicast(
+                    self.udp_sender.send_to_unicast(
                         &message_buf,
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,

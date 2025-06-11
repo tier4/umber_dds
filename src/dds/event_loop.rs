@@ -56,7 +56,7 @@ pub struct EventLoop {
     set_writer_nack_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
     writers: BTreeMap<EntityId, Writer>,
     readers: BTreeMap<EntityId, Reader>,
-    sender: Rc<UdpSender>,
+    udp_sender: Rc<UdpSender>,
     writer_hb_timer: Timer<EntityId>,
     reader_hb_timers: Vec<Timer<(EntityId, GUID)>>, // (reader EntityId, writer GUID)
     writer_nack_timers: Vec<Timer<(EntityId, GUID)>>, // (writer EntityId, reader GUID)
@@ -164,7 +164,7 @@ impl EventLoop {
         )
         .expect("coludn't register wlp_timer_receiver to poll");
         let message_receiver = MessageReceiver::new(participant_guidprefix, wlp_timer_sender);
-        let sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
+        let udp_sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
             domain_id,
             guid_prefix,
@@ -181,7 +181,7 @@ impl EventLoop {
             set_writer_nack_timer_receiver,
             writers: BTreeMap::new(),
             readers: BTreeMap::new(),
-            sender,
+            udp_sender,
             writer_hb_timer,
             reader_hb_timers: Vec::new(),
             writer_nack_timers: Vec::new(),
@@ -228,7 +228,7 @@ impl EventLoop {
                             while let Ok(writer_ing) = self.create_writer_receiver.try_recv() {
                                 let mut writer = Writer::new(
                                     writer_ing,
-                                    self.sender.clone(),
+                                    self.udp_sender.clone(),
                                     self.set_writer_nack_timer_sender.clone(),
                                 );
                                 if writer.entity_id()
@@ -337,7 +337,7 @@ impl EventLoop {
                             while let Ok(reader_ing) = self.create_reader_receiver.try_recv() {
                                 let reader = Reader::new(
                                     reader_ing,
-                                    self.sender.clone(),
+                                    self.udp_sender.clone(),
                                     self.set_reader_hb_timer_sender.clone(),
                                 );
                                 if reader.entity_id() != EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR

@@ -61,7 +61,7 @@ pub struct Writer {
     writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
     set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
     participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
-    sender: Rc<UdpSender>,
+    udp_sender: Rc<UdpSender>,
     hb_counter: Count,
     an_state: AckNackState,
     unmatch_count: i32,
@@ -79,7 +79,7 @@ enum AckNackState {
 impl Writer {
     pub fn new(
         wi: WriterIngredients,
-        sender: Rc<UdpSender>,
+        udp_sender: Rc<UdpSender>,
         set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
     ) -> Self {
         let mut msg = String::new();
@@ -121,7 +121,7 @@ impl Writer {
             writer_state_notifier: wi.writer_state_notifier,
             set_writer_nack_sender,
             participant_msg_cmd_sender: wi.participant_msg_cmd_sender,
-            sender,
+            udp_sender,
             hb_counter: 0,
             an_state: AckNackState::Waiting,
             unmatch_count: 0,
@@ -296,7 +296,7 @@ impl Writer {
                                     "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                     addr[12], addr[13], addr[14], addr[15], port, self.guid,
                                 );
-                                self.sender.send_to_unicast(
+                                self.udp_sender.send_to_unicast(
                                     &message_buf,
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
@@ -312,7 +312,7 @@ impl Writer {
                                     "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                     addr[12], addr[13], addr[14], addr[15], port, self.guid,
                                 );
-                                self.sender.send_to_multicast(
+                                self.udp_sender.send_to_multicast(
                                     &message_buf,
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
@@ -354,7 +354,7 @@ impl Writer {
                                 "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                 addr[12], addr[13], addr[14], addr[15], port, self.guid,
                             );
-                            self.sender.send_to_unicast(
+                            self.udp_sender.send_to_unicast(
                                 &message_buf,
                                 Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                 port as u16,
@@ -370,7 +370,7 @@ impl Writer {
                                 "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                 addr[12], addr[13], addr[14], addr[15], port, self.guid,
                             );
-                            self.sender.send_to_multicast(
+                            self.udp_sender.send_to_multicast(
                                 &message_buf,
                                 Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                 port as u16,
@@ -430,7 +430,7 @@ impl Writer {
                         "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {}",
                         addr[12], addr[13], addr[14], addr[15], port, self.guid,
                     );
-                    self.sender.send_to_unicast(
+                    self.udp_sender.send_to_unicast(
                         &message_buf,
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,
@@ -446,7 +446,7 @@ impl Writer {
                         "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {}",
                         addr[12], addr[13], addr[14], addr[15], port, self.guid,
                     );
-                    self.sender.send_to_multicast(
+                    self.udp_sender.send_to_multicast(
                         &message_buf,
                         Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                         port as u16,
@@ -566,7 +566,7 @@ impl Writer {
                                     "Writer resend data message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                     addr[12], addr[13], addr[14], addr[15], port, self.guid,
                                 );
-                                self.sender.send_to_unicast(
+                                self.udp_sender.send_to_unicast(
                                     &message_buf,
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
@@ -582,7 +582,7 @@ impl Writer {
                                     "Writer resend data message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                     addr[12], addr[13], addr[14], addr[15], port, self.guid,
                                 );
-                                self.sender.send_to_multicast(
+                                self.udp_sender.send_to_multicast(
                                     &message_buf,
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
@@ -624,7 +624,7 @@ impl Writer {
                                     "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                     addr[12], addr[13], addr[14], addr[15], port, self.guid
                                 );
-                                self.sender.send_to_unicast(
+                                self.udp_sender.send_to_unicast(
                                     &message_buf,
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
@@ -640,7 +640,7 @@ impl Writer {
                                     "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                     addr[12], addr[13], addr[14], addr[15], port, self.guid
                                 );
-                                self.sender.send_to_multicast(
+                                self.udp_sender.send_to_multicast(
                                     &message_buf,
                                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                     port as u16,
@@ -680,7 +680,7 @@ impl Writer {
                                 "Writer send gap message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                 addr[12], addr[13], addr[14], addr[15], port, self.guid,
                             );
-                            self.sender.send_to_unicast(
+                            self.udp_sender.send_to_unicast(
                                 &message_buf,
                                 Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                 port as u16,
@@ -696,7 +696,7 @@ impl Writer {
                                 "Writer send gap message to {}.{}.{}.{}:{}\n\tWriter: {}",
                                 addr[12], addr[13], addr[14], addr[15], port, self.guid,
                             );
-                            self.sender.send_to_multicast(
+                            self.udp_sender.send_to_multicast(
                                 &message_buf,
                                 Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                                 port as u16,
