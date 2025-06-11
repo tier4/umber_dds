@@ -368,7 +368,7 @@ impl DomainParticipantInner {
 
         Self {
             domain_id,
-            participant_id: 0,
+            participant_id,
             my_guid,
             create_writer_sender,
             create_reader_sender,
