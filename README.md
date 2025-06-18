@@ -85,12 +85,9 @@ At the beginning of this program, logging for UmberDDS behavior is initialized u
 This is used for test/test.sh.
 
 ## Interoperability
-- [x] Fast DDS (%1)
-- [x] RustDDS (%1)
-- [x] Cyclone DDS (%1)
-
-(%1) These implementations use IPC (Inter-Process Communication) instead of UDP for communication when Participants are on the same host. Since UmberDDS does not implement IPC, it cannot communicate with Participants of these implementations on the same host. If you need to communicate with these implementations on the same host, disable IPC or run UmberDDS in an isolated network namespace using tools like Docker.
-
+- [x] Fast DDS
+- [x] RustDDS
+- [x] Cyclone DDS
 
 ## Progress
 
@@ -105,7 +102,6 @@ This is used for test/test.sh.
 - [x] Logging
 - [x] Topics kinds: with_key and no_key
 - [ ] Instance
-- [ ] IPC (Inter-Process Communication)
 
 ### Supporting QoS
 
