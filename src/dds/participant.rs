@@ -127,6 +127,27 @@ impl DomainParticipant {
             .lock(&mut node)
             .create_builtin_topic(self.clone(), name, type_desc, kind, qos)
     }
+    /// Set network interfaces to use sending or receiving message.
+    ///
+    /// By default, UmberDDS selects one non-loopback network interface that has an IPv4 address assigned for sending and receiving messages.
+    /// If no such interface exists, the loopback interface is used instead.
+    /// When several interfaces are present, UmberDDS obtains the list of interfaces from the operating system,
+    /// filters out loopback devices and those without an IPv4 address,
+    /// and then chooses the first remaining entry in that list.
+    /// If this automatic choice is undesirable for example,
+    /// if a local bridge that cannot reach other hosts is selected you can explicitly specify the interface(s) to use with set_network_interfaces().
+    ///
+    /// Note: Call this method before invoking create_datawriter or create_datareader.
+    ///
+    /// If you need UmberDDS to operate over multiple interfaces, call set_network_interfaces() and pass the full set of interfaces you want to use.
+    pub fn set_network_interfaces(&mut self, nic: Vec<Ipv4Addr>) {
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).set_network_interfaces(nic)
+    }
+    pub(crate) fn get_network_interfaces(&self) -> Vec<Ipv4Addr> {
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).get_network_interfaces()
+    }
     pub fn domain_id(&self) -> u16 {
         let mut node = MCSNode::new();
         self.inner.lock(&mut node).domain_id()
@@ -221,6 +242,12 @@ impl DomainParticipantDisc {
             .read()
             .create_builtin_topic(dp, name, type_desc, kind, qos)
     }
+    pub fn set_network_interfaces(&mut self, nic: Vec<Ipv4Addr>) {
+        self.inner.write().set_network_interfaces(nic)
+    }
+    pub(crate) fn get_network_interfaces(&self) -> Vec<Ipv4Addr> {
+        self.inner.read().get_network_interfaces()
+    }
     pub fn domain_id(&self) -> u16 {
         self.inner.read().domain_id
     }
@@ -275,6 +302,7 @@ struct DomainParticipantInner {
     default_subscriber_qos: SubscriberQosPolicies,
     default_topic_qos: TopicQosPolicies,
     participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
+    network_interfaces: Vec<Ipv4Addr>,
 }
 
 impl DomainParticipantInner {
@@ -380,6 +408,7 @@ impl DomainParticipantInner {
             default_subscriber_qos,
             default_topic_qos,
             participant_msg_cmd_sender,
+            network_interfaces: Vec::new(),
         }
     }
 
@@ -451,6 +480,14 @@ impl DomainParticipantInner {
             }
             TopicQos::Policies(q) => Topic::new_builtin(name, type_desc, dp, kind, q),
         }
+    }
+
+    pub fn set_network_interfaces(&mut self, nic: Vec<Ipv4Addr>) {
+        self.network_interfaces = nic;
+    }
+
+    pub(crate) fn get_network_interfaces(&self) -> Vec<Ipv4Addr> {
+        self.network_interfaces.clone()
     }
 
     pub fn gen_entity_key(&self) -> [u8; 3] {
