@@ -163,6 +163,21 @@ impl InnerSubscriber {
         topic: Topic,
         subscriber: Subscriber,
     ) -> DataReader<D> {
+        let entity_kind = match topic.kind() {
+            TopicKind::WithKey => EntityKind::READER_WITH_KEY_USER_DEFIND,
+            TopicKind::NoKey => EntityKind::READER_NO_KEY_USER_DEFIND,
+        };
+        let entity_id = EntityId::new_with_entity_kind(self.dp.gen_entity_key(), entity_kind);
+        self.create_datareader_with_entityid(qos, topic, subscriber, entity_id)
+    }
+
+    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de> + DdsData>(
+        &self,
+        qos: DataReaderQos,
+        topic: Topic,
+        subscriber: Subscriber,
+        entity_id: EntityId,
+    ) -> DataReader<D> {
         let dr_qos = match qos {
             // DDS 1.4 spec, 2.2.2.5.2.5 create_datareader
             // > The special value DATAREADER_QOS_DEFAULT can be used to indicate that the DataReader should be created with the
@@ -185,69 +200,32 @@ impl InnerSubscriber {
         };
         let (reader_state_notifier, reader_state_receiver) =
             mio_channel::channel::<DataReaderStatusChanged>();
-        let entity_kind = match topic.kind() {
-            TopicKind::WithKey => EntityKind::READER_WITH_KEY_USER_DEFIND,
-            TopicKind::NoKey => EntityKind::READER_NO_KEY_USER_DEFIND,
-        };
         let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
         let reliability_level = dr_qos.reliability.kind;
-        let reader_ing = ReaderIngredients {
-            guid: GUID::new(
-                self.dp.guid_prefix(),
-                EntityId::new_with_entity_kind(self.dp.gen_entity_key(), entity_kind),
-            ),
-            reliability_level,
-            unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
+        let domain_id = self.dp.domain_id();
+        let participant_id = self.dp.participant_id();
+        let nics = self.dp.get_network_interfaces();
+        let unicast_locator_list = if nics.is_empty() {
+            Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
                 self.dp.domain_id(),
                 self.dp.participant_id(),
-            ) as u32),
-            multicast_locator_list: vec![Locator::new_from_ipv4(
-                usertraffic_multicast_port(self.dp.domain_id()) as u32,
-                [239, 255, 0, 1],
-            )],
-            expectsinline_qos: false,
-            heartbeat_response_delay: Duration::ZERO,
-            rhc: history_cache.clone(),
-            topic: topic.clone(),
-            qos: dr_qos.clone(),
-            reader_state_notifier,
+            ) as u32)
+        } else {
+            nics.iter()
+                .map(|a| {
+                    Locator::new_from_ipv4(
+                        usertraffic_unicast_port(domain_id, participant_id) as u32,
+                        a.octets(),
+                    )
+                })
+                .collect()
         };
-        self.create_reader_sender
-            .send(reader_ing)
-            .expect("couldn't send channel 'create_reader_sender'");
-        DataReader::<D>::new(
-            dr_qos,
-            topic,
-            subscriber,
-            history_cache,
-            reader_state_receiver,
-        )
-    }
-
-    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de> + DdsData>(
-        &self,
-        qos: DataReaderQos,
-        topic: Topic,
-        subscriber: Subscriber,
-        entity_id: EntityId,
-    ) -> DataReader<D> {
-        let dr_qos = match qos {
-            DataReaderQos::Default => self.default_dr_qos.clone(),
-            DataReaderQos::Policies(q) => q,
-        };
-        let (reader_state_notifier, reader_state_receiver) =
-            mio_channel::channel::<DataReaderStatusChanged>();
-        let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
-        let reliability_level = dr_qos.reliability.kind;
         let reader_ing = ReaderIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
             reliability_level,
-            unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
-                self.dp.domain_id(),
-                self.dp.participant_id(),
-            ) as u32),
+            unicast_locator_list,
             multicast_locator_list: vec![Locator::new_from_ipv4(
-                usertraffic_multicast_port(self.dp.domain_id()) as u32,
+                usertraffic_multicast_port(domain_id) as u32,
                 [239, 255, 0, 1],
             )],
             expectsinline_qos: false,

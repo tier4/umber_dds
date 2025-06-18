@@ -171,14 +171,29 @@ impl InnerPublisher {
         topic: Topic,
         outter: Publisher,
     ) -> DataWriter<D> {
+        let entity_kind = match topic.kind() {
+            TopicKind::WithKey => EntityKind::WRITER_WITH_KEY_USER_DEFIND,
+            TopicKind::NoKey => EntityKind::WRITER_NO_KEY_USER_DEFIND,
+        };
+        let entity_id = EntityId::new_with_entity_kind(self.dp.gen_entity_key(), entity_kind);
+        self.create_datawriter_with_entityid(qos, topic, outter, entity_id)
+    }
+
+    pub fn create_datawriter_with_entityid<D: serde::Serialize + DdsData>(
+        &self,
+        qos: DataWriterQos,
+        topic: Topic,
+        outter: Publisher,
+        entity_id: EntityId,
+    ) -> DataWriter<D> {
         let dw_qos = match qos {
-            // DDS 1.4 spec, 2.2.2.4.1.5 create_ datawriter
+            // DDS 1.4 spec, 2.2.2.4.1.5 create_datawriter
             // > The special value DATAWRITER_QOS_DEFAULT can be used to indicate that the DataWriter should be created with the
             // default DataWriter QoS set in the factory. The use of this value is equivalent to the application obtaining the default
             // DataWriter QoS by means of the operation get_default_datawriter_qos (2.2.2.4.1.15) and using the resulting QoS to create
             // the DataWriter.
             DataWriterQos::Default => self.default_dw_qos.clone(),
-            // DDS 1.4 spec, 2.2.2.4.1.5 create_ datawriter
+            // DDS 1.4 spec, 2.2.2.4.1.5 create_datawriter
             // > Note that a common application pattern to construct the QoS for the DataWriter is to:
             // > + Retrieve the QoS policies on the associated Topic by means of the get_qos operation on the Topic.
             // > + Retrieve the default DataWriter qos by means of the get_default_datawriter_qos operation on the Publisher.
@@ -195,76 +210,34 @@ impl InnerPublisher {
             mio_channel::channel::<DataWriterStatusChanged>();
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
-        let entity_kind = match topic.kind() {
-            TopicKind::WithKey => EntityKind::WRITER_WITH_KEY_USER_DEFIND,
-            TopicKind::NoKey => EntityKind::WRITER_NO_KEY_USER_DEFIND,
-        };
-        let reliability_level = dw_qos.reliability.kind;
-        let writer_ing = WriterIngredients {
-            guid: GUID::new(
-                self.dp.guid_prefix(),
-                EntityId::new_with_entity_kind(self.dp.gen_entity_key(), entity_kind),
-            ),
-            reliability_level,
-            unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
-                self.dp.domain_id(),
-                self.dp.participant_id(),
-            ) as u32),
-            multicast_locator_list: vec![Locator::new_from_ipv4(
-                usertraffic_multicast_port(self.dp.domain_id()) as u32,
-                [239, 255, 0, 1],
-            )],
-            push_mode: true,
-            heartbeat_period: Duration::new(2, 0),
-            nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
-            nack_suppression_duration: Duration::ZERO,
-            data_max_size_serialized: 0,
-            topic: topic.clone(),
-            qos: dw_qos.clone(),
-            writer_command_receiver,
-            writer_state_notifier,
-            participant_msg_cmd_sender: self.participant_msg_cmd_sender.clone(),
-        };
-        self.create_writer_sender
-            .send(writer_ing)
-            .expect("couldn't send channel 'create_writer_sender'");
-        DataWriter::<D>::new(
-            writer_command_sender,
-            dw_qos,
-            topic,
-            outter,
-            writer_state_receiver,
-        )
-    }
-    pub fn create_datawriter_with_entityid<D: serde::Serialize + DdsData>(
-        &self,
-        qos: DataWriterQos,
-        topic: Topic,
-        outter: Publisher,
-        entity_id: EntityId,
-    ) -> DataWriter<D> {
-        let dw_qos = match qos {
-            DataWriterQos::Default => self.default_dw_qos.clone(),
-            DataWriterQos::Policies(q) => q,
-        };
-        let (writer_state_notifier, writer_state_receiver) =
-            mio_channel::channel::<DataWriterStatusChanged>();
-        let (writer_command_sender, writer_command_receiver) =
-            mio_channel::sync_channel::<WriterCmd>(4);
         let reliability_level = dw_qos.reliability.kind;
         let heartbeat_period = match reliability_level {
             ReliabilityQosKind::Reliable => Duration::new(2, 0),
             ReliabilityQosKind::BestEffort => Duration::ZERO,
         };
+        let domain_id = self.dp.domain_id();
+        let participant_id = self.dp.participant_id();
+        let nics = self.dp.get_network_interfaces();
+        let unicast_locator_list = if nics.is_empty() {
+            Locator::new_list_from_self_ipv4(
+                usertraffic_unicast_port(domain_id, participant_id) as u32
+            )
+        } else {
+            nics.iter()
+                .map(|a| {
+                    Locator::new_from_ipv4(
+                        usertraffic_unicast_port(domain_id, participant_id) as u32,
+                        a.octets(),
+                    )
+                })
+                .collect()
+        };
         let writer_ing = WriterIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
             reliability_level,
-            unicast_locator_list: Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
-                self.dp.domain_id(),
-                self.dp.participant_id(),
-            ) as u32),
+            unicast_locator_list,
             multicast_locator_list: vec![Locator::new_from_ipv4(
-                usertraffic_multicast_port(self.dp.domain_id()) as u32,
+                usertraffic_multicast_port(domain_id) as u32,
                 [239, 255, 0, 1],
             )],
             push_mode: true,
