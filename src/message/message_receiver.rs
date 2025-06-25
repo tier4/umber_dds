@@ -429,7 +429,7 @@ impl MessageReceiver {
                     if let Some(tk) = remote_writer_topic_kind {
                         if reader.topic_kind() != tk {
                             error!(
-                                "Reader found Writer which has same topic_name: {} & data_type: {} , but not match topic_kind\n\tReader: {:?}\n\tWriter: {:?}",
+                                "Reader found Writer which has same topic_name: '{}' & data_type: '{}' , but not match topic_kind\n\tReader: {:?}\n\tWriter: {:?}",
                                 topic_name, data_type,
                                 reader.topic_kind(),
                                 tk,
@@ -521,7 +521,7 @@ impl MessageReceiver {
                     if let Some(tk) = remote_reader_topic_kind {
                         if writer.topic_kind() != tk {
                             error!(
-                                "Writer found Reader which has same topic_name: {} & data_type: {} , but not match topic_kind\n\tReader: {:?}\n\tWriter: {:?}",
+                                "Writer found Reader which has same topic_name: '{}' & data_type: '{}' , but not match topic_kind\n\tWriter: {:?}\n\tReader: {:?}",
                                 topic_name, data_type,
                                 writer.topic_kind(),
                                 tk,
