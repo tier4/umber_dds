@@ -3,7 +3,7 @@ use crate::discovery::{
     structure::data::{DiscoveredReaderData, DiscoveredWriterData},
     Discovery, DiscoveryDBUpdateNotifier, ParticipantMessageCmd,
 };
-use crate::network::net_util::*;
+use crate::network::{net_util::*, udp_sender::UdpSender};
 use crate::rtps::reader::ReaderIngredients;
 use crate::rtps::writer::WriterIngredients;
 use crate::structure::RTPSEntity;
@@ -52,7 +52,22 @@ impl RTPSEntity for DomainParticipant {
 }
 
 impl DomainParticipant {
-    pub fn new(domain_id: u16, small_rng: &mut SmallRng) -> Self {
+    /// network_interfaces: network interfaces to use sending or receiving message.
+    ///
+    /// By default, UmberDDS selects one non-loopback network interface that has an IPv4 address assigned for sending and receiving messages.
+    /// If no such interface exists, the loopback interface is used instead.
+    /// When several interfaces are present, UmberDDS obtains the list of interfaces from the operating system,
+    /// filters out loopback devices and those without an IPv4 address,
+    /// and then chooses the first remaining entry in that list.
+    /// If this automatic choice is undesirable for example,
+    /// if a local bridge that cannot reach other hosts is selected you can explicitly specify the interface(s) with network_interfaces.
+    ///
+    /// If you need UmberDDS to operate over multiple interfaces, pass the full set of interfaces you want to use.
+    pub fn new(
+        domain_id: u16,
+        network_interfaces: Vec<Ipv4Addr>,
+        small_rng: &mut SmallRng,
+    ) -> Self {
         let (disc_thread_sender, disc_thread_receiver) =
             mio_channel::channel::<thread::JoinHandle<()>>();
         let (discdb_update_sender, discdb_update_receiver) =
@@ -64,6 +79,23 @@ impl DomainParticipant {
             mio_channel::channel::<(EntityId, DiscoveredReaderData)>();
         let (participant_msg_cmd_sender, participant_msg_cmd_receiver) =
             mio_channel::sync_channel::<ParticipantMessageCmd>(32);
+
+        let dp_network_interfaces = if network_interfaces.is_empty() {
+            let local_ipv4_nics: Vec<Ipv4Addr> = get_local_interfaces()
+                .iter()
+                .filter_map(|n| match n {
+                    std::net::IpAddr::V4(a) => Some(*a),
+                    std::net::IpAddr::V6(_) => None,
+                })
+                .collect();
+            if local_ipv4_nics.is_empty() {
+                panic!("failed get local network_interfaces");
+            }
+            vec![local_ipv4_nics[0]]
+        } else {
+            network_interfaces
+        };
+
         let dp = Self {
             inner: Arc::new(Mutex::new(DomainParticipantDisc::new(
                 domain_id,
@@ -73,6 +105,7 @@ impl DomainParticipant {
                 notify_new_writer_sender,
                 notify_new_reader_sender,
                 participant_msg_cmd_sender,
+                dp_network_interfaces,
                 small_rng,
             ))),
         };
@@ -126,23 +159,6 @@ impl DomainParticipant {
         self.inner
             .lock(&mut node)
             .create_builtin_topic(self.clone(), name, type_desc, kind, qos)
-    }
-    /// Set network interfaces to use sending or receiving message.
-    ///
-    /// By default, UmberDDS selects one non-loopback network interface that has an IPv4 address assigned for sending and receiving messages.
-    /// If no such interface exists, the loopback interface is used instead.
-    /// When several interfaces are present, UmberDDS obtains the list of interfaces from the operating system,
-    /// filters out loopback devices and those without an IPv4 address,
-    /// and then chooses the first remaining entry in that list.
-    /// If this automatic choice is undesirable for example,
-    /// if a local bridge that cannot reach other hosts is selected you can explicitly specify the interface(s) to use with set_network_interfaces().
-    ///
-    /// Note: Call this method before invoking create_datawriter or create_datareader.
-    ///
-    /// If you need UmberDDS to operate over multiple interfaces, call set_network_interfaces() and pass the full set of interfaces you want to use.
-    pub fn set_network_interfaces(&mut self, nic: Vec<Ipv4Addr>) {
-        let mut node = MCSNode::new();
-        self.inner.lock(&mut node).set_network_interfaces(nic)
     }
     pub(crate) fn get_network_interfaces(&self) -> Vec<Ipv4Addr> {
         let mut node = MCSNode::new();
@@ -201,6 +217,7 @@ impl DomainParticipantDisc {
         notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
+        network_interfaces: Vec<Ipv4Addr>,
         small_rng: &mut SmallRng,
     ) -> Self {
         Self {
@@ -211,6 +228,7 @@ impl DomainParticipantDisc {
                 notify_new_writer_sender,
                 notify_new_reader_sender,
                 participant_msg_cmd_sender,
+                network_interfaces,
                 small_rng,
             ))),
             disc_thread_receiver,
@@ -241,9 +259,6 @@ impl DomainParticipantDisc {
         self.inner
             .read()
             .create_builtin_topic(dp, name, type_desc, kind, qos)
-    }
-    pub fn set_network_interfaces(&mut self, nic: Vec<Ipv4Addr>) {
-        self.inner.write().set_network_interfaces(nic)
     }
     pub(crate) fn get_network_interfaces(&self) -> Vec<Ipv4Addr> {
         self.inner.read().get_network_interfaces()
@@ -306,6 +321,7 @@ struct DomainParticipantInner {
 }
 
 impl DomainParticipantInner {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         domain_id: u16,
         discovery_db: DiscoveryDB,
@@ -313,6 +329,7 @@ impl DomainParticipantInner {
         notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
+        network_interfaces: Vec<Ipv4Addr>,
         small_rng: &mut SmallRng,
     ) -> DomainParticipantInner {
         let mut socket_list: BTreeMap<mio_v06::Token, UdpSocket> = BTreeMap::new();
@@ -371,6 +388,9 @@ impl DomainParticipantInner {
 
         let my_guid = GUID::new_participant_guid(small_rng);
 
+        let udp_sender =
+            UdpSender::new(0, network_interfaces.clone()).expect("couldn't gen UdpSender");
+
         let ev_loop_handler = thread::Builder::new()
             .name("EventLoop".to_string())
             .spawn(move || {
@@ -379,6 +399,7 @@ impl DomainParticipantInner {
                     domain_id,
                     my_guid.guid_prefix,
                     socket_list,
+                    udp_sender,
                     guid_prefix,
                     create_writer_receiver,
                     create_reader_receiver,
@@ -408,7 +429,7 @@ impl DomainParticipantInner {
             default_subscriber_qos,
             default_topic_qos,
             participant_msg_cmd_sender,
-            network_interfaces: Vec::new(),
+            network_interfaces,
         }
     }
 
@@ -480,10 +501,6 @@ impl DomainParticipantInner {
             }
             TopicQos::Policies(q) => Topic::new_builtin(name, type_desc, dp, kind, q),
         }
-    }
-
-    pub fn set_network_interfaces(&mut self, nic: Vec<Ipv4Addr>) {
-        self.network_interfaces = nic;
     }
 
     pub(crate) fn get_network_interfaces(&self) -> Vec<Ipv4Addr> {

@@ -312,6 +312,7 @@ impl Discovery {
         let mut events = Events::with_capacity(1024);
         let domain_id = self.dp.domain_id();
         let participant_id = self.dp.participant_id();
+        let nics = self.dp.get_network_interfaces();
         // This data is for test
         let data = SPDPdiscoveredParticipantData::new(
             self.dp.domain_id(),
@@ -321,13 +322,17 @@ impl Discovery {
             VendorId::THIS_IMPLEMENTATION,
             false,
             make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER}),
-            Locator::new_list_from_self_ipv4(spdp_unicast_port(domain_id, participant_id) as u32),
+            Locator::new_list_from_multi_ipv4(
+                spdp_unicast_port(domain_id, participant_id) as u32,
+                nics.clone(),
+            ),
             vec![Locator::new_from_ipv4(
                 spdp_multicast_port(domain_id) as u32,
                 [239, 255, 0, 1],
             )],
-            Locator::new_list_from_self_ipv4(
-                usertraffic_unicast_port(domain_id, participant_id) as u32
+            Locator::new_list_from_multi_ipv4(
+                usertraffic_unicast_port(domain_id, participant_id) as u32,
+                nics,
             ),
             vec![Locator::new_from_ipv4(
                 usertraffic_multicast_port(domain_id) as u32,
