@@ -205,21 +205,10 @@ impl InnerSubscriber {
         let domain_id = self.dp.domain_id();
         let participant_id = self.dp.participant_id();
         let nics = self.dp.get_network_interfaces();
-        let unicast_locator_list = if nics.is_empty() {
-            Locator::new_list_from_self_ipv4(usertraffic_unicast_port(
-                self.dp.domain_id(),
-                self.dp.participant_id(),
-            ) as u32)
-        } else {
-            nics.iter()
-                .map(|a| {
-                    Locator::new_from_ipv4(
-                        usertraffic_unicast_port(domain_id, participant_id) as u32,
-                        a.octets(),
-                    )
-                })
-                .collect()
-        };
+        let unicast_locator_list = Locator::new_list_from_multi_ipv4(
+            usertraffic_unicast_port(domain_id, participant_id) as u32,
+            nics,
+        );
         let reader_ing = ReaderIngredients {
             guid: GUID::new(self.dp.guid_prefix(), entity_id),
             reliability_level,

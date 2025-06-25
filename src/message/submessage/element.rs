@@ -17,7 +17,6 @@ pub(crate) use {
     inforeply_ip4::InfoReplyIp4, infosrc::InfoSource, infots::InfoTimestamp, nackfrag::NackFrag,
 };
 
-use crate::network::net_util::get_local_interfaces;
 use crate::structure::Duration;
 use crate::structure::ParameterId;
 use alloc::fmt;
@@ -25,12 +24,12 @@ use byteorder::ReadBytesExt;
 use bytes::{BufMut, Bytes, BytesMut};
 use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
 use core::cmp::{max, min};
-use core::net::IpAddr;
 use core::ops::{Add, AddAssign};
 use core::ops::{Sub, SubAssign};
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
 use std::io;
+use std::net::Ipv4Addr;
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
 
@@ -331,26 +330,20 @@ impl Locator {
         }
     }
 
-    pub fn new_list_from_self_ipv4(port: u32) -> Vec<Self> {
-        let addrs = get_local_interfaces();
+    pub fn new_list_from_multi_ipv4(port: u32, addresses: Vec<Ipv4Addr>) -> Vec<Self> {
         let mut locators = Vec::new();
-        for a in addrs {
-            match a {
-                IpAddr::V4(v4a) => {
-                    let address = v4a.octets();
-                    assert_ne!([0; 4], address);
+        for v4a in addresses {
+            let address = v4a.octets();
+            assert_ne!([0; 4], address);
 
-                    let mut addr: [u8; 16] = [0; 16];
-                    addr[..12].copy_from_slice(&[0; 12]);
-                    addr[12..].copy_from_slice(&address);
-                    locators.push(Locator {
-                        kind: Self::KIND_UDPV4,
-                        port,
-                        address: addr,
-                    });
-                }
-                IpAddr::V6(_v6a) => (),
-            }
+            let mut addr: [u8; 16] = [0; 16];
+            addr[..12].copy_from_slice(&[0; 12]);
+            addr[12..].copy_from_slice(&address);
+            locators.push(Locator {
+                kind: Self::KIND_UDPV4,
+                port,
+                address: addr,
+            });
         }
         locators
     }

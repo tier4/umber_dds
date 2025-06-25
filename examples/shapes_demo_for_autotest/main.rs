@@ -97,7 +97,7 @@ fn main() {
     let mut small_rng = rand::rngs::SmallRng::seed_from_u64(now.as_nanos() as u64);
 
     let domain_id = 0;
-    let participant = DomainParticipant::new(domain_id, &mut small_rng);
+    let participant = DomainParticipant::new(domain_id, Vec::new(), &mut small_rng);
     let topic_qos = TopicQosBuilder::new()
         .reliability(if is_reliable {
             policy::Reliability::default_reliable()

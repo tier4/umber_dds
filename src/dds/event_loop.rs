@@ -76,6 +76,7 @@ impl EventLoop {
         domain_id: u16,
         guid_prefix: GuidPrefix,
         mut sockets: BTreeMap<Token, UdpSocket>,
+        udp_sender: UdpSender,
         participant_guidprefix: GuidPrefix,
         create_writer_receiver: mio_channel::Receiver<WriterIngredients>,
         create_reader_receiver: mio_channel::Receiver<ReaderIngredients>,
@@ -164,7 +165,6 @@ impl EventLoop {
         )
         .expect("coludn't register wlp_timer_receiver to poll");
         let message_receiver = MessageReceiver::new(participant_guidprefix, wlp_timer_sender);
-        let udp_sender = Rc::new(UdpSender::new(0).expect("coludn't gen sender"));
         EventLoop {
             domain_id,
             guid_prefix,
@@ -181,7 +181,7 @@ impl EventLoop {
             set_writer_nack_timer_receiver,
             writers: BTreeMap::new(),
             readers: BTreeMap::new(),
-            udp_sender,
+            udp_sender: Rc::new(udp_sender),
             writer_hb_timer,
             reader_hb_timers: Vec::new(),
             writer_nack_timers: Vec::new(),
