@@ -210,7 +210,7 @@ impl InnerPublisher {
             mio_channel::channel::<DataWriterStatusChanged>();
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
-        let reliability_level = dw_qos.reliability.kind;
+        let reliability_level = dw_qos.reliability().kind;
         let heartbeat_period = match reliability_level {
             ReliabilityQosKind::Reliable => Duration::new(2, 0),
             ReliabilityQosKind::BestEffort => Duration::ZERO,

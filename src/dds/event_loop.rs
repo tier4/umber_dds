@@ -264,11 +264,11 @@ impl EventLoop {
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
                                 }
                                 let qos = writer.get_qos();
-                                match qos.liveliness.kind {
+                                match qos.liveliness().kind {
                                     LivelinessQosKind::Automatic => (),
                                     LivelinessQosKind::ManualByTopic
                                     | LivelinessQosKind::ManualByParticipant => {
-                                        let ld = qos.liveliness.lease_duration;
+                                        let ld = qos.liveliness().lease_duration;
                                         if ld != Duration::INFINITE {
                                             if let Some((d, to)) =
                                                 self.check_liveliness_timer_to.as_ref()
@@ -475,7 +475,7 @@ impl EventLoop {
                                     self.discovery_db.read_local_writer(guid)
                                 {
                                     let duration = now - ts;
-                                    let liveliness = writer.get_qos().liveliness;
+                                    let liveliness = writer.get_qos().liveliness();
                                     if liveliness.kind != LivelinessQosKind::Automatic {
                                         continue;
                                     }
@@ -576,7 +576,7 @@ impl EventLoop {
                                 self.discovery_db.write_local_writer(
                                     GUID::new(self.guid_prefix, eid),
                                     Timestamp::now().expect("failed get Timestamp"),
-                                    writer.get_qos().liveliness.kind,
+                                    writer.get_qos().liveliness().kind,
                                 );
                                 writer.handle_writer_cmd();
                             } else {

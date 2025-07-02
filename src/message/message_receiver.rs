@@ -625,7 +625,7 @@ impl MessageReceiver {
                     disc_db.write_remote_writer(
                         writer_guid,
                         ts,
-                        reader.get_matched_writer_qos(writer_guid).liveliness.kind,
+                        reader.get_matched_writer_qos(writer_guid).liveliness().kind,
                     );
                     reader.add_change(self.source_guid_prefix, change.clone())
                 }
@@ -636,7 +636,7 @@ impl MessageReceiver {
                     disc_db.write_remote_writer(
                         writer_guid,
                         ts,
-                        r.get_matched_writer_qos(writer_guid).liveliness.kind,
+                        r.get_matched_writer_qos(writer_guid).liveliness().kind,
                     );
                     r.add_change(self.source_guid_prefix, change)
                 }
@@ -728,7 +728,7 @@ impl MessageReceiver {
                     disc_db.write_remote_writer(
                         writer_guid,
                         $ts,
-                        $r.get_matched_writer_qos(writer_guid).liveliness.kind,
+                        $r.get_matched_writer_qos(writer_guid).liveliness().kind,
                     );
                 }
             };

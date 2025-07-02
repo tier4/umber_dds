@@ -623,7 +623,7 @@ impl Reader {
     pub fn check_liveliness(&mut self, disc_db: &mut DiscoveryDB) {
         let mut to_unmatch = Vec::new();
         for (guid, wp) in &self.matched_writers {
-            let wld = wp.qos.liveliness.lease_duration;
+            let wld = wp.qos.liveliness().lease_duration;
             if wld == Duration::INFINITE {
                 continue;
             }
@@ -650,7 +650,7 @@ impl Reader {
     pub fn get_min_remote_writer_lease_duration(&self) -> StdDuration {
         let mut min_ld = Duration::INFINITE;
         for wp in self.matched_writers.values() {
-            let wld = wp.qos.liveliness.lease_duration;
+            let wld = wp.qos.liveliness().lease_duration;
             if wld < min_ld {
                 min_ld = wld;
             }

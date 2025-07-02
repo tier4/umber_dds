@@ -5,6 +5,14 @@
 
 use policy::*;
 
+macro_rules! getter_method {
+    ($name:ident, $policy_type:ident) => {
+        pub fn $name(&self) -> $policy_type {
+            self.$name.clone()
+        }
+    };
+}
+
 /// for setting QoS on a DomainParticipant
 #[derive(Clone)]
 pub enum DomainParticipantQos {
@@ -16,8 +24,13 @@ pub enum DomainParticipantQos {
 /// A collection of QoS policies for configuring the behavior of a DomainParticipant
 #[derive(Clone)]
 pub struct DomainParticipantQosPolicies {
-    pub user_data: UserData,
-    pub entity_factory: EntityFactory,
+    user_data: UserData,
+    entity_factory: EntityFactory,
+}
+
+impl DomainParticipantQosPolicies {
+    getter_method!(user_data, UserData);
+    getter_method!(entity_factory, EntityFactory);
 }
 
 /// for setting QoS on a Topic
@@ -34,21 +47,35 @@ pub enum TopicQos {
 /// A collection of QoS policies for configuring the behavior of a Topic
 #[derive(Clone)]
 pub struct TopicQosPolicies {
-    pub topic_data: TopicData,
-    pub durability: Durability,
-    pub durability_service: DurabilityService,
-    pub deadline: Deadline,
-    pub latency_budget: LatencyBudget,
-    pub liveliness: Liveliness,
-    pub reliability: Reliability,
-    pub destination_order: DestinationOrder,
-    pub history: History,
-    pub resource_limits: ResourceLimits,
-    pub transport_priority: TransportPriority,
-    pub lifespan: Lifespan,
-    pub ownership: Ownership,
+    topic_data: TopicData,
+    durability: Durability,
+    durability_service: DurabilityService,
+    deadline: Deadline,
+    latency_budget: LatencyBudget,
+    liveliness: Liveliness,
+    reliability: Reliability,
+    destination_order: DestinationOrder,
+    history: History,
+    resource_limits: ResourceLimits,
+    transport_priority: TransportPriority,
+    lifespan: Lifespan,
+    ownership: Ownership,
 }
 impl TopicQosPolicies {
+    getter_method!(topic_data, TopicData);
+    getter_method!(durability, Durability);
+    getter_method!(durability_service, DurabilityService);
+    getter_method!(deadline, Deadline);
+    getter_method!(latency_budget, LatencyBudget);
+    getter_method!(liveliness, Liveliness);
+    getter_method!(reliability, Reliability);
+    getter_method!(destination_order, DestinationOrder);
+    getter_method!(history, History);
+    getter_method!(resource_limits, ResourceLimits);
+    getter_method!(transport_priority, TransportPriority);
+    getter_method!(lifespan, Lifespan);
+    getter_method!(ownership, Ownership);
+
     pub fn to_datawriter_qos(&self) -> DataWriterQosPolicies {
         DataWriterQosBuilder::new()
             .durability(self.durability)
@@ -94,24 +121,40 @@ pub enum DataWriterQos {
 /// A collection of QoS policies for configuring the behavior of a DataWriter
 #[derive(Clone, PartialEq)]
 pub struct DataWriterQosPolicies {
-    pub durability: Durability,
-    pub durability_service: DurabilityService,
-    pub deadline: Deadline,
-    pub latency_budget: LatencyBudget,
-    pub liveliness: Liveliness,
-    pub reliability: Reliability,
-    pub destination_order: DestinationOrder,
-    pub history: History,
-    pub resource_limits: ResourceLimits,
-    pub transport_priority: TransportPriority,
-    pub lifespan: Lifespan,
-    pub user_data: UserData,
-    pub ownership: Ownership,
-    pub ownership_strength: OwnershipStrength,
-    pub writer_data_lifecycle: WriterDataLifecycle,
+    durability: Durability,
+    durability_service: DurabilityService,
+    deadline: Deadline,
+    latency_budget: LatencyBudget,
+    liveliness: Liveliness,
+    reliability: Reliability,
+    destination_order: DestinationOrder,
+    history: History,
+    resource_limits: ResourceLimits,
+    transport_priority: TransportPriority,
+    lifespan: Lifespan,
+    user_data: UserData,
+    ownership: Ownership,
+    ownership_strength: OwnershipStrength,
+    writer_data_lifecycle: WriterDataLifecycle,
 }
 
 impl DataWriterQosPolicies {
+    getter_method!(durability, Durability);
+    getter_method!(durability_service, DurabilityService);
+    getter_method!(deadline, Deadline);
+    getter_method!(latency_budget, LatencyBudget);
+    getter_method!(liveliness, Liveliness);
+    getter_method!(reliability, Reliability);
+    getter_method!(destination_order, DestinationOrder);
+    getter_method!(history, History);
+    getter_method!(resource_limits, ResourceLimits);
+    getter_method!(transport_priority, TransportPriority);
+    getter_method!(lifespan, Lifespan);
+    getter_method!(user_data, UserData);
+    getter_method!(ownership, Ownership);
+    getter_method!(ownership_strength, OwnershipStrength);
+    getter_method!(writer_data_lifecycle, WriterDataLifecycle);
+
     pub fn is_compatible(&self, qos: &DataReaderQosPolicies) -> Result<(), String> {
         let mut msg = String::from("{ ");
         let mut is_ok = true;
@@ -220,10 +263,17 @@ pub enum PublisherQos {
 /// A collection of QoS policies for configuring the behavior of a Publisher
 #[derive(Clone)]
 pub struct PublisherQosPolicies {
-    pub presentation: Presentation,
-    pub partition: Partition,
-    pub group_data: GroupData,
-    pub entity_factory: EntityFactory,
+    presentation: Presentation,
+    partition: Partition,
+    group_data: GroupData,
+    entity_factory: EntityFactory,
+}
+
+impl PublisherQosPolicies {
+    getter_method!(presentation, Presentation);
+    getter_method!(partition, Partition);
+    getter_method!(group_data, GroupData);
+    getter_method!(entity_factory, EntityFactory);
 }
 
 /// for setting QoS on a DataReader
@@ -240,20 +290,33 @@ pub enum DataReaderQos {
 /// A collection of QoS policies for configuring the behavior of a DataReader
 #[derive(Clone, PartialEq)]
 pub struct DataReaderQosPolicies {
-    pub durability: Durability,
-    pub deadline: Deadline,
-    pub latency_budget: LatencyBudget,
-    pub liveliness: Liveliness,
-    pub reliability: Reliability,
-    pub destination_order: DestinationOrder,
-    pub history: History,
-    pub resource_limits: ResourceLimits,
-    pub user_data: UserData,
-    pub ownership: Ownership,
-    pub time_based_filter: TimeBasedFilter,
-    pub reader_data_lifecycle: ReaderDataLifecycle,
+    durability: Durability,
+    deadline: Deadline,
+    latency_budget: LatencyBudget,
+    liveliness: Liveliness,
+    reliability: Reliability,
+    destination_order: DestinationOrder,
+    history: History,
+    resource_limits: ResourceLimits,
+    user_data: UserData,
+    ownership: Ownership,
+    time_based_filter: TimeBasedFilter,
+    reader_data_lifecycle: ReaderDataLifecycle,
 }
 impl DataReaderQosPolicies {
+    getter_method!(durability, Durability);
+    getter_method!(deadline, Deadline);
+    getter_method!(latency_budget, LatencyBudget);
+    getter_method!(liveliness, Liveliness);
+    getter_method!(reliability, Reliability);
+    getter_method!(destination_order, DestinationOrder);
+    getter_method!(history, History);
+    getter_method!(resource_limits, ResourceLimits);
+    getter_method!(user_data, UserData);
+    getter_method!(ownership, Ownership);
+    getter_method!(time_based_filter, TimeBasedFilter);
+    getter_method!(reader_data_lifecycle, ReaderDataLifecycle);
+
     pub fn is_compatible(&self, qos: &DataWriterQosPolicies) -> Result<(), String> {
         let mut msg = String::from("{ ");
         let mut is_ok = true;
@@ -359,10 +422,17 @@ pub enum SubscriberQos {
 /// A collection of QoS policies for configuring the behavior of a Subscriber
 #[derive(Clone)]
 pub struct SubscriberQosPolicies {
-    pub presentation: Presentation,
-    pub partition: Partition,
-    pub group_data: GroupData,
-    pub entity_factory: EntityFactory,
+    presentation: Presentation,
+    partition: Partition,
+    group_data: GroupData,
+    entity_factory: EntityFactory,
+}
+
+impl SubscriberQosPolicies {
+    getter_method!(presentation, Presentation);
+    getter_method!(partition, Partition);
+    getter_method!(group_data, GroupData);
+    getter_method!(entity_factory, EntityFactory);
 }
 
 macro_rules! builder_method {

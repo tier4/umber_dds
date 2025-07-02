@@ -208,7 +208,7 @@ impl Writer {
 
     pub fn assert_liveliness(&mut self) {
         self.is_alive = true;
-        let ld = self.qos.liveliness.lease_duration;
+        let ld = self.qos.liveliness().lease_duration;
         if ld == Duration::INFINITE {
             return;
         }
@@ -824,7 +824,7 @@ impl Writer {
 
     pub fn check_liveliness(&mut self) {
         if self.is_alive {
-            let ld = self.qos.liveliness.lease_duration;
+            let ld = self.qos.liveliness().lease_duration;
             if ld == Duration::INFINITE {
                 return;
             }
