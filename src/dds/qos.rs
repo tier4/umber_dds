@@ -13,6 +13,14 @@ macro_rules! getter_method {
     };
 }
 
+macro_rules! getter_method_with_bool {
+    ($name:ident, $policy_type:ident) => {
+        pub fn $name(&self) -> $policy_type {
+            self.$name.0.clone()
+        }
+    };
+}
+
 /// for setting QoS on a DomainParticipant
 #[derive(Clone)]
 pub enum DomainParticipantQos {
@@ -47,63 +55,69 @@ pub enum TopicQos {
 /// A collection of QoS policies for configuring the behavior of a Topic
 #[derive(Clone)]
 pub struct TopicQosPolicies {
-    topic_data: TopicData,
-    durability: Durability,
-    durability_service: DurabilityService,
-    deadline: Deadline,
-    latency_budget: LatencyBudget,
-    liveliness: Liveliness,
-    reliability: Reliability,
-    destination_order: DestinationOrder,
-    history: History,
-    resource_limits: ResourceLimits,
-    transport_priority: TransportPriority,
-    lifespan: Lifespan,
-    ownership: Ownership,
+    topic_data: (TopicData, bool),
+    durability: (Durability, bool),
+    durability_service: (DurabilityService, bool),
+    deadline: (Deadline, bool),
+    latency_budget: (LatencyBudget, bool),
+    liveliness: (Liveliness, bool),
+    reliability: (Reliability, bool),
+    destination_order: (DestinationOrder, bool),
+    history: (History, bool),
+    resource_limits: (ResourceLimits, bool),
+    transport_priority: (TransportPriority, bool),
+    lifespan: (Lifespan, bool),
+    ownership: (Ownership, bool),
 }
 impl TopicQosPolicies {
-    getter_method!(topic_data, TopicData);
-    getter_method!(durability, Durability);
-    getter_method!(durability_service, DurabilityService);
-    getter_method!(deadline, Deadline);
-    getter_method!(latency_budget, LatencyBudget);
-    getter_method!(liveliness, Liveliness);
-    getter_method!(reliability, Reliability);
-    getter_method!(destination_order, DestinationOrder);
-    getter_method!(history, History);
-    getter_method!(resource_limits, ResourceLimits);
-    getter_method!(transport_priority, TransportPriority);
-    getter_method!(lifespan, Lifespan);
-    getter_method!(ownership, Ownership);
+    getter_method_with_bool!(topic_data, TopicData);
+    getter_method_with_bool!(durability, Durability);
+    getter_method_with_bool!(durability_service, DurabilityService);
+    getter_method_with_bool!(deadline, Deadline);
+    getter_method_with_bool!(latency_budget, LatencyBudget);
+    getter_method_with_bool!(liveliness, Liveliness);
+    getter_method_with_bool!(reliability, Reliability);
+    getter_method_with_bool!(destination_order, DestinationOrder);
+    getter_method_with_bool!(history, History);
+    getter_method_with_bool!(resource_limits, ResourceLimits);
+    getter_method_with_bool!(transport_priority, TransportPriority);
+    getter_method_with_bool!(lifespan, Lifespan);
+    getter_method_with_bool!(ownership, Ownership);
 
     pub fn to_datawriter_qos(&self) -> DataWriterQosPolicies {
-        DataWriterQosBuilder::new()
-            .durability(self.durability)
-            .durability_service(self.durability_service)
-            .deadline(self.deadline)
-            .latency_budget(self.latency_budget)
-            .liveliness(self.liveliness)
-            .reliability(self.reliability)
-            .destination_order(self.destination_order)
-            .history(self.history)
-            .resource_limits(self.resource_limits)
-            .transport_priority(self.transport_priority)
-            .lifespan(self.lifespan)
-            .ownership(self.ownership)
-            .build()
+        DataWriterQosPolicies {
+            durability: self.durability,
+            durability_service: self.durability_service,
+            deadline: self.deadline,
+            latency_budget: self.latency_budget,
+            liveliness: self.liveliness,
+            reliability: self.reliability,
+            destination_order: self.destination_order,
+            history: self.history,
+            resource_limits: self.resource_limits,
+            transport_priority: self.transport_priority,
+            lifespan: self.lifespan,
+            user_data: (UserData::default(), false),
+            ownership: self.ownership,
+            ownership_strength: (OwnershipStrength::default(), false),
+            writer_data_lifecycle: (WriterDataLifecycle::default(), false),
+        }
     }
     pub fn to_datareader_qos(&self) -> DataReaderQosPolicies {
-        DataReaderQosBuilder::new()
-            .durability(self.durability)
-            .deadline(self.deadline)
-            .latency_budget(self.latency_budget)
-            .liveliness(self.liveliness)
-            .reliability(self.reliability)
-            .destination_order(self.destination_order)
-            .history(self.history)
-            .resource_limits(self.resource_limits)
-            .ownership(self.ownership)
-            .build()
+        DataReaderQosPolicies {
+            durability: self.durability,
+            deadline: self.deadline,
+            latency_budget: self.latency_budget,
+            liveliness: self.liveliness,
+            reliability: self.reliability,
+            destination_order: self.destination_order,
+            history: self.history,
+            resource_limits: self.resource_limits,
+            user_data: (UserData::default(), false),
+            ownership: self.ownership,
+            time_based_filter: (TimeBasedFilter::default(), false),
+            reader_data_lifecycle: (ReaderDataLifecycle::default(), false),
+        }
     }
 }
 
@@ -121,86 +135,86 @@ pub enum DataWriterQos {
 /// A collection of QoS policies for configuring the behavior of a DataWriter
 #[derive(Clone, PartialEq)]
 pub struct DataWriterQosPolicies {
-    durability: Durability,
-    durability_service: DurabilityService,
-    deadline: Deadline,
-    latency_budget: LatencyBudget,
-    liveliness: Liveliness,
-    reliability: Reliability,
-    destination_order: DestinationOrder,
-    history: History,
-    resource_limits: ResourceLimits,
-    transport_priority: TransportPriority,
-    lifespan: Lifespan,
-    user_data: UserData,
-    ownership: Ownership,
-    ownership_strength: OwnershipStrength,
-    writer_data_lifecycle: WriterDataLifecycle,
+    durability: (Durability, bool),
+    durability_service: (DurabilityService, bool),
+    deadline: (Deadline, bool),
+    latency_budget: (LatencyBudget, bool),
+    liveliness: (Liveliness, bool),
+    reliability: (Reliability, bool),
+    destination_order: (DestinationOrder, bool),
+    history: (History, bool),
+    resource_limits: (ResourceLimits, bool),
+    transport_priority: (TransportPriority, bool),
+    lifespan: (Lifespan, bool),
+    user_data: (UserData, bool),
+    ownership: (Ownership, bool),
+    ownership_strength: (OwnershipStrength, bool),
+    writer_data_lifecycle: (WriterDataLifecycle, bool),
 }
 
 impl DataWriterQosPolicies {
-    getter_method!(durability, Durability);
-    getter_method!(durability_service, DurabilityService);
-    getter_method!(deadline, Deadline);
-    getter_method!(latency_budget, LatencyBudget);
-    getter_method!(liveliness, Liveliness);
-    getter_method!(reliability, Reliability);
-    getter_method!(destination_order, DestinationOrder);
-    getter_method!(history, History);
-    getter_method!(resource_limits, ResourceLimits);
-    getter_method!(transport_priority, TransportPriority);
-    getter_method!(lifespan, Lifespan);
-    getter_method!(user_data, UserData);
-    getter_method!(ownership, Ownership);
-    getter_method!(ownership_strength, OwnershipStrength);
-    getter_method!(writer_data_lifecycle, WriterDataLifecycle);
+    getter_method_with_bool!(durability, Durability);
+    getter_method_with_bool!(durability_service, DurabilityService);
+    getter_method_with_bool!(deadline, Deadline);
+    getter_method_with_bool!(latency_budget, LatencyBudget);
+    getter_method_with_bool!(liveliness, Liveliness);
+    getter_method_with_bool!(reliability, Reliability);
+    getter_method_with_bool!(destination_order, DestinationOrder);
+    getter_method_with_bool!(history, History);
+    getter_method_with_bool!(resource_limits, ResourceLimits);
+    getter_method_with_bool!(transport_priority, TransportPriority);
+    getter_method_with_bool!(lifespan, Lifespan);
+    getter_method_with_bool!(user_data, UserData);
+    getter_method_with_bool!(ownership, Ownership);
+    getter_method_with_bool!(ownership_strength, OwnershipStrength);
+    getter_method_with_bool!(writer_data_lifecycle, WriterDataLifecycle);
 
     pub fn is_compatible(&self, qos: &DataReaderQosPolicies) -> Result<(), String> {
         let mut msg = String::from("{ ");
         let mut is_ok = true;
-        if !Durability::is_compatible(self.durability, qos.durability) {
+        if !Durability::is_compatible(self.durability.0, qos.durability.0) {
             is_ok = false;
             msg += &format!(
                 "{{ durability is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.durability, qos.durability
             );
         }
-        if !Deadline::is_compatible(self.deadline, qos.deadline) {
+        if !Deadline::is_compatible(self.deadline.0, qos.deadline.0) {
             is_ok = false;
             msg += &format!(
                 "{{ deadline is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.deadline, qos.deadline
             );
         }
-        if !LatencyBudget::is_compatible(self.latency_budget, qos.latency_budget) {
+        if !LatencyBudget::is_compatible(self.latency_budget.0, qos.latency_budget.0) {
             is_ok = false;
             msg += &format!(
                 "{{ latency_budget is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.latency_budget, qos.latency_budget
             );
         }
-        if !Ownership::is_compatible(self.ownership, qos.ownership) {
+        if !Ownership::is_compatible(self.ownership.0, qos.ownership.0) {
             is_ok = false;
             msg += &format!(
                 "{{ ownership is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.ownership, qos.ownership
             );
         }
-        if !Liveliness::is_compatible(self.liveliness, qos.liveliness) {
+        if !Liveliness::is_compatible(self.liveliness.0, qos.liveliness.0) {
             is_ok = false;
             msg += &format!(
                 "{{ liveliness is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.liveliness, qos.liveliness
             );
         }
-        if !Reliability::is_compatible(self.reliability, qos.reliability) {
+        if !Reliability::is_compatible(self.reliability.0, qos.reliability.0) {
             is_ok = false;
             msg += &format!(
                 "{{ reliability is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
                 self.reliability, qos.reliability
             );
         }
-        if !DestinationOrder::is_compatible(self.destination_order, qos.destination_order) {
+        if !DestinationOrder::is_compatible(self.destination_order.0, qos.destination_order.0) {
             is_ok = false;
             msg += &format!(
                 "{{ destination_order is not compatible. writer(self): {:?}, reader(remote): {:?} }}, ",
@@ -220,10 +234,12 @@ impl DataWriterQosPolicies {
     pub fn combine(&mut self, policies: Self) {
         macro_rules! combine_policy {
             ($policy_name:ident, $policy_type:ident) => {
-                if self.$policy_name != policies.$policy_name
-                    && policies.$policy_name != $policy_type::default()
-                {
-                    self.$policy_name = policies.$policy_name;
+                if self.$policy_name.0 != policies.$policy_name.0 {
+                    if policies.$policy_name.1 {
+                        self.$policy_name = policies.$policy_name;
+                    }
+                } else {
+                    self.$policy_name.1 |= policies.$policy_name.1
                 }
             };
         }
@@ -232,9 +248,7 @@ impl DataWriterQosPolicies {
         combine_policy!(deadline, Deadline);
         combine_policy!(latency_budget, LatencyBudget);
         combine_policy!(liveliness, Liveliness);
-        if self.reliability != policies.reliability
-            && policies.reliability != Reliability::default_reliable()
-        {
+        if self.reliability.0 != policies.reliability.0 && policies.reliability.1 {
             self.reliability = policies.reliability;
         }
         combine_policy!(destination_order, DestinationOrder);
@@ -290,79 +304,79 @@ pub enum DataReaderQos {
 /// A collection of QoS policies for configuring the behavior of a DataReader
 #[derive(Clone, PartialEq)]
 pub struct DataReaderQosPolicies {
-    durability: Durability,
-    deadline: Deadline,
-    latency_budget: LatencyBudget,
-    liveliness: Liveliness,
-    reliability: Reliability,
-    destination_order: DestinationOrder,
-    history: History,
-    resource_limits: ResourceLimits,
-    user_data: UserData,
-    ownership: Ownership,
-    time_based_filter: TimeBasedFilter,
-    reader_data_lifecycle: ReaderDataLifecycle,
+    durability: (Durability, bool),
+    deadline: (Deadline, bool),
+    latency_budget: (LatencyBudget, bool),
+    liveliness: (Liveliness, bool),
+    reliability: (Reliability, bool),
+    destination_order: (DestinationOrder, bool),
+    history: (History, bool),
+    resource_limits: (ResourceLimits, bool),
+    user_data: (UserData, bool),
+    ownership: (Ownership, bool),
+    time_based_filter: (TimeBasedFilter, bool),
+    reader_data_lifecycle: (ReaderDataLifecycle, bool),
 }
 impl DataReaderQosPolicies {
-    getter_method!(durability, Durability);
-    getter_method!(deadline, Deadline);
-    getter_method!(latency_budget, LatencyBudget);
-    getter_method!(liveliness, Liveliness);
-    getter_method!(reliability, Reliability);
-    getter_method!(destination_order, DestinationOrder);
-    getter_method!(history, History);
-    getter_method!(resource_limits, ResourceLimits);
-    getter_method!(user_data, UserData);
-    getter_method!(ownership, Ownership);
-    getter_method!(time_based_filter, TimeBasedFilter);
-    getter_method!(reader_data_lifecycle, ReaderDataLifecycle);
+    getter_method_with_bool!(durability, Durability);
+    getter_method_with_bool!(deadline, Deadline);
+    getter_method_with_bool!(latency_budget, LatencyBudget);
+    getter_method_with_bool!(liveliness, Liveliness);
+    getter_method_with_bool!(reliability, Reliability);
+    getter_method_with_bool!(destination_order, DestinationOrder);
+    getter_method_with_bool!(history, History);
+    getter_method_with_bool!(resource_limits, ResourceLimits);
+    getter_method_with_bool!(user_data, UserData);
+    getter_method_with_bool!(ownership, Ownership);
+    getter_method_with_bool!(time_based_filter, TimeBasedFilter);
+    getter_method_with_bool!(reader_data_lifecycle, ReaderDataLifecycle);
 
     pub fn is_compatible(&self, qos: &DataWriterQosPolicies) -> Result<(), String> {
         let mut msg = String::from("{ ");
         let mut is_ok = true;
-        if !Durability::is_compatible(qos.durability, self.durability) {
+        if !Durability::is_compatible(qos.durability.0, self.durability.0) {
             is_ok = false;
             msg += &format!(
                 "{{ durability is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.durability, qos.durability
             );
         }
-        if !Deadline::is_compatible(qos.deadline, self.deadline) {
+        if !Deadline::is_compatible(qos.deadline.0, self.deadline.0) {
             is_ok = false;
             msg += &format!(
                 "{{ deadline is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.deadline, qos.deadline
             );
         }
-        if !LatencyBudget::is_compatible(qos.latency_budget, self.latency_budget) {
+        if !LatencyBudget::is_compatible(qos.latency_budget.0, self.latency_budget.0) {
             is_ok = false;
             msg += &format!(
                 "{{ latency_budget is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.latency_budget, qos.latency_budget
             );
         }
-        if !Ownership::is_compatible(qos.ownership, self.ownership) {
+        if !Ownership::is_compatible(qos.ownership.0, self.ownership.0) {
             is_ok = false;
             msg += &format!(
                 "{{ ownership is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.ownership, qos.ownership
             );
         }
-        if !Liveliness::is_compatible(qos.liveliness, self.liveliness) {
+        if !Liveliness::is_compatible(qos.liveliness.0, self.liveliness.0) {
             is_ok = false;
             msg += &format!(
                 "{{ liveliness is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.liveliness, qos.liveliness
             );
         }
-        if !Reliability::is_compatible(qos.reliability, self.reliability) {
+        if !Reliability::is_compatible(qos.reliability.0, self.reliability.0) {
             is_ok = false;
             msg += &format!(
                 "{{ reliability is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
                 self.reliability, qos.reliability
             );
         }
-        if !DestinationOrder::is_compatible(qos.destination_order, self.destination_order) {
+        if !DestinationOrder::is_compatible(qos.destination_order.0, self.destination_order.0) {
             is_ok = false;
             msg += &format!(
                 "{{ destination_order is not compatible. reader(self): {:?}, writer(remote): {:?} }}, ",
@@ -382,10 +396,12 @@ impl DataReaderQosPolicies {
     pub fn combine(&mut self, policies: Self) {
         macro_rules! combine_policy {
             ($policy_name:ident, $policy_type:ident) => {
-                if self.$policy_name != policies.$policy_name
-                    && policies.$policy_name != $policy_type::default()
-                {
-                    self.$policy_name = policies.$policy_name;
+                if self.$policy_name.0 != policies.$policy_name.0 {
+                    if policies.$policy_name.1 {
+                        self.$policy_name = policies.$policy_name;
+                    }
+                } else {
+                    self.$policy_name.1 |= policies.$policy_name.1
                 }
             };
         }
@@ -393,9 +409,7 @@ impl DataReaderQosPolicies {
         combine_policy!(deadline, Deadline);
         combine_policy!(latency_budget, LatencyBudget);
         combine_policy!(liveliness, Liveliness);
-        if self.reliability != policies.reliability
-            && policies.reliability != Reliability::default_besteffort()
-        {
+        if self.reliability.0 != policies.reliability.0 && policies.reliability.1 {
             self.reliability = policies.reliability;
         }
         combine_policy!(destination_order, DestinationOrder);
@@ -505,22 +519,31 @@ impl TopicQosBuilder {
     builder_method!(ownership, Ownership);
 
     pub fn build(self) -> TopicQosPolicies {
+        macro_rules! decide_value {
+            ($name:ident, $type:ident) => {
+                match self.$name {
+                    Some(qos_policy) => (qos_policy, true),
+                    None => ($type::default(), false),
+                }
+            };
+        }
         TopicQosPolicies {
-            topic_data: self.topic_data.unwrap_or_default(),
-            durability: self.durability.unwrap_or_default(),
-            durability_service: self.durability_service.unwrap_or_default(),
-            deadline: self.deadline.unwrap_or_default(),
-            latency_budget: self.latency_budget.unwrap_or_default(),
-            liveliness: self.liveliness.unwrap_or_default(),
-            reliability: self
-                .reliability
-                .unwrap_or(Reliability::default_besteffort()),
-            destination_order: self.destination_order.unwrap_or_default(),
-            history: self.history.unwrap_or_default(),
-            resource_limits: self.resource_limits.unwrap_or_default(),
-            transport_priority: self.transport_priority.unwrap_or_default(),
-            lifespan: self.lifespan.unwrap_or_default(),
-            ownership: self.ownership.unwrap_or_default(),
+            topic_data: decide_value!(topic_data, TopicData),
+            durability: decide_value!(durability, Durability),
+            durability_service: decide_value!(durability_service, DurabilityService),
+            deadline: decide_value!(deadline, Deadline),
+            latency_budget: decide_value!(latency_budget, LatencyBudget),
+            liveliness: decide_value!(liveliness, Liveliness),
+            reliability: match self.reliability {
+                Some(reliability) => (reliability, true),
+                None => (Reliability::default_besteffort(), false),
+            },
+            destination_order: decide_value!(destination_order, DestinationOrder),
+            history: decide_value!(history, History),
+            resource_limits: decide_value!(resource_limits, ResourceLimits),
+            transport_priority: decide_value!(transport_priority, TransportPriority),
+            lifespan: decide_value!(lifespan, Lifespan),
+            ownership: decide_value!(ownership, Ownership),
         }
     }
 }
@@ -567,22 +590,33 @@ impl DataWriterQosBuilder {
     builder_method!(writer_data_lifecycle, WriterDataLifecycle);
 
     pub fn build(self) -> DataWriterQosPolicies {
+        macro_rules! decide_value {
+            ($name:ident, $type:ident) => {
+                match self.$name {
+                    Some(qos_policy) => (qos_policy, true),
+                    None => ($type::default(), false),
+                }
+            };
+        }
         DataWriterQosPolicies {
-            durability: self.durability.unwrap_or_default(),
-            durability_service: self.durability_service.unwrap_or_default(),
-            deadline: self.deadline.unwrap_or_default(),
-            latency_budget: self.latency_budget.unwrap_or_default(),
-            liveliness: self.liveliness.unwrap_or_default(),
-            reliability: self.reliability.unwrap_or(Reliability::default_reliable()),
-            destination_order: self.destination_order.unwrap_or_default(),
-            history: self.history.unwrap_or_default(),
-            resource_limits: self.resource_limits.unwrap_or_default(),
-            transport_priority: self.transport_priority.unwrap_or_default(),
-            lifespan: self.lifespan.unwrap_or_default(),
-            user_data: self.user_data.unwrap_or_default(),
-            ownership: self.ownership.unwrap_or_default(),
-            ownership_strength: self.ownership_strength.unwrap_or_default(),
-            writer_data_lifecycle: self.writer_data_lifecycle.unwrap_or_default(),
+            durability: decide_value!(durability, Durability),
+            durability_service: decide_value!(durability_service, DurabilityService),
+            deadline: decide_value!(deadline, Deadline),
+            latency_budget: decide_value!(latency_budget, LatencyBudget),
+            liveliness: decide_value!(liveliness, Liveliness),
+            reliability: match self.reliability {
+                Some(reliability) => (reliability, true),
+                None => (Reliability::default_reliable(), false),
+            },
+            destination_order: decide_value!(destination_order, DestinationOrder),
+            history: decide_value!(history, History),
+            resource_limits: decide_value!(resource_limits, ResourceLimits),
+            transport_priority: decide_value!(transport_priority, TransportPriority),
+            lifespan: decide_value!(lifespan, Lifespan),
+            user_data: decide_value!(user_data, UserData),
+            ownership: decide_value!(ownership, Ownership),
+            ownership_strength: decide_value!(ownership_strength, OwnershipStrength),
+            writer_data_lifecycle: decide_value!(writer_data_lifecycle, WriterDataLifecycle),
         }
     }
 }
@@ -652,21 +686,30 @@ impl DataReaderQosBuilder {
     builder_method!(reader_data_lifecycle, ReaderDataLifecycle);
 
     pub fn build(self) -> DataReaderQosPolicies {
+        macro_rules! decide_value {
+            ($name:ident, $type:ident) => {
+                match self.$name {
+                    Some(qos_policy) => (qos_policy, true),
+                    None => ($type::default(), false),
+                }
+            };
+        }
         DataReaderQosPolicies {
-            durability: self.durability.unwrap_or_default(),
-            deadline: self.deadline.unwrap_or_default(),
-            latency_budget: self.latency_budget.unwrap_or_default(),
-            liveliness: self.liveliness.unwrap_or_default(),
-            reliability: self
-                .reliability
-                .unwrap_or(Reliability::default_besteffort()),
-            destination_order: self.destination_order.unwrap_or_default(),
-            history: self.history.unwrap_or_default(),
-            resource_limits: self.resource_limits.unwrap_or_default(),
-            user_data: self.user_data.unwrap_or_default(),
-            ownership: self.ownership.unwrap_or_default(),
-            time_based_filter: self.time_based_filter.unwrap_or_default(),
-            reader_data_lifecycle: self.reader_data_lifecycle.unwrap_or_default(),
+            durability: decide_value!(durability, Durability),
+            deadline: decide_value!(deadline, Deadline),
+            latency_budget: decide_value!(latency_budget, LatencyBudget),
+            liveliness: decide_value!(liveliness, Liveliness),
+            reliability: match self.reliability {
+                Some(reliability) => (reliability, true),
+                None => (Reliability::default_besteffort(), false),
+            },
+            destination_order: decide_value!(destination_order, DestinationOrder),
+            history: decide_value!(history, History),
+            resource_limits: decide_value!(resource_limits, ResourceLimits),
+            user_data: decide_value!(user_data, UserData),
+            ownership: decide_value!(ownership, Ownership),
+            time_based_filter: decide_value!(time_based_filter, TimeBasedFilter),
+            reader_data_lifecycle: decide_value!(reader_data_lifecycle, ReaderDataLifecycle),
         }
     }
 }
@@ -1124,8 +1167,69 @@ pub mod policy {
 
 #[cfg(test)]
 mod test {
-    use super::policy;
+    use super::{policy, DataWriterQosBuilder, TopicQosBuilder};
+    use crate::structure::Duration;
     use cdr::{Infinite, PlCdrLe};
+
+    #[test]
+    fn test_combine() {
+        let topic_qos = TopicQosBuilder::new()
+            .durability(policy::Durability::Volatile)
+            .liveliness(policy::Liveliness {
+                kind: policy::LivelinessQosKind::ManualByTopic,
+                lease_duration: Duration::new(10, 0),
+            })
+            .build();
+        assert_eq!(topic_qos.history, (policy::History::default(), false));
+        let dw_qos = DataWriterQosBuilder::new()
+            .durability(policy::Durability::TransientLocal)
+            .history(policy::History {
+                kind: policy::HistoryQosKind::KeepLast,
+                depth: 1,
+            })
+            .build();
+        assert_eq!(
+            dw_qos.history,
+            (
+                policy::History {
+                    kind: policy::HistoryQosKind::KeepLast,
+                    depth: 1,
+                },
+                true
+            )
+        );
+        let mut dw_qos_combined = topic_qos.to_datawriter_qos();
+        assert_eq!(dw_qos_combined.history, (policy::History::default(), false));
+        dw_qos_combined.combine(dw_qos);
+        assert_eq!(
+            dw_qos_combined.durability,
+            (policy::Durability::TransientLocal, true)
+        );
+        assert_eq!(
+            dw_qos_combined.history,
+            (
+                policy::History {
+                    kind: policy::HistoryQosKind::KeepLast,
+                    depth: 1,
+                },
+                true
+            )
+        );
+        assert_eq!(
+            dw_qos_combined.deadline,
+            (policy::Deadline::default(), false)
+        );
+        assert_eq!(
+            dw_qos_combined.liveliness,
+            (
+                policy::Liveliness {
+                    kind: policy::LivelinessQosKind::ManualByTopic,
+                    lease_duration: Duration::new(10, 0),
+                },
+                true
+            )
+        );
+    }
 
     #[test]
     fn test_serialize() {

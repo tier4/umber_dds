@@ -202,22 +202,6 @@ impl Discovery {
         //
         // But Durability QoS of BuiltinParticipantMessage{Writer/Reader} of Cyclone DDS and RustDDS is Volatile.
         // So, in this implementation use Volatile.
-        let p2p_builtin_participant_writer_qos = DataWriterQosBuilder::new()
-            .reliability(Reliability::default_reliable())
-            .durability(Durability::Volatile)
-            .history(History {
-                kind: HistoryQosKind::KeepLast,
-                depth: 1,
-            })
-            .build();
-        let p2p_builtin_participant_reader_qos = DataReaderQosBuilder::new()
-            .reliability(Reliability::default_reliable())
-            .durability(Durability::Volatile)
-            .history(History {
-                kind: HistoryQosKind::KeepLast,
-                depth: 1,
-            })
-            .build();
         let p2p_builtin_participant_topic = dp.create_builtin_topic(
             "DCPSParticipantMessage".to_string(),
             "ParticipantMessageData".to_string(),
@@ -226,13 +210,13 @@ impl Discovery {
         );
         let p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData> = publisher
             .create_datawriter_with_entityid(
-                DataWriterQos::Policies(p2p_builtin_participant_writer_qos),
+                DataWriterQos::Policies(publisher.get_default_datawriter_qos()),
                 p2p_builtin_participant_topic.clone(),
                 EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
             );
         let p2p_builtin_participant_msg_reader: DataReader<ParticipantMessageData> = subscriber
             .create_datareader_with_entityid(
-                DataReaderQos::Policies(p2p_builtin_participant_reader_qos),
+                DataReaderQos::Policies(subscriber.get_default_datareader_qos()),
                 p2p_builtin_participant_topic,
                 EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
             );

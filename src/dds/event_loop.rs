@@ -1,5 +1,5 @@
 use crate::dds::qos::{
-    policy::{LivelinessQosKind, Reliability},
+    policy::{Durability, History, HistoryQosKind, LivelinessQosKind, Reliability},
     DataReaderQosBuilder, DataWriterQosBuilder,
 };
 use crate::dds::tokens::*;
@@ -772,6 +772,11 @@ impl EventLoop {
                                     // BuiltinParticipantMessageReader as if it is configured with RELIABLE_RELIABILITY_QOS.
                                     let qos = DataReaderQosBuilder::new()
                                         .reliability(Reliability::default_reliable()) // TODO: set best_effort if the flag indicated
+                                        .durability(Durability::TransientLocal)
+                                        .history(History {
+                                            kind: HistoryQosKind::KeepLast,
+                                            depth: 1,
+                                        })
                                         .build();
                                     writer.matched_reader_add(
                                         guid,
@@ -802,8 +807,12 @@ impl EventLoop {
                                     );
                                     let qos = DataWriterQosBuilder::new()
                                         .reliability(Reliability::default_reliable())
+                                        .durability(Durability::TransientLocal)
+                                        .history(History {
+                                            kind: HistoryQosKind::KeepLast,
+                                            depth: 1,
+                                        })
                                         .build();
-                                    // TODO: Is this really necessary?
                                     reader.matched_writer_add(
                                         guid,
                                         spdp_data.metarraffic_unicast_locator_list,
