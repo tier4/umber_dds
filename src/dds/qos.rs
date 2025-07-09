@@ -53,6 +53,9 @@ pub enum TopicQos {
 }
 
 /// A collection of QoS policies for configuring the behavior of a Topic
+///
+/// Each member of TopicQosPolicies has the type (policy_type, bool).
+/// The bool flag indicates whether the policy was explicitly set by the user.
 #[derive(Clone)]
 pub struct TopicQosPolicies {
     topic_data: (TopicData, bool),
@@ -133,6 +136,9 @@ pub enum DataWriterQos {
 }
 
 /// A collection of QoS policies for configuring the behavior of a DataWriter
+///
+/// Each member of DataWriterQosPolicies has the type (policy_type, bool).
+/// The bool flag indicates whether the policy was explicitly set by the user.
 #[derive(Clone, PartialEq)]
 pub struct DataWriterQosPolicies {
     durability: (Durability, bool),
@@ -235,10 +241,12 @@ impl DataWriterQosPolicies {
         macro_rules! combine_policy {
             ($policy_name:ident, $policy_type:ident) => {
                 if self.$policy_name.0 != policies.$policy_name.0 {
+                    // If the policies differ, select the one explicitly specified by the user.
                     if policies.$policy_name.1 {
                         self.$policy_name = policies.$policy_name;
                     }
                 } else {
+                    // If the policies are identical and at least one of them was explicitly set by the user, the resulting combined policy is still regarded as user-specified.
                     self.$policy_name.1 |= policies.$policy_name.1
                 }
             };
@@ -302,6 +310,9 @@ pub enum DataReaderQos {
 }
 
 /// A collection of QoS policies for configuring the behavior of a DataReader
+///
+/// Each member of DataWriterQosPolicies has the type (policy_type, bool).
+/// The bool flag indicates whether the policy was explicitly set by the user.
 #[derive(Clone, PartialEq)]
 pub struct DataReaderQosPolicies {
     durability: (Durability, bool),
@@ -397,10 +408,12 @@ impl DataReaderQosPolicies {
         macro_rules! combine_policy {
             ($policy_name:ident, $policy_type:ident) => {
                 if self.$policy_name.0 != policies.$policy_name.0 {
+                    // If the policies differ, select the one explicitly specified by the user.
                     if policies.$policy_name.1 {
                         self.$policy_name = policies.$policy_name;
                     }
                 } else {
+                    // If the policies are identical and at least one of them was explicitly set by the user, the resulting combined policy is still regarded as user-specified.
                     self.$policy_name.1 |= policies.$policy_name.1
                 }
             };

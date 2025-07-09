@@ -56,12 +56,14 @@ impl Subscriber {
     /// ```ignore
     /// impl DataReaderQosPolicies {
     ///     fn combine(&mut self, other: Self) {
+    ///         // qos_policy: (QosPolicy, bool)
+    ///         // The bool flag indicates whether the policy was explicitly set by the user.
+    ///
     ///         // For each QoS policy in Self:
     ///         for qos_policy in Self {
-    ///             // If `other`'s policy is not default and differs from `self`'s policy,
-    ///             // overwrite `self`'s policy.
-    ///             if self.qos_policy != qos_policy && qos_policy != QoSPolicy::default() {
-    ///                 self.qos_policy = qos_policy;
+    ///             // If the policies differ, select the one explicitly specified by the user.
+    ///             if self.qos_policy.0 != qos_policy.0 && qos_policy.1 {
+    ///                     self.qos_policy = qos_policy;
     ///             }
     ///         }
     ///     }
