@@ -295,7 +295,7 @@ impl DomainParticipantInner {
         );
         let discovery_multi = match spdp_multi_socket {
             Ok(s) => s,
-            Err(e) => panic!("{:?}", e),
+            Err(e) => panic!("{e:?}"),
         };
         let usertraffic_multi_socket = new_multicast(
             "0.0.0.0",
@@ -304,7 +304,7 @@ impl DomainParticipantInner {
         );
         let usertraffic_multi = match usertraffic_multi_socket {
             Ok(s) => s,
-            Err(e) => panic!("{:?}", e),
+            Err(e) => panic!("{e:?}"),
         };
 
         // rtps 2.3 spec, 9.6.1.1

@@ -262,8 +262,7 @@ impl MessageReceiver {
 
         if !ackanck.is_valid() {
             return Err(MessageError(format!(
-                "Invalid AckNack Submessage from Reader {}",
-                reader_guid
+                "Invalid AckNack Submessage from Reader {reader_guid}",
             )));
         }
 
@@ -343,8 +342,7 @@ impl MessageReceiver {
                     Ok(d) => d,
                     Err(e) => {
                         return Err(MessageError(format!(
-                            "failed deserialize reseived spdp data message: {:?}",
-                            e
+                            "failed deserialize reseived spdp data message: {e:?}",
                         )));
                     }
                 };
@@ -389,8 +387,7 @@ impl MessageReceiver {
                     Ok(d) => d,
                     Err(e) => {
                         return Err(MessageError(format!(
-                            "failed deserialize reseived sedp(w) data message: {:?}",
-                            e
+                            "failed deserialize reseived sedp(w) data message: {e:?}",
                         )));
                     }
                 };
@@ -482,8 +479,7 @@ impl MessageReceiver {
                     Ok(d) => d,
                     Err(e) => {
                         return Err(MessageError(format!(
-                            "failed deserialize reseived sedp(r) data message: {:?}",
-                            e
+                            "failed deserialize reseived sedp(r) data message: {e:?}",
                         )));
                     }
                 };
@@ -573,8 +569,7 @@ impl MessageReceiver {
                     Ok(d) => d,
                     Err(e) => {
                         return Err(MessageError(format!(
-                            "failed deserialize reseived sedp(r) data message: {:?}",
-                            e
+                            "failed deserialize reseived sedp(r) data message: {e:?}",
                         )));
                     }
                 };
@@ -679,8 +674,7 @@ impl MessageReceiver {
         // validation
         if !gap.is_valid(flag) {
             return Err(MessageError(format!(
-                "Invalid Gap Submessage from Writer\n\tWriter: {}",
-                writer_guid,
+                "Invalid Gap Submessage from Writer\n\tWriter: {writer_guid}",
             )));
         }
 
@@ -722,8 +716,7 @@ impl MessageReceiver {
         // validation
         if !heartbeat.is_valid(flag) {
             return Err(MessageError(format!(
-                "Invalid Heartbeat Submessage from Writer\n\tWriter: {}",
-                writer_guid
+                "Invalid Heartbeat Submessage from Writer\n\tWriter: {writer_guid}",
             )));
         }
 

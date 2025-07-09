@@ -164,7 +164,7 @@ impl fmt::Debug for SequenceNumberSet {
             self.bitmap_base.0, self.num_bits
         )?;
         for map in &self.bitmap {
-            write!(f, "{:>032b}, ", map)?;
+            write!(f, "{map:>032b}, ")?;
         }
         write!(f, "}} }}")
     }
@@ -390,9 +390,9 @@ impl fmt::Display for Locator {
                 assert_eq!(self.address[..12], [0; 12]);
                 for (i, a) in self.address[12..].iter().enumerate() {
                     if i != 3 {
-                        write!(f, "{}.", a)?;
+                        write!(f, "{a}.")?;
                     } else {
-                        write!(f, "{}", a)?;
+                        write!(f, "{a}")?;
                     }
                 }
             }
@@ -400,11 +400,11 @@ impl fmt::Display for Locator {
                 write!(f, "kind: UDPv6, port: {}, address: ", self.port)?;
                 for (i, a) in self.address.iter().enumerate() {
                     if i % 2 == 0 {
-                        write!(f, "{:02x}", a)?;
+                        write!(f, "{a:02x}")?;
                     } else if i != 15 {
-                        write!(f, "{:02x}:", a)?;
+                        write!(f, "{a:02x}:")?;
                     } else {
-                        write!(f, "{:02x}", a)?;
+                        write!(f, "{a:02x}")?;
                     }
                 }
             }

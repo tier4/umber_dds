@@ -85,11 +85,11 @@ impl Writer {
         let mut msg = String::new();
         msg += "\tunicast locators\n";
         for loc in &wi.unicast_locator_list {
-            msg += &format!("\t\t{}\n", loc);
+            msg += &format!("\t\t{loc}\n");
         }
         msg += "\tmulticast locators\n";
         for loc in &wi.multicast_locator_list {
-            msg += &format!("\t\t{}\n", loc);
+            msg += &format!("\t\t{loc}\n");
         }
         info!(
             "created new Writer of Topic ({}, {}) with Locators\n{}\tWriter: {}",

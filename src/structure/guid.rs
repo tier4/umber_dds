@@ -73,9 +73,9 @@ impl fmt::Display for GuidPrefix {
         write!(f, "guid_prefix: ")?;
         for (i, b) in self.guid_prefix.iter().enumerate() {
             if i != 11 {
-                write!(f, "{:02x}:", b)?;
+                write!(f, "{b:02x}:")?;
             } else {
-                write!(f, "{:02x}", b)?;
+                write!(f, "{b:02x}")?;
             }
         }
         Ok(())

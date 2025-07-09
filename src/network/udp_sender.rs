@@ -16,12 +16,10 @@ impl UdpSender {
         // if 0.0.0.0 is binded to sender socket, source IP is decided automatic
         let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), sender_port);
         let unicast_socket = UdpSocket::bind(addr)
-            .unwrap_or_else(|_| panic!("couldn't bind 0.0.0.0:{} to socket", sender_port));
+            .unwrap_or_else(|_| panic!("couldn't bind 0.0.0.0:{sender_port} to socket"));
         unicast_socket
             .set_multicast_loop_v4(true)
-            .unwrap_or_else(|_| {
-                panic!("couldn't set multicast_loop_v4 to 0.0.0.0:{}", sender_port)
-            });
+            .unwrap_or_else(|_| panic!("couldn't set multicast_loop_v4 to 0.0.0.0:{sender_port}"));
 
         let local_interfaces = net_util::get_local_interfaces();
         let mut multicast_sockets: Vec<UdpSocket> = Vec::new();
@@ -37,7 +35,7 @@ impl UdpSender {
                     let sockaddr = SockAddr::from(SocketAddr::new(li, 0));
                     raw_socket
                         .bind(&sockaddr)
-                        .unwrap_or_else(|_| panic!("couldn't bind {:?} to raw_socket", sockaddr));
+                        .unwrap_or_else(|_| panic!("couldn't bind {sockaddr:?} to raw_socket"));
                 }
                 IpAddr::V6(_) => continue,
             }

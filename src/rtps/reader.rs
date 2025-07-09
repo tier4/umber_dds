@@ -61,11 +61,11 @@ impl Reader {
         let mut msg = String::new();
         msg += "\tunicast locators\n";
         for loc in &ri.unicast_locator_list {
-            msg += &format!("\t\t{}\n", loc);
+            msg += &format!("\t\t{loc}\n");
         }
         msg += "\tmulticast locators\n";
         for loc in &ri.multicast_locator_list {
-            msg += &format!("\t\t{}\n", loc);
+            msg += &format!("\t\t{loc}\n");
         }
         info!(
             "created new Reader of Topic ({}, {}) with Locators\n{}\tReader: {}",
