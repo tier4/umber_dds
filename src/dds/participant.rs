@@ -449,7 +449,7 @@ impl DomainParticipantInner {
             ),
             PublisherQos::Policies(q) => Publisher::new(
                 guid,
-                q,
+                *q,
                 dp,
                 self.create_writer_sender.clone(),
                 self.participant_msg_cmd_sender.clone(),
@@ -470,7 +470,7 @@ impl DomainParticipantInner {
                 self.create_reader_sender.clone(),
             ),
             SubscriberQos::Policies(q) => {
-                Subscriber::new(guid, q, dp, self.create_reader_sender.clone())
+                Subscriber::new(guid, *q, dp, self.create_reader_sender.clone())
             }
         }
     }
@@ -483,7 +483,7 @@ impl DomainParticipantInner {
     ) -> Topic {
         match qos {
             TopicQos::Default => Topic::new::<D>(name, dp, self.default_topic_qos.clone()),
-            TopicQos::Policies(q) => Topic::new::<D>(name, dp, q),
+            TopicQos::Policies(q) => Topic::new::<D>(name, dp, *q),
         }
     }
 
@@ -499,7 +499,7 @@ impl DomainParticipantInner {
             TopicQos::Default => {
                 Topic::new_builtin(name, type_desc, dp, kind, self.default_topic_qos.clone())
             }
-            TopicQos::Policies(q) => Topic::new_builtin(name, type_desc, dp, kind, q),
+            TopicQos::Policies(q) => Topic::new_builtin(name, type_desc, dp, kind, *q),
         }
     }
 

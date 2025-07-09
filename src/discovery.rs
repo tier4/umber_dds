@@ -100,16 +100,16 @@ impl Discovery {
             TopicKind::WithKey,
             TopicQos::Default,
         );
-        let spdp_writer_qos = DataWriterQos::Policies(
+        let spdp_writer_qos = DataWriterQos::Policies(Box::new(
             DataWriterQosBuilder::new()
                 .reliability(Reliability::default_besteffort())
                 .build(),
-        );
-        let spdp_reader_qos = DataReaderQos::Policies(
+        ));
+        let spdp_reader_qos = DataReaderQos::Policies(Box::new(
             DataReaderQosBuilder::new()
                 .reliability(Reliability::default_besteffort())
                 .build(),
-        );
+        ));
         let spdp_writer_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER;
         let spdp_reader_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR;
         let spdp_builtin_participant_writer = publisher.create_datawriter_with_entityid(
@@ -131,21 +131,21 @@ impl Discovery {
         .expect("couldn't register spdp_builtin_participant_reader to poll");
 
         // For SEDP
-        let sedp_writer_qos = DataWriterQos::Policies(
+        let sedp_writer_qos = DataWriterQos::Policies(Box::new(
             DataWriterQosBuilder::new()
                 .reliability(Reliability::default_reliable())
                 .build(),
-        );
-        let sedp_reader_qos = DataReaderQos::Policies(
+        ));
+        let sedp_reader_qos = DataReaderQos::Policies(Box::new(
             DataReaderQosBuilder::new()
                 .reliability(Reliability::default_reliable())
                 .build(),
-        );
-        let sedp_topic_qos = TopicQos::Policies(
+        ));
+        let sedp_topic_qos = TopicQos::Policies(Box::new(
             TopicQosBuilder::new()
                 .reliability(Reliability::default_reliable())
                 .build(),
-        );
+        ));
         let sedp_publication_topic = dp.create_builtin_topic(
             "DCPSPublication".to_string(),
             "PublicationBuiltinTopicData".to_string(),
@@ -206,17 +206,17 @@ impl Discovery {
             "DCPSParticipantMessage".to_string(),
             "ParticipantMessageData".to_string(),
             TopicKind::WithKey,
-            TopicQos::Policies(p2p_builtin_participant_topic_qos),
+            TopicQos::Policies(Box::new(p2p_builtin_participant_topic_qos)),
         );
         let p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData> = publisher
             .create_datawriter_with_entityid(
-                DataWriterQos::Policies(publisher.get_default_datawriter_qos()),
+                DataWriterQos::Policies(Box::new(publisher.get_default_datawriter_qos())),
                 p2p_builtin_participant_topic.clone(),
                 EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
             );
         let p2p_builtin_participant_msg_reader: DataReader<ParticipantMessageData> = subscriber
             .create_datareader_with_entityid(
-                DataReaderQos::Policies(subscriber.get_default_datareader_qos()),
+                DataReaderQos::Policies(Box::new(subscriber.get_default_datareader_qos())),
                 p2p_builtin_participant_topic,
                 EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
             );

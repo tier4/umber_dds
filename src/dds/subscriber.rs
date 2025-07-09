@@ -194,7 +194,7 @@ impl InnerSubscriber {
             DataReaderQos::Policies(q) => {
                 let mut dr_qos = topic.my_qos_policies().to_datareader_qos();
                 dr_qos.combine(self.default_dr_qos.clone());
-                dr_qos.combine(q);
+                dr_qos.combine(*q);
                 dr_qos
             }
         };

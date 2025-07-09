@@ -103,8 +103,10 @@ fn main() {
             policy::Reliability::default_besteffort()
         })
         .build();
-    let topic =
-        participant.create_topic::<Shape>("Square".to_string(), TopicQos::Policies(topic_qos));
+    let topic = participant.create_topic::<Shape>(
+        "Square".to_string(),
+        TopicQos::Policies(Box::new(topic_qos)),
+    );
 
     if let Some(pub_sub) = args.get_one::<String>("mode").map(String::as_str) {
         match pub_sub {
@@ -117,8 +119,8 @@ fn main() {
                         policy::Reliability::default_besteffort()
                     })
                     .build();
-                let datawriter =
-                    publisher.create_datawriter::<Shape>(DataWriterQos::Policies(dw_qos), topic);
+                let datawriter = publisher
+                    .create_datawriter::<Shape>(DataWriterQos::Policies(Box::new(dw_qos)), topic);
                 poll.register(&datawriter, DATAWRITER, Ready::readable(), PollOpt::edge())
                     .unwrap();
                 let mut timer = Timer::default();
@@ -187,8 +189,8 @@ fn main() {
                         policy::Reliability::default_besteffort()
                     })
                     .build();
-                let datareader =
-                    subscriber.create_datareader::<Shape>(DataReaderQos::Policies(dr_qos), topic);
+                let datareader = subscriber
+                    .create_datareader::<Shape>(DataReaderQos::Policies(Box::new(dr_qos)), topic);
                 poll.register(&datareader, DATAREADER, Ready::readable(), PollOpt::edge())
                     .unwrap();
                 loop {

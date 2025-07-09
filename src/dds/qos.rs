@@ -49,7 +49,7 @@ pub enum TopicQos {
     /// it can get `DomainParticipant::get_defaul_topict_qos()` and
     /// change `DomainParticipant::set_default_topic_qos()`
     Default,
-    Policies(TopicQosPolicies),
+    Policies(Box<TopicQosPolicies>),
 }
 
 /// A collection of QoS policies for configuring the behavior of a Topic
@@ -129,7 +129,7 @@ pub enum DataWriterQos {
     /// it can get `Publisher::get_default_datawriter_qos()` and
     /// change `Publisher::set_default_datawriter_qos()`
     Default,
-    Policies(DataWriterQosPolicies),
+    Policies(Box<DataWriterQosPolicies>),
 }
 
 /// A collection of QoS policies for configuring the behavior of a DataWriter
@@ -271,7 +271,7 @@ pub enum PublisherQos {
     /// it can get `DomainParticipant::get_default_publisher_qos()` and
     /// change `DomainParticipant::set_default_publisher_qos()`
     Default,
-    Policies(PublisherQosPolicies),
+    Policies(Box<PublisherQosPolicies>),
 }
 
 /// A collection of QoS policies for configuring the behavior of a Publisher
@@ -298,7 +298,7 @@ pub enum DataReaderQos {
     /// it can get `Subscriber::get_default_datareader_qos()` and
     /// change `Subscriber::set_default_datareader_qos()`
     Default,
-    Policies(DataReaderQosPolicies),
+    Policies(Box<DataReaderQosPolicies>),
 }
 
 /// A collection of QoS policies for configuring the behavior of a DataReader
@@ -430,7 +430,7 @@ pub enum SubscriberQos {
     /// it can get `DomainParticipant::get_default_subscriber_qos()` and
     /// change `DomainParticipant::set_default_subscriber_qos()`
     Default,
-    Policies(SubscriberQosPolicies),
+    Policies(Box<SubscriberQosPolicies>),
 }
 
 /// A collection of QoS policies for configuring the behavior of a Subscriber

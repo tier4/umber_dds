@@ -202,7 +202,7 @@ impl InnerPublisher {
             DataWriterQos::Policies(q) => {
                 let mut dw_qos = topic.my_qos_policies().to_datawriter_qos();
                 dw_qos.combine(self.default_dw_qos.clone());
-                dw_qos.combine(q);
+                dw_qos.combine(*q);
                 dw_qos
             }
         };

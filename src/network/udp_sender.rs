@@ -31,7 +31,7 @@ impl UdpSender {
             let sockaddr = SockAddr::from(SocketAddr::new(IpAddr::V4(li), 0));
             raw_socket
                 .bind(&sockaddr)
-                .unwrap_or_else(|_| panic!("couldn't bind {:?} to raw_socket", sockaddr));
+                .unwrap_or_else(|_| panic!("couldn't bind {sockaddr:?} to raw_socket"));
             let mc_socket = std::net::UdpSocket::from(raw_socket);
             mc_socket
                 .set_multicast_loop_v4(true)
