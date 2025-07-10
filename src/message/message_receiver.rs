@@ -131,13 +131,13 @@ impl MessageReceiver {
             match submsg.body {
                 SubMessageBody::Entity(e) => {
                     if let Err(e) = self.handle_entity_submessage(e, writers, readers, disc_db) {
-                        error!("{:?}", e); // TODO
+                        error!("{}", e);
                         return;
                     }
                 }
                 SubMessageBody::Interpreter(i) => {
                     if let Err(e) = self.handle_interpreter_submessage(i) {
-                        error!("{:?}", e); // TODO
+                        error!("{}", e);
                         return;
                     }
                 }
