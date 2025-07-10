@@ -633,12 +633,19 @@ impl MessageReceiver {
         } else {
             match readers.get_mut(&data.reader_id) {
                 Some(r) => {
-                    disc_db.write_remote_writer(
-                        writer_guid,
-                        ts,
-                        r.get_matched_writer_qos(writer_guid).liveliness().kind,
-                    );
-                    r.add_change(self.source_guid_prefix, change)
+                    if r.is_contain_writer(writer_guid) {
+                        disc_db.write_remote_writer(
+                            writer_guid,
+                            ts,
+                            r.get_matched_writer_qos(writer_guid).liveliness().kind,
+                        );
+                        r.add_change(self.source_guid_prefix, change)
+                    } else {
+                        warn!(
+                            "recieved DATA message from unknown Writer {}",
+                            data.writer_id
+                        );
+                    }
                 }
                 None => {
                     warn!("recieved DATA message to unknown Reader {}", data.reader_id);

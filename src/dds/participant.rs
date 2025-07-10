@@ -336,6 +336,7 @@ impl DomainParticipantInner {
         let spdp_multi_socket = new_multicast(
             "0.0.0.0",
             spdp_multicast_port(domain_id),
+            &network_interfaces,
             Ipv4Addr::new(239, 255, 0, 1),
         );
         let discovery_multi = match spdp_multi_socket {
@@ -345,6 +346,7 @@ impl DomainParticipantInner {
         let usertraffic_multi_socket = new_multicast(
             "0.0.0.0",
             usertraffic_multicast_port(domain_id),
+            &network_interfaces,
             Ipv4Addr::new(239, 255, 0, 1),
         );
         let usertraffic_multi = match usertraffic_multi_socket {
