@@ -53,6 +53,22 @@ impl EntityId {
         )
     }
 
+    pub fn is_builtin(&self) -> bool {
+        matches!(
+            *self,
+            Self::SED_PBUILTIN_TOPICS_ANNOUNCER
+                | Self::SED_PBUILTIN_TOPICS_DETECTOR
+                | Self::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER
+                | Self::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
+                | Self::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER
+                | Self::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
+                | Self::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
+                | Self::SPDP_BUILTIN_PARTICIPANT_DETECTOR
+                | Self::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER
+                | Self::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER
+        )
+    }
+
     pub fn topic_kind(&self) -> Option<TopicKind> {
         self.entity_kind.topic_kind()
     }
