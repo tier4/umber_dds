@@ -7,8 +7,9 @@
 //! use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 //! use rand::SeedableRng;
 //! use serde::{Deserialize, Serialize};
+//! use std::net::Ipv4Addr;
 //! use std::time::{Duration, SystemTime};
-//! use umberdds::dds::{qos::*, DomainParticipant};
+//! use umberdds::dds::{qos::*, DataWriterStatusChanged, DomainParticipant};
 //! use umberdds::DdsData;
 //!
 //! // for DdsData
@@ -28,23 +29,29 @@
 //!     let mut small_rng = rand::rngs::SmallRng::seed_from_u64(now.as_nanos() as u64);
 //!
 //!     let domain_id = 0;
-//!     let participant = DomainParticipant::new(domain_id, &mut small_rng);
+//!     let participant =
+//!         DomainParticipant::new(domain_id, vec![Ipv4Addr::new(127, 0, 0, 1)], &mut small_rng);
 //!     let topic_qos = TopicQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
-//!     let topic = participant
-//!         .create_topic::<HelloWorld>("HelloWorldTopic".to_string(), TopicQos::Policies(topic_qos));
+//!     let topic = participant.create_topic::<HelloWorld>(
+//!         "HelloWorldTopic".to_string(),
+//!         TopicQos::Policies(Box::new(topic_qos)),
+//!     );
 //!
 //!     let poll = Poll::new().unwrap();
 //!
 //!     const WRITE_TIMER: Token = Token(0);
+//!     const DATA_WRITE: Token = Token(1);
 //!
 //!     let publisher = participant.create_publisher(PublisherQos::Default);
 //!     let dw_qos = DataWriterQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
 //!     let datawriter =
-//!         publisher.create_datawriter::<HelloWorld>(DataWriterQos::Policies(dw_qos), topic);
+//!         publisher.create_datawriter::<HelloWorld>(DataWriterQos::Policies(Box::new(dw_qos)), topic);
+//!     poll.register(&datawriter, DATA_WRITE, Ready::readable(), PollOpt::edge())
+//!         .unwrap();
 //!     let mut send_count = 0;
 //!
 //!     let mut write_timer = Timer::default();
@@ -71,6 +78,20 @@
 //!                     send_count += 1;
 //!                     write_timer.set_timeout(Duration::new(2, 0), ());
 //!                 }
+//!                 DATA_WRITE => {
+//!                     while let Ok(dwc) = datawriter.try_recv() {
+//!                         match dwc {
+//!                             DataWriterStatusChanged::PublicationMatched(state) => {
+//!                                 match state.current_count_change {
+//!                                     1 => println!("PublicationMatched, guid: {}", state.guid),
+//!                                     -1 => println!("PublicationUnmatched, guid: {}", state.guid),
+//!                                     _ => unreachable!(),
+//!                                 }
+//!                             }
+//!                             _ => (),
+//!                         }
+//!                     }
+//!                 }
 //!                 _ => unreachable!(),
 //!             }
 //!         }
@@ -83,6 +104,7 @@
 //! use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 //! use rand::SeedableRng;
 //! use serde::{Deserialize, Serialize};
+//! use std::net::Ipv4Addr;
 //! use std::time::SystemTime;
 //! use umberdds::dds::{qos::*, DataReaderStatusChanged, DomainParticipant};
 //! use umberdds::DdsData;
@@ -104,12 +126,15 @@
 //!     let mut small_rng = rand::rngs::SmallRng::seed_from_u64(now.as_nanos() as u64);
 //!
 //!     let domain_id = 0;
-//!     let participant = DomainParticipant::new(domain_id, &mut small_rng);
+//!     let participant =
+//!         DomainParticipant::new(domain_id, vec![Ipv4Addr::new(127, 0, 0, 1)], &mut small_rng);
 //!     let topic_qos = TopicQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
-//!     let topic = participant
-//!         .create_topic::<HelloWorld>("HelloWorldTopic".to_string(), TopicQos::Policies(topic_qos));
+//!     let topic = participant.create_topic::<HelloWorld>(
+//!         "HelloWorldTopic".to_string(),
+//!         TopicQos::Policies(Box::new(topic_qos)),
+//!     );
 //!
 //!     let poll = Poll::new().unwrap();
 //!
@@ -119,8 +144,8 @@
 //!     let dr_qos = DataReaderQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
-//!     let mut datareader =
-//!         subscriber.create_datareader::<HelloWorld>(DataReaderQos::Policies(dr_qos), topic);
+//!     let mut datareader = subscriber
+//!         .create_datareader::<HelloWorld>(DataReaderQos::Policies(Box::new(dr_qos)), topic);
 //!     poll.register(
 //!         &mut datareader,
 //!         DATAREADER,
@@ -145,6 +170,13 @@
 //!                                 }
 //!                                 if received > 5 {
 //!                                     std::process::exit(0);
+//!                                 }
+//!                             }
+//!                             DataReaderStatusChanged::SubscriptionMatched(state) => {
+//!                                 match state.current_count_change {
+//!                                     1 => println!("SubscriptionMatched, guid: {}", state.guid),
+//!                                     -1 => println!("SubscriptionUnmatched, guid: {}", state.guid),
+//!                                     _ => unreachable!(),
 //!                                 }
 //!                             }
 //!                             _ => (),
