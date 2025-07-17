@@ -256,7 +256,13 @@ impl Writer {
             );
             return;
         }
+        let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
+        let self_entity_id = self.entity_id();
+        let mut to_send_data: BTreeMap<SequenceNumber, Vec<(EntityId, Vec<Locator>)>> =
+            BTreeMap::new();
+        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<(EntityId, Vec<Locator>)>> =
+            BTreeMap::new();
         for reader_proxy in self.matched_readers.values_mut() {
             while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
                 reader_proxy.update_cache_state(
@@ -264,124 +270,87 @@ impl Writer {
                     change_for_reader._is_relevant,
                     ChangeForReaderStatusKind::Underway,
                 );
-                if change_for_reader._is_relevant {
-                    if let Some(aa_change) = self
-                        .writer_cache
-                        .read()
-                        .get_change(self.guid, change_for_reader.seq_num)
-                    {
-                        // build RTPS Message
-                        let mut message_builder = MessageBuilder::new();
-                        let time_stamp = Timestamp::now();
-                        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-                        message_builder.data(
-                            Endianness::LittleEndian,
-                            self.guid.entity_id,
-                            reader_proxy.remote_reader_guid.entity_id,
-                            aa_change,
-                        );
-                        let message = message_builder.build(self_guid_prefix);
-                        let message_buf = message
-                            .write_to_vec_with_ctx(self.endianness)
-                            .expect("couldn't serialize message");
-
-                        // TODO:
-                        // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
-                        let mut is_send = false;
-                        for uni_loc in reader_proxy.get_unicast_locator_list() {
-                            if uni_loc.kind == Locator::KIND_UDPV4 {
-                                let port = uni_loc.port;
-                                let addr = uni_loc.address;
-                                info!(
-                                    "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                    addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                                );
-                                self.udp_sender.send_to_unicast(
-                                    &message_buf,
-                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                    port as u16,
-                                );
-                                is_send = true;
-                            }
-                        }
-                        for mul_loc in reader_proxy.get_multicast_locator_list() {
-                            if mul_loc.kind == Locator::KIND_UDPV4 {
-                                let port = mul_loc.port;
-                                let addr = mul_loc.address;
-                                info!(
-                                    "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                    addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                                );
-                                self.udp_sender.send_to_multicast(
-                                    &message_buf,
-                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                    port as u16,
-                                );
-                                is_send = true;
-                            }
-                        }
-                        if !is_send {
-                            error!("attempt to send data, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_proxy.remote_reader_guid);
-                        }
+                let seq_num = change_for_reader.seq_num;
+                let reader_entity_id = reader_proxy.remote_reader_guid.entity_id;
+                let locator_lsit = if self_entity_id.is_builtin() {
+                    // built-in endpoint send DATA via multicast
+                    if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
+                        ll_m
                     } else {
-                        unreachable!();
+                        continue;
                     }
                 } else {
+                    // other endpoint send DATA via unicast
+                    if let Some(ll_u) = Self::get_unicast_ll_from_proxy(self_guid, reader_proxy) {
+                        ll_u
+                    } else {
+                        continue;
+                    }
+                };
+                if change_for_reader._is_relevant {
+                    if let std::collections::btree_map::Entry::Vacant(e) =
+                        to_send_data.entry(seq_num)
+                    {
+                        e.insert(vec![(reader_entity_id, locator_lsit)]);
+                    } else {
+                        let vec = to_send_data.get_mut(&seq_num).unwrap();
+                        vec.push((reader_entity_id, locator_lsit));
+                    }
+                } else if let std::collections::btree_map::Entry::Vacant(e) =
+                    to_send_gap.entry(seq_num)
+                {
+                    e.insert(vec![(reader_entity_id, locator_lsit)]);
+                } else {
+                    let vec = to_send_gap.get_mut(&seq_num).unwrap();
+                    vec.push((reader_entity_id, locator_lsit));
+                }
+            }
+        }
+        for seq_num in to_send_data.keys() {
+            if let Some(aa_change) = self.writer_cache.read().get_change(self.guid, *seq_num) {
+                let reader_locators = to_send_data.get(seq_num).unwrap();
+                let send_list = Self::min_message_cover(reader_locators);
+                for (reid, loc) in send_list {
                     // build RTPS Message
                     let mut message_builder = MessageBuilder::new();
-                    // let time_stamp = Timestamp::now();
-                    // message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-                    let gap_start = change_for_reader.seq_num;
-                    message_builder.gap(
+                    let time_stamp = Timestamp::now();
+                    message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                    message_builder.data(
                         Endianness::LittleEndian,
                         self.guid.entity_id,
-                        reader_proxy.remote_reader_guid.entity_id,
-                        gap_start,
-                        SequenceNumberSet::from_vec(gap_start + SequenceNumber(1), vec![]),
+                        reid,
+                        aa_change.clone(),
                     );
                     let message = message_builder.build(self_guid_prefix);
                     let message_buf = message
                         .write_to_vec_with_ctx(self.endianness)
                         .expect("couldn't serialize message");
-                    // TODO:
-                    // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
-                    let mut is_send = false;
-                    for uni_loc in reader_proxy.get_unicast_locator_list() {
-                        if uni_loc.kind == Locator::KIND_UDPV4 {
-                            let port = uni_loc.port;
-                            let addr = uni_loc.address;
-                            info!(
-                                "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                            );
-                            self.udp_sender.send_to_unicast(
-                                &message_buf,
-                                Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                port as u16,
-                            );
-                            is_send = true;
-                        }
-                    }
-                    for mul_loc in reader_proxy.get_multicast_locator_list() {
-                        if mul_loc.kind == Locator::KIND_UDPV4 {
-                            let port = mul_loc.port;
-                            let addr = mul_loc.address;
-                            info!(
-                                "Writer send data message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                            );
-                            self.udp_sender.send_to_multicast(
-                                &message_buf,
-                                Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                port as u16,
-                            );
-                            is_send = true;
-                        }
-                    }
-                    if !is_send {
-                        error!("attempt to send data, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_proxy.remote_reader_guid);
-                    }
+                    self.send_msg_to_locator(loc, message_buf, "data");
                 }
+            } else {
+                unreachable!()
+            }
+        }
+        for seq_num in to_send_gap.keys() {
+            let reader_locators = to_send_gap.get(seq_num).unwrap();
+            let send_list = Self::min_message_cover(reader_locators);
+            for (reid, loc) in send_list {
+                let mut message_builder = MessageBuilder::new();
+                // let time_stamp = Timestamp::now();
+                // message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                let gap_start = *seq_num;
+                message_builder.gap(
+                    Endianness::LittleEndian,
+                    self.guid.entity_id,
+                    reid,
+                    gap_start,
+                    SequenceNumberSet::from_vec(gap_start + SequenceNumber(1), vec![]),
+                );
+                let message = message_builder.build(self_guid_prefix);
+                let message_buf = message
+                    .write_to_vec_with_ctx(self.endianness)
+                    .expect("couldn't serialize message");
+                self.send_msg_to_locator(loc, message_buf, "gap");
             }
         }
     }
@@ -402,16 +371,30 @@ impl Writer {
             return;
         }
         self.hb_counter += 1;
+        let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
+        let mut to_send_hb: Vec<(EntityId, Vec<Locator>)> = Vec::new();
         for reader_proxy in self.matched_readers.values_mut() {
+            let ll_m =
+                if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
+                    ll_m
+                } else {
+                    continue;
+                };
+            to_send_hb.push((reader_proxy.remote_reader_guid.entity_id, ll_m));
+        }
+        let reader_locators = to_send_hb;
+        let send_list = Self::min_message_cover(&reader_locators);
+        for (reid, loc) in send_list {
+            // build RTPS Message
             let mut message_builder = MessageBuilder::new();
             message_builder.info_ts(Endianness::LittleEndian, time_stamp);
             message_builder.heartbeat(
                 self.endianness,
                 liveliness,
                 self_entity_id,
-                reader_proxy.remote_reader_guid.entity_id,
+                reid,
                 first_sn,
                 last_sn,
                 self.hb_counter - 1,
@@ -421,42 +404,7 @@ impl Writer {
             let message_buf = msg
                 .write_to_vec_with_ctx(self.endianness)
                 .expect("couldn't serialize message");
-            let mut is_send = false;
-            for uni_loc in reader_proxy.get_unicast_locator_list() {
-                if uni_loc.kind == Locator::KIND_UDPV4 {
-                    let port = uni_loc.port;
-                    let addr = uni_loc.address;
-                    info!(
-                        "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                        addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                    );
-                    self.udp_sender.send_to_unicast(
-                        &message_buf,
-                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                        port as u16,
-                    );
-                    is_send = true;
-                }
-            }
-            for mul_loc in reader_proxy.get_multicast_locator_list() {
-                if mul_loc.kind == Locator::KIND_UDPV4 {
-                    let port = mul_loc.port;
-                    let addr = mul_loc.address;
-                    info!(
-                        "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                        addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                    );
-                    self.udp_sender.send_to_multicast(
-                        &message_buf,
-                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                        port as u16,
-                    );
-                    is_send = true;
-                }
-            }
-            if !is_send {
-                error!("attempt to send heartbeat, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_proxy.remote_reader_guid);
-            }
+            self.send_msg_to_locator(loc, message_buf, "heartbeat");
         }
     }
 
@@ -523,194 +471,54 @@ impl Writer {
 
     pub fn handle_nack_response_timeout(&mut self, reader_guid: GUID) {
         self.an_state = AckNackState::Repairing;
+        let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
+        let mut to_send_data: BTreeMap<SequenceNumber, Vec<(EntityId, Vec<Locator>)>> =
+            BTreeMap::new();
+        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<(EntityId, Vec<Locator>)>> =
+            BTreeMap::new();
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
-            let mut resend_count = 0;
             while let Some(change) = reader_proxy.next_requested_change() {
-                resend_count += 1;
                 reader_proxy.update_cache_state(
                     change.seq_num,
                     change._is_relevant,
                     ChangeForReaderStatusKind::Underway,
                 );
-                if change._is_relevant {
-                    if let Some(aa_change) = self
-                        .writer_cache
-                        .read()
-                        .get_change(self.guid, change.seq_num)
-                    {
-                        // build RTPS Message
-                        let mut message_builder = MessageBuilder::new();
-                        let time_stamp = Timestamp::now();
-                        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-                        message_builder.data(
-                            Endianness::LittleEndian,
-                            self.guid.entity_id,
-                            reader_proxy.remote_reader_guid.entity_id,
-                            aa_change,
-                        );
-                        let message = message_builder.build(self_guid_prefix);
-                        let message_buf = message
-                            .write_to_vec_with_ctx(self.endianness)
-                            .expect("couldn't serialize message");
-
-                        // TODO:
-                        // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
-                        let mut is_resend = false;
-                        for uni_loc in reader_proxy.get_unicast_locator_list() {
-                            if uni_loc.kind == Locator::KIND_UDPV4 {
-                                let port = uni_loc.port;
-                                let addr = uni_loc.address;
-                                info!(
-                                    "Writer resend data message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                    addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                                );
-                                self.udp_sender.send_to_unicast(
-                                    &message_buf,
-                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                    port as u16,
-                                );
-                                is_resend = true;
-                            }
-                        }
-                        for mul_loc in reader_proxy.get_multicast_locator_list() {
-                            if mul_loc.kind == Locator::KIND_UDPV4 {
-                                let port = mul_loc.port;
-                                let addr = mul_loc.address;
-                                info!(
-                                    "Writer resend data message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                    addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                                );
-                                self.udp_sender.send_to_multicast(
-                                    &message_buf,
-                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                    port as u16,
-                                );
-                                is_resend = true;
-                            }
-                        }
-                        if !is_resend {
-                            error!("attempt to resend data, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_guid);
-                        }
+                let seq_num = change.seq_num;
+                let reader_entity_id = reader_proxy.remote_reader_guid.entity_id;
+                let locator_lsit = if self_entity_id.is_builtin() {
+                    // built-in endpoint send DATA via multicast
+                    if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
+                        ll_m
                     } else {
-                        // rtps spec, 8.4.2.2.4 Writers must eventually respond to a negative acknowledgment (reliable only)
-                        // send Heartbeat because, the sample is no longer avilable
-                        self.hb_counter += 1;
-                        let time_stamp = Timestamp::now();
-                        let writer_cache = self.writer_cache.read();
-                        let mut message_builder = MessageBuilder::new();
-                        message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-                        message_builder.heartbeat(
-                            self.endianness,
-                            false,
-                            self_entity_id,
-                            reader_proxy.remote_reader_guid.entity_id,
-                            change.seq_num + SequenceNumber(1),
-                            writer_cache.get_seq_num_max(),
-                            self.hb_counter - 1,
-                            false,
-                        );
-                        let msg = message_builder.build(self_guid_prefix);
-                        let message_buf = msg
-                            .write_to_vec_with_ctx(self.endianness)
-                            .expect("couldn't serialize message");
-                        let mut is_send = false;
-                        for uni_loc in reader_proxy.get_unicast_locator_list() {
-                            if uni_loc.kind == Locator::KIND_UDPV4 {
-                                let port = uni_loc.port;
-                                let addr = uni_loc.address;
-                                info!(
-                                    "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                    addr[12], addr[13], addr[14], addr[15], port, self.guid
-                                );
-                                self.udp_sender.send_to_unicast(
-                                    &message_buf,
-                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                    port as u16,
-                                );
-                                is_send = true;
-                            }
-                        }
-                        for mul_loc in reader_proxy.get_multicast_locator_list() {
-                            if mul_loc.kind == Locator::KIND_UDPV4 {
-                                let port = mul_loc.port;
-                                let addr = mul_loc.address;
-                                info!(
-                                    "Writer send heartbeat message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                    addr[12], addr[13], addr[14], addr[15], port, self.guid
-                                );
-                                self.udp_sender.send_to_multicast(
-                                    &message_buf,
-                                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                    port as u16,
-                                );
-                                is_send = true;
-                            }
-                        }
-                        if !is_send {
-                            error!("attempt to send heartbeat, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_guid);
-                        }
+                        continue;
                     }
                 } else {
-                    // build RTPS Message
-                    let mut message_builder = MessageBuilder::new();
-                    // let time_stamp = Timestamp::now();
-                    // message_builder.info_ts(Endianness::LittleEndian, time_stamp);
-                    let gap_start = change.seq_num;
-                    message_builder.gap(
-                        Endianness::LittleEndian,
-                        self.guid.entity_id,
-                        reader_proxy.remote_reader_guid.entity_id,
-                        gap_start,
-                        SequenceNumberSet::from_vec(gap_start + SequenceNumber(1), vec![]),
-                    );
-                    let message = message_builder.build(self_guid_prefix);
-                    let message_buf = message
-                        .write_to_vec_with_ctx(self.endianness)
-                        .expect("couldn't serialize message");
-                    // TODO:
-                    // unicastとmulticastの両方に送信する必要はないから、状況によって切り替えるようにする。
-                    let mut is_send = false;
-                    for uni_loc in reader_proxy.get_unicast_locator_list() {
-                        if uni_loc.kind == Locator::KIND_UDPV4 {
-                            let port = uni_loc.port;
-                            let addr = uni_loc.address;
-                            info!(
-                                "Writer send gap message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                            );
-                            self.udp_sender.send_to_unicast(
-                                &message_buf,
-                                Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                port as u16,
-                            );
-                            is_send = true;
-                        }
-                    }
-                    for mul_loc in reader_proxy.get_multicast_locator_list() {
-                        if mul_loc.kind == Locator::KIND_UDPV4 {
-                            let port = mul_loc.port;
-                            let addr = mul_loc.address;
-                            info!(
-                                "Writer send gap message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                                addr[12], addr[13], addr[14], addr[15], port, self.guid,
-                            );
-                            self.udp_sender.send_to_multicast(
-                                &message_buf,
-                                Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                                port as u16,
-                            );
-                            is_send = true;
-                        }
-                    }
-                    if !is_send {
-                        error!("attempt to send gap, but not found UDP_V4 locator of Reader\n\tWriter: {}\n\tReader: {}", self.guid, reader_guid);
+                    // other endpoint send DATA via unicast
+                    if let Some(ll_u) = Self::get_unicast_ll_from_proxy(self_guid, reader_proxy) {
+                        ll_u
+                    } else {
+                        continue;
                     }
                 };
-            }
-            if resend_count == 0 {
-                error!("handle_nack_response_timeout called, but there is no change to handle\n\tWriter: {}\n\tReader: {}", self.guid, reader_guid);
+                if change._is_relevant {
+                    if let std::collections::btree_map::Entry::Vacant(e) =
+                        to_send_data.entry(seq_num)
+                    {
+                        e.insert(vec![(reader_entity_id, locator_lsit)]);
+                    } else {
+                        let vec = to_send_data.get_mut(&seq_num).unwrap();
+                        vec.push((reader_entity_id, locator_lsit));
+                    }
+                } else if let std::collections::btree_map::Entry::Vacant(e) =
+                    to_send_gap.entry(seq_num)
+                {
+                    e.insert(vec![(reader_entity_id, locator_lsit)]);
+                } else {
+                    let vec = to_send_gap.get_mut(&seq_num).unwrap();
+                    vec.push((reader_entity_id, locator_lsit));
+                }
             }
         } else {
             error!(
@@ -718,7 +526,184 @@ impl Writer {
                 reader_guid,  self.guid
             );
         }
+        for seq_num in to_send_data.keys() {
+            let reader_locators = to_send_data.get(seq_num).unwrap();
+            let send_list = Self::min_message_cover(reader_locators);
+            if let Some(aa_change) = self.writer_cache.read().get_change(self.guid, *seq_num) {
+                for (reid, loc) in send_list {
+                    // build RTPS Message
+                    let mut message_builder = MessageBuilder::new();
+                    let time_stamp = Timestamp::now();
+                    message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                    message_builder.data(
+                        Endianness::LittleEndian,
+                        self.guid.entity_id,
+                        reid,
+                        aa_change.clone(),
+                    );
+                    let message = message_builder.build(self_guid_prefix);
+                    let message_buf = message
+                        .write_to_vec_with_ctx(self.endianness)
+                        .expect("couldn't serialize message");
+                    self.send_msg_to_locator(loc, message_buf, "data");
+                }
+            } else {
+                // rtps spec, 8.4.2.2.4 Writers must eventually respond to a negative acknowledgment (reliable only)
+                // send Heartbeat because, the sample is no longer avilable
+                self.hb_counter += 1;
+                let time_stamp = Timestamp::now();
+                let writer_cache = self.writer_cache.read();
+                for (reid, loc) in send_list {
+                    let mut message_builder = MessageBuilder::new();
+                    message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                    message_builder.heartbeat(
+                        self.endianness,
+                        false,
+                        self_entity_id,
+                        reid,
+                        *seq_num + SequenceNumber(1),
+                        writer_cache.get_seq_num_max(),
+                        self.hb_counter - 1,
+                        false,
+                    );
+                    let msg = message_builder.build(self_guid_prefix);
+                    let message_buf = msg
+                        .write_to_vec_with_ctx(self.endianness)
+                        .expect("couldn't serialize message");
+                    self.send_msg_to_locator(loc, message_buf, "heartbeat");
+                }
+            }
+        }
+        for seq_num in to_send_gap.keys() {
+            let reader_locators = to_send_gap.get(seq_num).unwrap();
+            let send_list = Self::min_message_cover(reader_locators);
+            for (reid, loc) in send_list {
+                let mut message_builder = MessageBuilder::new();
+                // let time_stamp = Timestamp::now();
+                // message_builder.info_ts(Endianness::LittleEndian, time_stamp);
+                let gap_start = *seq_num;
+                message_builder.gap(
+                    Endianness::LittleEndian,
+                    self.guid.entity_id,
+                    reid,
+                    gap_start,
+                    SequenceNumberSet::from_vec(gap_start + SequenceNumber(1), vec![]),
+                );
+                let message = message_builder.build(self_guid_prefix);
+                let message_buf = message
+                    .write_to_vec_with_ctx(self.endianness)
+                    .expect("couldn't serialize message");
+                self.send_msg_to_locator(loc, message_buf, "gap");
+            }
+        }
         self.an_state = AckNackState::Waiting;
+    }
+
+    fn send_msg_to_locator(&self, loc: Locator, msg_buf: Vec<u8>, msg_kind: &str) {
+        if loc.kind == Locator::KIND_UDPV4 {
+            let port = loc.port;
+            let addr = loc.address;
+            info!(
+                "Writer send {} message to {}.{}.{}.{}:{}\n\tWriter: {}",
+                msg_kind, addr[12], addr[13], addr[14], addr[15], port, self.guid,
+            );
+            if Self::is_ipv4_multicast(&addr) {
+                self.udp_sender.send_to_multicast(
+                    &msg_buf,
+                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                    port as u16,
+                );
+            } else {
+                self.udp_sender.send_to_unicast(
+                    &msg_buf,
+                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                    port as u16,
+                );
+            }
+        } else {
+            error!("unsupported locator specified: {}", loc);
+        }
+    }
+
+    fn get_unicast_ll_from_proxy(
+        my_guid: GUID,
+        reader_proxy: &ReaderProxy,
+    ) -> Option<Vec<Locator>> {
+        let ll_u = reader_proxy.get_unicast_locator_list().clone();
+        if ll_u.is_empty() {
+            let ll_m = reader_proxy.get_multicast_locator_list().clone();
+            if ll_m.is_empty() {
+                error!(
+                    "Writer not found locator of Reader\n\tWriter: {}\n\tReader: {}",
+                    my_guid, reader_proxy.remote_reader_guid
+                );
+                None
+            } else {
+                debug!("Writer attempted to get unicast locators from the ReaderProxy, but not found. use multicast locators instead\n\tWriter: {}\n\tReader: {}", my_guid, reader_proxy.remote_reader_guid);
+                Some(ll_m)
+            }
+        } else {
+            Some(ll_u)
+        }
+    }
+
+    fn get_multicast_ll_from_proxy(
+        my_guid: GUID,
+        reader_proxy: &ReaderProxy,
+    ) -> Option<Vec<Locator>> {
+        let ll_m = reader_proxy.get_multicast_locator_list().clone();
+        if ll_m.is_empty() {
+            let ll_u = reader_proxy.get_unicast_locator_list().clone();
+            if ll_u.is_empty() {
+                error!(
+                    "Writer not found locator of Reader\n\tWriter: {}\n\tReader: {}",
+                    my_guid, reader_proxy.remote_reader_guid
+                );
+                None
+            } else {
+                debug!(
+                    "Writer attempted to get multicast locators from the ReaderProxy, but not found. use unicast locators instead\n\tWriter: {}\n\tReader: {}",
+                    my_guid, reader_proxy.remote_reader_guid
+                );
+                Some(ll_u)
+            }
+        } else {
+            Some(ll_m)
+        }
+    }
+
+    fn is_ipv4_multicast(ipv4_addr: &[u8; 16]) -> bool {
+        // 224.0.0.0 - 239.255.255.255
+        ((ipv4_addr[12] >> 4) ^ 0b1110) == 0
+    }
+
+    fn min_message_cover(
+        reader_locators: &Vec<(EntityId, Vec<Locator>)>,
+    ) -> Vec<(EntityId, Locator)> {
+        let mut locator_to_readers: BTreeMap<Locator, BTreeSet<EntityId>> = BTreeMap::new();
+        for (eid, ll) in reader_locators {
+            for l in ll {
+                locator_to_readers.entry(*l).or_default().insert(*eid);
+            }
+        }
+        let mut send_list = Vec::new();
+        let mut covered: BTreeSet<(EntityId, Locator)> = BTreeSet::new();
+        for (loc, readers) in &locator_to_readers {
+            if readers.len() > 1 {
+                send_list.push((EntityId::UNKNOW, *loc));
+                for r in readers {
+                    covered.insert((*r, *loc));
+                }
+            }
+        }
+        for (reader, locs) in reader_locators {
+            for loc in locs {
+                if !covered.contains(&(*reader, *loc)) {
+                    send_list.push((*reader, *loc));
+                }
+            }
+        }
+        send_list
     }
 
     pub fn matched_reader_add(

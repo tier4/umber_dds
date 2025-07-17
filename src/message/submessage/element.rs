@@ -296,7 +296,9 @@ impl Sub for Timestamp {
 }
 
 // spec versin 2.3, 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
-#[derive(Readable, Writable, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Readable, Writable, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
+)]
 pub struct Locator {
     pub kind: i32,
     pub port: u32,

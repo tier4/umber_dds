@@ -518,6 +518,7 @@ impl Reader {
     }
 
     pub fn handle_hb_response_timeout(&mut self, writer_guid: GUID) {
+        let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
         if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
@@ -538,6 +539,13 @@ impl Reader {
             };
             let reader_sn_state =
                 SequenceNumberSet::from_vec(missign_seq_num_set_base, missign_seq_num_set);
+            let ll_u = if let Some(ll_u) = Self::get_unicast_ll_from_proxy(self_guid, writer_proxy)
+            {
+                ll_u
+            } else {
+                return;
+            };
+
             let mut message_builder = MessageBuilder::new();
             message_builder.info_dst(self.endianness, writer_proxy.remote_writer_guid.guid_prefix);
             message_builder.acknack(
@@ -552,42 +560,9 @@ impl Reader {
             let message_buf = message
                 .write_to_vec_with_ctx(self.endianness)
                 .expect("couldn't serialize message");
-            let mut is_send = false;
-            for uni_loc in writer_proxy.get_unicast_locator_list() {
-                if uni_loc.kind == Locator::KIND_UDPV4 {
-                    let port = uni_loc.port;
-                    let addr = uni_loc.address;
-                    info!(
-                        "Reader send acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {}",
-                        addr[12], addr[13], addr[14], addr[15], port,self.guid,
-                    );
-                    self.udp_sender.send_to_unicast(
-                        &message_buf,
-                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                        port as u16,
-                    );
-                    is_send = true;
-                }
-            }
-            // if there is Participant on same host, umber_dds need to send acknack to multicast
-            for mul_loc in writer_proxy.get_multicast_locator_list() {
-                if mul_loc.kind == Locator::KIND_UDPV4 {
-                    let port = mul_loc.port;
-                    let addr = mul_loc.address;
-                    info!(
-                        "Reader send acknack(heartbeat response) message to {}.{}.{}.{}:{}\n\tReader: {}",
-                        addr[12], addr[13], addr[14], addr[15], port,self.guid,
-                    );
-                    self.udp_sender.send_to_unicast(
-                        &message_buf,
-                        Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
-                        port as u16,
-                    );
-                    is_send = true;
-                }
-            }
-            if !is_send {
-                error!("attempt to send acknack, but not found UDP_V4 locator of Writer\n\tReader: {}\n\tWriter: {}", self.guid, writer_proxy.remote_writer_guid);
+
+            for loc in ll_u {
+                self.send_msg_to_locator(loc, message_buf.clone(), "acknack");
             }
         } else {
             warn!(
@@ -595,6 +570,59 @@ impl Reader {
                 self.guid, writer_guid
             );
         }
+    }
+
+    fn send_msg_to_locator(&self, loc: Locator, msg_buf: Vec<u8>, msg_kind: &str) {
+        if loc.kind == Locator::KIND_UDPV4 {
+            let port = loc.port;
+            let addr = loc.address;
+            info!(
+                "Reader send {} message to {}.{}.{}.{}:{}\n\tReader: {}",
+                msg_kind, addr[12], addr[13], addr[14], addr[15], port, self.guid,
+            );
+            if Self::is_ipv4_multicast(&addr) {
+                self.udp_sender.send_to_multicast(
+                    &msg_buf,
+                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                    port as u16,
+                );
+            } else {
+                self.udp_sender.send_to_unicast(
+                    &msg_buf,
+                    Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
+                    port as u16,
+                );
+            }
+        } else {
+            error!("unsupported locator specified: {}", loc);
+        }
+    }
+
+    fn get_unicast_ll_from_proxy(
+        my_guid: GUID,
+        writer_proxy: &WriterProxy,
+    ) -> Option<Vec<Locator>> {
+        let ll_u = writer_proxy.get_unicast_locator_list().clone();
+        if ll_u.is_empty() {
+            let ll_m = writer_proxy.get_multicast_locator_list().clone();
+            if ll_m.is_empty() {
+                error!(
+                    "Reader not found locator of Writer\n\tReader: {}\n\tWriter: {}",
+                    my_guid, writer_proxy.remote_writer_guid
+                );
+                None
+            } else {
+                debug!("Reader attempted to get unicast locators from the WriterProxy, but not found. use multicast locators instead\n\tReader: {}\n\tWriter: {}", my_guid, writer_proxy.remote_writer_guid);
+                Some(ll_m)
+            }
+        } else {
+            Some(ll_u)
+        }
+    }
+
+    fn is_ipv4_multicast(ipv4_addr: &[u8; 16]) -> bool {
+        // 224.0.0.0 - 239.255.255.255
+        ((ipv4_addr[12] >> 4) ^ 0b1110) == 0
     }
 
     pub fn heartbeat_response_delay(&self) -> StdDuration {
