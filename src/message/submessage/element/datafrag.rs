@@ -11,7 +11,7 @@ pub struct DataFrag {
     pub writer_sn: SequenceNumber,
     pub fragment_starting_num: FragmentNumber,
     pub fragments_in_submessage: u16,
-    pub data_size: u64,
+    pub data_size: u32,
     pub fragment_size: u16,
     pub inline_qos: Option<ParameterList>,
     /// Note: RustDDS says
@@ -60,18 +60,18 @@ impl DataFrag {
             u16::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
                 .map_err(map_speedy_err)?;
         readed_byte += 2;
-        let data_size = u64::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
-            .map_err(map_speedy_err)?;
-        readed_byte += 8;
         let fragment_size = u16::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
             .map_err(map_speedy_err)?;
         readed_byte += 2;
+        let data_size = u32::read_from_buffer_with_ctx(endiannes, &buffer.slice(readed_byte..))
+            .map_err(map_speedy_err)?;
+        readed_byte += 4;
         let is_exist_inline_qos = flags.contains(DataFragFlag::InlineQos);
 
-        // between octets_to_inline_qos and inline_qos in rtps n2.3, there are
+        // between octets_to_inline_qos and inline_qos in rtps 2.3, there are
         // reader_id (4), writer_id (4), writer_sn (8), fragment_staring_num (4), fragment_in_submessage
-        // (2), data_size (8), fragment_size (2) = 32 octets
-        let rtps_v23_datafrag_header_size: u16 = 32;
+        // (2), fragment_size (2), data_size (4) = 28 octets
+        let rtps_v23_datafrag_header_size: u16 = 28;
         let extra_octets = octets_to_inline_qos - rtps_v23_datafrag_header_size;
         readed_byte += u64::from(extra_octets) as usize;
 
