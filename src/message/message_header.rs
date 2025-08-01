@@ -9,7 +9,7 @@ pub struct ProtocolVersion {
 }
 
 impl ProtocolVersion {
-    pub const PROTOCOLVERSION: Self = Self { major: 2, minor: 4 };
+    pub const PROTOCOLVERSION: Self = Self { major: 2, minor: 3 };
 }
 
 #[derive(Readable, Writable, Debug)]
