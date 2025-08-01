@@ -510,7 +510,7 @@ impl MessageReceiver {
                 Some((tn, dt)) => (tn, dt),
                 None => {
                     return Err(MessageError(
-                        "falied to get topic_info from received DATA(p)".to_string(),
+                        "falied to get topic_info from received DATA(r)".to_string(),
                     ));
                 }
             };
