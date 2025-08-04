@@ -90,22 +90,31 @@ impl MessageReceiver {
         disc_db: &mut DiscoveryDB,
     ) {
         for message in messages {
-            // Is DDSPING
             let msg = message.message;
-            if msg.len() < 20
-                && msg.len() >= 16
-                && msg[0..4] == b"RTPS"[..]
-                && msg[9..16] == b"DDSPING"[..]
-            {
-                info!("Received DDSPING");
-                return;
+            if msg.len() < 16 {
+                warn!("receive too small message: len = {}", msg.len());
+                continue;
+            }
+            if msg[0..4] != b"RTPS"[..] {
+                warn!("receive message not start with magic number 'RTPS'",);
+                continue;
+            }
+            if msg.len() < 20 {
+                // Is DDSPING
+                if msg[9..16] == b"DDSPING"[..] {
+                    info!("Received DDSPING");
+                    continue;
+                } else {
+                    warn!("receive too small message: len = {}", msg.len());
+                    continue;
+                }
             }
             let msg_buf = msg.freeze();
             let rtps_message = match Message::new(msg_buf) {
                 Ok(m) => m,
                 Err(e) => {
                     error!("couldn't deserialize RTPS message: {}", e);
-                    return;
+                    continue;
                 }
             };
             info!(
