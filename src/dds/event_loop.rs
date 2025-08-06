@@ -58,10 +58,11 @@ pub struct EventLoop {
     readers: BTreeMap<EntityId, Reader>,
     udp_sender: Rc<UdpSender>,
     writer_hb_timer: Timer<EntityId>,
-    reader_hb_timers: Vec<Timer<(EntityId, GUID)>>, // (reader EntityId, writer GUID)
-    writer_nack_timers: Vec<Timer<(EntityId, GUID)>>, // (writer EntityId, reader GUID)
+    reader_hb_timer: Timer<(EntityId, GUID)>, // (reader EntityId, writer GUID)
+    writer_nack_timer: Timer<(EntityId, GUID)>, // (writer EntityId, reader GUID)
     wlp_timer_receiver: mio_channel::Receiver<EntityId>,
-    wlp_timers: BTreeMap<EntityId, (Timer<EntityId>, Timeout)>, //  reader EntityId, reader EntityId
+    wlp_timer: Timer<EntityId>,                //  reader EntityId
+    wlp_timeouts: BTreeMap<EntityId, Timeout>, //  reader EntityId
     assert_liveliness_timer: Timer<()>,
     check_liveliness_timer: Timer<Vec<GUID>>,
     check_liveliness_timer_to: Option<(CoreDuration, Timeout)>,
@@ -164,6 +165,30 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("coludn't register wlp_timer_receiver to poll");
+        let reader_hb_timer = Timer::default();
+        poll.register(
+            &reader_hb_timer,
+            READER_HEARTBEAT_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("coludn't register reader_hb_timer to poll");
+        let writer_nack_timer = Timer::default();
+        poll.register(
+            &writer_nack_timer,
+            WRITER_NACK_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("coludn't register writer_nack_timer to poll");
+        let wlp_timer = Timer::default();
+        poll.register(
+            &wlp_timer,
+            WRITER_LIVELINESS_CHECK_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("coludn't register wlp_timer to poll");
         let message_receiver = MessageReceiver::new(participant_guidprefix, wlp_timer_sender);
         EventLoop {
             domain_id,
@@ -183,10 +208,11 @@ impl EventLoop {
             readers: BTreeMap::new(),
             udp_sender: Rc::new(udp_sender),
             writer_hb_timer,
-            reader_hb_timers: Vec::new(),
-            writer_nack_timers: Vec::new(),
+            reader_hb_timer,
+            writer_nack_timer,
             wlp_timer_receiver,
-            wlp_timers: BTreeMap::new(),
+            wlp_timer,
+            wlp_timeouts: BTreeMap::new(),
             assert_liveliness_timer,
             check_liveliness_timer,
             check_liveliness_timer_to: None,
@@ -384,26 +410,16 @@ impl EventLoop {
                                 self.set_reader_hb_timer_receiver.try_recv()
                             {
                                 if let Some(reader) = self.readers.get(&reader_entity_id) {
-                                    let mut reader_hb_timer = Timer::default();
                                     trace!(
                                         "set Heartbeat response delay timer({:?}) of Reader\n\tReader: {}\n\tWriter: {}",
                                         reader.heartbeat_response_delay(),
                                         reader_entity_id,
                                         writer_guid
                                     );
-                                    reader_hb_timer.set_timeout(
+                                    self.reader_hb_timer.set_timeout(
                                         reader.heartbeat_response_delay(),
                                         (reader_entity_id, writer_guid),
                                     );
-                                    self.poll
-                                        .register(
-                                            &reader_hb_timer,
-                                            WRITER_HEARTBEAT_TIMER,
-                                            Ready::readable(),
-                                            PollOpt::edge(),
-                                        )
-                                        .expect("coludn't register reader_hb_timer to poll");
-                                    self.reader_hb_timers.push(reader_hb_timer);
                                 } else {
                                     error!("not found Reader which attempt to set heartbeat timer\n\tReader: {}", reader_entity_id);
                                 }
@@ -414,54 +430,40 @@ impl EventLoop {
                                 self.set_writer_nack_timer_receiver.try_recv()
                             {
                                 if let Some(writer) = self.writers.get(&writer_entity_id) {
-                                    let mut writedr_an_timer = Timer::default();
                                     trace!(
                                         "set Writer AckNack timer({:?})\n\tWriter: {}\n\tReader: {}",
                                         writer.nack_response_delay(),
                                         writer_entity_id,
                                         reader_guid
                                     );
-                                    writedr_an_timer.set_timeout(
+                                    self.writer_nack_timer.set_timeout(
                                         writer.nack_response_delay(),
                                         (writer_entity_id, reader_guid),
                                     );
-                                    self.poll
-                                        .register(
-                                            &writedr_an_timer,
-                                            WRITER_NACK_TIMER,
-                                            Ready::readable(),
-                                            PollOpt::edge(),
-                                        )
-                                        .expect("coludn't register writedr_an_timer to poll");
-                                    self.writer_nack_timers.push(writedr_an_timer);
                                 } else {
                                     error!("not found Writer which attempt to set nack response timer\n\tWriter: {}", writer_entity_id);
                                 }
                             }
                         }
                         WRITER_LIVELINESS_CHECK_TIMER => {
-                            for (wlp_timer, to) in self.wlp_timers.values_mut() {
-                                if let Some(eid) = wlp_timer.poll() {
+                            while let Some(eid) = self.wlp_timer.poll() {
+                                trace!("fired Reader liveliness check timer\n\tReader: {}", eid);
+                                if let Some(reader) = self.readers.get_mut(&eid) {
+                                    reader.check_liveliness(&mut self.discovery_db);
                                     trace!(
-                                        "fired Reader liveliness check timer\n\tReader: {}",
-                                        eid
+                                        "checked liveliness of Reader\n\tReader: {}",
+                                        reader.entity_id()
                                     );
-                                    if let Some(reader) = self.readers.get_mut(&eid) {
-                                        reader.check_liveliness(&mut self.discovery_db);
-                                        trace!(
-                                            "checked liveliness of Reader\n\tReader: {}",
-                                            reader.entity_id()
-                                        );
-                                        let time = reader.get_min_remote_writer_lease_duration();
-                                        *to = wlp_timer.set_timeout(time, reader.entity_id());
-                                        trace!(
-                                            "set Reader liveliness check timer({:?})\n\tReader: {}",
-                                            time,
-                                            reader.entity_id()
-                                        );
-                                    } else {
-                                        error!("not found Reader which fired check liveliness timer\n\tReader: {}", eid);
-                                    }
+                                    let time = reader.get_min_remote_writer_lease_duration();
+                                    let to = self.wlp_timer.set_timeout(time, reader.entity_id());
+                                    self.wlp_timeouts.insert(reader.entity_id(), to);
+                                    trace!(
+                                        "set Reader liveliness check timer({:?})\n\tReader: {}",
+                                        time,
+                                        reader.entity_id()
+                                    );
+                                } else {
+                                    error!("not found Reader which fired check liveliness timer\n\tReader: {}", eid);
                                 }
                             }
                         }
@@ -518,26 +520,22 @@ impl EventLoop {
                             }
                         }
                         READER_HEARTBEAT_TIMER => {
-                            for rhb_timer in &mut self.reader_hb_timers {
-                                if let Some((reid, wguid)) = rhb_timer.poll() {
-                                    trace!("fired Reader Heartbeat timer\n\tReader: {}", reid);
-                                    if let Some(reader) = self.readers.get_mut(&reid) {
-                                        reader.handle_hb_response_timeout(wguid);
-                                    } else {
-                                        error!("not found Reader which fired Heartbeat timer\n\tReader: {}", reid);
-                                    }
+                            while let Some((reid, wguid)) = self.reader_hb_timer.poll() {
+                                trace!("fired Reader Heartbeat timer\n\tReader: {}", reid);
+                                if let Some(reader) = self.readers.get_mut(&reid) {
+                                    reader.handle_hb_response_timeout(wguid);
+                                } else {
+                                    error!("not found Reader which fired Heartbeat timer\n\tReader: {}", reid);
                                 }
                             }
                         }
                         WRITER_NACK_TIMER => {
-                            for wan_timer in &mut self.writer_nack_timers {
-                                if let Some((weid, rguid)) = wan_timer.poll() {
-                                    trace!("fired Writer AckNack timer\n\tWriter: {}", weid);
-                                    if let Some(writer) = self.writers.get_mut(&weid) {
-                                        writer.handle_nack_response_timeout(rguid);
-                                    } else {
-                                        error!("not found Writer which fired Heartbeat timer\n\tWriter: {}", weid);
-                                    }
+                            while let Some((weid, rguid)) = self.writer_nack_timer.poll() {
+                                trace!("fired Writer AckNack timer\n\tWriter: {}", weid);
+                                if let Some(writer) = self.writers.get_mut(&weid) {
+                                    writer.handle_nack_response_timeout(rguid);
+                                } else {
+                                    error!("not found Writer which fired Heartbeat timer\n\tWriter: {}", weid);
                                 }
                             }
                         }
@@ -545,24 +543,14 @@ impl EventLoop {
                             while let Ok(reader_eid) = self.wlp_timer_receiver.try_recv() {
                                 if let Some(reader) = self.readers.get_mut(&reader_eid) {
                                     let min_ld = reader.get_min_remote_writer_lease_duration();
-                                    let mut wlp_timer = Timer::default();
-                                    let timeout = wlp_timer.set_timeout(min_ld, reader.entity_id());
-                                    self.poll
-                                        .register(
-                                            &wlp_timer,
-                                            WRITER_LIVELINESS_CHECK_TIMER,
-                                            Ready::readable(),
-                                            PollOpt::edge(),
-                                        )
-                                        .expect("coludn't register reader_hb_timer to poll");
-                                    if let Some((timer, to)) =
-                                        self.wlp_timers.get_mut(&reader.entity_id())
+                                    if let Some(to) = self.wlp_timeouts.get_mut(&reader.entity_id())
                                     {
-                                        timer.cancel_timeout(to);
+                                        self.wlp_timer.cancel_timeout(to);
                                         reader.check_liveliness(&mut self.discovery_db);
                                     }
-                                    self.wlp_timers
-                                        .insert(reader.entity_id(), (wlp_timer, timeout));
+                                    let timeout =
+                                        self.wlp_timer.set_timeout(min_ld, reader.entity_id());
+                                    self.wlp_timeouts.insert(reader.entity_id(), timeout);
                                 } else {
                                     error!("not found Reader which attempt to set WriterLivelinessTimer\n\tReader: {}", reader_eid);
                                 }
