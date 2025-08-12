@@ -259,10 +259,8 @@ impl Writer {
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
-        let mut to_send_data: BTreeMap<SequenceNumber, Vec<(EntityId, Vec<Locator>)>> =
-            BTreeMap::new();
-        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<(EntityId, Vec<Locator>)>> =
-            BTreeMap::new();
+        let mut to_send_data: BTreeMap<SequenceNumber, Vec<(GUID, Vec<Locator>)>> = BTreeMap::new();
+        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<(GUID, Vec<Locator>)>> = BTreeMap::new();
         for reader_proxy in self.matched_readers.values_mut() {
             while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
                 reader_proxy.update_cache_state(
@@ -271,7 +269,7 @@ impl Writer {
                     ChangeForReaderStatusKind::Underway,
                 );
                 let seq_num = change_for_reader.seq_num;
-                let reader_entity_id = reader_proxy.remote_reader_guid.entity_id;
+                let reader_guid = reader_proxy.remote_reader_guid;
                 let locator_lsit = if self_entity_id.is_builtin() {
                     // built-in endpoint send DATA via multicast
                     if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
@@ -291,18 +289,18 @@ impl Writer {
                     if let std::collections::btree_map::Entry::Vacant(e) =
                         to_send_data.entry(seq_num)
                     {
-                        e.insert(vec![(reader_entity_id, locator_lsit)]);
+                        e.insert(vec![(reader_guid, locator_lsit)]);
                     } else {
                         let vec = to_send_data.get_mut(&seq_num).unwrap();
-                        vec.push((reader_entity_id, locator_lsit));
+                        vec.push((reader_guid, locator_lsit));
                     }
                 } else if let std::collections::btree_map::Entry::Vacant(e) =
                     to_send_gap.entry(seq_num)
                 {
-                    e.insert(vec![(reader_entity_id, locator_lsit)]);
+                    e.insert(vec![(reader_guid, locator_lsit)]);
                 } else {
                     let vec = to_send_gap.get_mut(&seq_num).unwrap();
-                    vec.push((reader_entity_id, locator_lsit));
+                    vec.push((reader_guid, locator_lsit));
                 }
             }
         }
@@ -374,7 +372,7 @@ impl Writer {
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
-        let mut to_send_hb: Vec<(EntityId, Vec<Locator>)> = Vec::new();
+        let mut to_send_hb: Vec<(GUID, Vec<Locator>)> = Vec::new();
         for reader_proxy in self.matched_readers.values_mut() {
             let ll_m =
                 if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
@@ -382,7 +380,7 @@ impl Writer {
                 } else {
                     continue;
                 };
-            to_send_hb.push((reader_proxy.remote_reader_guid.entity_id, ll_m));
+            to_send_hb.push((reader_proxy.remote_reader_guid, ll_m));
         }
         let reader_locators = to_send_hb;
         let send_list = Self::min_message_cover(&reader_locators);
@@ -474,10 +472,8 @@ impl Writer {
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
-        let mut to_send_data: BTreeMap<SequenceNumber, Vec<(EntityId, Vec<Locator>)>> =
-            BTreeMap::new();
-        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<(EntityId, Vec<Locator>)>> =
-            BTreeMap::new();
+        let mut to_send_data: BTreeMap<SequenceNumber, Vec<(GUID, Vec<Locator>)>> = BTreeMap::new();
+        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<(GUID, Vec<Locator>)>> = BTreeMap::new();
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
             while let Some(change) = reader_proxy.next_requested_change() {
                 reader_proxy.update_cache_state(
@@ -486,7 +482,7 @@ impl Writer {
                     ChangeForReaderStatusKind::Underway,
                 );
                 let seq_num = change.seq_num;
-                let reader_entity_id = reader_proxy.remote_reader_guid.entity_id;
+                let reader_guid = reader_proxy.remote_reader_guid;
                 let locator_lsit = if self_entity_id.is_builtin() {
                     // built-in endpoint send DATA via multicast
                     if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
@@ -506,18 +502,18 @@ impl Writer {
                     if let std::collections::btree_map::Entry::Vacant(e) =
                         to_send_data.entry(seq_num)
                     {
-                        e.insert(vec![(reader_entity_id, locator_lsit)]);
+                        e.insert(vec![(reader_guid, locator_lsit)]);
                     } else {
                         let vec = to_send_data.get_mut(&seq_num).unwrap();
-                        vec.push((reader_entity_id, locator_lsit));
+                        vec.push((reader_guid, locator_lsit));
                     }
                 } else if let std::collections::btree_map::Entry::Vacant(e) =
                     to_send_gap.entry(seq_num)
                 {
-                    e.insert(vec![(reader_entity_id, locator_lsit)]);
+                    e.insert(vec![(reader_guid, locator_lsit)]);
                 } else {
                     let vec = to_send_gap.get_mut(&seq_num).unwrap();
-                    vec.push((reader_entity_id, locator_lsit));
+                    vec.push((reader_guid, locator_lsit));
                 }
             }
         } else {
@@ -677,17 +673,15 @@ impl Writer {
         ((ipv4_addr[12] >> 4) ^ 0b1110) == 0
     }
 
-    fn min_message_cover(
-        reader_locators: &Vec<(EntityId, Vec<Locator>)>,
-    ) -> Vec<(EntityId, Locator)> {
-        let mut locator_to_readers: BTreeMap<Locator, BTreeSet<EntityId>> = BTreeMap::new();
-        for (eid, ll) in reader_locators {
+    fn min_message_cover(reader_locators: &Vec<(GUID, Vec<Locator>)>) -> Vec<(EntityId, Locator)> {
+        let mut locator_to_readers: BTreeMap<Locator, BTreeSet<GUID>> = BTreeMap::new();
+        for (guid, ll) in reader_locators {
             for l in ll {
-                locator_to_readers.entry(*l).or_default().insert(*eid);
+                locator_to_readers.entry(*l).or_default().insert(*guid);
             }
         }
         let mut send_list = Vec::new();
-        let mut covered: BTreeSet<(EntityId, Locator)> = BTreeSet::new();
+        let mut covered: BTreeSet<(GUID, Locator)> = BTreeSet::new();
         for (loc, readers) in &locator_to_readers {
             if readers.len() > 1 {
                 send_list.push((EntityId::UNKNOW, *loc));
@@ -699,7 +693,7 @@ impl Writer {
         for (reader, locs) in reader_locators {
             for loc in locs {
                 if !covered.contains(&(*reader, *loc)) {
-                    send_list.push((*reader, *loc));
+                    send_list.push((reader.entity_id, *loc));
                 }
             }
         }
