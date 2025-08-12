@@ -356,6 +356,11 @@ impl EventLoop {
                                         .send((writer.entity_id(), writer.sedp_data()))
                                         .expect("coludn't send channel 'notify_new_writer_sender'");
                                 }
+                                self.discovery_db.write_local_writer(
+                                    writer.guid(),
+                                    Timestamp::now().expect("failed get Timestamp"),
+                                    writer.get_qos().liveliness().kind,
+                                );
                                 self.writers.insert(writer.entity_id(), writer);
                             }
                         }
@@ -479,13 +484,21 @@ impl EventLoop {
                                     let duration = now - ts;
                                     let liveliness = writer.get_qos().liveliness();
                                     if liveliness.kind != LivelinessQosKind::Automatic {
+                                        trace!("assert_liveliness continue because not kind Automatic\n\tWriter: {}", guid);
                                         continue;
                                     }
                                     if liveliness.lease_duration == Duration::INFINITE {
+                                        trace!("assert_liveliness continue because duration INFINITE\n\tWriter: {}", guid);
                                         continue;
                                     }
                                     if duration > liveliness.lease_duration.half() {
                                         writer.assert_liveliness();
+                                        trace!("assert_liveliness()\n\tWriter: {}", guid);
+                                        self.discovery_db.write_local_writer(
+                                            writer.guid(),
+                                            Timestamp::now().expect("failed get Timestamp"),
+                                            writer.get_qos().liveliness().kind,
+                                        );
                                     }
                                 } else {
                                     debug!("not found local Writer which attempt to assert liveliness\n\tWriter: {}", guid);

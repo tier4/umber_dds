@@ -431,6 +431,11 @@ impl MessageReceiver {
                     ));
                 }
             };
+            disc_db.write_remote_writer(
+                writer_proxy.remote_writer_guid,
+                ts,
+                writer_proxy.qos.liveliness().kind,
+            );
             for (eid, reader) in readers.iter_mut() {
                 if reader.is_writer_match(&topic_name, &data_type) {
                     let remote_writer_topic_kind =
@@ -631,24 +636,24 @@ impl MessageReceiver {
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(writer_guid) {
+                    reader.add_change(self.source_guid_prefix, change.clone());
                     disc_db.write_remote_writer(
                         writer_guid,
                         ts,
                         reader.get_matched_writer_qos(writer_guid).liveliness().kind,
                     );
-                    reader.add_change(self.source_guid_prefix, change.clone())
                 }
             }
         } else {
             match readers.get_mut(&data.reader_id) {
                 Some(r) => {
                     if r.is_contain_writer(writer_guid) {
+                        r.add_change(self.source_guid_prefix, change);
                         disc_db.write_remote_writer(
                             writer_guid,
                             ts,
                             r.get_matched_writer_qos(writer_guid).liveliness().kind,
                         );
-                        r.add_change(self.source_guid_prefix, change)
                     } else {
                         warn!(
                             "recieved DATA message from unknown Writer {}",

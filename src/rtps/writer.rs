@@ -98,6 +98,8 @@ impl Writer {
             msg,
             wi.guid,
         );
+        let writer_cache = Arc::new(RwLock::new(HistoryCache::new()));
+        writer_cache.write().add_empty_change(wi.guid);
         Self {
             guid: wi.guid,
             topic_kind: wi.topic.kind(),
@@ -109,7 +111,7 @@ impl Writer {
             nack_response_delay: wi.nack_response_delay,
             _nack_suppression_duration: wi.nack_suppression_duration,
             last_change_sequence_number: SequenceNumber(0),
-            writer_cache: Arc::new(RwLock::new(HistoryCache::new())),
+            writer_cache,
             data_max_size_serialized: wi.data_max_size_serialized,
             reader_locators: Vec::new(),
             matched_readers: BTreeMap::new(),
@@ -225,6 +227,10 @@ impl Writer {
                     .send(ParticipantMessageCmd::SendData(data))
                     .expect("couldn't send channel 'participant_msg_cmd_sender'");
             }
+        } else {
+            unreachable!(
+                "Writer attempted to assert_liveliness, but writer_cache dosen't has last_added ts"
+            );
         }
     }
 
