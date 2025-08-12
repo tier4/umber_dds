@@ -674,6 +674,15 @@ impl Writer {
         }
     }
 
+    pub fn is_acked_by_all(&self) -> bool {
+        for reader_proxy in self.matched_readers.values() {
+            if !reader_proxy.is_acked() {
+                return false;
+            }
+        }
+        true
+    }
+
     fn is_ipv4_multicast(ipv4_addr: &[u8; 16]) -> bool {
         // 224.0.0.0 - 239.255.255.255
         ((ipv4_addr[12] >> 4) ^ 0b1110) == 0

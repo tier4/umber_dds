@@ -144,6 +144,14 @@ impl ReaderProxy {
         }
         unsent_changes
     }
+    pub fn is_acked(&self) -> bool {
+        let mut res = true;
+        for change in self.cache_state.values() {
+            res &= change._is_relevant;
+            res &= change.status == ChangeForReaderStatusKind::Acknowledged;
+        }
+        res
+    }
     #[allow(dead_code)]
     pub fn unacked_changes(&self) -> Vec<ChangeForReader> {
         let mut unacked_changes = Vec::new();
