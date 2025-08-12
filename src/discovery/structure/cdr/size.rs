@@ -10,28 +10,6 @@ pub trait SizeLimit {
     fn limit(&self) -> Option<u64>;
 }
 
-/// A `SizeLimit` that restricts serialized or deserialized messages so that
-/// they do not exceed a certain byte length.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Bounded(pub u64);
-
-impl SizeLimit for Bounded {
-    #[inline]
-    fn add(&mut self, n: u64) -> Result<()> {
-        if self.0 >= n {
-            self.0 -= n;
-            Ok(())
-        } else {
-            Err(Error::SizeLimit)
-        }
-    }
-
-    #[inline]
-    fn limit(&self) -> Option<u64> {
-        Some(self.0)
-    }
-}
-
 /// A `SizeLimit` without a limit.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Infinite;
