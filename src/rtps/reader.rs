@@ -115,6 +115,7 @@ impl Reader {
             Vec::new(),
             self.qos.clone(),
             Arc::new(RwLock::new(HistoryCache::new())),
+            true,
         );
         let sub_data = self.topic.sub_builtin_topic_data();
         DiscoveredReaderData::new(proxy, sub_data)

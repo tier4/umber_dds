@@ -773,6 +773,7 @@ impl Writer {
                 default_multicast_locator_list,
                 qos,
                 self.writer_cache.clone(),
+                self.push_mode,
             ));
             self.total_matched_readers.insert(remote_reader_guid);
             let pub_match_state = PublicationMatchedStatus::new(

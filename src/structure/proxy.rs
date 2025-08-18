@@ -20,7 +20,7 @@ pub struct ReaderProxy {
     pub default_unicast_locator_list: Vec<Locator>,
     pub default_multicast_locator_list: Vec<Locator>,
     pub qos: DataReaderQosPolicies,
-    history_cache: Arc<RwLock<HistoryCache>>,
+    _history_cache: Arc<RwLock<HistoryCache>>,
     cache_state: BTreeMap<SequenceNumber, ChangeForReader>,
 }
 
@@ -35,6 +35,7 @@ impl ReaderProxy {
         default_multicast_locator_list: Vec<Locator>,
         qos: DataReaderQosPolicies,
         history_cache: Arc<RwLock<HistoryCache>>,
+        push_mode: bool,
     ) -> Self {
         // Check whether the WriterProxy have at lease one Locator
         assert!(
@@ -44,6 +45,21 @@ impl ReaderProxy {
                 + default_multicast_locator_list.len()
                 > 0
         );
+        let mut cache_state = BTreeMap::new();
+        let status_kind = if push_mode {
+            ChangeForReaderStatusKind::Unsent
+        } else {
+            ChangeForReaderStatusKind::Unacknowledged
+        };
+        {
+            let hc = history_cache.read();
+            for k in hc.changes.keys() {
+                cache_state.insert(
+                    k.seq_num,
+                    ChangeForReader::new(k.seq_num, status_kind, true),
+                );
+            }
+        }
         Self {
             remote_reader_guid,
             expects_inline_qos,
@@ -52,8 +68,8 @@ impl ReaderProxy {
             default_unicast_locator_list,
             default_multicast_locator_list,
             qos,
-            history_cache,
-            cache_state: BTreeMap::new(),
+            _history_cache: history_cache,
+            cache_state,
         }
     }
 
@@ -86,14 +102,18 @@ impl ReaderProxy {
     }
 
     pub fn acked_changes_set(&mut self, commited_seq_num: SequenceNumber) {
-        let hc = self.history_cache.read();
-        for (k, v) in &hc.changes {
-            if v.sequence_number <= commited_seq_num {
-                self.cache_state.insert(
-                    k.seq_num,
-                    ChangeForReader::new(k.seq_num, ChangeForReaderStatusKind::Acknowledged, false),
-                );
+        let mut to_update = Vec::new();
+        for (seq_num, cfr) in &self.cache_state {
+            if *seq_num <= commited_seq_num {
+                to_update.push((*seq_num, cfr._is_relevant));
             }
+        }
+        for (seq_num, _is_relevant) in to_update {
+            self.update_cache_state(
+                seq_num,
+                _is_relevant,
+                ChangeForReaderStatusKind::Acknowledged,
+            );
         }
     }
     pub fn next_requested_change(&self) -> Option<ChangeForReader> {

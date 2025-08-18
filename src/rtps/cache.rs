@@ -40,7 +40,7 @@ impl CacheChange {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Copy)]
 pub enum ChangeForReaderStatusKind {
     Unsent,
     Unacknowledged,

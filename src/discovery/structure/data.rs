@@ -279,6 +279,7 @@ impl SDPBuiltinData {
             default_multicast_locator_list,
             qos,
             history_cache,
+            true,
         ))
     }
 
