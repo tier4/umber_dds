@@ -362,6 +362,8 @@ impl Writer {
     pub fn send_heart_beat(&mut self, liveliness: bool) {
         if liveliness {
             self.is_alive = true;
+        } else if self.is_acked_by_all() {
+            return;
         }
         let time_stamp = Timestamp::now();
         let writer_cache = self.writer_cache.read();
