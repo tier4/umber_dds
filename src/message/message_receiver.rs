@@ -623,7 +623,6 @@ impl MessageReceiver {
                     );
                 }
             }
-            /*
             match readers.get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER) {
                 Some(r) => r.add_change(self.source_guid_prefix, change),
                 None => {
@@ -632,7 +631,6 @@ impl MessageReceiver {
                     ));
                 }
             };
-            */
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(writer_guid) {
