@@ -180,34 +180,15 @@ impl HistoryCache {
         self.last_added.get(&writer_guid)
     }
 
-    pub fn get_alive_changes(&self) -> Vec<CacheChange> {
+    pub fn get_alive_changes(&self) -> Vec<(HCKey, CacheChange)> {
         self.changes
             .iter()
-            .filter(|c| c.1.kind == ChangeKind::Alive)
-            .map(|c| c.1.clone())
+            .filter(|(_k, c)| c.kind == ChangeKind::Alive)
+            .map(|(k, c)| (*k, c.clone()))
             .collect()
     }
-    pub fn remove_change(&mut self, change: &CacheChange) {
-        let mut to_del = Vec::new();
-        for (k, v) in self.changes.iter() {
-            if *v == *change {
-                to_del.push(*k);
-            }
-        }
-        for k in to_del {
-            self.update_change_state(&k, ChangeKind::NotAliveDisposed);
-        }
-    }
-    pub fn remove_notalive_changes(&mut self) {
-        let to_del: Vec<HCKey> = self
-            .changes
-            .iter()
-            .filter(|c| c.1.kind == ChangeKind::NotAliveDisposed)
-            .map(|c| *c.0)
-            .collect();
-        for d in to_del {
-            self.changes.remove(&d);
-        }
+    pub fn remove_change(&mut self, key: &HCKey) {
+        self.changes.remove(key);
         self.min_seq_num = None;
         self.max_seq_num = None;
     }
@@ -238,7 +219,7 @@ impl HistoryCache {
         }
     }
 
-    fn update_change_state(&mut self, key: &HCKey, kind: ChangeKind) {
+    fn _update_change_state(&mut self, key: &HCKey, kind: ChangeKind) {
         if let Some(todo_update) = self.changes.get_mut(key) {
             todo_update.kind = kind;
         }
