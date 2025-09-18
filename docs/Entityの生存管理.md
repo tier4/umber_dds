@@ -64,9 +64,30 @@ DDS 1.4 spec
 
 ### そのWriterからDataを受信した場合
 
++ そのWriterのLiveliness QoSがMANUAL_BY_{PARTICIPANT/TOPIC}_LIVELINESS_QOSに設定されている場合
+
 DDS 1.4 spec
 > 2.2.3.11 LIVELINESS
 > The MANUAL settings (MANUAL_BY_PARTICIPANT, MANUAL_BY_TOPIC), require the application on the publishing side to periodically assert the liveliness before the lease expires to indicate the corresponding Entity is still alive. The action can be explicit by calling the assert_liveliness operations, or implicit by writing some data.
+
++ そのWriterのLiveliness QoSがAUTOMATIC_LIVELINESS_QOSに設定されている場合
+
+rtsp specにはBuiltinParticipantMessageWriterを通じてlivelinessが管理されるとある。
+
+rtps 2.3 spec
+> 8.7.2.2.3 LIVELINESS
+> DDS_AUTOMATIC_LIVELINESS_QOS : liveliness is maintained through the BuiltinParticipantMessageWriter.
+> For a given Participant, in order to maintain the liveliness of its Writer Entities with LIVELINESS QoS set to
+> AUTOMATIC, implementations must refresh the Participant’s liveliness (i.e., send the ParticipantMessageData, see 8.4.13.5) at a rate faster than the smallest lease duration among the Writers.
+
+しかしDDS specにはAUTOMATIC livelinessは「プロセスレベルでの障害検出のみを必要とするアプリケーションに最適で、プロセス内のアプリケーションロジックに関する障害検出には適していません」とある。
+この目的の達成のためにはあるWriterからDataを受信した場合、そのWriterは生存していると判断するので十分である。
+またデータの送信頻度がlease durationよりも十分に短い場合、明示的にParticipantMessageDataによるlivelinessの宣言を行なわないという実装でCyclone DDS, Fast DDSとの通信テストした結果、livelinessのlostが発生しなかった。
+そのため、本実装はAUTOMATIC livelinessの場合についてもあるWrtierからDataを受信した場合にそのWriterのlivelinessを更新するようにしている。
+
+DDS 1.4 spec
+> 2.2.3.11 LIVELINESS
+> The AUTOMATIC liveliness setting is most appropriate for applications that only need to detect failures at the process-level, but not application-logic failures within a process.
 
 ### そのWriterが所属するParticipantのParticipantMessageDataを受信した場合
 ただし、そのWriterのLiveliness QoSとParticipantMessageDataのkindが一致している場合のみ
