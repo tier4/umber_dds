@@ -422,6 +422,7 @@ pub struct RepresentationIdentifier {
     bytes: [u8; 2],
 }
 
+#[allow(dead_code)]
 impl RepresentationIdentifier {
     pub fn bytes(&self) -> [u8; 2] {
         self.bytes

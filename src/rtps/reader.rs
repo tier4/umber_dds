@@ -12,7 +12,7 @@ use crate::message::submessage::{
     submessage_flag::HeartbeatFlag,
 };
 use crate::network::udp_sender::UdpSender;
-use crate::rtps::cache::{CacheChange, HistoryCache};
+use crate::rtps::cache::{CacheChange, HistoryCache, HistoryCacheType};
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
 };
@@ -114,7 +114,7 @@ impl Reader {
             Vec::new(),
             Vec::new(),
             self.qos.clone(),
-            Arc::new(RwLock::new(HistoryCache::new())),
+            Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
             true,
         );
         let sub_data = self.topic.sub_builtin_topic_data();
@@ -771,7 +771,7 @@ pub struct ReaderIngredients {
     // Reader
     pub expectsinline_qos: bool,
     pub heartbeat_response_delay: Duration,
-    pub rhc: Arc<RwLock<HistoryCache>>,
+    pub(crate) rhc: Arc<RwLock<HistoryCache>>,
     // This implementation spesific
     pub topic: Topic,
     pub qos: DataReaderQosPolicies,

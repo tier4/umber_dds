@@ -8,6 +8,7 @@ use crate::dds::{
 use crate::discovery::ParticipantMessageCmd;
 use crate::message::submessage::element::Locator;
 use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
+use crate::rtps::cache::{HistoryCache, HistoryCacheType};
 use crate::rtps::writer::{DataWriterStatusChanged, WriterCmd, WriterIngredients};
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, TopicKind, GUID};
 use crate::DdsData;
@@ -212,6 +213,7 @@ impl InnerPublisher {
             mio_channel::channel::<DataWriterStatusChanged>();
         let (writer_command_sender, writer_command_receiver) =
             mio_channel::sync_channel::<WriterCmd>(4);
+        let history_cache = Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Writer)));
         let reliability_level = dw_qos.reliability().kind;
         let heartbeat_period = match reliability_level {
             ReliabilityQosKind::Reliable => Duration::new(2, 0),
@@ -224,8 +226,9 @@ impl InnerPublisher {
             usertraffic_unicast_port(domain_id, participant_id) as u32,
             nics,
         );
+        let guid = GUID::new(self.dp.guid_prefix(), entity_id);
         let writer_ing = WriterIngredients {
-            guid: GUID::new(self.dp.guid_prefix(), entity_id),
+            guid,
             reliability_level,
             unicast_locator_list,
             multicast_locator_list: vec![Locator::new_from_ipv4(
@@ -237,6 +240,7 @@ impl InnerPublisher {
             nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
             nack_suppression_duration: Duration::ZERO,
             data_max_size_serialized: 0,
+            whc: history_cache.clone(),
             topic: topic.clone(),
             qos: dw_qos.clone(),
             writer_command_receiver,
@@ -248,9 +252,11 @@ impl InnerPublisher {
             .expect("couldn't send channel 'create_writer_sender'");
         DataWriter::<D>::new(
             writer_command_sender,
+            guid,
             dw_qos,
             topic,
             outter,
+            history_cache,
             writer_state_receiver,
         )
     }

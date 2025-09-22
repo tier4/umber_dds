@@ -105,13 +105,13 @@ impl ReaderProxy {
         let mut to_update = Vec::new();
         for (seq_num, cfr) in &self.cache_state {
             if *seq_num <= commited_seq_num {
-                to_update.push((*seq_num, cfr._is_relevant));
+                to_update.push((*seq_num, cfr.is_relevant));
             }
         }
-        for (seq_num, _is_relevant) in to_update {
+        for (seq_num, is_relevant) in to_update {
             self.update_cache_state(
                 seq_num,
-                _is_relevant,
+                is_relevant,
                 ChangeForReaderStatusKind::Acknowledged,
             );
         }
@@ -167,7 +167,7 @@ impl ReaderProxy {
     pub fn is_acked(&self) -> bool {
         let mut res = true;
         for change in self.cache_state.values() {
-            res &= change._is_relevant;
+            res &= change.is_relevant;
             res &= change.status == ChangeForReaderStatusKind::Acknowledged;
         }
         res
@@ -176,7 +176,7 @@ impl ReaderProxy {
     pub fn unacked_changes(&self) -> Vec<ChangeForReader> {
         let mut unacked_changes = Vec::new();
         for change_for_reader in self.cache_state.values() {
-            if let ChangeForReaderStatusKind::Unsent = change_for_reader.status {
+            if let ChangeForReaderStatusKind::Unacknowledged = change_for_reader.status {
                 unacked_changes.push(change_for_reader.clone())
             }
         }

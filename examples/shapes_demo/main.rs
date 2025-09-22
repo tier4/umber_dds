@@ -119,7 +119,7 @@ fn main() {
                         policy::Reliability::default_besteffort()
                     })
                     .build();
-                let datawriter = publisher
+                let mut datawriter = publisher
                     .create_datawriter::<Shape>(DataWriterQos::Policies(Box::new(dw_qos)), topic);
                 poll.register(&datawriter, DATAWRITER, Ready::readable(), PollOpt::edge())
                     .unwrap();

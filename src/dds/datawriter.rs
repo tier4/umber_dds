@@ -4,9 +4,18 @@ use crate::dds::{
     qos::{policy::LivelinessQosKind, DataWriterQosPolicies},
     topic::Topic,
 };
-use crate::message::submessage::element::{RepresentationIdentifier, SerializedPayload};
-use crate::rtps::writer::*;
+use crate::message::submessage::element::{
+    RepresentationIdentifier, SequenceNumber, SerializedPayload, Timestamp,
+};
+use crate::rtps::{
+    cache::{CacheChange, ChangeKind, HistoryCache, InstantHandle},
+    writer::*,
+};
+use crate::structure::GUID;
+use alloc::sync::Arc;
+use awkernel_sync::rwlock::RwLock;
 use core::marker::PhantomData;
+use log::{info, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
 use serde::Serialize;
@@ -16,9 +25,15 @@ use std::io;
 #[allow(dead_code)]
 pub struct DataWriter<D: Serialize + DdsData> {
     data_phantom: PhantomData<D>,
+    writer_guid: GUID,
     qos: DataWriterQosPolicies,
     topic: Topic,
     publisher: Publisher,
+    whc: Arc<RwLock<HistoryCache>>,
+    // last_change_sequence_numberは本来はWriter::new_change()でのCacheChangeの作成時に使用するRTPS Writerのメンバ
+    // 本実装ではDataWrtierとRTPS Writerが別スレッドに配置されるため、DataWriterはRTPS Writerのnew_changeを叩けない。
+    // そのため、DataWriterがlast_change_sequence_numberを保持している。
+    last_change_sequence_number: SequenceNumber,
     // my_guid: GUID, // In RustDDS, DataWriter has guid to drop corresponding RTPSWriter
     // I implement guid for DataWriter when need.
     writer_command_sender: mio_channel::SyncSender<WriterCmd>,
@@ -28,16 +43,21 @@ pub struct DataWriter<D: Serialize + DdsData> {
 impl<D: Serialize + DdsData> DataWriter<D> {
     pub(crate) fn new(
         writer_command_sender: mio_channel::SyncSender<WriterCmd>,
+        writer_guid: GUID,
         qos: DataWriterQosPolicies,
         topic: Topic,
         publisher: Publisher,
+        whc: Arc<RwLock<HistoryCache>>,
         writer_state_receiver: mio_channel::Receiver<DataWriterStatusChanged>,
     ) -> Self {
         Self {
             data_phantom: PhantomData::<D>,
+            writer_guid,
             qos,
             topic,
             publisher,
+            whc,
+            last_change_sequence_number: SequenceNumber(0),
             writer_command_sender,
             writer_state_receiver,
         }
@@ -50,22 +70,41 @@ impl<D: Serialize + DdsData> DataWriter<D> {
     }
 
     /// publish data for matching DataReader
-    pub fn write(&self, data: D) {
+    pub fn write(&mut self, data: D) {
+        let ts = Timestamp::now().expect("failed get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
-        let writer_cmd = WriterCmd::WriteData(Some(serialized_payload));
-        self.writer_command_sender
-            .send(writer_cmd)
-            .expect("couldn't send message");
+        self.writer_data_to_hc(ts, serialized_payload);
     }
 
-    pub(crate) fn write_builtin_data(&self, data: D) {
+    pub(crate) fn write_builtin_data(&mut self, data: D) {
+        let ts = Timestamp::now().expect("failed get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
-        let writer_cmd = WriterCmd::WriteData(Some(serialized_payload));
-        self.writer_command_sender
-            .send(writer_cmd)
-            .expect("couldn't send message");
+        self.writer_data_to_hc(ts, serialized_payload);
+    }
+
+    fn writer_data_to_hc(&mut self, ts: Timestamp, serialized_payload: SerializedPayload) {
+        self.last_change_sequence_number += SequenceNumber(1);
+        let a_change = CacheChange::new(
+            ChangeKind::Alive,
+            self.writer_guid,
+            self.last_change_sequence_number,
+            ts,
+            Some(serialized_payload),
+            InstantHandle {},
+        );
+        if let Err(e) = self.whc.write().add_change(a_change) {
+            warn!("DataWriter failed to add change to HistoryCache: {e}");
+        } else {
+            info!(
+                "DataWriter add change to HistoryCache: seq_num: {}\n\tWriter: {}",
+                self.last_change_sequence_number.0, self.writer_guid
+            );
+            self.writer_command_sender
+                .send(WriterCmd::WriteData)
+                .expect("couldn't send message");
+        }
     }
 
     /// assert liveliness of the DataWriter manually

@@ -9,7 +9,7 @@ use crate::message::{
     *,
 };
 use crate::net_util::*;
-use crate::rtps::cache::HistoryCache;
+use crate::rtps::cache::{HistoryCache, HistoryCacheType};
 use crate::rtps::{
     cache::{CacheChange, ChangeKind, InstantHandle},
     reader::Reader,
@@ -407,7 +407,7 @@ impl MessageReceiver {
                 let default_multicast_locator_list =
                     participant_data.default_multicast_locator_list;
                 match deserialized.gen_writerproxy(
-                    Arc::new(RwLock::new(HistoryCache::new())),
+                    Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
                     default_unicast_locator_list,
                     default_multicast_locator_list,
                 ) {
@@ -504,7 +504,7 @@ impl MessageReceiver {
                 let default_multicast_locator_list =
                     participant_data.default_multicast_locator_list;
                 match deserialized.gen_readerpoxy(
-                    Arc::new(RwLock::new(HistoryCache::new())),
+                    Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
                     default_unicast_locator_list,
                     default_multicast_locator_list,
                 ) {

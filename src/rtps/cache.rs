@@ -62,19 +62,19 @@ pub enum ChangeFromWriterStatusKind {
 pub struct ChangeForReader {
     pub seq_num: SequenceNumber,
     pub status: ChangeForReaderStatusKind,
-    pub _is_relevant: bool,
+    pub is_relevant: bool,
 }
 
 impl ChangeForReader {
     pub fn new(
         seq_num: SequenceNumber,
         status: ChangeForReaderStatusKind,
-        _is_relevant: bool,
+        is_relevant: bool,
     ) -> Self {
         Self {
             seq_num,
             status,
-            _is_relevant,
+            is_relevant,
         }
     }
 }
@@ -103,10 +103,10 @@ impl ChangeFromWriter {
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum ChangeKind {
     Alive,
-    AliveFiltered,
-    NotAlive,
-    NotAliveDisposed,
-    NotAliveUnregistered,
+    _AliveFiltered,
+    _NotAlive,
+    _NotAliveDisposed,
+    _NotAliveUnregistered,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -135,18 +135,34 @@ impl Ord for HCKey {
     }
 }
 
-pub struct HistoryCache {
+pub(crate) enum HistoryCacheType {
+    Reader,
+    Writer,
+    Dummy,
+}
+
+pub(crate) struct HistoryCache {
     pub changes: BTreeMap<HCKey, CacheChange>,
+    hc_type: HistoryCacheType,
+    // only use type Writer
+    unprocessed_seqnum: Vec<SequenceNumber>,
     pub last_added: BTreeMap<GUID, Timestamp>,
     pub min_seq_num: Option<SequenceNumber>,
     pub max_seq_num: Option<SequenceNumber>,
 }
 
 impl HistoryCache {
-    pub fn new() -> Self {
+    pub fn new(hc_type: HistoryCacheType) -> Self {
+        let unprocessed_seqnum = Vec::with_capacity(match hc_type {
+            HistoryCacheType::Reader => 0,
+            HistoryCacheType::Writer => 32,
+            HistoryCacheType::Dummy => 0,
+        });
         Self {
             changes: BTreeMap::new(),
             last_added: BTreeMap::new(),
+            hc_type,
+            unprocessed_seqnum,
             min_seq_num: None,
             max_seq_num: None,
         }
@@ -156,21 +172,38 @@ impl HistoryCache {
             .insert(guid, Timestamp::now().expect("failed get time_stamp now"));
     }
     pub fn add_change(&mut self, change: CacheChange) -> Result<(), String> {
-        let key = HCKey::new(change.writer_guid, change.sequence_number);
+        let seq_num = change.sequence_number;
+        let key = HCKey::new(change.writer_guid, seq_num);
         if let Some(c) = self.changes.get(&key) {
             if c.data_value == change.data_value {
                 Err("attempted to add a change that was already added".to_string())
             } else {
+                // maybe unreachable?
+                unreachable!();
+                /*
                 self.last_added.insert(key.guid, change.timestamp);
                 self.changes.insert(key, change);
                 Ok(())
+                */
             }
         } else {
             self.last_added.insert(key.guid, change.timestamp);
             self.changes.insert(key, change);
+            if let HistoryCacheType::Writer = self.hc_type {
+                self.unprocessed_seqnum.push(seq_num);
+            }
             Ok(())
         }
     }
+
+    pub fn get_unprocessed(&mut self) -> Vec<SequenceNumber> {
+        if let HistoryCacheType::Writer = self.hc_type {
+            core::mem::take(&mut self.unprocessed_seqnum)
+        } else {
+            unreachable!();
+        }
+    }
+
     pub fn get_change(&self, guid: GUID, seq_num: SequenceNumber) -> Option<CacheChange> {
         self.changes.get(&HCKey::new(guid, seq_num)).cloned()
     }
@@ -223,11 +256,5 @@ impl HistoryCache {
         if let Some(todo_update) = self.changes.get_mut(key) {
             todo_update.kind = kind;
         }
-    }
-}
-
-impl Default for HistoryCache {
-    fn default() -> Self {
-        Self::new()
     }
 }
