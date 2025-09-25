@@ -70,14 +70,14 @@ impl<D: Serialize + DdsData> DataWriter<D> {
     }
 
     /// publish data for matching DataReader
-    pub fn write(&mut self, data: D) {
+    pub fn write(&mut self, data: &D) {
         let ts = Timestamp::now().expect("failed get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
         self.writer_data_to_hc(ts, serialized_payload);
     }
 
-    pub(crate) fn write_builtin_data(&mut self, data: D) {
+    pub(crate) fn write_builtin_data(&mut self, data: &D) {
         let ts = Timestamp::now().expect("failed get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);

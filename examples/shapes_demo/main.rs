@@ -169,7 +169,7 @@ fn main() {
                                 }
                             }
                             WRITETIMTER => {
-                                datawriter.write(shape.clone());
+                                datawriter.write(&shape);
                                 println!("send: {:?}", shape);
                                 shape.x = (shape.x + 5) % 255;
                                 shape.y = (shape.y + 5) % 255;

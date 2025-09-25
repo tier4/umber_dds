@@ -304,7 +304,7 @@ impl DiscoveryDBInner {
         guid_prefix: GuidPrefix,
     ) -> Option<SPDPdiscoveredParticipantData> {
         if let Some((_ts, data)) = self.participant_data.get(&guid_prefix) {
-            Some((*data).clone())
+            Some(data.clone())
         } else {
             None
         }

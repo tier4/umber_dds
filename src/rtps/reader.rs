@@ -234,13 +234,13 @@ impl Reader {
             self.matched_writers.entry(remote_writer_guid)
         {
             if let Err(e) = self.qos.is_compatible(&qos) {
-                self.reader_state_notifier
-                    .send(DataReaderStatusChanged::RequestedIncompatibleQos(e.clone()))
-                    .expect("couldn't send reader_state_notifier");
                 warn!(
                 "Reader requested incompatible qos from Writer\n\tWriter: {}\n\tReader: {}\n\terror: {}",
                 self.guid, remote_writer_guid, e
-            );
+                );
+                self.reader_state_notifier
+                    .send(DataReaderStatusChanged::RequestedIncompatibleQos(e))
+                    .expect("couldn't send reader_state_notifier");
                 return;
             }
 
@@ -393,7 +393,7 @@ impl Reader {
         }
     }
 
-    pub fn handle_gap(&mut self, writer_guid: GUID, gap: Gap) {
+    pub fn handle_gap(&mut self, writer_guid: GUID, gap: &Gap) {
         if let Some(wp) = self.unmatched_writers.remove(&writer_guid) {
             self.matched_writers.insert(writer_guid, wp);
             self.reader_state_notifier
@@ -429,7 +429,7 @@ impl Reader {
         &mut self,
         writer_guid: GUID,
         hb_flag: BitFlags<HeartbeatFlag>,
-        heartbeat: Heartbeat,
+        heartbeat: &Heartbeat,
     ) {
         if let Some(wp) = self.unmatched_writers.remove(&writer_guid) {
             self.matched_writers.insert(writer_guid, wp);
@@ -522,7 +522,7 @@ impl Reader {
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
-        if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
+        if let Some(writer_proxy) = self.matched_writers.get(&writer_guid) {
             let mut missign_seq_num_set = Vec::new();
             for change in writer_proxy.missing_changes() {
                 missign_seq_num_set.push(change);
@@ -563,7 +563,7 @@ impl Reader {
                 .expect("couldn't serialize message");
 
             for loc in ll_u {
-                self.send_msg_to_locator(loc, message_buf.clone(), "acknack");
+                self.send_msg_to_locator(loc, &message_buf, "acknack");
             }
         } else {
             warn!(
@@ -573,7 +573,7 @@ impl Reader {
         }
     }
 
-    fn send_msg_to_locator(&self, loc: Locator, msg_buf: Vec<u8>, msg_kind: &str) {
+    fn send_msg_to_locator(&self, loc: &Locator, msg_buf: &[u8], msg_kind: &str) {
         if loc.kind == Locator::KIND_UDPV4 {
             let port = loc.port;
             let addr = loc.address;
@@ -583,13 +583,13 @@ impl Reader {
             );
             if Self::is_ipv4_multicast(&addr) {
                 self.udp_sender.send_to_multicast(
-                    &msg_buf,
+                    msg_buf,
                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                     port as u16,
                 );
             } else {
                 self.udp_sender.send_to_unicast(
-                    &msg_buf,
+                    msg_buf,
                     Ipv4Addr::new(addr[12], addr[13], addr[14], addr[15]),
                     port as u16,
                 );
@@ -602,10 +602,10 @@ impl Reader {
     fn get_unicast_ll_from_proxy(
         my_guid: GUID,
         writer_proxy: &WriterProxy,
-    ) -> Option<Vec<Locator>> {
-        let ll_u = writer_proxy.get_unicast_locator_list().clone();
+    ) -> Option<&Vec<Locator>> {
+        let ll_u = writer_proxy.get_unicast_locator_list();
         if ll_u.is_empty() {
-            let ll_m = writer_proxy.get_multicast_locator_list().clone();
+            let ll_m = writer_proxy.get_multicast_locator_list();
             if ll_m.is_empty() {
                 error!(
                     "Reader not found locator of Writer\n\tReader: {}\n\tWriter: {}",
@@ -636,11 +636,11 @@ impl Reader {
         self.matched_writers.contains_key(&writer_guid)
             || self.unmatched_writers.contains_key(&writer_guid)
     }
-    pub fn get_matched_writer_qos(&self, writer_guid: GUID) -> DataWriterQosPolicies {
+    pub fn get_matched_writer_qos(&self, writer_guid: GUID) -> &DataWriterQosPolicies {
         if let Some(wp) = self.matched_writers.get(&writer_guid) {
-            wp.qos.clone()
+            &wp.qos
         } else if let Some(wp) = self.unmatched_writers.get(&writer_guid) {
-            wp.qos.clone()
+            &wp.qos
         } else {
             panic!(
                 "not found Writer matched to Reader\n\tReader: {}\n\tWriter: {}",

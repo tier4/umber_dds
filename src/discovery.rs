@@ -119,7 +119,7 @@ impl Discovery {
         );
         let spdp_builtin_participant_reader = subscriber.create_datareader_with_entityid(
             spdp_reader_qos,
-            spdp_topic.clone(),
+            spdp_topic,
             spdp_reader_entity_id,
         );
         poll.register(
@@ -163,7 +163,7 @@ impl Discovery {
         let sedp_builtin_pub_reader: DataReader<SDPBuiltinData> = subscriber
             .create_datareader_with_entityid(
                 sedp_reader_qos.clone(),
-                sedp_publication_topic.clone(),
+                sedp_publication_topic,
                 sedp_pub_reader_entity_id,
             );
         let sedp_subscription_topic = dp.create_builtin_topic(
@@ -183,7 +183,7 @@ impl Discovery {
         let sedp_builtin_sub_reader: DataReader<SDPBuiltinData> = subscriber
             .create_datareader_with_entityid(
                 sedp_reader_qos,
-                sedp_subscription_topic.clone(),
+                sedp_subscription_topic,
                 sedp_sub_reader_entity_id,
             );
 
@@ -333,7 +333,7 @@ impl Discovery {
                         SPDP_SEND_TIMER => {
                             trace!("fired SPDP_SEND_TIMER");
                             self.spdp_builtin_participant_writer
-                                .write_builtin_data(data.clone());
+                                .write_builtin_data(&data);
                             self.spdp_send_timer
                                 .set_timeout(CoreDuration::new(3, 0), ());
                         }
@@ -367,7 +367,7 @@ impl Discovery {
                             while let Ok(cmd) = self.participant_msg_cmd_reveiver.try_recv() {
                                 match cmd {
                                     ParticipantMessageCmd::SendData(data) => {
-                                        self.p2p_builtin_participant_msg_writer.write(data);
+                                        self.p2p_builtin_participant_msg_writer.write(&data);
                                     }
                                 }
                             }
@@ -390,8 +390,7 @@ impl Discovery {
                         }
                         DISC_WRITER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_writer_receiver.try_recv() {
-                                self.sedp_builtin_pub_writer
-                                    .write_builtin_data(data.clone());
+                                self.sedp_builtin_pub_writer.write_builtin_data(&data);
                                 self.local_writers_data.insert(eid, data);
                                 info!(
                                     "add Writer to Discovery's local_writers\n\tWriter: {} ",
@@ -401,8 +400,7 @@ impl Discovery {
                         }
                         DISC_READER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_reader_receiver.try_recv() {
-                                self.sedp_builtin_sub_writer
-                                    .write_builtin_data(data.clone());
+                                self.sedp_builtin_sub_writer.write_builtin_data(&data);
                                 self.local_readers_data.insert(eid, data);
                                 info!(
                                     "add Reader to Discovery's local_readers\n\tReader: {} ",

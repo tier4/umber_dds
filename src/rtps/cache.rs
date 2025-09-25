@@ -35,8 +35,8 @@ impl CacheChange {
         }
     }
 
-    pub fn data_value(&self) -> Option<SerializedPayload> {
-        self.data_value.clone()
+    pub fn data_value(&self) -> Option<&SerializedPayload> {
+        self.data_value.as_ref()
     }
 }
 
@@ -204,8 +204,8 @@ impl HistoryCache {
         }
     }
 
-    pub fn get_change(&self, guid: GUID, seq_num: SequenceNumber) -> Option<CacheChange> {
-        self.changes.get(&HCKey::new(guid, seq_num)).cloned()
+    pub fn get_change(&self, guid: GUID, seq_num: SequenceNumber) -> Option<&CacheChange> {
+        self.changes.get(&HCKey::new(guid, seq_num))
     }
 
     /// get the Timestamp of the last Change added to the HistoryCache from the Writer with the specified `writer_guid`.
@@ -213,11 +213,11 @@ impl HistoryCache {
         self.last_added.get(&writer_guid)
     }
 
-    pub fn get_alive_changes(&self) -> Vec<(HCKey, CacheChange)> {
+    pub fn get_alive_changes(&self) -> (Vec<HCKey>, Vec<&CacheChange>) {
         self.changes
             .iter()
             .filter(|(_k, c)| c.kind == ChangeKind::Alive)
-            .map(|(k, c)| (*k, c.clone()))
+            .map(|(k, c)| (*k, c))
             .collect()
     }
     pub fn remove_change(&mut self, key: &HCKey) {

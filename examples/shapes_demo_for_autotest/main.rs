@@ -218,7 +218,7 @@ fn main() {
                 }
                 WRITE_TIMER => {
                     if let Some(dw) = &mut datawriter {
-                        dw.write(shape.clone());
+                        dw.write(&shape);
                         println!("send: {:?}", shape);
                         shape.x = (shape.x + 5) % 255;
                         shape.y = (shape.y + 5) % 255;

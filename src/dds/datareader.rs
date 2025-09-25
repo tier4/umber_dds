@@ -49,19 +49,16 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
 
     fn get_data(&self) -> Vec<D> {
         let mut hc = self.rhc.write();
-        let changes = hc.get_alive_changes();
-        for (key, _change) in changes.iter() {
-            hc.remove_change(key);
-        }
+        let (keys, changes) = hc.get_alive_changes();
         let mut v: Vec<D> = Vec::new();
-        for d in changes
-            .iter()
-            .filter_map(|(_key, change)| change.data_value())
-        {
+        for d in changes.iter().filter_map(|change| change.data_value()) {
             match deserialize::<D>(&d.to_bytes()) {
                 Ok(neko) => v.push(neko),
                 Err(_e) => (),
             }
+        }
+        for key in keys.iter() {
+            hc.remove_change(key);
         }
         v
     }

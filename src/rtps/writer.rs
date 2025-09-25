@@ -304,7 +304,7 @@ impl Writer {
                         Endianness::LittleEndian,
                         self.guid.entity_id,
                         reid,
-                        aa_change.clone(),
+                        aa_change,
                     );
                     let message = message_builder.build(self_guid_prefix);
                     let message_buf = message
@@ -502,7 +502,7 @@ impl Writer {
                         Endianness::LittleEndian,
                         self.guid.entity_id,
                         reid,
-                        aa_change.clone(),
+                        aa_change,
                     );
                     let message = message_builder.build(self_guid_prefix);
                     let message_buf = message
