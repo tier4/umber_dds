@@ -257,7 +257,7 @@ impl Writer {
                 );
                 let seq_num = change_for_reader.seq_num;
                 let reader_guid = reader_proxy.remote_reader_guid;
-                let locator_lsit = if self_entity_id.is_builtin() {
+                let locator_list = if self_entity_id.is_builtin() {
                     // built-in endpoint send DATA via multicast
                     if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
                         ll_m
@@ -276,18 +276,18 @@ impl Writer {
                     if let std::collections::btree_map::Entry::Vacant(e) =
                         to_send_data.entry(seq_num)
                     {
-                        e.insert(vec![(reader_guid, locator_lsit)]);
+                        e.insert(vec![(reader_guid, locator_list)]);
                     } else {
                         let vec = to_send_data.get_mut(&seq_num).unwrap();
-                        vec.push((reader_guid, locator_lsit));
+                        vec.push((reader_guid, locator_list));
                     }
                 } else if let std::collections::btree_map::Entry::Vacant(e) =
                     to_send_gap.entry(seq_num)
                 {
-                    e.insert(vec![(reader_guid, locator_lsit)]);
+                    e.insert(vec![(reader_guid, locator_list)]);
                 } else {
                     let vec = to_send_gap.get_mut(&seq_num).unwrap();
-                    vec.push((reader_guid, locator_lsit));
+                    vec.push((reader_guid, locator_list));
                 }
             }
         }
@@ -450,7 +450,7 @@ impl Writer {
                 );
                 let seq_num = change.seq_num;
                 let reader_guid = reader_proxy.remote_reader_guid;
-                let locator_lsit = if self_entity_id.is_builtin() {
+                let locator_list = if self_entity_id.is_builtin() {
                     // built-in endpoint send DATA via multicast
                     if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
                         ll_m
@@ -469,18 +469,18 @@ impl Writer {
                     if let std::collections::btree_map::Entry::Vacant(e) =
                         to_send_data.entry(seq_num)
                     {
-                        e.insert(vec![(reader_guid, locator_lsit)]);
+                        e.insert(vec![(reader_guid, locator_list)]);
                     } else {
                         let vec = to_send_data.get_mut(&seq_num).unwrap();
-                        vec.push((reader_guid, locator_lsit));
+                        vec.push((reader_guid, locator_list));
                     }
                 } else if let std::collections::btree_map::Entry::Vacant(e) =
                     to_send_gap.entry(seq_num)
                 {
-                    e.insert(vec![(reader_guid, locator_lsit)]);
+                    e.insert(vec![(reader_guid, locator_list)]);
                 } else {
                     let vec = to_send_gap.get_mut(&seq_num).unwrap();
-                    vec.push((reader_guid, locator_lsit));
+                    vec.push((reader_guid, locator_list));
                 }
             }
         } else {
