@@ -246,8 +246,8 @@ impl Writer {
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
-        let mut to_send_data: BTreeMap<SequenceNumber, Vec<(GUID, Vec<Locator>)>> = BTreeMap::new();
-        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<(GUID, Vec<Locator>)>> = BTreeMap::new();
+        let mut to_send_data: BTreeMap<SequenceNumber, Vec<GUID>> = BTreeMap::new();
+        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<GUID>> = BTreeMap::new();
         for reader_proxy in self.matched_readers.values_mut() {
             while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
                 reader_proxy.update_cache_state(
@@ -257,44 +257,54 @@ impl Writer {
                 );
                 let seq_num = change_for_reader.seq_num;
                 let reader_guid = reader_proxy.remote_reader_guid;
-                let locator_lsit = if self_entity_id.is_builtin() {
-                    // built-in endpoint send DATA via multicast
-                    if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
-                        ll_m
-                    } else {
-                        continue;
-                    }
-                } else {
-                    // other endpoint send DATA via unicast
-                    if let Some(ll_u) = Self::get_unicast_ll_from_proxy(self_guid, reader_proxy) {
-                        ll_u
-                    } else {
-                        continue;
-                    }
-                };
                 if change_for_reader.is_relevant {
                     if let std::collections::btree_map::Entry::Vacant(e) =
                         to_send_data.entry(seq_num)
                     {
-                        e.insert(vec![(reader_guid, locator_lsit)]);
+                        e.insert(vec![reader_guid]);
                     } else {
                         let vec = to_send_data.get_mut(&seq_num).unwrap();
-                        vec.push((reader_guid, locator_lsit));
+                        vec.push(reader_guid);
                     }
                 } else if let std::collections::btree_map::Entry::Vacant(e) =
                     to_send_gap.entry(seq_num)
                 {
-                    e.insert(vec![(reader_guid, locator_lsit)]);
+                    e.insert(vec![reader_guid]);
                 } else {
                     let vec = to_send_gap.get_mut(&seq_num).unwrap();
-                    vec.push((reader_guid, locator_lsit));
+                    vec.push(reader_guid);
                 }
             }
         }
         for seq_num in to_send_data.keys() {
             if let Some(aa_change) = self.writer_cache.read().get_change(self.guid, *seq_num) {
-                let reader_locators = to_send_data.get(seq_num).unwrap();
-                let send_list = Self::min_message_cover(reader_locators);
+                let readers = to_send_data.get(seq_num).unwrap();
+                let mut reader_locators = Vec::new();
+                for reader_guid in readers {
+                    if let Some(reader_proxy) = self.matched_readers.get(reader_guid) {
+                        let locator_lsit = if self_entity_id.is_builtin() {
+                            // built-in endpoint send DATA via multicast
+                            if let Some(ll_m) =
+                                Self::get_multicast_ll_from_proxy(self_guid, reader_proxy)
+                            {
+                                ll_m
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            // other endpoint send DATA via unicast
+                            if let Some(ll_u) =
+                                Self::get_unicast_ll_from_proxy(self_guid, reader_proxy)
+                            {
+                                ll_u
+                            } else {
+                                continue;
+                            }
+                        };
+                        reader_locators.push((*reader_guid, locator_lsit))
+                    }
+                }
+                let send_list = Self::min_message_cover(&reader_locators);
                 for (reid, loc) in send_list {
                     // build RTPS Message
                     let mut message_builder = MessageBuilder::new();
@@ -317,8 +327,32 @@ impl Writer {
             }
         }
         for seq_num in to_send_gap.keys() {
-            let reader_locators = to_send_gap.get(seq_num).unwrap();
-            let send_list = Self::min_message_cover(reader_locators);
+            let readers = to_send_gap.get(seq_num).unwrap();
+            let mut reader_locators = Vec::new();
+            for reader_guid in readers {
+                if let Some(reader_proxy) = self.matched_readers.get(reader_guid) {
+                    let locator_lsit = if self_entity_id.is_builtin() {
+                        // built-in endpoint send DATA via multicast
+                        if let Some(ll_m) =
+                            Self::get_multicast_ll_from_proxy(self_guid, reader_proxy)
+                        {
+                            ll_m
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        // other endpoint send DATA via unicast
+                        if let Some(ll_u) = Self::get_unicast_ll_from_proxy(self_guid, reader_proxy)
+                        {
+                            ll_u
+                        } else {
+                            continue;
+                        }
+                    };
+                    reader_locators.push((*reader_guid, locator_lsit))
+                }
+            }
+            let send_list = Self::min_message_cover(&reader_locators);
             for (reid, loc) in send_list {
                 let mut message_builder = MessageBuilder::new();
                 // let time_stamp = Timestamp::now();
@@ -361,17 +395,24 @@ impl Writer {
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
-        let mut to_send_hb: Vec<(GUID, Vec<Locator>)> = Vec::new();
+        let mut to_send_hb: Vec<GUID> = Vec::new();
         for reader_proxy in self.matched_readers.values_mut() {
-            let ll_m =
-                if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
+            to_send_hb.push(reader_proxy.remote_reader_guid);
+        }
+        let readers = to_send_hb;
+        let mut reader_locators = Vec::new();
+        for reader_guid in readers {
+            if let Some(reader_proxy) = self.matched_readers.get(&reader_guid) {
+                let ll_m = if let Some(ll_m) =
+                    Self::get_multicast_ll_from_proxy(self_guid, reader_proxy)
+                {
                     ll_m
                 } else {
                     continue;
                 };
-            to_send_hb.push((reader_proxy.remote_reader_guid, ll_m));
+                reader_locators.push((reader_guid, ll_m))
+            }
         }
-        let reader_locators = to_send_hb;
         let send_list = Self::min_message_cover(&reader_locators);
         for (reid, loc) in send_list {
             // build RTPS Message
@@ -439,8 +480,8 @@ impl Writer {
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
-        let mut to_send_data: BTreeMap<SequenceNumber, Vec<(GUID, Vec<Locator>)>> = BTreeMap::new();
-        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<(GUID, Vec<Locator>)>> = BTreeMap::new();
+        let mut to_send_data: BTreeMap<SequenceNumber, Vec<GUID>> = BTreeMap::new();
+        let mut to_send_gap: BTreeMap<SequenceNumber, Vec<GUID>> = BTreeMap::new();
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
             while let Some(change) = reader_proxy.next_requested_change() {
                 reader_proxy.update_cache_state(
@@ -450,37 +491,22 @@ impl Writer {
                 );
                 let seq_num = change.seq_num;
                 let reader_guid = reader_proxy.remote_reader_guid;
-                let locator_lsit = if self_entity_id.is_builtin() {
-                    // built-in endpoint send DATA via multicast
-                    if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
-                        ll_m
-                    } else {
-                        continue;
-                    }
-                } else {
-                    // other endpoint send DATA via unicast
-                    if let Some(ll_u) = Self::get_unicast_ll_from_proxy(self_guid, reader_proxy) {
-                        ll_u
-                    } else {
-                        continue;
-                    }
-                };
                 if change.is_relevant {
                     if let std::collections::btree_map::Entry::Vacant(e) =
                         to_send_data.entry(seq_num)
                     {
-                        e.insert(vec![(reader_guid, locator_lsit)]);
+                        e.insert(vec![reader_guid]);
                     } else {
                         let vec = to_send_data.get_mut(&seq_num).unwrap();
-                        vec.push((reader_guid, locator_lsit));
+                        vec.push(reader_guid);
                     }
                 } else if let std::collections::btree_map::Entry::Vacant(e) =
                     to_send_gap.entry(seq_num)
                 {
-                    e.insert(vec![(reader_guid, locator_lsit)]);
+                    e.insert(vec![reader_guid]);
                 } else {
                     let vec = to_send_gap.get_mut(&seq_num).unwrap();
-                    vec.push((reader_guid, locator_lsit));
+                    vec.push(reader_guid);
                 }
             }
         } else {
@@ -490,8 +516,32 @@ impl Writer {
             );
         }
         for seq_num in to_send_data.keys() {
-            let reader_locators = to_send_data.get(seq_num).unwrap();
-            let send_list = Self::min_message_cover(reader_locators);
+            let readers = to_send_data.get(seq_num).unwrap();
+            let mut reader_locators = Vec::new();
+            for reader_guid in readers {
+                if let Some(reader_proxy) = self.matched_readers.get(reader_guid) {
+                    let locator_lsit = if self_entity_id.is_builtin() {
+                        // built-in endpoint send DATA via multicast
+                        if let Some(ll_m) =
+                            Self::get_multicast_ll_from_proxy(self_guid, reader_proxy)
+                        {
+                            ll_m
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        // other endpoint send DATA via unicast
+                        if let Some(ll_u) = Self::get_unicast_ll_from_proxy(self_guid, reader_proxy)
+                        {
+                            ll_u
+                        } else {
+                            continue;
+                        }
+                    };
+                    reader_locators.push((*reader_guid, locator_lsit))
+                }
+            }
+            let send_list = Self::min_message_cover(&reader_locators);
             if let Some(aa_change) = self.writer_cache.read().get_change(self.guid, *seq_num) {
                 for (reid, loc) in send_list {
                     // build RTPS Message
@@ -538,8 +588,32 @@ impl Writer {
             }
         }
         for seq_num in to_send_gap.keys() {
-            let reader_locators = to_send_gap.get(seq_num).unwrap();
-            let send_list = Self::min_message_cover(reader_locators);
+            let readers = to_send_gap.get(seq_num).unwrap();
+            let mut reader_locators = Vec::new();
+            for reader_guid in readers {
+                if let Some(reader_proxy) = self.matched_readers.get(reader_guid) {
+                    let locator_lsit = if self_entity_id.is_builtin() {
+                        // built-in endpoint send DATA via multicast
+                        if let Some(ll_m) =
+                            Self::get_multicast_ll_from_proxy(self_guid, reader_proxy)
+                        {
+                            ll_m
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        // other endpoint send DATA via unicast
+                        if let Some(ll_u) = Self::get_unicast_ll_from_proxy(self_guid, reader_proxy)
+                        {
+                            ll_u
+                        } else {
+                            continue;
+                        }
+                    };
+                    reader_locators.push((*reader_guid, locator_lsit))
+                }
+            }
+            let send_list = Self::min_message_cover(&reader_locators);
             for (reid, loc) in send_list {
                 let mut message_builder = MessageBuilder::new();
                 // let time_stamp = Timestamp::now();
@@ -591,10 +665,10 @@ impl Writer {
     fn get_unicast_ll_from_proxy(
         my_guid: GUID,
         reader_proxy: &ReaderProxy,
-    ) -> Option<Vec<Locator>> {
-        let ll_u = reader_proxy.get_unicast_locator_list().clone();
+    ) -> Option<&Vec<Locator>> {
+        let ll_u = reader_proxy.get_unicast_locator_list();
         if ll_u.is_empty() {
-            let ll_m = reader_proxy.get_multicast_locator_list().clone();
+            let ll_m = reader_proxy.get_multicast_locator_list();
             if ll_m.is_empty() {
                 error!(
                     "Writer not found locator of Reader\n\tWriter: {}\n\tReader: {}",
@@ -613,10 +687,10 @@ impl Writer {
     fn get_multicast_ll_from_proxy(
         my_guid: GUID,
         reader_proxy: &ReaderProxy,
-    ) -> Option<Vec<Locator>> {
-        let ll_m = reader_proxy.get_multicast_locator_list().clone();
+    ) -> Option<&Vec<Locator>> {
+        let ll_m = reader_proxy.get_multicast_locator_list();
         if ll_m.is_empty() {
-            let ll_u = reader_proxy.get_unicast_locator_list().clone();
+            let ll_u = reader_proxy.get_unicast_locator_list();
             if ll_u.is_empty() {
                 error!(
                     "Writer not found locator of Reader\n\tWriter: {}\n\tReader: {}",
@@ -649,10 +723,10 @@ impl Writer {
         ((ipv4_addr[12] >> 4) ^ 0b1110) == 0
     }
 
-    fn min_message_cover(reader_locators: &Vec<(GUID, Vec<Locator>)>) -> Vec<(EntityId, Locator)> {
+    fn min_message_cover(reader_locators: &Vec<(GUID, &Vec<Locator>)>) -> Vec<(EntityId, Locator)> {
         let mut locator_to_readers: BTreeMap<Locator, BTreeSet<GUID>> = BTreeMap::new();
         for (guid, ll) in reader_locators {
-            for l in ll {
+            for l in *ll {
                 locator_to_readers.entry(*l).or_default().insert(*guid);
             }
         }
@@ -667,7 +741,7 @@ impl Writer {
             }
         }
         for (reader, locs) in reader_locators {
-            for loc in locs {
+            for loc in *locs {
                 if !covered.contains(&(*reader, *loc)) {
                     send_list.push((reader.entity_id, *loc));
                 }
