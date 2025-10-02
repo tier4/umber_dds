@@ -40,7 +40,7 @@ COPY --from=cyclone_builder /home/cyclone_build /home/cyclone_shapesdemo
 
 WORKDIR /home
 
-RUN mkdir -p UmberDDS/target
+RUN mkdir -p umber_dds/target
 
 ENV USERNAME=foo
 RUN mkdir /etc/sudoers.d

@@ -1,4 +1,4 @@
-# UmberDDS/refarence
+# umber_dds/refarence
 Resources referenced during implementation
 
 ## RustDDS

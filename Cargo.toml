@@ -1,8 +1,8 @@
 [package]
-name = "umberdds"
+name = "umber_dds"
 version = "0.1.0"
 edition = "2021"
-description = "UmberDDS: An experimental Rust implementation of Data Distribution Service"
+description = "Umber DDS: An experimental Rust implementation of Data Distribution Service"
 authors = ["Ryosuke Tomishige, TIER IV, Inc."]
 readme = "README.md"
 license-file = "LICENSE"

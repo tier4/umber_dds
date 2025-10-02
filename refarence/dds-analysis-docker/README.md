@@ -38,15 +38,15 @@ cd DDSHelloWorld/build
 # On dds_sub
 ./DDSHelloWorldSubscriber
 ```
-or Run UmberDDS
+or Run Umber DDS
 ```
 # On host
-cd /path/to/UmberDDS
+cd /path/to/umber_dds
 cargo build --examples
 # On dds_pub
-./UmberDDS/target/debug/examples/shapes_demo -m p
+./umber_dds/target/debug/examples/shapes_demo -m p
 # On dds_sub
-./UmberDDS/target/debug/examples/shapes_demo -m s
+./umber_dds/target/debug/examples/shapes_demo -m s
 ```
 or Run FastDDS ShapesDemo
 ```

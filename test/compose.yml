@@ -1,11 +1,11 @@
 services:
-    umberdds:
+    umber_dds:
         build:
-            context: umberdds
+            context: umber_dds
             dockerfile: Dockerfile
             network: host
-        image: umberdds_img
-        container_name: umberdds
+        image: umber_dds_img
+        container_name: umber_dds
         networks:
             docker-pcap:
                 ipv4_address: 192.168.209.2
@@ -16,13 +16,13 @@ services:
           - seccomp=unconfined
         command: /bin/bash
         volumes:
-            - ./umberdds:/home
-            - ../target:/home/UmberDDS/target
-    umberdds2:
+            - ./umber_dds:/home
+            - ../target:/home/umber_dds/target
+    umber_dds2:
         depends_on:
-            - umberdds
-        image: umberdds_img
-        container_name: umberdds2
+            - umber_dds
+        image: umber_dds_img
+        container_name: umber_dds2
         networks:
             docker-pcap:
                 ipv4_address: 192.168.209.5
@@ -33,8 +33,8 @@ services:
           - seccomp=unconfined
         command: /bin/bash
         volumes:
-            - ./umberdds:/home
-            - ../target:/home/UmberDDS/target
+            - ./umber_dds:/home
+            - ../target:/home/umber_dds/target
     otherdds:
         build:
             context: otherdds

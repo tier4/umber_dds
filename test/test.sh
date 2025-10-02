@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-echo "[test.sh] preparing tests: building umberdds/example/shapes_demo_for_autotest"
+echo "[test.sh] preparing tests: building umber_dds/example/shapes_demo_for_autotest"
 cargo build --example=shapes_demo_for_autotest
 if [ "$?" -ne 0 ];then
     echo "[test.sh] shapes_demo_for_autotest build failed!"
@@ -120,27 +120,27 @@ function show_resut() {
 }
 
 if [ $# -eq 0 ] || [ $(($1&1)) -gt 0 ]; then
-    echo "[test.sh] test_case1: RustDDS to UmberDDS"
+    echo "[test.sh] test_case1: RustDDS to Umber DDS"
     show_resut $res1
 fi
 
 if [ $# -eq 0 ] || [ $(($1&2)) -gt 0 ]; then
-    echo "[test.sh] test_case2: UmberDDS to RustDDS"
+    echo "[test.sh] test_case2: Umber DDS to RustDDS"
     show_resut $res2
 fi
 
 if [ $# -eq 0 ] || [ $(($1&4)) -gt 0 ]; then
-    echo "[test.sh] test_case3: UmberDDS to UmberDDS"
+    echo "[test.sh] test_case3: Umber DDS to Umber DDS"
     show_resut $res3
 fi
 
 if [ $# -eq 0 ] || [ $(($1&8)) -gt 0 ]; then
-    echo "[test.sh] test_case4: Cyclone DDS to UmberDDS"
+    echo "[test.sh] test_case4: Cyclone DDS to Umber DDS"
     show_resut $res4
 fi
 
 if [ $# -eq 0 ] || [ $(($1&16)) -gt 0 ]; then
-    echo "[test.sh] test_case5: UmberDDS to Cyclone DDS"
+    echo "[test.sh] test_case5: Umber DDS to Cyclone DDS"
     show_resut $res5
 fi
 

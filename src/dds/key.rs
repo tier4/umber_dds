@@ -15,7 +15,7 @@ impl KeyHash {
 
 /// Trait for Data that exchanged via DDS
 ///
-/// UmberDDS specifies exchanged data using a struct instead of IDL.
+/// Umber DDS specifies exchanged data using a struct instead of IDL.
 /// This trait is used for define exchanged data.
 ///
 /// As shown in the following example, implement this trait for your struct by using the provided macro.

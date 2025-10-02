@@ -15,7 +15,7 @@ services:
           DISPLAY: $DISPLAY
         user: foo
         volumes:
-            - ../../target:/home/UmberDDS/target
+            - ../../target:/home/umber_dds/target
             -  /tmp/.X11-unix/:/tmp/.X11-unix
     publisher2:
         depends_on:
@@ -31,7 +31,7 @@ services:
           DISPLAY: $DISPLAY
         user: foo
         volumes:
-            - ../../target:/home/UmberDDS/target
+            - ../../target:/home/umber_dds/target
             -  /tmp/.X11-unix/:/tmp/.X11-unix
     subscriber:
         build:
@@ -47,7 +47,7 @@ services:
         command: /bin/bash
         volumes:
             - ../RustDDS:/home/RustDDS
-            - ../../target:/home/UmberDDS/target
+            - ../../target:/home/umber_dds/target
             - ./subscriber/rust-subscriber:/home/rust-subscriber
     subscriber2:
         depends_on:
@@ -61,7 +61,7 @@ services:
         command: /bin/bash
         volumes:
             - ../RustDDS:/home/RustDDS
-            - ../../target:/home/UmberDDS/target
+            - ../../target:/home/umber_dds/target
             - ./subscriber/rust-subscriber:/home/rust-subscriber
 
 

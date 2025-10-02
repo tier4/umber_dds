@@ -32,4 +32,4 @@ COPY --from=cyclone_builder /home/cyclone_build /home/cyclone_shapesdemo
 
 WORKDIR /home
 
-RUN mkdir -p RustDDS UmberDDS/target rust-subscriber
+RUN mkdir -p RustDDS umber_dds/target rust-subscriber

@@ -1,7 +1,7 @@
-# UmberDDS: An experimental Rust implementation of Data Distribution Service
+# Umber DDS: An experimental Rust implementation of Data Distribution Service
 
 In traditional DDS, the format of the exchanged data is defined using IDL, and DataWriter and DataReader are automatically generated from the IDL.
-However, in UmberDDS, the format of the exchanged data is defined as a struct that implements `serde::{Serialize, Deserialize}`, and the DataWriter and DataReader use the generic types `DataWriter<D: Serialize>` and `DataReader<D: Deserialize>`.
+However, in Umber DDS, the format of the exchanged data is defined as a struct that implements `serde::{Serialize, Deserialize}`, and the DataWriter and DataReader use the generic types `DataWriter<D: Serialize>` and `DataReader<D: Deserialize>`.
 
 ## Usage
 If you want to use refarence/dds-analysis-docker to perform communication tests with other implementations or analyze this implementation in a Docker environment, or if you want to test interoperability with RustDDS before contributing using test, several dependencies registered as Git submodules are required.
@@ -11,8 +11,8 @@ When cloning this repository, please use the --recursive option to clone the dep
 git clone --recursive https://github.com/tier4/umber_dds.git
 ```
 
-UmberDDS implement logging using [log crate](https://docs.rs/log/latest/log/).
-You can log behavior of the UmberDDS using logger implementation compatible with the facade.
+Umber DDS implement logging using [log crate](https://docs.rs/log/latest/log/).
+You can log behavior of the Umber DDS using logger implementation compatible with the facade.
 
 ## How to define exchanged data
 I'll explain using the following IDL as an example.
@@ -27,9 +27,9 @@ struct ShapeType
 };
 ```
 
-The structure representing the exchanged data must implement three traits: `serde::{Serialize, Deserialize}`, and `umberdds::DdsData`.
+The structure representing the exchanged data must implement three traits: `serde::{Serialize, Deserialize}`, and `umber_dds::DdsData`.
 `serde::{Serialize, Deserialize}` is necessary for serializing and deserializing the data into the RTPS message format.
-`umberdds::DdsData` is required to specify the DataType name and the key.
+`umber_dds::DdsData` is required to specify the DataType name and the key.
 If some keys exists, annotate it with `#[key]`.
 If the structure name does not match the DataType name, specify the DataType name using `#[dds_data(type_name = "{name}")]`.
 ```
@@ -56,7 +56,7 @@ cargo build --examples
 
 #### shapes_demo
 
-This can be used to demonstrate the capabilities of UmberDDS or as a proof of interoperability with other DDS/RTPS-compliant implementations.
+This can be used to demonstrate the capabilities of Umber DDS or as a proof of interoperability with other DDS/RTPS-compliant implementations.
 
 ShapesDemo of Fast DDS: https://github.com/eProsima/ShapesDemo
 ShapesDemo of RustDDS: https://github.com/Atostek/RustDDS/tree/master/examples/shapes_demo
@@ -78,7 +78,7 @@ besteffort subscriber
 ./target/debug/examples/shapes_demo -m s
 ```
 
-At the beginning of this program, logging for UmberDDS behavior is initialized using log4rs. If the `shapes_logging.yml` file is found, its configuration is used; otherwise, logs whose level is Warn or higher are output to the console.
+At the beginning of this program, logging for Umber DDS behavior is initialized using log4rs. If the `shapes_logging.yml` file is found, its configuration is used; otherwise, logs whose level is Warn or higher are output to the console.
 
 #### shapes_demo_for_autotest
 
@@ -105,7 +105,7 @@ This is used for test/test.sh.
 
 ### Supporting QoS
 
-Unsuporting QoS can be set, but it dosn't effect behavior of UmberDDS.
+Unsuporting QoS can be set, but it dosn't effect behavior of Umber DDS.
 
 #### ROS 2 suported QoS
 - [ ] Reliability

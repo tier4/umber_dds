@@ -1,5 +1,5 @@
 # ImpleNote
-note about UmberDDS implementation
+note about Umber DDS implementation
 
 ## Module description
 | module | description |
@@ -12,13 +12,13 @@ note about UmberDDS implementation
 | netwok | network utils |
 
 ## Module Oraganization
-![UmberDDS_modules](https://github.com/user-attachments/assets/76621ab4-bf78-42a8-8792-bc08c0dfdde5)
+![umber_dds_modules](https://github.com/user-attachments/assets/76621ab4-bf78-42a8-8792-bc08c0dfdde5)
 
 
 ## architecture description
-UmberDDS is designed to operate in an event-driven manner by using an EventLoop that waits for events such as network and mpsc channel events. This EventLoop is executed in a thread spawned when constructing `dds::Participant` during the DDS app's startup to join the Domain. Simultaneously, a Discovery thread is also spawned, where the Discovery Module is executed.
+Umber DDS is designed to operate in an event-driven manner by using an EventLoop that waits for events such as network and mpsc channel events. This EventLoop is executed in a thread spawned when constructing `dds::Participant` during the DDS app's startup to join the Domain. Simultaneously, a Discovery thread is also spawned, where the Discovery Module is executed.
 
-All packets directed to UmberDDS are received by the EventLoop, serialized by the Message module, and then distributed to the respective entities for processing.
+All packets directed to Umber DDS are received by the EventLoop, serialized by the Message module, and then distributed to the respective entities for processing.
 
 The results of discovery are communicated from the Discovery Module to the EventLoop through the DiscoveryDB. The DiscoveryDB is wrapped in an Arc and shared between the EventLoop and the Discovery Module. When the Discovery Module updates the DiscoveryDB, it notifies the EventLoop via an mpsc channel. Upon receiving this notification, the EventLoop configures the settings for each entity.
 
@@ -70,7 +70,7 @@ As stated in the RTPS specification, communication is performed in the same mann
 
 In this implementation, the Simple Discovery Protocol (SDP) as defined by the RTPS standard is implemented. SDP consists of two stages: the Simple Participant Discovery Protocol (SPDP) for participant discovery and the Simple Endpoint Discovery Protocol (SEDP) for entity discovery.
 
-SPDP multicasts SPDP messages to inform other Participants of a Participant's existence and learns about the existence of other Participants by receiving SPDP messages. It also monitors the liveness of other Participants (this feature is not implemented in UmberDDS yet).
+SPDP multicasts SPDP messages to inform other Participants of a Participant's existence and learns about the existence of other Participants by receiving SPDP messages. It also monitors the liveness of other Participants (this feature is not implemented in Umber DDS yet).
 
 In this implementation, received SPDP data is registered in the discovery database (discovery_db), and updates are notified to the event loop through a channel. Upon receiving this, the event loop configures the sedp_builtin entity.
 

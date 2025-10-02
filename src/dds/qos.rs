@@ -799,7 +799,7 @@ pub mod policy {
     /// > While volatile and transient-local durability do not affect the RTPS protocol,
     /// > support for transient and persistent durability may.
     ///
-    /// UmberDDS don't support optional Durability QoS value "Transient" and "Persistent".
+    /// Umber DDS don't support optional Durability QoS value "Transient" and "Persistent".
     /// So, this config dosen't affect behavior.
     pub enum Durability {
         Volatile = 0,

@@ -12,12 +12,12 @@ use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
-use umberdds::dds::key::KeyHash;
-use umberdds::dds::{
+use umber_dds::dds::key::KeyHash;
+use umber_dds::dds::{
     qos::*, DataReader, DataReaderStatusChanged, DataWriter, DataWriterStatusChanged,
     DomainParticipant,
 };
-use umberdds::DdsData;
+use umber_dds::DdsData;
 
 #[derive(Serialize, Deserialize, Clone, Debug, DdsData)]
 #[dds_data(type_name = "ShapeType")]

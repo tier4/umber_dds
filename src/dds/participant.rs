@@ -54,15 +54,15 @@ impl RTPSEntity for DomainParticipant {
 impl DomainParticipant {
     /// network_interfaces: network interfaces to use sending or receiving message.
     ///
-    /// By default, UmberDDS selects one non-loopback network interface that has an IPv4 address assigned for sending and receiving messages.
+    /// By default, Umber DDS selects one non-loopback network interface that has an IPv4 address assigned for sending and receiving messages.
     /// If no such interface exists, the loopback interface is used instead.
-    /// When several interfaces are present, UmberDDS obtains the list of interfaces from the operating system,
+    /// When several interfaces are present, Umber DDS obtains the list of interfaces from the operating system,
     /// filters out loopback devices and those without an IPv4 address,
     /// and then chooses the first remaining entry in that list.
     /// If this automatic choice is undesirable for example,
     /// if a local bridge that cannot reach other hosts is selected you can explicitly specify the interface(s) with network_interfaces.
     ///
-    /// If you need UmberDDS to operate over multiple interfaces, pass the full set of interfaces you want to use.
+    /// If you need Umber DDS to operate over multiple interfaces, pass the full set of interfaces you want to use.
     pub fn new(
         domain_id: u16,
         network_interfaces: Vec<Ipv4Addr>,

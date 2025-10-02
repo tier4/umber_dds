@@ -9,12 +9,12 @@
 //! use serde::{Deserialize, Serialize};
 //! use std::net::Ipv4Addr;
 //! use std::time::{Duration, SystemTime};
-//! use umberdds::dds::{qos::*, DataWriterStatusChanged, DomainParticipant};
-//! use umberdds::DdsData;
+//! use umber_dds::dds::{qos::*, DataWriterStatusChanged, DomainParticipant};
+//! use umber_dds::DdsData;
 //!
 //! // for DdsData
 //! use md5::compute;
-//! use umberdds::dds::key::KeyHash;
+//! use umber_dds::dds::key::KeyHash;
 //!
 //! #[derive(Serialize, Deserialize, Clone, Debug, DdsData)]
 //! struct HelloWorld {
@@ -106,12 +106,12 @@
 //! use serde::{Deserialize, Serialize};
 //! use std::net::Ipv4Addr;
 //! use std::time::SystemTime;
-//! use umberdds::dds::{qos::*, DataReaderStatusChanged, DomainParticipant};
-//! use umberdds::DdsData;
+//! use umber_dds::dds::{qos::*, DataReaderStatusChanged, DomainParticipant};
+//! use umber_dds::DdsData;
 //!
 //! // for DdsData
 //! use md5::compute;
-//! use umberdds::dds::key::KeyHash;
+//! use umber_dds::dds::key::KeyHash;
 //!
 //! #[derive(Serialize, Deserialize, Clone, Debug, DdsData)]
 //! struct HelloWorld {
