@@ -1,3 +1,4 @@
+use crate::dds::qos::policy::{History, ResourceLimits, LENGTH_UNLIMITED};
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload, Timestamp};
 use crate::structure::GUID;
 use alloc::collections::BTreeMap;
@@ -100,7 +101,7 @@ impl ChangeFromWriter {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub enum ChangeKind {
     Alive,
     _AliveFiltered,
@@ -143,6 +144,8 @@ pub(crate) enum HistoryCacheType {
 
 pub(crate) struct HistoryCache {
     pub changes: BTreeMap<HCKey, CacheChange>,
+    ts2key: Vec<HCKey>,
+    kind2key: BTreeMap<ChangeKind, Vec<HCKey>>,
     hc_type: HistoryCacheType,
     // only use type Writer
     unprocessed_seqnum: Vec<SequenceNumber>,
@@ -160,6 +163,8 @@ impl HistoryCache {
         });
         Self {
             changes: BTreeMap::new(),
+            ts2key: Vec::new(),
+            kind2key: BTreeMap::new(),
             last_added: BTreeMap::new(),
             hc_type,
             unprocessed_seqnum,
@@ -171,7 +176,12 @@ impl HistoryCache {
         self.last_added
             .insert(guid, Timestamp::now().expect("failed get time_stamp now"));
     }
-    pub fn add_change(&mut self, change: CacheChange) -> Result<(), String> {
+    pub fn add_change(
+        &mut self,
+        change: CacheChange,
+        is_reliable: bool,
+        resource_limits: ResourceLimits,
+    ) -> Result<(), String> {
         let seq_num = change.sequence_number;
         let key = HCKey::new(change.writer_guid, seq_num);
         if let Some(c) = self.changes.get(&key) {
@@ -187,7 +197,41 @@ impl HistoryCache {
                 */
             }
         } else {
+            /*
+            let max_samples = resource_limits.max_samples;
+            if max_samples != LENGTH_UNLIMITED && self.changes.len() + 1 >= max_samples as usize {
+                // reach ResourceLimits?
+                match self.hc_type {
+                    HistoryCacheType::Writer => {
+                        if is_reliable {
+                            // block until
+                        } else {
+                            // remove old sample
+                        }
+                    }
+                    HistoryCacheType::Reader => {
+                        if is_reliable {
+                            // changeを破棄
+                            return Ok(());
+                        } else {
+                            // remove old sample
+                        }
+                    }
+                    HistoryCacheType::Dummy => unreachable!(),
+                }
+            }
+            if self.changes.len() + 1 > resource_limits.max_samples as usize {
+                if is_reliable {
+                    return Ok(());
+                } else {
+                    // TODO: remove oldest data
+                    // oldest cahnge = smallest seq_num
+                }
+            }
+            */
             self.last_added.insert(key.guid, change.timestamp);
+            self.ts2key.push(key);
+            self.kind2key.entry(change.kind).or_default().push(key);
             self.changes.insert(key, change);
             if let HistoryCacheType::Writer = self.hc_type {
                 self.unprocessed_seqnum.push(seq_num);
@@ -214,14 +258,32 @@ impl HistoryCache {
     }
 
     pub fn get_alive_changes(&self) -> (Vec<HCKey>, Vec<&CacheChange>) {
+        /*
         self.changes
             .iter()
             .filter(|(_k, c)| c.kind == ChangeKind::Alive)
             .map(|(k, c)| (*k, c))
             .collect()
+        */
+        if let Some(keys) = self.kind2key.get(&ChangeKind::Alive) {
+            keys.iter()
+                .map(|k| (k, self.changes.get(k).unwrap()))
+                .collect()
+        } else {
+            (Vec::new(), Vec::new())
+        }
     }
     pub fn remove_change(&mut self, key: &HCKey) {
-        self.changes.remove(key);
+        if let Some(c) = self.changes.remove(key) {
+            if let Some(v) = self.kind2key.get_mut(&c.kind) {
+                if let Some(idx) = v.iter().position(|k| k == key) {
+                    self.ts2key.remove(idx);
+                }
+            }
+        }
+        if let Some(idx) = self.ts2key.iter().position(|k| k == key) {
+            self.ts2key.remove(idx);
+        }
         self.min_seq_num = None;
         self.max_seq_num = None;
     }

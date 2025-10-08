@@ -143,7 +143,11 @@ impl Reader {
         );
         if self.is_reliable() {
             // Reliable Reader Behavior
-            if let Err(e) = self.reader_cache.write().add_change(change.clone()) {
+            if let Err(e) = self.reader_cache.write().add_change(
+                change.clone(),
+                self.is_reliable(),
+                self.qos.resource_limits(),
+            ) {
                 debug!(
                     "add_change to Reader failed: {}\n\tReader: {}\n\tWriter: {}",
                     e, self.guid, change.writer_guid
@@ -170,7 +174,11 @@ impl Reader {
                     flag = change.sequence_number >= expected_seq_num;
                 }
                 if flag {
-                    if let Err(e) = self.reader_cache.write().add_change(change.clone()) {
+                    if let Err(e) = self.reader_cache.write().add_change(
+                        change.clone(),
+                        self.is_reliable(),
+                        self.qos.resource_limits(),
+                    ) {
                         info!(
                             "add_change to Reader failed: {}\n\tReader: {}\n\tWriter: {}",
                             e, self.guid, change.writer_guid

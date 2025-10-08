@@ -1,7 +1,10 @@
 use crate::dds::{
     key::DdsData,
     publisher::Publisher,
-    qos::{policy::LivelinessQosKind, DataWriterQosPolicies},
+    qos::{
+        policy::{LivelinessQosKind, ReliabilityQosKind},
+        DataWriterQosPolicies,
+    },
     topic::Topic,
 };
 use crate::message::submessage::element::{
@@ -94,7 +97,11 @@ impl<D: Serialize + DdsData> DataWriter<D> {
             Some(serialized_payload),
             InstantHandle {},
         );
-        if let Err(e) = self.whc.write().add_change(a_change) {
+        if let Err(e) =
+            self.whc
+                .write()
+                .add_change(a_change, self.is_reliable(), self.qos.resource_limits())
+        {
             warn!("DataWriter failed to add change to HistoryCache: {e}");
         } else {
             info!(
@@ -130,6 +137,13 @@ impl<D: Serialize + DdsData> DataWriter<D> {
     /// Poll DataReader, to ensure get DataWriterStatusChanged.
     pub fn try_recv(&self) -> Result<DataWriterStatusChanged, std::sync::mpsc::TryRecvError> {
         self.writer_state_receiver.try_recv()
+    }
+
+    fn is_reliable(&self) -> bool {
+        match self.qos.reliability().kind {
+            ReliabilityQosKind::Reliable => true,
+            ReliabilityQosKind::BestEffort => false,
+        }
     }
 }
 
