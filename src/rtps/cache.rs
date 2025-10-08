@@ -277,7 +277,7 @@ impl HistoryCache {
         if let Some(c) = self.changes.remove(key) {
             if let Some(v) = self.kind2key.get_mut(&c.kind) {
                 if let Some(idx) = v.iter().position(|k| k == key) {
-                    self.ts2key.remove(idx);
+                    v.remove(idx);
                 }
             }
         }
