@@ -197,38 +197,37 @@ impl HistoryCache {
                 */
             }
         } else {
-            /*
             let max_samples = resource_limits.max_samples;
             if max_samples != LENGTH_UNLIMITED && self.changes.len() + 1 >= max_samples as usize {
-                // reach ResourceLimits?
+                // reach ResourceLimits
+                // DDS v1.4 spec, 2.2.3.19 RESOURCE_LIMITS
+                // The behavior in this case depends on the setting for the RELIABILITY QoS.
+                // If reliability is BEST_EFFORT then the Service is allowed to drop samples.
+                // If the reliability is RELIABLE, the Service will block the DataWriter or
+                // discard the sample at the DataReader 28 in order not to lose existing samples.
                 match self.hc_type {
                     HistoryCacheType::Writer => {
                         if is_reliable {
-                            // block until
+                            // block until some change removed from self
+                            // if block here, nobody can access self.
+                            todo!();
                         } else {
-                            // remove old sample
+                            // remove oldest sample
+                            self.remove_change(&self.ts2key[0].clone());
                         }
                     }
                     HistoryCacheType::Reader => {
                         if is_reliable {
-                            // changeを破棄
+                            // discard change
                             return Ok(());
                         } else {
-                            // remove old sample
+                            // remove oldest sample
+                            self.remove_change(&self.ts2key[0].clone());
                         }
                     }
                     HistoryCacheType::Dummy => unreachable!(),
                 }
             }
-            if self.changes.len() + 1 > resource_limits.max_samples as usize {
-                if is_reliable {
-                    return Ok(());
-                } else {
-                    // TODO: remove oldest data
-                    // oldest cahnge = smallest seq_num
-                }
-            }
-            */
             self.last_added.insert(key.guid, change.timestamp);
             self.ts2key.push(key);
             self.kind2key.entry(change.kind).or_default().push(key);

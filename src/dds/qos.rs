@@ -766,7 +766,7 @@ pub mod policy {
     use serde_repr::{Deserialize_repr, Serialize_repr};
 
     // Default value of QoS Policies is on DDS v1.4 spec 2.2.3 Supported QoS
-    const LENGTH_UNLIMITED: i32 = -1;
+    pub const LENGTH_UNLIMITED: i32 = -1;
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct DurabilityService {

@@ -18,7 +18,7 @@ use crate::structure::GUID;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::marker::PhantomData;
-use log::{info, warn};
+use log::{error, info};
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
 use serde::Serialize;
@@ -102,7 +102,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
                 .write()
                 .add_change(a_change, self.is_reliable(), self.qos.resource_limits())
         {
-            warn!("DataWriter failed to add change to HistoryCache: {e}");
+            error!("DataWriter failed to add change to HistoryCache: {e}");
         } else {
             info!(
                 "DataWriter add change to HistoryCache: seq_num: {}\n\tWriter: {}",
