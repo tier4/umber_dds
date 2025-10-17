@@ -408,7 +408,7 @@ impl WriterProxy {
             }
         }
     }
-    pub fn received_chage_set(&mut self, seq_num: SequenceNumber) {
+    pub fn received_change_set(&mut self, seq_num: SequenceNumber) {
         if let Some(cfw) = self.cache_state.get_mut(&seq_num) {
             cfw.status = ChangeFromWriterStatusKind::Received;
         } else {

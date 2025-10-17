@@ -158,7 +158,7 @@ impl Reader {
                 .send(DataReaderStatusChanged::DataAvailable)
                 .expect("couldn't send channel 'reader_state_notifier'");
             if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
-                writer_proxy.received_chage_set(change.sequence_number);
+                writer_proxy.received_change_set(change.sequence_number);
             }
         } else {
             // BestEffort Reader Behavior
@@ -192,7 +192,7 @@ impl Reader {
                         .matched_writers
                         .get_mut(&writer_guid)
                         .expect("couldn't get writer_proxy_mut");
-                    writer_proxy_mut.received_chage_set(change.sequence_number);
+                    writer_proxy_mut.received_change_set(change.sequence_number);
                     if change.sequence_number > expected_seq_num {
                         writer_proxy_mut.lost_changes_update(change.sequence_number);
                     }
