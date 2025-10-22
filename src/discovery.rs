@@ -144,6 +144,7 @@ impl Discovery {
         let sedp_topic_qos = TopicQos::Policies(Box::new(
             TopicQosBuilder::new()
                 .reliability(Reliability::default_reliable())
+                .durability(Durability::TransientLocal)
                 .build(),
         ));
         let sedp_publication_topic = dp.create_builtin_topic(

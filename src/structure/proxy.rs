@@ -1,4 +1,4 @@
-use crate::dds::qos::{DataReaderQosPolicies, DataWriterQosPolicies};
+use crate::dds::qos::{policy::Durability, DataReaderQosPolicies, DataWriterQosPolicies};
 use crate::message::submessage::element::{Locator, SequenceNumber};
 use crate::rtps::cache::{
     ChangeForReader, ChangeForReaderStatusKind, ChangeFromWriter, ChangeFromWriterStatusKind,
@@ -51,12 +51,20 @@ impl ReaderProxy {
         } else {
             ChangeForReaderStatusKind::Unacknowledged
         };
+        let durability = qos.durability();
         {
             let hc = history_cache.read();
             for k in hc.changes.keys() {
+                let latest = hc.ts2key[hc.ts2key.len() - 1];
+                let is_relevant = {
+                    match durability {
+                        Durability::Volatile => false,
+                        Durability::TransientLocal => *k == latest,
+                    }
+                };
                 cache_state.insert(
                     k.seq_num,
-                    ChangeForReader::new(k.seq_num, status_kind, true),
+                    ChangeForReader::new(k.seq_num, status_kind, is_relevant),
                 );
             }
         }
@@ -164,9 +172,9 @@ impl ReaderProxy {
         }
         unsent_changes
     }
-    pub fn is_acked(&self) -> bool {
+    pub fn is_acked(&self, seq_num: SequenceNumber) -> bool {
         let mut res = true;
-        for change in self.cache_state.values() {
+        if let Some(change) = self.cache_state.get(&seq_num) {
             res &= change.is_relevant;
             res &= change.status == ChangeForReaderStatusKind::Acknowledged;
         }

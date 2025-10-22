@@ -341,11 +341,6 @@ impl Writer {
     }
 
     pub fn send_heart_beat(&mut self, liveliness: bool) {
-        if liveliness {
-            self.is_alive = true;
-        } else if self.is_acked_by_all() {
-            return;
-        }
         let time_stamp = Timestamp::now();
         let writer_cache = self.writer_cache.read();
         let first_sn = writer_cache.get_seq_num_min();
@@ -431,6 +426,16 @@ impl Writer {
                 "Writer tried handle ACKNACK from unmatched Reader\n\tWriter: {}\n\tReader: {}",
                 self.guid, reader_guid
             );
+            return;
+        }
+        for key in self.writer_cache.read().changes.keys() {
+            if key.seq_num <= acknack.reader_sn_state.base() - SequenceNumber(1) {
+                if self.is_acked_by_all(key.seq_num) {
+                    // TODO:
+                    // if get lock of self.writer_cache deadlock stochastic
+                    // self.writer_cache.write().remove_change(key);
+                }
+            }
         }
     }
 
@@ -635,9 +640,9 @@ impl Writer {
         }
     }
 
-    pub fn is_acked_by_all(&self) -> bool {
+    pub fn is_acked_by_all(&self, seq_num: SequenceNumber) -> bool {
         for reader_proxy in self.matched_readers.values() {
-            if !reader_proxy.is_acked() {
+            if !reader_proxy.is_acked(seq_num) {
                 return false;
             }
         }

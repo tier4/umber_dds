@@ -144,7 +144,7 @@ pub(crate) enum HistoryCacheType {
 
 pub(crate) struct HistoryCache {
     pub changes: BTreeMap<HCKey, CacheChange>,
-    ts2key: Vec<HCKey>,
+    pub ts2key: Vec<HCKey>,
     kind2key: BTreeMap<ChangeKind, Vec<HCKey>>,
     hc_type: HistoryCacheType,
     // only use type Writer
