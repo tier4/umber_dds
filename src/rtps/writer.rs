@@ -428,14 +428,16 @@ impl Writer {
             );
             return;
         }
+        let mut todo_revemo = Vec::new();
         for key in self.writer_cache.read().changes.keys() {
-            if key.seq_num <= acknack.reader_sn_state.base() - SequenceNumber(1) {
-                if self.is_acked_by_all(key.seq_num) {
-                    // TODO:
-                    // if get lock of self.writer_cache deadlock stochastic
-                    // self.writer_cache.write().remove_change(key);
-                }
+            if key.seq_num <= acknack.reader_sn_state.base() - SequenceNumber(1)
+                && self.is_acked_by_all(key.seq_num)
+            {
+                todo_revemo.push(*key);
             }
+        }
+        for key in todo_revemo {
+            self.writer_cache.write().remove_change(&key);
         }
     }
 
