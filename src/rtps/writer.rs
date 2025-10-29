@@ -1,6 +1,6 @@
 use crate::dds::{
     qos::{
-        policy::{HistoryQosKind, ReliabilityQosKind},
+        policy::{Durability, HistoryQosKind, ReliabilityQosKind},
         DataReaderQosPolicies, DataWriterQosPolicies,
     },
     Topic,
@@ -592,6 +592,32 @@ impl Writer {
             }
         } else {
             error!("unsupported locator specified: {}", loc);
+        }
+    }
+
+    /// remove changes acked by all matched_readers with a sequence number less than or equal to base-1 (Durability is TransientLocal) or base (Durability is Volatile)
+    fn remove_acked_changes(&mut self, base: SequenceNumber) {
+        let base = match self.qos.durability() {
+            Durability::Volatile => base,
+            Durability::TransientLocal => base - SequenceNumber(1),
+        };
+        let mut todo_revemo = Vec::new();
+        for key in self.writer_cache.read().changes.keys() {
+            if key.seq_num <= base && self.is_acked_by_all(key.seq_num) {
+                todo_revemo.push(*key);
+            } else {
+                debug!(
+                    "Writer don't remove key: {:?} form HistoryCache\n\tWriter: {}",
+                    key.seq_num, self.guid.entity_id
+                );
+            }
+        }
+        for key in todo_revemo {
+            debug!(
+                "Writer remove key: {:?} form HistoryCache\n\tWriter: {}",
+                key.seq_num, self.guid.entity_id
+            );
+            self.writer_cache.write().remove_change(&key);
         }
     }
 
