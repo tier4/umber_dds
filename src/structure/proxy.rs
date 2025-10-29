@@ -173,12 +173,15 @@ impl ReaderProxy {
         unsent_changes
     }
     pub fn is_acked(&self, seq_num: SequenceNumber) -> bool {
-        let mut res = true;
         if let Some(change) = self.cache_state.get(&seq_num) {
-            res &= change.is_relevant;
-            res &= change.status == ChangeForReaderStatusKind::Acknowledged;
+            if change.is_relevant {
+                change.status == ChangeForReaderStatusKind::Acknowledged
+            } else {
+                true
+            }
+        } else {
+            true
         }
-        res
     }
     #[allow(dead_code)]
     pub fn unacked_changes(&self) -> Vec<ChangeForReader> {
