@@ -224,6 +224,7 @@ impl Writer {
         let history = self.qos.history();
         let hkind = history.kind;
         let hdepth = history.depth;
+        let durability = self.qos.durability();
         let seq_nums = self.writer_cache.write().get_unprocessed();
         for (i, seq_num) in seq_nums.iter().rev().enumerate() {
             for reader_proxy in self.matched_readers.values_mut() {
@@ -232,7 +233,12 @@ impl Writer {
                     /* TODO: if DDS_FILTER(reader_proxy, change) { false } else { true }, */
                     match hkind {
                         HistoryQosKind::KeepAll => true,
-                        HistoryQosKind::KeepLast => i + 1 >= hdepth as usize,
+                        HistoryQosKind::KeepLast => match durability {
+                            // to keep only the latest hdepth changes
+                            Durability::Volatile => i < hdepth as usize,
+                            // to retaine one additional Change
+                            Durability::TransientLocal => i <= hdepth as usize,
+                        },
                     },
                     if self.push_mode {
                         ChangeForReaderStatusKind::Unsent
