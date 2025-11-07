@@ -314,6 +314,7 @@ impl Writer {
                         reid,
                         aa_change,
                     );
+                    // TODO: piggybacking HB
                     let message = message_builder.build(self_guid_prefix);
                     let message_buf = message
                         .write_to_vec_with_ctx(self.endianness)
@@ -370,8 +371,8 @@ impl Writer {
         let last_sn = writer_cache.get_seq_num_max();
         if first_sn.0 <= 0 || last_sn.0 < 0 || last_sn.0 < first_sn.0 - 1 {
             debug!(
-                "heartbeat validation failed\n\tfirstSN: {}, lastSN: {}",
-                first_sn.0, last_sn.0
+                "heartbeat validation failed\n\tfirstSN: {}, lastSN: {}\n\tWriter: {}",
+                first_sn.0, last_sn.0, self.guid
             );
             return;
         }
@@ -458,7 +459,8 @@ impl Writer {
             );
             return;
         }
-        self.remove_acked_changes(acknack.reader_sn_state.base());
+        // maximum acked SequenceNumber is acknack.reader_sn_state.base() - 1
+        self.remove_acked_changes(acknack.reader_sn_state.base() - SequenceNumber(1));
     }
 
     pub fn handle_nack_response_timeout(&mut self, reader_guid: GUID) {
@@ -617,13 +619,13 @@ impl Writer {
 
     /// remove changes acked by all matched_readers with a sequence number less than or equal to base-1 (Durability is TransientLocal) or base (Durability is Volatile)
     fn remove_acked_changes(&mut self, base: SequenceNumber) {
-        let base = match self.qos.durability() {
+        let base_ = match self.qos.durability() {
             Durability::Volatile => base,
             Durability::TransientLocal => base - SequenceNumber(1),
         };
         let mut todo_revemo = Vec::new();
         for key in self.writer_cache.read().changes.keys() {
-            if key.seq_num <= base && self.is_acked_by_all(key.seq_num) {
+            if key.seq_num <= base_ && self.is_acked_by_all(key.seq_num) {
                 todo_revemo.push(*key);
             } else {
                 debug!(
