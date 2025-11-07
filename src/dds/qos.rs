@@ -790,7 +790,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     /// Durability QoS policy
     ///
@@ -802,6 +802,7 @@ pub mod policy {
     /// UmberDDS don't support optional Durability QoS value "Transient" and "Persistent".
     /// So, this config dosen't affect behavior.
     pub enum Durability {
+        #[default]
         Volatile = 0,
         TransientLocal = 1,
         // Transient = 2, // DDS spec say Support this is optional
@@ -812,11 +813,6 @@ pub mod policy {
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
             offered as usize >= requested as usize
-        }
-    }
-    impl Default for Durability {
-        fn default() -> Self {
-            Self::Volatile
         }
     }
 
@@ -844,17 +840,13 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     pub enum PresentationQosAccessScopeKind {
+        #[default]
         Instance = 0,
         Topic = 1,
         Group = 2,
-    }
-    impl Default for PresentationQosAccessScopeKind {
-        fn default() -> Self {
-            Self::Instance
-        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -891,9 +883,10 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     pub enum Ownership {
+        #[default]
         Shared = 0,
         Exclusive = 1,
     }
@@ -902,11 +895,6 @@ pub mod policy {
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
             offered as usize == requested as usize
-        }
-    }
-    impl Default for Ownership {
-        fn default() -> Self {
-            Self::Shared
         }
     }
 
@@ -1003,9 +991,10 @@ pub mod policy {
         BestEffort = 1,
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     pub enum DestinationOrder {
+        #[default]
         ByReceptionTimestamp = 0,
         BySourceTimestamp = 1,
     }
@@ -1014,11 +1003,6 @@ pub mod policy {
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
             offered as usize >= requested as usize
-        }
-    }
-    impl Default for DestinationOrder {
-        fn default() -> Self {
-            Self::ByReceptionTimestamp
         }
     }
 
