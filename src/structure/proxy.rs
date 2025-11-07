@@ -183,6 +183,10 @@ impl ReaderProxy {
             true
         }
     }
+    pub fn remove_cache_state(&mut self, seq_num: &SequenceNumber) {
+        self.cache_state.remove(seq_num);
+    }
+
     #[allow(dead_code)]
     pub fn unacked_changes(&self) -> Vec<ChangeForReader> {
         let mut unacked_changes = Vec::new();

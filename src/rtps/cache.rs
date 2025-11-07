@@ -147,12 +147,28 @@ pub(crate) struct HistoryCache {
     pub ts2key: Vec<HCKey>,
     kind2key: BTreeMap<ChangeKind, Vec<HCKey>>,
     hc_type: HistoryCacheType,
-    // only use type Writer
+    /// only use type Writer
+    /// rtps 2.3 spec, 8.4.1.1 Example Behavior assumes
+    /// that a `DataWriter` can access the correnponded RTPS Writer directly.
+    /// In this implementation, that assumption does not hold:
+    /// the `DataWriter` and the RTPS Writer are decoupled.
+    /// The `unprocessed_seqnum` is buffer used to pass
+    /// the `SequenceNumber` values of newly added changes from the `DataWriter` to the RTPS Writer.
     unprocessed_seqnum: Vec<SequenceNumber>,
     pub last_added: BTreeMap<GUID, Timestamp>,
-    pub min_seq_num: Option<SequenceNumber>,
-    pub max_seq_num: Option<SequenceNumber>,
+    min_seq_num: Option<SequenceNumber>,
+    max_seq_num: Option<SequenceNumber>,
 }
+
+// life cycle of CacheChange on WriterCache
+// BestEffort
+// after sending, removed
+//
+// Reliable
+//  Durability::Volatile
+//      after acked_by_all, removed
+//  Durability::TransientLocal
+//      after acked_by_all, removed except lastest change that already acked_by_all
 
 impl HistoryCache {
     pub fn new(hc_type: HistoryCacheType) -> Self {

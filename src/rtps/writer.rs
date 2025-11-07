@@ -14,7 +14,7 @@ use crate::message::{
     submessage::element::{AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, Timestamp},
 };
 use crate::network::udp_sender::UdpSender;
-use crate::rtps::cache::{ChangeForReaderStatusKind, HistoryCache, HistoryCacheType};
+use crate::rtps::cache::{ChangeForReaderStatusKind, HCKey, HistoryCache, HistoryCacheType};
 use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
@@ -226,6 +226,7 @@ impl Writer {
         let hdepth = history.depth;
         let durability = self.qos.durability();
         let seq_nums = self.writer_cache.write().get_unprocessed();
+        let oldest_unprocessed = seq_nums[0];
         for (i, seq_num) in seq_nums.iter().rev().enumerate() {
             for reader_proxy in self.matched_readers.values_mut() {
                 reader_proxy.update_cache_state(
@@ -248,6 +249,7 @@ impl Writer {
                 )
             }
         }
+        self.remove_acked_changes(oldest_unprocessed);
 
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
@@ -321,6 +323,11 @@ impl Writer {
             } else {
                 unreachable!()
             }
+            if !self.is_reliable() {
+                self.writer_cache
+                    .write()
+                    .remove_change(&HCKey::new(self.guid, *seq_num));
+            }
         }
         for seq_num in to_send_gap.keys() {
             let reader_locators = to_send_gap.get(seq_num).unwrap();
@@ -343,10 +350,20 @@ impl Writer {
                     .expect("couldn't serialize message");
                 self.send_msg_to_locator(loc, message_buf, "gap");
             }
+            if !self.is_reliable() {
+                self.writer_cache
+                    .write()
+                    .remove_change(&HCKey::new(self.guid, *seq_num));
+            }
         }
     }
 
     pub fn send_heart_beat(&mut self, liveliness: bool) {
+        let last_sn = {
+            let writer_cache = self.writer_cache.read();
+            writer_cache.get_seq_num_max()
+        };
+        self.remove_acked_changes(last_sn);
         let time_stamp = Timestamp::now();
         let writer_cache = self.writer_cache.read();
         let first_sn = writer_cache.get_seq_num_min();
@@ -392,7 +409,14 @@ impl Writer {
             let message_buf = msg
                 .write_to_vec_with_ctx(self.endianness)
                 .expect("couldn't serialize message");
-            self.send_msg_to_locator(loc, message_buf, "heartbeat");
+            self.send_msg_to_locator(
+                loc,
+                message_buf,
+                &format!(
+                    "heartbeat {{ first_sn: {}, last_sn: {} }}",
+                    first_sn.0, last_sn.0
+                ),
+            );
         }
     }
 
@@ -434,17 +458,7 @@ impl Writer {
             );
             return;
         }
-        let mut todo_revemo = Vec::new();
-        for key in self.writer_cache.read().changes.keys() {
-            if key.seq_num <= acknack.reader_sn_state.base() - SequenceNumber(1)
-                && self.is_acked_by_all(key.seq_num)
-            {
-                todo_revemo.push(*key);
-            }
-        }
-        for key in todo_revemo {
-            self.writer_cache.write().remove_change(&key);
-        }
+        self.remove_acked_changes(acknack.reader_sn_state.base());
     }
 
     pub fn handle_nack_response_timeout(&mut self, reader_guid: GUID) {
@@ -624,6 +638,9 @@ impl Writer {
                 key.seq_num, self.guid.entity_id
             );
             self.writer_cache.write().remove_change(&key);
+            for (_guid, rp) in self.matched_readers.iter_mut() {
+                rp.remove_cache_state(&key.seq_num);
+            }
         }
     }
 
