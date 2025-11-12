@@ -161,6 +161,19 @@ impl Reader {
                 writer_proxy.received_change_set(change.sequence_number);
             }
         } else {
+            // remove from the WriterProxy the cache_state corresponding to a cache_change
+            // that has been taken by the DataReader
+            self.reader_cache
+                .write()
+                .get_taken()
+                .iter()
+                .for_each(|key| {
+                    let wp = self
+                        .matched_writers
+                        .get_mut(&key.guid)
+                        .expect("failed get WriterProxy");
+                    wp.remove_cache_state(&key.seq_num);
+                });
             // BestEffort Reader Behavior
             if self.matched_writers.contains_key(&writer_guid) {
                 let flag;
@@ -461,6 +474,14 @@ impl Reader {
                 self.guid,
                 writer_guid,
             );
+
+            let taken = self
+                .reader_cache
+                .write()
+                .get_taken_less_than(writer_guid, heartbeat.first_sn);
+            taken
+                .iter()
+                .for_each(|v| writer_proxy.remove_cache_state(&v.seq_num));
 
             writer_proxy.missing_changes_update(heartbeat.first_sn, heartbeat.last_sn);
             writer_proxy.lost_changes_update(heartbeat.first_sn);

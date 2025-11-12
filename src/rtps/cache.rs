@@ -1,4 +1,4 @@
-use crate::dds::qos::policy::{History, ResourceLimits, LENGTH_UNLIMITED};
+use crate::dds::qos::policy::{ResourceLimits, LENGTH_UNLIMITED};
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload, Timestamp};
 use crate::structure::GUID;
 use alloc::collections::BTreeMap;
@@ -155,6 +155,10 @@ pub(crate) struct HistoryCache {
     /// The `unprocessed_seqnum` is buffer used to pass
     /// the `SequenceNumber` values of newly added changes from the `DataWriter` to the RTPS Writer.
     unprocessed_seqnum: Vec<SequenceNumber>,
+    /// only use type Reader
+    /// Used to notify the Reader that Change has already been taken by the DataReader.
+    /// The Reader uses this information to remove unnecessary cache_state entries held by the WriterProxy.
+    taken_key: Vec<HCKey>,
     pub last_added: BTreeMap<GUID, Timestamp>,
     min_seq_num: Option<SequenceNumber>,
     max_seq_num: Option<SequenceNumber>,
@@ -177,6 +181,11 @@ impl HistoryCache {
             HistoryCacheType::Writer => 32,
             HistoryCacheType::Dummy => 0,
         });
+        let taken_key = Vec::with_capacity(match hc_type {
+            HistoryCacheType::Reader => 32,
+            HistoryCacheType::Writer => 0,
+            HistoryCacheType::Dummy => 0,
+        });
         Self {
             changes: BTreeMap::new(),
             ts2key: Vec::new(),
@@ -184,6 +193,7 @@ impl HistoryCache {
             last_added: BTreeMap::new(),
             hc_type,
             unprocessed_seqnum,
+            taken_key,
             min_seq_num: None,
             max_seq_num: None,
         }
@@ -263,6 +273,37 @@ impl HistoryCache {
         }
     }
 
+    /// for BestEffort Reader
+    /// Returns the keys of Changes taken from the DataReader
+    pub fn get_taken(&mut self) -> Vec<HCKey> {
+        if let HistoryCacheType::Reader = self.hc_type {
+            core::mem::take(&mut self.taken_key)
+        } else {
+            unreachable!();
+        }
+    }
+
+    /// for Reliable Reader
+    /// Returns the keys of Changes taken from the DataReader
+    /// that were received from the Writer identified by guid,
+    /// whose SequenceNumber is less than seq_num.
+    pub fn get_taken_less_than(&mut self, guid: GUID, seq_num: SequenceNumber) -> Vec<HCKey> {
+        if let HistoryCacheType::Reader = self.hc_type {
+            let mut res = Vec::new();
+            self.taken_key.retain(|k| {
+                if k.guid == guid && k.seq_num < seq_num {
+                    res.push(*k);
+                    false
+                } else {
+                    true
+                }
+            });
+            res
+        } else {
+            unreachable!();
+        }
+    }
+
     pub fn get_change(&self, guid: GUID, seq_num: SequenceNumber) -> Option<&CacheChange> {
         self.changes.get(&HCKey::new(guid, seq_num))
     }
@@ -290,6 +331,9 @@ impl HistoryCache {
     }
     pub fn remove_change(&mut self, key: &HCKey) {
         if let Some(c) = self.changes.remove(key) {
+            if let HistoryCacheType::Reader = self.hc_type {
+                self.taken_key.push(*key);
+            }
             if let Some(v) = self.kind2key.get_mut(&c.kind) {
                 if let Some(idx) = v.iter().position(|k| k == key) {
                     v.remove(idx);

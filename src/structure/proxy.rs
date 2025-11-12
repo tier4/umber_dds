@@ -430,6 +430,9 @@ impl WriterProxy {
             self.update_cache_state(seq_num, true, ChangeFromWriterStatusKind::Received);
         }
     }
+    pub fn remove_cache_state(&mut self, seq_num: &SequenceNumber) {
+        self.cache_state.remove(seq_num);
+    }
 }
 impl Serialize for WriterProxy {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
