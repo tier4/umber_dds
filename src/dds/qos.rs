@@ -794,16 +794,17 @@ pub mod policy {
     #[repr(i32)]
     /// Durability QoS policy
     ///
-    /// rtps 2.3 spec, 8.7.2.2 DDS QoS Parameters that affect the wire protoco
-    /// 8.7.2.2.1 DURABILITY
-    /// > While volatile and transient-local durability do not affect the RTPS protocol,
-    /// > support for transient and persistent durability may.
+    /// if ReliabilityQoS is BestEffort, this QoS policy dosen't affect behavior of Umber DDS.
+    /// This is same to Cyclone DDS.
     ///
-    /// UmberDDS don't support optional Durability QoS value "Transient" and "Persistent".
+    /// Umber DDS don't support optional Durability QoS value "Transient" and "Persistent".
     /// So, this config dosen't affect behavior.
     pub enum Durability {
         #[default]
+        /// late-joining readers can't receive data which sent before the reader join the network.
         Volatile = 0,
+        /// late-joining readers can receive latest one data which sent before the
+        /// reader join the network if ReliabilityQoS is set to Reliable.
         TransientLocal = 1,
         // Transient = 2, // DDS spec say Support this is optional
         // Persistent = 3, // DDS spec say Support this is optional
