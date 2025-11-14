@@ -84,7 +84,13 @@ int main (int argc, char ** argv)
   /* Create a besteffort Writer. */
   qos = dds_create_qos ();
   dds_qset_reliability (qos, DDS_RELIABILITY_BEST_EFFORT, DDS_SECS (10));
+  // dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_SECS (10));
+  dds_qset_liveliness (qos, DDS_LIVELINESS_AUTOMATIC, DDS_SECS (5));
   // dds_qset_liveliness (qos, DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, DDS_SECS (5));
+  dds_qset_history (qos, DDS_HISTORY_KEEP_LAST, 1);
+  // dds_qset_resource_limits (qos, 10, 10, 10);
+  dds_qset_durability(qos, DDS_DURABILITY_VOLATILE);
+  // dds_qset_durability(qos, DDS_DURABILITY_TRANSIENT_LOCAL);
   writer = dds_create_writer (participant, topic, qos, listener);
   if (writer < 0)
     DDS_FATAL("dds_create_writer: %s\n", dds_strretcode(-writer));
@@ -137,7 +143,7 @@ int main (int argc, char ** argv)
       DDS_FATAL("dds_write: %s\n", dds_strretcode(-rc));
       break;
     }
-    }
+  }
 
   /* Deleting the participant will delete all its children recursively as well. */
   rc = dds_delete (participant);

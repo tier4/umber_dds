@@ -91,7 +91,13 @@ int main (int argc, char ** argv)
   /* Create a besteffort Reader. */
   qos = dds_create_qos ();
   dds_qset_reliability (qos, DDS_RELIABILITY_BEST_EFFORT, DDS_SECS (10));
+  // dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_SECS (10));
+  dds_qset_liveliness (qos, DDS_LIVELINESS_AUTOMATIC, DDS_SECS (7));
   // dds_qset_liveliness (qos, DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, DDS_SECS (7));
+  dds_qset_history (qos, DDS_HISTORY_KEEP_LAST, 1);
+  // dds_qset_resource_limits (qos, 10, 10, 10);
+  dds_qset_durability(qos, DDS_DURABILITY_VOLATILE);
+  // dds_qset_durability(qos, DDS_DURABILITY_TRANSIENT_LOCAL);
   reader = dds_create_reader (participant, topic, qos, listener);
   if (reader < 0)
     DDS_FATAL("dds_create_reader: %s\n", dds_strretcode(-reader));
