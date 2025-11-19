@@ -16,7 +16,7 @@ use crate::rtps::cache::{CacheChange, HistoryCache, HistoryCacheType};
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
 };
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::rc::Rc;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
@@ -26,6 +26,12 @@ use enumflags2::BitFlags;
 use log::{debug, error, info, trace, warn};
 use mio_extras::channel as mio_channel;
 use speedy::{Endianness, Writable};
+
+enum ReaderState {
+    Initial,
+    Waiting(BTreeSet<SequenceNumber>),
+    Expect(SequenceNumber),
+}
 
 /// RTPS StatefulReader
 pub struct Reader {
@@ -50,6 +56,8 @@ pub struct Reader {
     reader_state_notifier: mio_channel::Sender<DataReaderStatusChanged>,
     set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
     udp_sender: Rc<UdpSender>,
+    // for reodering
+    writer_communication_state: BTreeMap<GUID, ReaderState>,
 }
 
 impl Reader {
@@ -91,6 +99,7 @@ impl Reader {
             reader_state_notifier: ri.reader_state_notifier,
             set_reader_hb_timer_sender,
             udp_sender,
+            writer_communication_state: BTreeMap::new(),
         }
     }
 
@@ -154,9 +163,27 @@ impl Reader {
                 );
                 return;
             }
-            self.reader_state_notifier
-                .send(DataReaderStatusChanged::DataAvailable)
-                .expect("couldn't send channel 'reader_state_notifier'");
+            match self.writer_communication_state.get_mut(&writer_guid) {
+                Some(ReaderState::Initial) => (),
+                Some(ReaderState::Waiting(wait_list)) => {
+                    wait_list.remove(&change.sequence_number);
+                    if wait_list.is_empty() {
+                        self.reader_cache.write().flush();
+                        self.reader_state_notifier
+                            .send(DataReaderStatusChanged::DataAvailable)
+                            .expect("couldn't send reader_state_notifier");
+                    }
+                }
+                Some(ReaderState::Expect(seq_num)) => {
+                    if change.sequence_number == *seq_num {
+                        self.reader_cache.write().flush();
+                        self.reader_state_notifier
+                            .send(DataReaderStatusChanged::DataAvailable)
+                            .expect("couldn't send reader_state_notifier");
+                    }
+                }
+                None => unreachable!(),
+            };
             if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
                 writer_proxy.received_change_set(change.sequence_number);
             }
@@ -198,6 +225,7 @@ impl Reader {
                         );
                         return;
                     }
+                    self.reader_cache.write().flush();
                     self.reader_state_notifier
                         .send(DataReaderStatusChanged::DataAvailable)
                         .expect("couldn't send reader_state_notifier");
@@ -254,6 +282,7 @@ impl Reader {
         if let std::collections::btree_map::Entry::Vacant(e) =
             self.matched_writers.entry(remote_writer_guid)
         {
+            // discover new writer
             if let Err(e) = self.qos.is_compatible(&qos) {
                 warn!(
                 "Reader requested incompatible qos from Writer\n\tWriter: {}\n\tReader: {}\n\terror: {}",
@@ -280,6 +309,10 @@ impl Reader {
                 qos,
                 self.reader_cache.clone(),
             ));
+
+            self.writer_communication_state
+                .insert(remote_writer_guid, ReaderState::Initial);
+
             let sub_match_state = SubscriptionMatchedStatus::new(
                 (self.matched_writers.len() + self.unmatched_writers.len()) as i32,
                 1,
@@ -304,6 +337,7 @@ impl Reader {
                 ))
                 .expect("couldn't send channel 'reader_state_notifier'");
         } else {
+            // receive SEDP message from known writer
             let remote_writer = self.matched_writers.get_mut(&remote_writer_guid).unwrap();
             macro_rules! update_proxy_if_need {
                 ($name:ident) => {
@@ -338,6 +372,7 @@ impl Reader {
 
     fn matched_writer_unmatch(&mut self, guid: GUID) {
         if let Some(writer_proxy) = self.matched_writers.remove(&guid) {
+            self.writer_communication_state.remove(&guid);
             self.unmatched_writers.insert(guid, writer_proxy);
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
@@ -429,14 +464,27 @@ impl Reader {
                 ))
                 .expect("couldn't send channel 'reader_state_notifier'");
         }
+
+        macro_rules! remove_seqnum_from_wait_list {
+            ($seq_num:ident) => {
+                if let Some(ReaderState::Waiting(wait_list)) =
+                    self.writer_communication_state.get_mut(&writer_guid)
+                {
+                    wait_list.remove(&$seq_num);
+                }
+            };
+        }
+
         if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
             let mut seq_num = gap.gap_start;
             while seq_num < gap.gap_list.base() {
                 writer_proxy.irrelevant_change_set(seq_num);
+                remove_seqnum_from_wait_list!(seq_num);
                 seq_num += SequenceNumber(1);
             }
             for seq_num in gap.gap_list.set() {
                 writer_proxy.irrelevant_change_set(seq_num);
+                remove_seqnum_from_wait_list!(seq_num);
             }
         } else {
             warn!(
@@ -563,8 +611,24 @@ impl Reader {
             // So, On RustDDS, when there is some missing SeqNum, base is set to the smallest
             // SeqNum on the set.
             let missign_seq_num_set_base = if missign_seq_num_set.is_empty() {
-                writer_proxy.available_changes_max() + SequenceNumber(1)
+                let base = writer_proxy.available_changes_max() + SequenceNumber(1);
+                if let Some(state) = self.writer_communication_state.get_mut(&writer_guid) {
+                    *state = ReaderState::Expect(base);
+                    if self.reader_cache.write().flush() {
+                        self.reader_state_notifier
+                            .send(DataReaderStatusChanged::DataAvailable)
+                            .expect("couldn't send reader_state_notifier");
+                    }
+                }
+                base
             } else {
+                if let Some(state) = self.writer_communication_state.get_mut(&writer_guid) {
+                    let mut waiting = BTreeSet::new();
+                    missign_seq_num_set.iter().for_each(|seq| {
+                        waiting.insert(*seq);
+                    });
+                    *state = ReaderState::Waiting(waiting);
+                }
                 *missign_seq_num_set.iter().min().unwrap()
             };
             let reader_sn_state =

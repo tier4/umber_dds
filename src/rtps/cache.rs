@@ -1,7 +1,7 @@
 use crate::dds::qos::policy::{ResourceLimits, LENGTH_UNLIMITED};
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload, Timestamp};
 use crate::structure::GUID;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct CacheChange {
@@ -159,6 +159,8 @@ pub(crate) struct HistoryCache {
     /// Used to notify the Reader that Change has already been taken by the DataReader.
     /// The Reader uses this information to remove unnecessary cache_state entries held by the WriterProxy.
     taken_key: Vec<HCKey>,
+    /// only use type Reader
+    ready_key: BTreeSet<HCKey>,
     pub last_added: BTreeMap<GUID, Timestamp>,
     min_seq_num: Option<SequenceNumber>,
     max_seq_num: Option<SequenceNumber>,
@@ -194,6 +196,7 @@ impl HistoryCache {
             hc_type,
             unprocessed_seqnum,
             taken_key,
+            ready_key: BTreeSet::new(),
             min_seq_num: None,
             max_seq_num: None,
         }
@@ -207,7 +210,9 @@ impl HistoryCache {
         change: CacheChange,
         is_reliable: bool,
         resource_limits: ResourceLimits,
+        // history: History,
     ) -> Result<(), String> {
+        // TODO: Reader side, HistoryQos
         let seq_num = change.sequence_number;
         let key = HCKey::new(change.writer_guid, seq_num);
         if let Some(c) = self.changes.get(&key) {
@@ -313,6 +318,35 @@ impl HistoryCache {
         self.last_added.get(&writer_guid)
     }
 
+    pub fn flush(&mut self) -> bool {
+        // set all change to ready
+        if let HistoryCacheType::Reader = self.hc_type {
+            let mut is_flushed = false;
+            for key in self.changes.keys() {
+                self.ready_key.insert(*key);
+                is_flushed = true;
+            }
+            is_flushed
+        } else {
+            unreachable!();
+        }
+    }
+
+    pub fn get_ready_changes(&self) -> (Vec<HCKey>, Vec<&CacheChange>) {
+        if let Some(keys) = self.kind2key.get(&ChangeKind::Alive) {
+            let mut res: Vec<(HCKey, &CacheChange)> = keys
+                .iter()
+                .filter(|k| self.ready_key.contains(k))
+                .map(|k| (*k, self.changes.get(k).unwrap()))
+                .collect();
+            res.sort_by(|(ka, _ca), (kb, _cb)| ka.cmp(kb));
+            res.into_iter().unzip()
+        } else {
+            (Vec::new(), Vec::new())
+        }
+    }
+
+    /*
     pub fn get_alive_changes(&self) -> (Vec<HCKey>, Vec<&CacheChange>) {
         /*
         self.changes
@@ -329,10 +363,12 @@ impl HistoryCache {
             (Vec::new(), Vec::new())
         }
     }
+    */
     pub fn remove_change(&mut self, key: &HCKey) {
         if let Some(c) = self.changes.remove(key) {
             if let HistoryCacheType::Reader = self.hc_type {
                 self.taken_key.push(*key);
+                self.ready_key.remove(key);
             }
             if let Some(v) = self.kind2key.get_mut(&c.kind) {
                 if let Some(idx) = v.iter().position(|k| k == key) {

@@ -43,13 +43,17 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
     /// this function may return empty Vec.
     /// DataReader implement mio::Evented, so you can gegister DataReader to mio v0.6's Poll.
     /// poll DataReader, to ensure taking data.
+    ///
+    /// The (i+1)-th element of the return value of this method is newer than the i-th element.
+    ///
+    /// When History QoS is set to KeepLast: depth N, this method returns an Vec with a maximum length of N elements.
     pub fn take(&self) -> Vec<D> {
         self.get_data()
     }
 
     fn get_data(&self) -> Vec<D> {
         let mut hc = self.rhc.write();
-        let (keys, changes) = hc.get_alive_changes();
+        let (keys, changes) = hc.get_ready_changes();
         let mut v: Vec<D> = Vec::new();
         for d in changes.iter().filter_map(|change| change.data_value()) {
             match deserialize::<D>(&d.to_bytes()) {
