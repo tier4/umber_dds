@@ -97,11 +97,12 @@ impl<D: Serialize + DdsData> DataWriter<D> {
             Some(serialized_payload),
             InstantHandle {},
         );
-        if let Err(e) =
-            self.whc
-                .write()
-                .add_change(a_change, self.is_reliable(), self.qos.resource_limits())
-        {
+        if let Err(e) = self.whc.write().add_change(
+            a_change,
+            self.is_reliable(),
+            self.qos.resource_limits(),
+            self.qos.history(),
+        ) {
             error!("DataWriter failed to add change to HistoryCache: {e}");
         } else {
             info!(

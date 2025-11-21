@@ -156,6 +156,7 @@ impl Reader {
                 change.clone(),
                 self.is_reliable(),
                 self.qos.resource_limits(),
+                self.qos.history(),
             ) {
                 debug!(
                     "add_change to Reader failed: {}\n\tReader: {}\n\tWriter: {}",
@@ -223,6 +224,7 @@ impl Reader {
                         change.clone(),
                         self.is_reliable(),
                         self.qos.resource_limits(),
+                        self.qos.history(),
                     ) {
                         info!(
                             "add_change to Reader failed: {}\n\tReader: {}\n\tWriter: {}",

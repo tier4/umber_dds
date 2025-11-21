@@ -1,4 +1,4 @@
-use crate::dds::qos::policy::{ResourceLimits, LENGTH_UNLIMITED};
+use crate::dds::qos::policy::{History, HistoryQosKind, ResourceLimits, LENGTH_UNLIMITED};
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload, Timestamp};
 use crate::structure::GUID;
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -210,9 +210,8 @@ impl HistoryCache {
         change: CacheChange,
         is_reliable: bool,
         resource_limits: ResourceLimits,
-        // history: History,
+        history: History,
     ) -> Result<(), String> {
-        // TODO: Reader side, HistoryQos
         let seq_num = change.sequence_number;
         let key = HCKey::new(change.writer_guid, seq_num);
         if let Some(c) = self.changes.get(&key) {
@@ -263,6 +262,28 @@ impl HistoryCache {
             self.ts2key.push(key);
             self.kind2key.entry(change.kind).or_default().push(key);
             self.changes.insert(key, change);
+            if let HistoryCacheType::Reader = self.hc_type {
+                if history.kind == HistoryQosKind::KeepLast {
+                    // DDS 1.4 sepc, 2.2.3.18 HISTORY
+                    // > If the kind is set to KEEP_LAST, then the Service will only attempt to keep the latest values of the instance and discard the older ones.↲
+                    //
+                    // Umber DDS do not implement instance.
+                    // So, `instance = Topic` in this implementation.
+                    //
+                    // keep the hdepth largest keys and delete the rest
+                    let hdepth = history.depth;
+                    let todo_delete: Vec<HCKey> = self
+                        .changes
+                        .keys()
+                        .rev()
+                        .skip(hdepth as usize)
+                        .cloned()
+                        .collect();
+                    todo_delete.iter().for_each(|key| {
+                        self.changes.remove(key);
+                    });
+                }
+            }
             if let HistoryCacheType::Writer = self.hc_type {
                 self.unprocessed_seqnum.push(seq_num);
             }
