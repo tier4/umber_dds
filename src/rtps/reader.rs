@@ -182,10 +182,15 @@ impl Reader {
                             .expect("couldn't send reader_state_notifier");
                     }
                 }
-                None => unreachable!(),
+                None => (),
             };
             if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
                 writer_proxy.received_change_set(change.sequence_number);
+            } else {
+                warn!(
+                    "reached unreachable state: Reliable Reader tried add change from unmatched Writer\n\tReader: {}\n\tWriter: {}",
+                    self.guid, writer_guid
+                );
             }
         } else {
             // remove from the WriterProxy the cache_state corresponding to a cache_change
@@ -242,7 +247,7 @@ impl Reader {
                 }
             } else {
                 warn!(
-                    "BestEffort Reader tried add change from unmatched Writer\n\tReader: {}\n\tWriter: {}",
+                    "reached unreachable state: BestEffort Reader tried add change from unmatched Writer\n\tReader: {}\n\tWriter: {}",
                     self.guid, writer_guid
                 );
             }
@@ -372,7 +377,6 @@ impl Reader {
 
     fn matched_writer_unmatch(&mut self, guid: GUID) {
         if let Some(writer_proxy) = self.matched_writers.remove(&guid) {
-            self.writer_communication_state.remove(&guid);
             self.unmatched_writers.insert(guid, writer_proxy);
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
@@ -403,14 +407,18 @@ impl Reader {
             .expect("couldn't send reader_state_notifier");
     }
 
-    pub fn unmatched_writer_remove(&mut self, guid: GUID) {
+    #[inline]
+    fn unmatched_writer_remove(&mut self, guid: GUID) {
         if self.unmatched_writers.remove(&guid).is_some() {
+            self.writer_communication_state.remove(&guid);
             self.send_sub_unmatch(guid);
         }
     }
 
-    pub fn matched_writer_remove(&mut self, guid: GUID) {
+    #[inline]
+    fn matched_writer_remove(&mut self, guid: GUID) {
         if self.matched_writers.remove(&guid).is_some() {
+            self.writer_communication_state.remove(&guid);
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
                     LivelinessChangedStatus::new(

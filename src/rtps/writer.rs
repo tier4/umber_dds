@@ -226,7 +226,14 @@ impl Writer {
         let hdepth = history.depth;
         let durability = self.qos.durability();
         let seq_nums = self.writer_cache.write().get_unprocessed();
-        let oldest_unprocessed = seq_nums[0];
+
+        let oldest_unprocessed = match seq_nums.get(0) {
+            Some(v) => *v,
+            None => {
+                warn!("reached unreachable state: called Writer::handle_write_data_cmd but writer_cache.unprocessed is empty\n\tWriter: {}", self.guid);
+                return;
+            }
+        };
         for (i, seq_num) in seq_nums.iter().rev().enumerate() {
             for reader_proxy in self.matched_readers.values_mut() {
                 reader_proxy.update_cache_state(
