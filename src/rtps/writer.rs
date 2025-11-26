@@ -366,7 +366,25 @@ impl Writer {
         }
     }
 
+    fn is_acked_all_changes(&self) -> bool {
+        for key in self.writer_cache.write().changes.keys() {
+            if !self.is_acked_by_all(key.seq_num) {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn send_heart_beat(&mut self, liveliness: bool) {
+        // `remove_acked_changes` should be called before checking liveliness and `is_acked_all_changes`.
+        // However, when launching many nodes (102 nodes per host across 2 hosts), we observed persistent unicast packet drops on 1–3 hosts after discovery completed.
+        // As a mitigation, we first check liveliness and `is_acked_all_changes`, then call `remove_acked_changes`.
+        if liveliness {
+            self.is_alive = true;
+        } else if self.is_acked_all_changes() {
+            // if all changes is acked and not for liveliness assersion, do nothing
+            return;
+        }
         let last_sn = {
             let writer_cache = self.writer_cache.read();
             writer_cache.get_seq_num_max()
