@@ -369,7 +369,7 @@ impl HistoryCache {
             let mut res: Vec<(HCKey, &CacheChange)> = keys
                 .iter()
                 .filter(|k| self.ready_key.contains(k))
-                .map(|k| (*k, self.changes.get(k).unwrap()))
+                .map(|k| (*k, self.changes.get(k).expect("Access to HistoryCache changes occurs for keys included in kind2key but not in changes")))
                 .collect();
             res.sort_by(|(ka, _ca), (kb, _cb)| ka.cmp(kb));
             res.into_iter().unzip()
