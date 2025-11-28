@@ -2,6 +2,15 @@ use crate::dds::qos::policy::{History, HistoryQosKind, ResourceLimits, LENGTH_UN
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload, Timestamp};
 use crate::structure::GUID;
 use alloc::collections::{BTreeMap, BTreeSet};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub(crate) enum AddChangeErr {
+    #[error("attempt to add a change that was already added")]
+    AlreadyExist,
+    #[error("add_change blocked: {0}")]
+    WouldBlock(String),
+}
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct CacheChange {
@@ -211,12 +220,12 @@ impl HistoryCache {
         is_reliable: bool,
         resource_limits: ResourceLimits,
         history: History,
-    ) -> Result<(), String> {
+    ) -> Result<(), AddChangeErr> {
         let seq_num = change.sequence_number;
         let key = HCKey::new(change.writer_guid, seq_num);
         if let Some(c) = self.changes.get(&key) {
             if c.data_value == change.data_value {
-                Err("attempted to add a change that was already added".to_string())
+                Err(AddChangeErr::AlreadyExist)
             } else {
                 // maybe unreachable?
                 unreachable!();
@@ -240,7 +249,9 @@ impl HistoryCache {
                         if is_reliable {
                             // block until some change removed from self
                             // if block here, nobody can access self.
-                            todo!();
+                            return Err(AddChangeErr::WouldBlock(
+                                "resource_limits.max_samples reached".to_string(),
+                            ));
                         } else {
                             // remove oldest sample
                             self.remove_change(&self.ts2key[0].clone());

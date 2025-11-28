@@ -11,14 +11,15 @@ use crate::message::submessage::element::{
     RepresentationIdentifier, SequenceNumber, SerializedPayload, Timestamp,
 };
 use crate::rtps::{
-    cache::{CacheChange, ChangeKind, HistoryCache, InstantHandle},
+    cache::{AddChangeErr, CacheChange, ChangeKind, HistoryCache, InstantHandle},
     writer::*,
 };
 use crate::structure::GUID;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::marker::PhantomData;
-use log::{error, info};
+use core::time::Duration as CoreDuration;
+use log::{error, info, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
 use serde::Serialize;
@@ -97,21 +98,38 @@ impl<D: Serialize + DdsData> DataWriter<D> {
             Some(serialized_payload),
             InstantHandle {},
         );
-        if let Err(e) = self.whc.write().add_change(
-            a_change,
-            self.is_reliable(),
-            self.qos.resource_limits(),
-            self.qos.history(),
-        ) {
-            error!("DataWriter failed to add change to HistoryCache: {e}");
-        } else {
-            info!(
-                "DataWriter add change to HistoryCache: seq_num: {}\n\tWriter: {}",
-                self.last_change_sequence_number.0, self.writer_guid
-            );
-            self.writer_command_sender
-                .send(WriterCmd::WriteData)
-                .expect("couldn't send message");
+        loop {
+            match self.whc.write().add_change(
+                a_change.clone(),
+                self.is_reliable(),
+                self.qos.resource_limits(),
+                self.qos.history(),
+            ) {
+                Ok(_) => {
+                    info!(
+                        "DataWriter add change to HistoryCache: seq_num: {}\n\tWriter: {}",
+                        self.last_change_sequence_number.0, self.writer_guid
+                    );
+                    self.writer_command_sender
+                        .send(WriterCmd::WriteData)
+                        .expect("couldn't send message");
+                    break;
+                }
+                Err(AddChangeErr::AlreadyExist) => {
+                    error!(
+                        "DataWriter failed to add change to HistoryCache: {}",
+                        AddChangeErr::AlreadyExist
+                    );
+                    break;
+                }
+                Err(AddChangeErr::WouldBlock(t)) => {
+                    warn!(
+                        "DataWriter blocked to add change to HistoryCache: {}",
+                        AddChangeErr::WouldBlock(t)
+                    );
+                    std::thread::sleep(CoreDuration::from_millis(200));
+                }
+            }
         }
     }
 
