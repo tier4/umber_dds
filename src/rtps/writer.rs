@@ -227,7 +227,7 @@ impl Writer {
         let durability = self.qos.durability();
         let seq_nums = self.writer_cache.write().get_unprocessed();
 
-        let oldest_unprocessed = match seq_nums.get(0) {
+        let oldest_unprocessed = match seq_nums.first() {
             Some(v) => *v,
             None => {
                 warn!("reached unreachable state: called Writer::handle_write_data_cmd but writer_cache.unprocessed is empty\n\tWriter: {}", self.guid);
