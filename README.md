@@ -111,9 +111,9 @@ Unsuporting QoS can be set, but it dosn't effect behavior of UmberDDS.
 - [ ] Reliability
     - [x] kind (Reliability, BestEffort)
     - [ ] max_bloking_time
-- [ ] Durability
+- [X] Durability (Volatile, TransientLocal only)
 - [ ] Deadline
-- [ ] History
+- [X] History
 - [ ] Lifespan
 - [x] Liveliness (ManualByTopic is not suported)
 
@@ -125,7 +125,7 @@ Unsuporting QoS can be set, but it dosn't effect behavior of UmberDDS.
 - [ ] OwnershipStrength
 - [ ] TimeBasedFilter
 - [ ] DestinationOrder
-- [ ] ResourceLimits
+- [X] ResourceLimits
 - [ ] Partition
 - [ ] UserData
 - [ ] TopicData
