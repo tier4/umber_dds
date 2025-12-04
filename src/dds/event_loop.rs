@@ -303,10 +303,8 @@ impl EventLoop {
                                                     self.check_liveliness_timer.cancel_timeout(to)
                                                 {
                                                     w.push(writer.guid());
-                                                    let duration = std::cmp::min(
-                                                        *d,
-                                                        ld.half().to_core_duration(),
-                                                    );
+                                                    let duration =
+                                                        std::cmp::min(*d, ld.half().into());
                                                     let to = self
                                                         .check_liveliness_timer
                                                         .set_timeout(duration, w);
@@ -318,7 +316,7 @@ impl EventLoop {
                                                     );
                                                 }
                                             } else {
-                                                let duration = ld.half().to_core_duration();
+                                                let duration = ld.half().into();
                                                 let to = self
                                                     .check_liveliness_timer
                                                     .set_timeout(duration, vec![writer.guid()]);

@@ -1175,7 +1175,7 @@ mod test {
             .durability(policy::Durability::Volatile)
             .liveliness(policy::Liveliness {
                 kind: policy::LivelinessQosKind::ManualByTopic,
-                lease_duration: Duration::new(10, 0),
+                lease_duration: Duration::from_secs(10),
             })
             .build();
         assert_eq!(topic_qos.history, (policy::History::default(), false));
@@ -1222,7 +1222,7 @@ mod test {
             (
                 policy::Liveliness {
                     kind: policy::LivelinessQosKind::ManualByTopic,
-                    lease_duration: Duration::new(10, 0),
+                    lease_duration: Duration::from_secs(10),
                 },
                 true
             )

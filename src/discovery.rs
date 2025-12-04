@@ -324,7 +324,7 @@ impl Discovery {
                 [239, 255, 0, 1],
             )],
             Some(0),
-            Duration::new(20, 0),
+            Duration::from_secs(20),
         );
         loop {
             self.poll.poll(&mut events, None).unwrap();

@@ -216,7 +216,7 @@ impl InnerPublisher {
         let history_cache = Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Writer)));
         let reliability_level = dw_qos.reliability().kind;
         let heartbeat_period = match reliability_level {
-            ReliabilityQosKind::Reliable => Duration::new(2, 0),
+            ReliabilityQosKind::Reliable => Duration::from_secs(2),
             ReliabilityQosKind::BestEffort => Duration::ZERO,
         };
         let domain_id = self.dp.domain_id();
@@ -237,7 +237,7 @@ impl InnerPublisher {
             )],
             push_mode: true,
             heartbeat_period,
-            nack_response_delay: Duration::new(0, 200 * 1000 * 1000),
+            nack_response_delay: Duration::from_millis(200),
             nack_suppression_duration: Duration::ZERO,
             data_max_size_serialized: 0,
             whc: history_cache.clone(),

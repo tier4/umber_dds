@@ -249,7 +249,9 @@ impl<C: Context> Writable<C> for ParameterList {
 
 #[derive(PartialEq, Eq, Readable, Writable, Clone, Copy)]
 pub struct Timestamp {
+    // time in seconds
     pub seconds: u32,
+    // time in seconds/2^32
     pub fraction: u32,
 }
 
@@ -270,9 +272,11 @@ impl Timestamp {
 
     pub fn now() -> Option<Self> {
         let now = crate::helper::now()?;
+        let frac_sec = (now % 1_000_000_000) as f64 / 1_000_000_000.;
+        let fraction = frac_sec * (1_u64 << 32) as f64;
         Some(Self {
             seconds: (now / 1_000_000_000) as u32,
-            fraction: (now % 1_000_000_000) as u32,
+            fraction: fraction as u32,
         })
     }
 }
@@ -281,17 +285,14 @@ impl Sub for Timestamp {
     type Output = Duration;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let mut lsec = self.seconds as i32;
-        let rsec = rhs.seconds as i32;
-        let fraction = if self.fraction < rhs.fraction {
-            lsec -= 1;
-            self.fraction + 1_000_000_000 - rhs.fraction
-        } else {
-            self.fraction - rhs.fraction
-        };
-        let seconds = lsec - rsec;
+        let lsec = self.seconds as i64;
+        let lnanos = (1_000_000_000 * self.fraction as u64 / (1_u64 << 32)) as i64;
+        let l = lsec * 1_000_000_000 + lnanos;
+        let rsec = rhs.seconds as i64;
+        let rnanos = (1_000_000_000 * rhs.fraction as u64 / (1_u64 << 32)) as i64;
+        let r = rsec * 1_000_000_000 + rnanos;
 
-        Duration::new(seconds, fraction)
+        Duration::from_nanos(l - r)
     }
 }
 

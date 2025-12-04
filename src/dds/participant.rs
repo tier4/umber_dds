@@ -28,6 +28,7 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::net::Ipv4Addr;
 use core::sync::atomic::{AtomicU32, Ordering};
+use core::time::Duration as CoreDuration;
 use log::info;
 use mio_extras::channel as mio_channel;
 use mio_v06::net::UdpSocket;

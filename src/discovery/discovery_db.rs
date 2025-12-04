@@ -205,7 +205,7 @@ impl DiscoveryDBInner {
                     );
                     lost.push(*prefix);
                 } else {
-                    next_duration = data.lease_duration.half().to_core_duration();
+                    next_duration = data.lease_duration.half().into();
                 }
             }
         }
