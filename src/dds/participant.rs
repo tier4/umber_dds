@@ -67,6 +67,7 @@ impl DomainParticipant {
     pub fn new(
         domain_id: u16,
         network_interfaces: Vec<Ipv4Addr>,
+        config: Option<ParticipantConfig>,
         small_rng: &mut SmallRng,
     ) -> Self {
         let (disc_thread_sender, disc_thread_receiver) =
@@ -80,6 +81,8 @@ impl DomainParticipant {
             mio_channel::channel::<(EntityId, DiscoveredReaderData)>();
         let (participant_msg_cmd_sender, participant_msg_cmd_receiver) =
             mio_channel::sync_channel::<ParticipantMessageCmd>(32);
+
+        let participant_config = config.unwrap_or_default();
 
         let dp_network_interfaces = if network_interfaces.is_empty() {
             let local_ipv4_nics: Vec<Ipv4Addr> = get_local_interfaces()
@@ -107,6 +110,7 @@ impl DomainParticipant {
                 notify_new_reader_sender,
                 participant_msg_cmd_sender,
                 dp_network_interfaces,
+                participant_config,
                 small_rng,
             ))),
         };
@@ -177,6 +181,10 @@ impl DomainParticipant {
         let mut node = MCSNode::new();
         self.inner.lock(&mut node).gen_entity_key()
     }
+    pub(crate) fn get_config(&self) -> ParticipantConfig {
+        let mut node = MCSNode::new();
+        self.inner.lock(&mut node).get_config()
+    }
     pub fn get_default_publisher_qos(&self) -> PublisherQosPolicies {
         let mut node = MCSNode::new();
         self.inner.lock(&mut node).get_default_publisher_qos()
@@ -219,6 +227,7 @@ impl DomainParticipantDisc {
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
         network_interfaces: Vec<Ipv4Addr>,
+        participant_config: ParticipantConfig,
         small_rng: &mut SmallRng,
     ) -> Self {
         Self {
@@ -230,6 +239,7 @@ impl DomainParticipantDisc {
                 notify_new_reader_sender,
                 participant_msg_cmd_sender,
                 network_interfaces,
+                participant_config,
                 small_rng,
             ))),
             disc_thread_receiver,
@@ -272,6 +282,9 @@ impl DomainParticipantDisc {
     }
     pub fn gen_entity_key(&self) -> [u8; 3] {
         self.inner.read().gen_entity_key()
+    }
+    pub(crate) fn get_config(&self) -> ParticipantConfig {
+        self.inner.read().get_config()
     }
     pub fn get_default_publisher_qos(&self) -> PublisherQosPolicies {
         self.inner.read().get_default_publisher_qos()
@@ -318,6 +331,7 @@ struct DomainParticipantInner {
     default_subscriber_qos: SubscriberQosPolicies,
     default_topic_qos: TopicQosPolicies,
     participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
+    participant_config: ParticipantConfig,
     network_interfaces: Vec<Ipv4Addr>,
 }
 
@@ -331,6 +345,7 @@ impl DomainParticipantInner {
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
         network_interfaces: Vec<Ipv4Addr>,
+        participant_config: ParticipantConfig,
         small_rng: &mut SmallRng,
     ) -> DomainParticipantInner {
         let mut socket_list: BTreeMap<mio_v06::Token, UdpSocket> = BTreeMap::new();
@@ -432,6 +447,7 @@ impl DomainParticipantInner {
             default_subscriber_qos,
             default_topic_qos,
             participant_msg_cmd_sender,
+            participant_config,
             network_interfaces,
         }
     }
@@ -510,6 +526,10 @@ impl DomainParticipantInner {
         self.network_interfaces.clone()
     }
 
+    pub(crate) fn get_config(&self) -> ParticipantConfig {
+        self.participant_config.clone()
+    }
+
     pub fn gen_entity_key(&self) -> [u8; 3] {
         // entity_key must unique to participant
         // This implementation use sequential number to entity_key
@@ -549,5 +569,89 @@ impl Drop for DomainParticipantInner {
         if let Some(handler) = self.ev_loop_handler.take() {
             handler.join().unwrap();
         }
+    }
+}
+
+const DEFAULT_PARTICIPANT_MESSAGE_PERIOD: CoreDuration = CoreDuration::from_secs(3);
+const DEFAULT_LEASE_DURATION: CoreDuration = CoreDuration::from_secs(20);
+const DEFAULT_HEARTBEAT_PERIOD: CoreDuration = CoreDuration::from_secs(2);
+const DEFAULT_NACK_RESPONSE_DELAY: CoreDuration = CoreDuration::from_secs(0);
+const DEFAULT_HEARTBEAT_RESPONSE_DELAY: CoreDuration = CoreDuration::from_secs(0);
+
+#[derive(Clone, Copy)]
+pub struct ParticipantConfig {
+    pub participant_message_period: CoreDuration,
+    pub lease_duration: CoreDuration,
+    pub heartbeat_period: CoreDuration,
+    pub nack_response_delay: CoreDuration,
+    pub heartbeat_response_delay: CoreDuration,
+}
+
+impl Default for ParticipantConfig {
+    fn default() -> Self {
+        Self {
+            participant_message_period: DEFAULT_PARTICIPANT_MESSAGE_PERIOD,
+            lease_duration: DEFAULT_LEASE_DURATION,
+            heartbeat_period: DEFAULT_HEARTBEAT_PERIOD,
+            nack_response_delay: DEFAULT_NACK_RESPONSE_DELAY,
+            heartbeat_response_delay: DEFAULT_HEARTBEAT_RESPONSE_DELAY,
+        }
+    }
+}
+
+pub struct ParticipantConfigBuilder {
+    participant_message_period: Option<CoreDuration>,
+    lease_duration: Option<CoreDuration>,
+    heartbeat_period: Option<CoreDuration>,
+    nack_response_delay: Option<CoreDuration>,
+    heartbeat_response_delay: Option<CoreDuration>,
+}
+
+impl ParticipantConfigBuilder {
+    pub fn new() -> Self {
+        Self {
+            participant_message_period: None,
+            lease_duration: None,
+            heartbeat_period: None,
+            nack_response_delay: None,
+            heartbeat_response_delay: None,
+        }
+    }
+
+    pub fn build(self) -> ParticipantConfig {
+        let participant_message_period = self
+            .participant_message_period
+            .unwrap_or(DEFAULT_PARTICIPANT_MESSAGE_PERIOD);
+        let lease_duration = self.lease_duration.unwrap_or(DEFAULT_LEASE_DURATION);
+        if participant_message_period >= lease_duration {
+            panic!("lease_duration must longer than participant_message_period. lease_duration: {:?}, participant_message_period: {:?}", lease_duration, participant_message_period);
+        }
+        ParticipantConfig {
+            participant_message_period,
+            lease_duration,
+            heartbeat_period: self.heartbeat_period.unwrap_or(DEFAULT_HEARTBEAT_PERIOD),
+            nack_response_delay: self
+                .nack_response_delay
+                .unwrap_or(DEFAULT_NACK_RESPONSE_DELAY),
+            heartbeat_response_delay: self
+                .heartbeat_response_delay
+                .unwrap_or(DEFAULT_HEARTBEAT_RESPONSE_DELAY),
+        }
+    }
+
+    pub fn participant_period(&mut self, period: CoreDuration) {
+        self.participant_message_period = Some(period);
+    }
+    pub fn lease_duration(&mut self, duration: CoreDuration) {
+        self.lease_duration = Some(duration);
+    }
+    pub fn heartbeat_period(&mut self, period: CoreDuration) {
+        self.heartbeat_period = Some(period);
+    }
+    pub fn nack_response_delay(&mut self, period: CoreDuration) {
+        self.nack_response_delay = Some(period);
+    }
+    pub fn heartbeat_response_delay(&mut self, period: CoreDuration) {
+        self.heartbeat_response_delay = Some(period);
     }
 }

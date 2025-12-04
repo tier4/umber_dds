@@ -10,7 +10,7 @@ use crate::rtps::{
     cache::{HistoryCache, HistoryCacheType},
     reader::{DataReaderStatusChanged, ReaderIngredients},
 };
-use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, TopicKind, GUID};
+use crate::structure::{EntityId, EntityKind, RTPSEntity, TopicKind, GUID};
 use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
@@ -220,7 +220,7 @@ impl InnerSubscriber {
                 [239, 255, 0, 1],
             )],
             expectsinline_qos: false,
-            heartbeat_response_delay: Duration::ZERO,
+            heartbeat_response_delay: self.dp.get_config().heartbeat_response_delay.into(),
             rhc: history_cache.clone(),
             topic: topic.clone(),
             qos: dr_qos.clone(),

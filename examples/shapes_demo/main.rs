@@ -99,7 +99,7 @@ fn main() {
     // You should specify some Network Interface that DDS use.
     // let nic = vec![std::net::Ipv4Addr::new(127, 0, 0, 1)];
     let nic = Vec::new();
-    let participant = DomainParticipant::new(domain_id, nic, &mut small_rng);
+    let participant = DomainParticipant::new(domain_id, nic, None, &mut small_rng);
     let topic_qos = TopicQosBuilder::new()
         .reliability(if is_reliable {
             policy::Reliability::default_reliable()

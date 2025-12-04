@@ -324,7 +324,7 @@ impl Discovery {
                 [239, 255, 0, 1],
             )],
             Some(0),
-            Duration::from_secs(20),
+            self.dp.get_config().lease_duration.into(),
         );
         loop {
             self.poll.poll(&mut events, None).unwrap();
@@ -336,7 +336,7 @@ impl Discovery {
                             self.spdp_builtin_participant_writer
                                 .write_builtin_data(&data);
                             self.spdp_send_timer
-                                .set_timeout(CoreDuration::new(3, 0), ());
+                                .set_timeout(self.dp.get_config().participant_message_period, ());
                         }
                         SPDP_PARTICIPANT_DETECTOR => {
                             while let Ok(drc) = self.spdp_builtin_participant_reader.try_recv() {
