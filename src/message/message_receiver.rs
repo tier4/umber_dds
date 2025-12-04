@@ -9,7 +9,7 @@ use crate::message::{
     *,
 };
 use crate::net_util::*;
-use crate::rtps::cache::HistoryCache;
+use crate::rtps::cache::{HistoryCache, HistoryCacheType};
 use crate::rtps::{
     cache::{CacheChange, ChangeKind, InstantHandle},
     reader::Reader,
@@ -407,7 +407,7 @@ impl MessageReceiver {
                 let default_multicast_locator_list =
                     participant_data.default_multicast_locator_list;
                 match deserialized.gen_writerproxy(
-                    Arc::new(RwLock::new(HistoryCache::new())),
+                    Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
                     default_unicast_locator_list,
                     default_multicast_locator_list,
                 ) {
@@ -437,7 +437,7 @@ impl MessageReceiver {
                 writer_proxy.qos.liveliness().kind,
             );
             for (eid, reader) in readers.iter_mut() {
-                if reader.is_writer_match(&topic_name, &data_type) {
+                if reader.is_writer_match(topic_name, data_type) {
                     let remote_writer_topic_kind =
                         writer_proxy.remote_writer_guid.entity_id.topic_kind();
                     if let Some(tk) = remote_writer_topic_kind {
@@ -504,7 +504,7 @@ impl MessageReceiver {
                 let default_multicast_locator_list =
                     participant_data.default_multicast_locator_list;
                 match deserialized.gen_readerpoxy(
-                    Arc::new(RwLock::new(HistoryCache::new())),
+                    Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
                     default_unicast_locator_list,
                     default_multicast_locator_list,
                 ) {
@@ -529,7 +529,7 @@ impl MessageReceiver {
                 }
             };
             for (eid, writer) in writers.iter_mut() {
-                if writer.is_reader_match(&topic_name, &data_type) {
+                if writer.is_reader_match(topic_name, data_type) {
                     let remote_reader_topic_kind =
                         reader_proxy.remote_reader_guid.entity_id.topic_kind();
                     if let Some(tk) = remote_reader_topic_kind {
@@ -700,12 +700,12 @@ impl MessageReceiver {
         if gap.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(GUID::new(self.source_guid_prefix, gap.writer_id)) {
-                    reader.handle_gap(writer_guid, gap.clone());
+                    reader.handle_gap(writer_guid, &gap);
                 }
             }
         } else {
             match readers.get_mut(&gap.reader_id) {
-                Some(r) => r.handle_gap(writer_guid, gap),
+                Some(r) => r.handle_gap(writer_guid, &gap),
                 None => {
                     warn!("receved GAP message to unknown Reader {}", gap.reader_id);
                 }
@@ -758,7 +758,7 @@ impl MessageReceiver {
                 EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER => {
                     match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
                         Some(r) => {
-                            r.handle_heartbeat(writer_guid, flag, heartbeat);
+                            r.handle_heartbeat(writer_guid, flag, &heartbeat);
                             update_liveliness_if_need!(r, ts);
                         }
                         None => {
@@ -769,7 +769,7 @@ impl MessageReceiver {
                 EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER => {
                     match readers.get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR) {
                         Some(r) => {
-                            r.handle_heartbeat(writer_guid, flag, heartbeat);
+                            r.handle_heartbeat(writer_guid, flag, &heartbeat);
                             update_liveliness_if_need!(r, ts);
                         }
                         None => {
@@ -781,7 +781,7 @@ impl MessageReceiver {
                     for reader in readers.values_mut() {
                         if reader.is_contain_writer(GUID::new(self.source_guid_prefix, writer_eid))
                         {
-                            reader.handle_heartbeat(writer_guid, flag, heartbeat.clone());
+                            reader.handle_heartbeat(writer_guid, flag, &heartbeat);
                             update_liveliness_if_need!(reader, ts);
                         }
                     }
@@ -790,7 +790,7 @@ impl MessageReceiver {
         } else {
             match readers.get_mut(&heartbeat.reader_id) {
                 Some(r) => {
-                    r.handle_heartbeat(writer_guid, flag, heartbeat);
+                    r.handle_heartbeat(writer_guid, flag, &heartbeat);
                     update_liveliness_if_need!(r, ts);
                 }
                 None => {

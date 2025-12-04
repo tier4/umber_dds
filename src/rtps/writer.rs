@@ -1,5 +1,8 @@
 use crate::dds::{
-    qos::{policy::ReliabilityQosKind, DataReaderQosPolicies, DataWriterQosPolicies},
+    qos::{
+        policy::{Durability, HistoryQosKind, ReliabilityQosKind},
+        DataReaderQosPolicies, DataWriterQosPolicies,
+    },
     Topic,
 };
 use crate::discovery::{
@@ -8,14 +11,10 @@ use crate::discovery::{
 };
 use crate::message::{
     message_builder::MessageBuilder,
-    submessage::element::{
-        AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, SerializedPayload, Timestamp,
-    },
+    submessage::element::{AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, Timestamp},
 };
 use crate::network::udp_sender::UdpSender;
-use crate::rtps::cache::{
-    CacheChange, ChangeForReaderStatusKind, ChangeKind, HistoryCache, InstantHandle,
-};
+use crate::rtps::cache::{ChangeForReaderStatusKind, HCKey, HistoryCache, HistoryCacheType};
 use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
@@ -45,11 +44,10 @@ pub struct Writer {
     heartbeat_period: Duration,
     nack_response_delay: Duration,
     _nack_suppression_duration: Duration,
-    last_change_sequence_number: SequenceNumber,
     writer_cache: Arc<RwLock<HistoryCache>>,
     data_max_size_serialized: i32,
     // StatelessWriter
-    reader_locators: Vec<ReaderLocator>,
+    _reader_locators: Vec<ReaderLocator>,
     // StatefulWriter
     matched_readers: BTreeMap<GUID, ReaderProxy>,
     total_matched_readers: BTreeSet<GUID>,
@@ -75,7 +73,6 @@ enum AckNackState {
     MustRepair,
 }
 
-#[allow(dead_code)]
 impl Writer {
     pub fn new(
         wi: WriterIngredients,
@@ -98,7 +95,7 @@ impl Writer {
             msg,
             wi.guid,
         );
-        let writer_cache = Arc::new(RwLock::new(HistoryCache::new()));
+        let writer_cache = wi.whc;
         writer_cache.write().add_empty_change(wi.guid);
         Self {
             guid: wi.guid,
@@ -110,10 +107,9 @@ impl Writer {
             heartbeat_period: wi.heartbeat_period,
             nack_response_delay: wi.nack_response_delay,
             _nack_suppression_duration: wi.nack_suppression_duration,
-            last_change_sequence_number: SequenceNumber(0),
             writer_cache,
             data_max_size_serialized: wi.data_max_size_serialized,
-            reader_locators: Vec::new(),
+            _reader_locators: Vec::new(),
             matched_readers: BTreeMap::new(),
             total_matched_readers: BTreeSet::new(),
             topic: wi.topic,
@@ -144,29 +140,10 @@ impl Writer {
             Vec::new(),
             self.data_max_size_serialized,
             self.qos.clone(),
-            Arc::new(RwLock::new(HistoryCache::new())),
+            Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
         );
         let pub_data = self.topic.pub_builtin_topic_data();
         DiscoveredWriterData::new(proxy, pub_data)
-    }
-
-    pub fn new_change(
-        &mut self,
-        kind: ChangeKind,
-        data: Option<SerializedPayload>,
-        handle: InstantHandle,
-    ) -> CacheChange {
-        // Writer
-        self.last_change_sequence_number += SequenceNumber(1);
-        let ts = Timestamp::now().expect("failed get Timestamp::now()");
-        CacheChange::new(
-            kind,
-            self.guid,
-            self.last_change_sequence_number,
-            ts,
-            data,
-            handle,
-        )
     }
 
     pub fn is_reliable(&self) -> bool {
@@ -176,21 +153,21 @@ impl Writer {
         }
     }
 
-    pub fn reader_locator_add(&mut self, locator: ReaderLocator) {
+    pub fn _reader_locator_add(&mut self, locator: ReaderLocator) {
         // StatelessWriter
-        self.reader_locators.push(locator)
+        self._reader_locators.push(locator)
     }
 
-    pub fn reader_locator_remove(&mut self, locator: ReaderLocator) {
+    pub fn _reader_locator_remove(&mut self, locator: ReaderLocator) {
         // StatelessWriter
-        if let Some(loc_pos) = self.reader_locators.iter().position(|rl| *rl == locator) {
-            self.reader_locators.remove(loc_pos);
+        if let Some(loc_pos) = self._reader_locators.iter().position(|rl| *rl == locator) {
+            self._reader_locators.remove(loc_pos);
         }
     }
 
-    pub fn unsent_changes_reset(&mut self) {
+    pub fn _unsent_changes_reset(&mut self) {
         // StatelessWriter
-        for rl in &mut self.reader_locators {
+        for rl in &mut self._reader_locators {
             rl.unsent_changes = self.writer_cache.read().changes.values().cloned().collect();
         }
     }
@@ -202,7 +179,7 @@ impl Writer {
     pub fn handle_writer_cmd(&mut self) {
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
             match cmd {
-                WriterCmd::WriteData(sp) => self.handle_write_data_cmd(sp),
+                WriterCmd::WriteData => self.handle_write_data_cmd(),
                 WriterCmd::AssertLiveliness => self.assert_liveliness_manually(),
             }
         }
@@ -241,27 +218,46 @@ impl Writer {
         self.send_heart_beat(true);
     }
 
-    fn handle_write_data_cmd(&mut self, serialized_payload: Option<SerializedPayload>) {
+    fn handle_write_data_cmd(&mut self) {
         self.is_alive = true;
-        // this is new_change
-        self.last_change_sequence_number += SequenceNumber(1);
-        let ts = Timestamp::now().expect("failed get Timestamp::now()");
-        let a_change = CacheChange::new(
-            ChangeKind::Alive,
-            self.guid,
-            self.last_change_sequence_number,
-            ts,
-            serialized_payload,
-            InstantHandle {},
-        );
-        // register a_change to writer HistoryCache
-        if let Err(e) = self.add_change_to_hc(a_change.clone()) {
-            debug!(
-                "add_change to Reader failed: {}\n\tWriter: {}",
-                e, self.guid
-            );
-            return;
+        // get changes from HistoryCache and register it to cache_state of ReaderProxy
+        let history = self.qos.history();
+        let hkind = history.kind;
+        let hdepth = history.depth;
+        let durability = self.qos.durability();
+        let seq_nums = self.writer_cache.write().get_unprocessed();
+
+        let oldest_unprocessed = match seq_nums.first() {
+            Some(v) => *v,
+            None => {
+                warn!("reached unreachable state: called Writer::handle_write_data_cmd but writer_cache.unprocessed is empty\n\tWriter: {}", self.guid);
+                return;
+            }
+        };
+        for (i, seq_num) in seq_nums.iter().rev().enumerate() {
+            for reader_proxy in self.matched_readers.values_mut() {
+                reader_proxy.update_cache_state(
+                    *seq_num,
+                    /* TODO: if DDS_FILTER(reader_proxy, change) { false } else { true }, */
+                    match hkind {
+                        HistoryQosKind::KeepAll => true,
+                        HistoryQosKind::KeepLast => match durability {
+                            // to keep only the latest hdepth changes
+                            Durability::Volatile => i < hdepth as usize,
+                            // to retaine one additional Change
+                            Durability::TransientLocal => i <= hdepth as usize,
+                        },
+                    },
+                    if self.push_mode {
+                        ChangeForReaderStatusKind::Unsent
+                    } else {
+                        ChangeForReaderStatusKind::Unacknowledged
+                    },
+                )
+            }
         }
+        self.remove_acked_changes(oldest_unprocessed);
+
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
@@ -271,12 +267,12 @@ impl Writer {
             while let Some(change_for_reader) = reader_proxy.next_unsent_change() {
                 reader_proxy.update_cache_state(
                     change_for_reader.seq_num,
-                    change_for_reader._is_relevant,
+                    change_for_reader.is_relevant,
                     ChangeForReaderStatusKind::Underway,
                 );
                 let seq_num = change_for_reader.seq_num;
                 let reader_guid = reader_proxy.remote_reader_guid;
-                let locator_lsit = if self_entity_id.is_builtin() {
+                let locator_list = if self_entity_id.is_builtin() {
                     // built-in endpoint send DATA via multicast
                     if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
                         ll_m
@@ -291,22 +287,22 @@ impl Writer {
                         continue;
                     }
                 };
-                if change_for_reader._is_relevant {
+                if change_for_reader.is_relevant {
                     if let std::collections::btree_map::Entry::Vacant(e) =
                         to_send_data.entry(seq_num)
                     {
-                        e.insert(vec![(reader_guid, locator_lsit)]);
+                        e.insert(vec![(reader_guid, locator_list)]);
                     } else {
                         let vec = to_send_data.get_mut(&seq_num).unwrap();
-                        vec.push((reader_guid, locator_lsit));
+                        vec.push((reader_guid, locator_list));
                     }
                 } else if let std::collections::btree_map::Entry::Vacant(e) =
                     to_send_gap.entry(seq_num)
                 {
-                    e.insert(vec![(reader_guid, locator_lsit)]);
+                    e.insert(vec![(reader_guid, locator_list)]);
                 } else {
                     let vec = to_send_gap.get_mut(&seq_num).unwrap();
-                    vec.push((reader_guid, locator_lsit));
+                    vec.push((reader_guid, locator_list));
                 }
             }
         }
@@ -323,8 +319,9 @@ impl Writer {
                         Endianness::LittleEndian,
                         self.guid.entity_id,
                         reid,
-                        aa_change.clone(),
+                        aa_change,
                     );
+                    // TODO: piggybacking HB
                     let message = message_builder.build(self_guid_prefix);
                     let message_buf = message
                         .write_to_vec_with_ctx(self.endianness)
@@ -333,6 +330,11 @@ impl Writer {
                 }
             } else {
                 unreachable!()
+            }
+            if !self.is_reliable() {
+                self.writer_cache
+                    .write()
+                    .remove_change(&HCKey::new(self.guid, *seq_num));
             }
         }
         for seq_num in to_send_gap.keys() {
@@ -356,23 +358,46 @@ impl Writer {
                     .expect("couldn't serialize message");
                 self.send_msg_to_locator(loc, message_buf, "gap");
             }
+            if !self.is_reliable() {
+                self.writer_cache
+                    .write()
+                    .remove_change(&HCKey::new(self.guid, *seq_num));
+            }
         }
     }
 
+    fn is_acked_all_changes(&self) -> bool {
+        for key in self.writer_cache.write().changes.keys() {
+            if !self.is_acked_by_all(key.seq_num) {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn send_heart_beat(&mut self, liveliness: bool) {
+        // `remove_acked_changes` should be called before checking liveliness and `is_acked_all_changes`.
+        // However, when launching many nodes (102 nodes per host across 2 hosts), we observed persistent unicast packet drops on 1–3 hosts after discovery completed.
+        // As a mitigation, we first check liveliness and `is_acked_all_changes`, then call `remove_acked_changes`.
         if liveliness {
             self.is_alive = true;
-        } else if self.is_acked_by_all() {
+        } else if self.is_acked_all_changes() {
+            // if all changes is acked and not for liveliness assersion, do nothing
             return;
         }
+        let last_sn = {
+            let writer_cache = self.writer_cache.read();
+            writer_cache.get_seq_num_max()
+        };
+        self.remove_acked_changes(last_sn);
         let time_stamp = Timestamp::now();
         let writer_cache = self.writer_cache.read();
         let first_sn = writer_cache.get_seq_num_min();
         let last_sn = writer_cache.get_seq_num_max();
         if first_sn.0 <= 0 || last_sn.0 < 0 || last_sn.0 < first_sn.0 - 1 {
             debug!(
-                "heartbeat validation failed\n\tfirstSN: {}, lastSN: {}",
-                first_sn.0, last_sn.0
+                "heartbeat validation failed\n\tfirstSN: {}, lastSN: {}\n\tWriter: {}",
+                first_sn.0, last_sn.0, self.guid
             );
             return;
         }
@@ -410,30 +435,15 @@ impl Writer {
             let message_buf = msg
                 .write_to_vec_with_ctx(self.endianness)
                 .expect("couldn't serialize message");
-            self.send_msg_to_locator(loc, message_buf, "heartbeat");
+            self.send_msg_to_locator(
+                loc,
+                message_buf,
+                &format!(
+                    "heartbeat {{ first_sn: {}, last_sn: {} }}",
+                    first_sn.0, last_sn.0
+                ),
+            );
         }
-    }
-
-    fn add_change_to_hc(&mut self, change: CacheChange) -> Result<(), String> {
-        // add change to WriterHistoryCache & set status to Unset on each ReaderProxy
-        info!(
-            "Writer add change: seq_num: {}\n\tWriter: {}",
-            change.sequence_number.0, self.guid
-        );
-        self.writer_cache.write().add_change(change)?;
-        for reader_proxy in self.matched_readers.values_mut() {
-            reader_proxy.update_cache_state(
-                self.last_change_sequence_number,
-                /* TODO: if DDS_FILTER(reader_proxy, change) { false } else { true }, */
-                true,
-                if self.push_mode {
-                    ChangeForReaderStatusKind::Unsent
-                } else {
-                    ChangeForReaderStatusKind::Unacknowledged
-                },
-            )
-        }
-        Ok(())
     }
 
     pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) {
@@ -472,7 +482,10 @@ impl Writer {
                 "Writer tried handle ACKNACK from unmatched Reader\n\tWriter: {}\n\tReader: {}",
                 self.guid, reader_guid
             );
+            return;
         }
+        // maximum acked SequenceNumber is acknack.reader_sn_state.base() - 1
+        self.remove_acked_changes(acknack.reader_sn_state.base() - SequenceNumber(1));
     }
 
     pub fn handle_nack_response_timeout(&mut self, reader_guid: GUID) {
@@ -486,12 +499,12 @@ impl Writer {
             while let Some(change) = reader_proxy.next_requested_change() {
                 reader_proxy.update_cache_state(
                     change.seq_num,
-                    change._is_relevant,
+                    change.is_relevant,
                     ChangeForReaderStatusKind::Underway,
                 );
                 let seq_num = change.seq_num;
                 let reader_guid = reader_proxy.remote_reader_guid;
-                let locator_lsit = if self_entity_id.is_builtin() {
+                let locator_list = if self_entity_id.is_builtin() {
                     // built-in endpoint send DATA via multicast
                     if let Some(ll_m) = Self::get_multicast_ll_from_proxy(self_guid, reader_proxy) {
                         ll_m
@@ -506,22 +519,22 @@ impl Writer {
                         continue;
                     }
                 };
-                if change._is_relevant {
+                if change.is_relevant {
                     if let std::collections::btree_map::Entry::Vacant(e) =
                         to_send_data.entry(seq_num)
                     {
-                        e.insert(vec![(reader_guid, locator_lsit)]);
+                        e.insert(vec![(reader_guid, locator_list)]);
                     } else {
                         let vec = to_send_data.get_mut(&seq_num).unwrap();
-                        vec.push((reader_guid, locator_lsit));
+                        vec.push((reader_guid, locator_list));
                     }
                 } else if let std::collections::btree_map::Entry::Vacant(e) =
                     to_send_gap.entry(seq_num)
                 {
-                    e.insert(vec![(reader_guid, locator_lsit)]);
+                    e.insert(vec![(reader_guid, locator_list)]);
                 } else {
                     let vec = to_send_gap.get_mut(&seq_num).unwrap();
-                    vec.push((reader_guid, locator_lsit));
+                    vec.push((reader_guid, locator_list));
                 }
             }
         } else {
@@ -543,7 +556,7 @@ impl Writer {
                         Endianness::LittleEndian,
                         self.guid.entity_id,
                         reid,
-                        aa_change.clone(),
+                        aa_change,
                     );
                     let message = message_builder.build(self_guid_prefix);
                     let message_buf = message
@@ -629,6 +642,35 @@ impl Writer {
         }
     }
 
+    /// remove changes acked by all matched_readers with a sequence number less than or equal to base-1 (Durability is TransientLocal) or base (Durability is Volatile)
+    fn remove_acked_changes(&mut self, base: SequenceNumber) {
+        let base_ = match self.qos.durability() {
+            Durability::Volatile => base,
+            Durability::TransientLocal => base - SequenceNumber(1),
+        };
+        let mut todo_revemo = Vec::new();
+        for key in self.writer_cache.read().changes.keys() {
+            if key.seq_num <= base_ && self.is_acked_by_all(key.seq_num) {
+                todo_revemo.push(*key);
+            } else {
+                debug!(
+                    "Writer don't remove key: {:?} form HistoryCache\n\tWriter: {}",
+                    key.seq_num, self.guid.entity_id
+                );
+            }
+        }
+        for key in todo_revemo {
+            debug!(
+                "Writer remove key: {:?} form HistoryCache\n\tWriter: {}",
+                key.seq_num, self.guid.entity_id
+            );
+            self.writer_cache.write().remove_change(&key);
+            for (_guid, rp) in self.matched_readers.iter_mut() {
+                rp.remove_cache_state(&key.seq_num);
+            }
+        }
+    }
+
     fn get_unicast_ll_from_proxy(
         my_guid: GUID,
         reader_proxy: &ReaderProxy,
@@ -676,9 +718,9 @@ impl Writer {
         }
     }
 
-    pub fn is_acked_by_all(&self) -> bool {
+    pub fn is_acked_by_all(&self, seq_num: SequenceNumber) -> bool {
         for reader_proxy in self.matched_readers.values() {
-            if !reader_proxy.is_acked() {
+            if !reader_proxy.is_acked(seq_num) {
                 return false;
             }
         }
@@ -842,7 +884,7 @@ impl Writer {
         }
     }
 
-    fn matched_reader_unmatch(&mut self, guid: GUID) {
+    fn _matched_reader_unmatch(&mut self, guid: GUID) {
         if self.matched_readers.remove(&guid).is_some() {
             self.unmatch_count += 1;
             self.writer_state_notifier
@@ -853,7 +895,7 @@ impl Writer {
         }
     }
 
-    pub fn matched_reader_remove(&mut self, guid: GUID) {
+    fn matched_reader_remove(&mut self, guid: GUID) {
         self.matched_readers.remove(&guid);
         let pub_match_state = PublicationMatchedStatus::new(
             self.total_matched_readers.len() as i32,
@@ -972,6 +1014,7 @@ pub struct WriterIngredients {
     pub nack_response_delay: Duration,
     pub nack_suppression_duration: Duration,
     pub data_max_size_serialized: i32,
+    pub(crate) whc: Arc<RwLock<HistoryCache>>,
     // This implementation spesific
     pub topic: Topic,
     pub qos: DataWriterQosPolicies,
@@ -980,6 +1023,6 @@ pub struct WriterIngredients {
     pub participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
 }
 pub enum WriterCmd {
-    WriteData(Option<SerializedPayload>),
+    WriteData,
     AssertLiveliness,
 }

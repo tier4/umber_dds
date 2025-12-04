@@ -142,12 +142,12 @@ impl MessageBuilder {
         endiannes: Endianness,
         writer_id: EntityId,
         reader_id: EntityId,
-        cache_change: CacheChange,
+        cache_change: &CacheChange,
     ) {
         let mut data_flag = DataFlag::from_enndianness(endiannes);
         let payload_length;
         let serialized_payload = cache_change.data_value();
-        if let Some(payload) = &serialized_payload {
+        if let Some(payload) = serialized_payload {
             data_flag |= DataFlag::Data;
             payload_length = 4 + payload.value.len();
         } else {
@@ -159,7 +159,7 @@ impl MessageBuilder {
             writer_id,
             cache_change.sequence_number,
             None,
-            serialized_payload,
+            serialized_payload.cloned(),
         );
         let data_body = SubMessageBody::Entity(EntitySubmessage::Data(data, data_flag));
         // extra_flags(2), octets_to_inlineQos(2), reader_id(4), writer_id(4), writer_sn(8) octet

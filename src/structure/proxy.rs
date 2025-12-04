@@ -1,4 +1,4 @@
-use crate::dds::qos::{DataReaderQosPolicies, DataWriterQosPolicies};
+use crate::dds::qos::{policy::Durability, DataReaderQosPolicies, DataWriterQosPolicies};
 use crate::message::submessage::element::{Locator, SequenceNumber};
 use crate::rtps::cache::{
     ChangeForReader, ChangeForReaderStatusKind, ChangeFromWriter, ChangeFromWriterStatusKind,
@@ -51,12 +51,20 @@ impl ReaderProxy {
         } else {
             ChangeForReaderStatusKind::Unacknowledged
         };
+        let durability = qos.durability();
         {
             let hc = history_cache.read();
             for k in hc.changes.keys() {
+                let latest = hc.ts2key[hc.ts2key.len() - 1];
+                let is_relevant = {
+                    match durability {
+                        Durability::Volatile => false,
+                        Durability::TransientLocal => *k == latest,
+                    }
+                };
                 cache_state.insert(
                     k.seq_num,
-                    ChangeForReader::new(k.seq_num, status_kind, true),
+                    ChangeForReader::new(k.seq_num, status_kind, is_relevant),
                 );
             }
         }
@@ -105,13 +113,13 @@ impl ReaderProxy {
         let mut to_update = Vec::new();
         for (seq_num, cfr) in &self.cache_state {
             if *seq_num <= commited_seq_num {
-                to_update.push((*seq_num, cfr._is_relevant));
+                to_update.push((*seq_num, cfr.is_relevant));
             }
         }
-        for (seq_num, _is_relevant) in to_update {
+        for (seq_num, is_relevant) in to_update {
             self.update_cache_state(
                 seq_num,
-                _is_relevant,
+                is_relevant,
                 ChangeForReaderStatusKind::Acknowledged,
             );
         }
@@ -164,19 +172,26 @@ impl ReaderProxy {
         }
         unsent_changes
     }
-    pub fn is_acked(&self) -> bool {
-        let mut res = true;
-        for change in self.cache_state.values() {
-            res &= change._is_relevant;
-            res &= change.status == ChangeForReaderStatusKind::Acknowledged;
+    pub fn is_acked(&self, seq_num: SequenceNumber) -> bool {
+        if let Some(change) = self.cache_state.get(&seq_num) {
+            if change.is_relevant {
+                change.status == ChangeForReaderStatusKind::Acknowledged
+            } else {
+                true
+            }
+        } else {
+            true
         }
-        res
     }
+    pub fn remove_cache_state(&mut self, seq_num: &SequenceNumber) {
+        self.cache_state.remove(seq_num);
+    }
+
     #[allow(dead_code)]
     pub fn unacked_changes(&self) -> Vec<ChangeForReader> {
         let mut unacked_changes = Vec::new();
         for change_for_reader in self.cache_state.values() {
-            if let ChangeForReaderStatusKind::Unsent = change_for_reader.status {
+            if let ChangeForReaderStatusKind::Unacknowledged = change_for_reader.status {
                 unacked_changes.push(change_for_reader.clone())
             }
         }
@@ -408,12 +423,15 @@ impl WriterProxy {
             }
         }
     }
-    pub fn received_chage_set(&mut self, seq_num: SequenceNumber) {
+    pub fn received_change_set(&mut self, seq_num: SequenceNumber) {
         if let Some(cfw) = self.cache_state.get_mut(&seq_num) {
             cfw.status = ChangeFromWriterStatusKind::Received;
         } else {
             self.update_cache_state(seq_num, true, ChangeFromWriterStatusKind::Received);
         }
+    }
+    pub fn remove_cache_state(&mut self, seq_num: &SequenceNumber) {
+        self.cache_state.remove(seq_num);
     }
 }
 impl Serialize for WriterProxy {

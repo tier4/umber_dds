@@ -656,6 +656,7 @@ impl EventLoop {
                                     );
                                     let qos = DataReaderQosBuilder::new()
                                         .reliability(Reliability::default_besteffort())
+                                        .durability(Durability::TransientLocal)
                                         .build();
                                     writer.matched_reader_add(
                                         guid,
@@ -684,6 +685,7 @@ impl EventLoop {
                                     );
                                     let qos = DataWriterQosBuilder::new()
                                         .reliability(Reliability::default_reliable())
+                                        .durability(Durability::TransientLocal)
                                         .build();
                                     reader.matched_writer_add(
                                         guid,
@@ -712,6 +714,7 @@ impl EventLoop {
                                     );
                                     let qos = DataReaderQosBuilder::new()
                                         .reliability(Reliability::default_reliable())
+                                        .durability(Durability::TransientLocal)
                                         .build();
                                     writer.matched_reader_add(
                                         guid,
@@ -740,6 +743,7 @@ impl EventLoop {
                                     );
                                     let qos = DataWriterQosBuilder::new()
                                         .reliability(Reliability::default_reliable())
+                                        .durability(Durability::TransientLocal)
                                         .build();
                                     reader.matched_writer_add(
                                         guid,

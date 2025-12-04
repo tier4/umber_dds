@@ -45,9 +45,7 @@ impl DiscoveryDB {
     pub fn write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
-        if let Some(data) = inner.read_participant_data(guid_prefix) {
-            inner.write_participant(guid_prefix, timestamp, data)
-        }
+        inner.write_participant_ts(guid_prefix, timestamp)
     }
 
     pub fn check_participant_liveliness(
@@ -186,6 +184,12 @@ impl DiscoveryDBInner {
             .insert(guid_prefix, (EndpointState::Live(timestamp), data));
     }
 
+    fn write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) {
+        if let Some(e) = self.participant_data.get_mut(&guid_prefix) {
+            e.0 = EndpointState::Live(timestamp);
+        }
+    }
+
     pub fn check_participant_liveliness(
         &mut self,
         timestamp: Timestamp,
@@ -304,7 +308,7 @@ impl DiscoveryDBInner {
         guid_prefix: GuidPrefix,
     ) -> Option<SPDPdiscoveredParticipantData> {
         if let Some((_ts, data)) = self.participant_data.get(&guid_prefix) {
-            Some((*data).clone())
+            Some(data.clone())
         } else {
             None
         }

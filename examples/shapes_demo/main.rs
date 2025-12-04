@@ -40,15 +40,16 @@ struct ShapeType {
 
 fn main() {
     if let Err(_e) = init_file("shapes_logging.yml", Deserializers::default()) {
-        let stdout = ConsoleAppender::builder()
+        let stderr = ConsoleAppender::builder()
+            .target(log4rs::append::console::Target::Stderr)
             .encoder(Box::new(PatternEncoder::new(
                 "[{l}] [{d(%s%.f)}] [{t}]: {m}{n}",
             )))
             .build();
 
         let config = Config::builder()
-            .appender(Appender::builder().build("stdout", Box::new(stdout)))
-            .build(Root::builder().appender("stdout").build(LevelFilter::Warn))
+            .appender(Appender::builder().build("stderr", Box::new(stderr)))
+            .build(Root::builder().appender("stderr").build(LevelFilter::Warn))
             .unwrap();
 
         init_config(config).unwrap();
@@ -95,7 +96,10 @@ fn main() {
     let mut small_rng = rand::rngs::SmallRng::seed_from_u64(now.as_nanos() as u64);
 
     let domain_id = 0;
-    let participant = DomainParticipant::new(domain_id, Vec::new(), &mut small_rng);
+    // You should specify some Network Interface that DDS use.
+    // let nic = vec![std::net::Ipv4Addr::new(127, 0, 0, 1)];
+    let nic = Vec::new();
+    let participant = DomainParticipant::new(domain_id, nic, &mut small_rng);
     let topic_qos = TopicQosBuilder::new()
         .reliability(if is_reliable {
             policy::Reliability::default_reliable()
@@ -119,7 +123,7 @@ fn main() {
                         policy::Reliability::default_besteffort()
                     })
                     .build();
-                let datawriter = publisher
+                let mut datawriter = publisher
                     .create_datawriter::<Shape>(DataWriterQos::Policies(Box::new(dw_qos)), topic);
                 poll.register(&datawriter, DATAWRITER, Ready::readable(), PollOpt::edge())
                     .unwrap();
@@ -169,7 +173,7 @@ fn main() {
                                 }
                             }
                             WRITETIMTER => {
-                                datawriter.write(shape.clone());
+                                datawriter.write(&shape);
                                 println!("send: {:?}", shape);
                                 shape.x = (shape.x + 5) % 255;
                                 shape.y = (shape.y + 5) % 255;

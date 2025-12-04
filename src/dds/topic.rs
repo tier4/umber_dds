@@ -53,17 +53,17 @@ impl Topic {
         }
     }
 
-    pub fn name(&self) -> String {
-        self.inner.name.clone()
+    pub fn name(&self) -> &String {
+        &self.inner.name
     }
-    pub fn type_desc(&self) -> String {
-        self.inner.type_desc.clone()
+    pub fn type_desc(&self) -> &String {
+        &self.inner.type_desc
     }
-    pub fn my_domain_participant(&self) -> DomainParticipant {
-        self.inner.my_domain_participant.clone()
+    pub fn my_domain_participant(&self) -> &DomainParticipant {
+        &self.inner.my_domain_participant
     }
-    pub fn my_qos_policies(&self) -> TopicQosPolicies {
-        self.inner.my_qos_policies.clone()
+    pub fn my_qos_policies(&self) -> &TopicQosPolicies {
+        &self.inner.my_qos_policies
     }
     pub fn kind(&self) -> TopicKind {
         self.inner.kind

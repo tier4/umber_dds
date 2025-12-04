@@ -187,7 +187,7 @@ fn main() {
         y: 0,
         shapesize: 42,
     };
-    let (datareader, datawriter) = match entity {
+    let (datareader, mut datawriter) = match entity {
         Entity::Datareader(dr) => (Some(dr), None),
         Entity::Datawriter(dw) => (None, Some(dw)),
     };
@@ -217,8 +217,8 @@ fn main() {
                     }
                 }
                 WRITE_TIMER => {
-                    if let Some(dw) = &datawriter {
-                        dw.write(shape.clone());
+                    if let Some(dw) = &mut datawriter {
+                        dw.write(&shape);
                         println!("send: {:?}", shape);
                         shape.x = (shape.x + 5) % 255;
                         shape.y = (shape.y + 5) % 255;

@@ -1,6 +1,16 @@
+use crate::dds::qos::policy::{History, HistoryQosKind, ResourceLimits, LENGTH_UNLIMITED};
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload, Timestamp};
 use crate::structure::GUID;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub(crate) enum AddChangeErr {
+    #[error("attempt to add a change that was already added")]
+    AlreadyExist,
+    #[error("add_change blocked: {0}")]
+    WouldBlock(String),
+}
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct CacheChange {
@@ -35,8 +45,8 @@ impl CacheChange {
         }
     }
 
-    pub fn data_value(&self) -> Option<SerializedPayload> {
-        self.data_value.clone()
+    pub fn data_value(&self) -> Option<&SerializedPayload> {
+        self.data_value.as_ref()
     }
 }
 
@@ -62,19 +72,19 @@ pub enum ChangeFromWriterStatusKind {
 pub struct ChangeForReader {
     pub seq_num: SequenceNumber,
     pub status: ChangeForReaderStatusKind,
-    pub _is_relevant: bool,
+    pub is_relevant: bool,
 }
 
 impl ChangeForReader {
     pub fn new(
         seq_num: SequenceNumber,
         status: ChangeForReaderStatusKind,
-        _is_relevant: bool,
+        is_relevant: bool,
     ) -> Self {
         Self {
             seq_num,
             status,
-            _is_relevant,
+            is_relevant,
         }
     }
 }
@@ -100,13 +110,13 @@ impl ChangeFromWriter {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub enum ChangeKind {
     Alive,
-    AliveFiltered,
-    NotAlive,
-    NotAliveDisposed,
-    NotAliveUnregistered,
+    _AliveFiltered,
+    _NotAlive,
+    _NotAliveDisposed,
+    _NotAliveUnregistered,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -135,18 +145,67 @@ impl Ord for HCKey {
     }
 }
 
-pub struct HistoryCache {
-    pub changes: BTreeMap<HCKey, CacheChange>,
-    pub last_added: BTreeMap<GUID, Timestamp>,
-    pub min_seq_num: Option<SequenceNumber>,
-    pub max_seq_num: Option<SequenceNumber>,
+pub(crate) enum HistoryCacheType {
+    Reader,
+    Writer,
+    Dummy,
 }
 
+pub(crate) struct HistoryCache {
+    pub changes: BTreeMap<HCKey, CacheChange>,
+    pub ts2key: Vec<HCKey>,
+    kind2key: BTreeMap<ChangeKind, Vec<HCKey>>,
+    hc_type: HistoryCacheType,
+    /// only use type Writer
+    /// rtps 2.3 spec, 8.4.1.1 Example Behavior assumes
+    /// that a `DataWriter` can access the correnponded RTPS Writer directly.
+    /// In this implementation, that assumption does not hold:
+    /// the `DataWriter` and the RTPS Writer are decoupled.
+    /// The `unprocessed_seqnum` is buffer used to pass
+    /// the `SequenceNumber` values of newly added changes from the `DataWriter` to the RTPS Writer.
+    unprocessed_seqnum: Vec<SequenceNumber>,
+    /// only use type Reader
+    /// Used to notify the Reader that Change has already been taken by the DataReader.
+    /// The Reader uses this information to remove unnecessary cache_state entries held by the WriterProxy.
+    taken_key: Vec<HCKey>,
+    /// only use type Reader
+    ready_key: BTreeSet<HCKey>,
+    pub last_added: BTreeMap<GUID, Timestamp>,
+    min_seq_num: Option<SequenceNumber>,
+    max_seq_num: Option<SequenceNumber>,
+}
+
+// life cycle of CacheChange on WriterCache
+// BestEffort
+// after sending, removed
+//
+// Reliable
+//  Durability::Volatile
+//      after acked_by_all, removed
+//  Durability::TransientLocal
+//      after acked_by_all, removed except lastest change that already acked_by_all
+
 impl HistoryCache {
-    pub fn new() -> Self {
+    pub fn new(hc_type: HistoryCacheType) -> Self {
+        let unprocessed_seqnum = Vec::with_capacity(match hc_type {
+            HistoryCacheType::Reader => 0,
+            HistoryCacheType::Writer => 32,
+            HistoryCacheType::Dummy => 0,
+        });
+        let taken_key = Vec::with_capacity(match hc_type {
+            HistoryCacheType::Reader => 32,
+            HistoryCacheType::Writer => 0,
+            HistoryCacheType::Dummy => 0,
+        });
         Self {
             changes: BTreeMap::new(),
+            ts2key: Vec::new(),
+            kind2key: BTreeMap::new(),
             last_added: BTreeMap::new(),
+            hc_type,
+            unprocessed_seqnum,
+            taken_key,
+            ready_key: BTreeSet::new(),
             min_seq_num: None,
             max_seq_num: None,
         }
@@ -155,24 +214,135 @@ impl HistoryCache {
         self.last_added
             .insert(guid, Timestamp::now().expect("failed get time_stamp now"));
     }
-    pub fn add_change(&mut self, change: CacheChange) -> Result<(), String> {
-        let key = HCKey::new(change.writer_guid, change.sequence_number);
+    pub fn add_change(
+        &mut self,
+        change: CacheChange,
+        is_reliable: bool,
+        resource_limits: ResourceLimits,
+        history: History,
+    ) -> Result<(), AddChangeErr> {
+        let seq_num = change.sequence_number;
+        let key = HCKey::new(change.writer_guid, seq_num);
         if let Some(c) = self.changes.get(&key) {
             if c.data_value == change.data_value {
-                Err("attempted to add a change that was already added".to_string())
+                Err(AddChangeErr::AlreadyExist)
             } else {
+                // maybe unreachable?
+                unreachable!();
+                /*
                 self.last_added.insert(key.guid, change.timestamp);
                 self.changes.insert(key, change);
                 Ok(())
+                */
             }
         } else {
+            let max_samples = resource_limits.max_samples;
+            if max_samples != LENGTH_UNLIMITED && self.changes.len() + 1 >= max_samples as usize {
+                // reach ResourceLimits
+                // DDS v1.4 spec, 2.2.3.19 RESOURCE_LIMITS
+                // The behavior in this case depends on the setting for the RELIABILITY QoS.
+                // If reliability is BEST_EFFORT then the Service is allowed to drop samples.
+                // If the reliability is RELIABLE, the Service will block the DataWriter or
+                // discard the sample at the DataReader 28 in order not to lose existing samples.
+                match self.hc_type {
+                    HistoryCacheType::Writer => {
+                        if is_reliable {
+                            // block until some change removed from self
+                            // if block here, nobody can access self.
+                            return Err(AddChangeErr::WouldBlock(
+                                "resource_limits.max_samples reached".to_string(),
+                            ));
+                        } else {
+                            // remove oldest sample
+                            self.remove_change(&self.ts2key[0].clone());
+                        }
+                    }
+                    HistoryCacheType::Reader => {
+                        if is_reliable {
+                            // discard change
+                            return Ok(());
+                        } else {
+                            // remove oldest sample
+                            self.remove_change(&self.ts2key[0].clone());
+                        }
+                    }
+                    HistoryCacheType::Dummy => unreachable!(),
+                }
+            }
             self.last_added.insert(key.guid, change.timestamp);
+            self.ts2key.push(key);
+            self.kind2key.entry(change.kind).or_default().push(key);
             self.changes.insert(key, change);
+            if let HistoryCacheType::Reader = self.hc_type {
+                if history.kind == HistoryQosKind::KeepLast {
+                    // DDS 1.4 sepc, 2.2.3.18 HISTORY
+                    // > If the kind is set to KEEP_LAST, then the Service will only attempt to keep the latest values of the instance and discard the older ones.↲
+                    //
+                    // Umber DDS do not implement instance.
+                    // So, `instance = Topic` in this implementation.
+                    //
+                    // keep the hdepth largest keys and delete the rest
+                    let hdepth = history.depth;
+                    let todo_delete: Vec<HCKey> = self
+                        .changes
+                        .keys()
+                        .rev()
+                        .skip(hdepth as usize)
+                        .cloned()
+                        .collect();
+                    todo_delete.iter().for_each(|key| {
+                        self.changes.remove(key);
+                    });
+                }
+            }
+            if let HistoryCacheType::Writer = self.hc_type {
+                self.unprocessed_seqnum.push(seq_num);
+            }
             Ok(())
         }
     }
-    pub fn get_change(&self, guid: GUID, seq_num: SequenceNumber) -> Option<CacheChange> {
-        self.changes.get(&HCKey::new(guid, seq_num)).cloned()
+
+    pub fn get_unprocessed(&mut self) -> Vec<SequenceNumber> {
+        if let HistoryCacheType::Writer = self.hc_type {
+            core::mem::take(&mut self.unprocessed_seqnum)
+        } else {
+            unreachable!();
+        }
+    }
+
+    /// for BestEffort Reader
+    /// Returns the keys of Changes taken from the DataReader
+    pub fn get_taken(&mut self) -> Vec<HCKey> {
+        if let HistoryCacheType::Reader = self.hc_type {
+            core::mem::take(&mut self.taken_key)
+        } else {
+            unreachable!();
+        }
+    }
+
+    /// for Reliable Reader
+    /// Returns the keys of Changes taken from the DataReader
+    /// that were received from the Writer identified by guid,
+    /// whose SequenceNumber is less than seq_num.
+    pub fn get_taken_less_than(&mut self, guid: GUID, seq_num: SequenceNumber) -> Vec<HCKey> {
+        if let HistoryCacheType::Reader = self.hc_type {
+            let mut res = Vec::new();
+            self.taken_key.retain(|k| {
+                if k.guid == guid && k.seq_num < seq_num {
+                    res.push(*k);
+                    false
+                } else {
+                    true
+                }
+            });
+            res
+        } else {
+            unreachable!();
+        }
+    }
+
+    pub fn get_change(&self, guid: GUID, seq_num: SequenceNumber) -> Option<&CacheChange> {
+        self.changes.get(&HCKey::new(guid, seq_num))
     }
 
     /// get the Timestamp of the last Change added to the HistoryCache from the Writer with the specified `writer_guid`.
@@ -180,15 +350,67 @@ impl HistoryCache {
         self.last_added.get(&writer_guid)
     }
 
-    pub fn get_alive_changes(&self) -> Vec<(HCKey, CacheChange)> {
+    pub fn flush(&mut self) -> bool {
+        // set all change to ready
+        if let HistoryCacheType::Reader = self.hc_type {
+            let mut is_flushed = false;
+            for key in self.changes.keys() {
+                self.ready_key.insert(*key);
+                is_flushed = true;
+            }
+            is_flushed
+        } else {
+            unreachable!();
+        }
+    }
+
+    pub fn get_ready_changes(&self) -> (Vec<HCKey>, Vec<&CacheChange>) {
+        if let Some(keys) = self.kind2key.get(&ChangeKind::Alive) {
+            let mut res: Vec<(HCKey, &CacheChange)> = keys
+                .iter()
+                .filter(|k| self.ready_key.contains(k))
+                .map(|k| (*k, self.changes.get(k).expect("Access to HistoryCache changes occurs for keys included in kind2key but not in changes")))
+                .collect();
+            res.sort_by(|(ka, _ca), (kb, _cb)| ka.cmp(kb));
+            res.into_iter().unzip()
+        } else {
+            (Vec::new(), Vec::new())
+        }
+    }
+
+    /*
+    pub fn get_alive_changes(&self) -> (Vec<HCKey>, Vec<&CacheChange>) {
+        /*
         self.changes
             .iter()
             .filter(|(_k, c)| c.kind == ChangeKind::Alive)
-            .map(|(k, c)| (*k, c.clone()))
+            .map(|(k, c)| (*k, c))
             .collect()
+        */
+        if let Some(keys) = self.kind2key.get(&ChangeKind::Alive) {
+            keys.iter()
+                .map(|k| (k, self.changes.get(k).unwrap()))
+                .collect()
+        } else {
+            (Vec::new(), Vec::new())
+        }
     }
+    */
     pub fn remove_change(&mut self, key: &HCKey) {
-        self.changes.remove(key);
+        if let Some(c) = self.changes.remove(key) {
+            if let HistoryCacheType::Reader = self.hc_type {
+                self.taken_key.push(*key);
+                self.ready_key.remove(key);
+            }
+            if let Some(v) = self.kind2key.get_mut(&c.kind) {
+                if let Some(idx) = v.iter().position(|k| k == key) {
+                    v.remove(idx);
+                }
+            }
+        }
+        if let Some(idx) = self.ts2key.iter().position(|k| k == key) {
+            self.ts2key.remove(idx);
+        }
         self.min_seq_num = None;
         self.max_seq_num = None;
     }
@@ -223,11 +445,5 @@ impl HistoryCache {
         if let Some(todo_update) = self.changes.get_mut(key) {
             todo_update.kind = kind;
         }
-    }
-}
-
-impl Default for HistoryCache {
-    fn default() -> Self {
-        Self::new()
     }
 }

@@ -766,7 +766,7 @@ pub mod policy {
     use serde_repr::{Deserialize_repr, Serialize_repr};
 
     // Default value of QoS Policies is on DDS v1.4 spec 2.2.3 Supported QoS
-    const LENGTH_UNLIMITED: i32 = -1;
+    pub const LENGTH_UNLIMITED: i32 = -1;
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct DurabilityService {
@@ -790,19 +790,21 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     /// Durability QoS policy
     ///
-    /// rtps 2.3 spec, 8.7.2.2 DDS QoS Parameters that affect the wire protoco
-    /// 8.7.2.2.1 DURABILITY
-    /// > While volatile and transient-local durability do not affect the RTPS protocol,
-    /// > support for transient and persistent durability may.
+    /// if ReliabilityQoS is BestEffort, this QoS policy dosen't affect behavior of Umber DDS.
+    /// This is same to Cyclone DDS.
     ///
     /// Umber DDS don't support optional Durability QoS value "Transient" and "Persistent".
     /// So, this config dosen't affect behavior.
     pub enum Durability {
+        #[default]
+        /// late-joining readers can't receive data which sent before the reader join the network.
         Volatile = 0,
+        /// late-joining readers can receive latest one data which sent before the
+        /// reader join the network if ReliabilityQoS is set to Reliable.
         TransientLocal = 1,
         // Transient = 2, // DDS spec say Support this is optional
         // Persistent = 3, // DDS spec say Support this is optional
@@ -812,11 +814,6 @@ pub mod policy {
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
             offered as usize >= requested as usize
-        }
-    }
-    impl Default for Durability {
-        fn default() -> Self {
-            Self::Volatile
         }
     }
 
@@ -844,17 +841,13 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     pub enum PresentationQosAccessScopeKind {
+        #[default]
         Instance = 0,
         Topic = 1,
         Group = 2,
-    }
-    impl Default for PresentationQosAccessScopeKind {
-        fn default() -> Self {
-            Self::Instance
-        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -891,9 +884,10 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     pub enum Ownership {
+        #[default]
         Shared = 0,
         Exclusive = 1,
     }
@@ -902,11 +896,6 @@ pub mod policy {
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
             offered as usize == requested as usize
-        }
-    }
-    impl Default for Ownership {
-        fn default() -> Self {
-            Self::Shared
         }
     }
 
@@ -1003,9 +992,10 @@ pub mod policy {
         BestEffort = 1,
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     pub enum DestinationOrder {
+        #[default]
         ByReceptionTimestamp = 0,
         BySourceTimestamp = 1,
     }
@@ -1014,11 +1004,6 @@ pub mod policy {
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
             offered as usize >= requested as usize
-        }
-    }
-    impl Default for DestinationOrder {
-        fn default() -> Self {
-            Self::ByReceptionTimestamp
         }
     }
 

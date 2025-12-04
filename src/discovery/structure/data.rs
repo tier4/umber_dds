@@ -227,13 +227,13 @@ impl SDPBuiltinData {
         })
     }
 
-    pub fn topic_info(&self) -> Option<(String, String)> {
+    pub fn topic_info(&self) -> Option<(&String, &String)> {
         let name = match &self.topic_name {
-            Some(n) => n.clone(),
+            Some(n) => n,
             None => return None,
         };
         let data_type = match &self.type_name {
-            Some(d) => d.clone(),
+            Some(d) => d,
             None => return None,
         };
         Some((name, data_type))
@@ -1517,7 +1517,7 @@ mod test {
             },
         );
         let serialized_payload =
-            SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
+            SerializedPayload::new_from_cdr_data(&data, RepresentationIdentifier::PL_CDR_LE);
         /*
         let mut serialized = String::new();
         let mut count = 0;

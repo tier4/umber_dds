@@ -7,7 +7,7 @@ use crate::dds::{
 use crate::message::submessage::element::Locator;
 use crate::network::net_util::{usertraffic_multicast_port, usertraffic_unicast_port};
 use crate::rtps::{
-    cache::HistoryCache,
+    cache::{HistoryCache, HistoryCacheType},
     reader::{DataReaderStatusChanged, ReaderIngredients},
 };
 use crate::structure::{Duration, EntityId, EntityKind, RTPSEntity, TopicKind, GUID};
@@ -202,7 +202,7 @@ impl InnerSubscriber {
         };
         let (reader_state_notifier, reader_state_receiver) =
             mio_channel::channel::<DataReaderStatusChanged>();
-        let history_cache = Arc::new(RwLock::new(HistoryCache::new()));
+        let history_cache = Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Reader)));
         let reliability_level = dr_qos.reliability().kind;
         let domain_id = self.dp.domain_id();
         let participant_id = self.dp.participant_id();

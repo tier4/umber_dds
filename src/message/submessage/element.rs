@@ -422,6 +422,7 @@ pub struct RepresentationIdentifier {
     bytes: [u8; 2],
 }
 
+#[allow(dead_code)]
 impl RepresentationIdentifier {
     pub fn bytes(&self) -> [u8; 2] {
         self.bytes
@@ -502,19 +503,19 @@ impl SerializedPayload {
         buf.freeze()
     }
 
-    pub fn new_from_cdr_data<D: Serialize>(data: D, rep_id: RepresentationIdentifier) -> Self {
+    pub fn new_from_cdr_data<D: Serialize>(data: &D, rep_id: RepresentationIdentifier) -> Self {
         let mut serialized_data = match rep_id {
             RepresentationIdentifier::CDR_LE => {
-                cdr::serialize::<_, _, CdrLe>(&data, Infinite).expect("couldn't serialize data")
+                cdr::serialize::<_, _, CdrLe>(data, Infinite).expect("couldn't serialize data")
             }
             RepresentationIdentifier::CDR_BE => {
-                cdr::serialize::<_, _, CdrBe>(&data, Infinite).expect("couldn't serialize data")
+                cdr::serialize::<_, _, CdrBe>(data, Infinite).expect("couldn't serialize data")
             }
             RepresentationIdentifier::PL_CDR_LE => {
-                cdr::serialize::<_, _, PlCdrLe>(&data, Infinite).expect("couldn't serialize data")
+                cdr::serialize::<_, _, PlCdrLe>(data, Infinite).expect("couldn't serialize data")
             }
             RepresentationIdentifier::PL_CDR_BE => {
-                cdr::serialize::<_, _, PlCdrBe>(&data, Infinite).expect("couldn't serialize data")
+                cdr::serialize::<_, _, PlCdrBe>(data, Infinite).expect("couldn't serialize data")
             }
             _ => unimplemented!(),
         };
