@@ -19,7 +19,7 @@ use crate::message::{
 use crate::network::net_util::{
     spdp_multicast_port, spdp_unicast_port, usertraffic_multicast_port, usertraffic_unicast_port,
 };
-use crate::structure::{Duration, EntityId, GuidPrefix, RTPSEntity, TopicKind, VendorId};
+use crate::structure::{EntityId, GuidPrefix, RTPSEntity, TopicKind, VendorId};
 use alloc::collections::BTreeMap;
 use core::time::Duration as CoreDuration;
 use enumflags2::make_bitflags;

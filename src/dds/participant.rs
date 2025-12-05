@@ -528,7 +528,7 @@ impl DomainParticipantInner {
     }
 
     pub(crate) fn get_config(&self) -> ParticipantConfig {
-        self.participant_config.clone()
+        self.participant_config
     }
 
     pub fn gen_entity_key(&self) -> [u8; 3] {
@@ -706,5 +706,11 @@ impl ParticipantConfigBuilder {
     }
     pub fn heartbeat_response_delay(&mut self, period: CoreDuration) {
         self.heartbeat_response_delay = Some(period);
+    }
+}
+
+impl Default for ParticipantConfigBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
