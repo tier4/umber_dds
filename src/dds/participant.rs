@@ -53,7 +53,8 @@ impl RTPSEntity for DomainParticipant {
 }
 
 impl DomainParticipant {
-    /// network_interfaces: network interfaces to use sending or receiving message.
+    /// + network_interfaces: network interfaces to use sending or receiving message.
+    /// + config: If `config` is `None`, the default `ParticipantConfig` will be used.
     ///
     /// By default, Umber DDS selects one non-loopback network interface that has an IPv4 address assigned for sending and receiving messages.
     /// If no such interface exists, the loopback interface is used instead.
@@ -572,18 +573,65 @@ impl Drop for DomainParticipantInner {
     }
 }
 
-const DEFAULT_PARTICIPANT_MESSAGE_PERIOD: CoreDuration = CoreDuration::from_secs(3);
-const DEFAULT_LEASE_DURATION: CoreDuration = CoreDuration::from_secs(20);
-const DEFAULT_HEARTBEAT_PERIOD: CoreDuration = CoreDuration::from_secs(2);
-const DEFAULT_NACK_RESPONSE_DELAY: CoreDuration = CoreDuration::from_secs(0);
-const DEFAULT_HEARTBEAT_RESPONSE_DELAY: CoreDuration = CoreDuration::from_secs(0);
+/// 3 seconds
+pub const DEFAULT_PARTICIPANT_MESSAGE_PERIOD: CoreDuration = CoreDuration::from_secs(3);
+/// 20 seconds
+pub const DEFAULT_LEASE_DURATION: CoreDuration = CoreDuration::from_secs(20);
+/// 2 seconds
+pub const DEFAULT_HEARTBEAT_PERIOD: CoreDuration = CoreDuration::from_secs(2);
+/// 0 seconds
+pub const DEFAULT_NACK_RESPONSE_DELAY: CoreDuration = CoreDuration::from_secs(0);
+/// 0 seconds
+pub const DEFAULT_HEARTBEAT_RESPONSE_DELAY: CoreDuration = CoreDuration::from_secs(0);
 
+/// ParticipantConfig
+///
+/// A set of parameters for configuring the behavior of a DDS Participant or RTPS protocol.
 #[derive(Clone, Copy)]
 pub struct ParticipantConfig {
+    /// The periodic interval at which the Simple Participant Discovery Protocol (SPDP) messages are sent to announce the presence of this Participant.
+    ///
+    /// This parameter directly affects the time required for Discovery to complete and the time taken to detect the departure of other Participants (liveliness).
+    /// A shorter interval leads to faster Discovery but increases the overhead and load on both the Participant and the network.
+    ///
+    /// The RTPS v2.3 specification defaults this to 30s, but implementations often use smaller values as default for practical reasons (e.g., Cyclone DDS uses 8s, Fast DDS uses 3s).
+    ///
+    /// default value of Umber DDS is [`DEFAULT_PARTICIPANT_MESSAGE_PERIOD`]
     pub participant_message_period: CoreDuration,
+    /// The leaseDuration for the Participant's liveliness.
+    ///
+    /// If a Simple Participant Discovery Protocol (SPDP) message is not received from
+    /// a remote Participant within this period, the remote Participant is presumed
+    /// to have left the network. This value must be greater than the
+    /// `participant_message_period` (the announcement interval).
+    ///
+    /// NOTE: This period governs **Participant** liveliness and is distinct from the
+    /// `lease_duration` specified in the Liveliness QoS Policy, which governs
+    /// **DataWriter** and **DataReader** liveliness.
+    ///
+    /// default value of Umber DDS is [`DEFAULT_LEASE_DURATION`]
     pub lease_duration: CoreDuration,
+    /// The interval at which the Reliable DataWriter sends Heartbeat messages.
+    ///
+    /// Heartbeat messages inform matched Reliable DataReaders of the Writer's latest
+    /// sequence number and the range of data that requires acknowledgment. A shorter
+    /// period improves latency for unacknowledged data but increases network traffic.
+    ///
+    /// default value of Umber DDS is [`DEFAULT_HEARTBEAT_PERIOD`]
     pub heartbeat_period: CoreDuration,
+    /// The time interval a Reliable DataWriter waits after receiving an ACKNACK
+    /// message before responding with the requested missing data.
+    ///
+    /// The RTPS v2.3 specification defaults this to 200ms, but implementations often use smaller values as default for practical reasons (e.g., Cyclone DDS uses 0s, Fast DDS uses 5ms).
+    ///
+    /// default value of Umber DDS is [`DEFAULT_NACK_RESPONSE_DELAY`]
     pub nack_response_delay: CoreDuration,
+    /// The time interval a Reliable DataReader waits after receiving a Heartbeat message
+    /// before sending an ACKNACK message.
+    ///
+    /// The RTPS v2.3 specification defaults this to 500ms, but implementations often use smaller values as default for practical reasons (e.g., Cyclone DDS uses 0s, Fast DDS uses 5ms).
+    ///
+    /// default value of Umber DDS is [`DEFAULT_HEARTBEAT_RESPONSE_DELAY`]
     pub heartbeat_response_delay: CoreDuration,
 }
 
@@ -599,6 +647,11 @@ impl Default for ParticipantConfig {
     }
 }
 
+/// ParticipantConfigBuilder
+///
+/// builder of ParticipantConfig
+///
+/// `CoreDuration` is `core::time::Duration`
 pub struct ParticipantConfigBuilder {
     participant_message_period: Option<CoreDuration>,
     lease_duration: Option<CoreDuration>,
