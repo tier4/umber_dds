@@ -30,7 +30,7 @@
 //!
 //!     let domain_id = 0;
 //!     let participant =
-//!         DomainParticipant::new(domain_id, vec![Ipv4Addr::new(127, 0, 0, 1)], &mut small_rng);
+//!         DomainParticipant::new(domain_id, vec![Ipv4Addr::new(127, 0, 0, 1)], None, &mut small_rng);
 //!     let topic_qos = TopicQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
@@ -48,7 +48,7 @@
 //!     let dw_qos = DataWriterQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
-//!     let datawriter =
+//!     let mut datawriter =
 //!         publisher.create_datawriter::<HelloWorld>(DataWriterQos::Policies(Box::new(dw_qos)), topic);
 //!     poll.register(&datawriter, DATA_WRITE, Ready::readable(), PollOpt::edge())
 //!         .unwrap();
@@ -74,7 +74,7 @@
 //!                         message: "Hello, World!".to_string(),
 //!                     };
 //!                     println!("send: {:?}", send_msg);
-//!                     datawriter.write(send_msg);
+//!                     datawriter.write(&send_msg);
 //!                     send_count += 1;
 //!                     write_timer.set_timeout(Duration::new(2, 0), ());
 //!                 }
@@ -127,7 +127,7 @@
 //!
 //!     let domain_id = 0;
 //!     let participant =
-//!         DomainParticipant::new(domain_id, vec![Ipv4Addr::new(127, 0, 0, 1)], &mut small_rng);
+//!         DomainParticipant::new(domain_id, vec![Ipv4Addr::new(127, 0, 0, 1)], None, &mut small_rng);
 //!     let topic_qos = TopicQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
