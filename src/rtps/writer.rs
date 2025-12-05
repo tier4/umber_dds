@@ -256,7 +256,9 @@ impl Writer {
                 )
             }
         }
-        self.remove_acked_changes(oldest_unprocessed);
+        if self.is_reliable() {
+            self.remove_acked_changes(oldest_unprocessed);
+        }
 
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
@@ -329,7 +331,7 @@ impl Writer {
                     self.send_msg_to_locator(loc, message_buf, "data");
                 }
             } else {
-                unreachable!()
+                unreachable!("Writer::handle_write_data_cmd, attempt to get non-existent change with HCKey {{ guid: {}, seq_num: {} }} from writer_cache", self.guid, seq_num.0)
             }
             if !self.is_reliable() {
                 self.writer_cache
@@ -642,6 +644,7 @@ impl Writer {
         }
     }
 
+    /// Warning: Only use with Reliable Writer
     /// remove changes acked by all matched_readers with a sequence number less than or equal to base-1 (Durability is TransientLocal) or base (Durability is Volatile)
     fn remove_acked_changes(&mut self, base: SequenceNumber) {
         let base_ = match self.qos.durability() {

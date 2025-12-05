@@ -2,6 +2,7 @@ use crate::dds::qos::policy::{History, HistoryQosKind, ResourceLimits, LENGTH_UN
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload, Timestamp};
 use crate::structure::GUID;
 use alloc::collections::{BTreeMap, BTreeSet};
+use log::info;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -398,6 +399,7 @@ impl HistoryCache {
     */
     pub fn remove_change(&mut self, key: &HCKey) {
         if let Some(c) = self.changes.remove(key) {
+            info!("remove cahnge with HCKey: {:?} from HistoryCache", key);
             if let HistoryCacheType::Reader = self.hc_type {
                 self.taken_key.push(*key);
                 self.ready_key.remove(key);
