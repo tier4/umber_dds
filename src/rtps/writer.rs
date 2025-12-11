@@ -11,10 +11,15 @@ use crate::discovery::{
 };
 use crate::message::{
     message_builder::MessageBuilder,
-    submessage::element::{AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, Timestamp},
+    submessage::element::{
+        AckNack, Count, Locator, SequenceNumber, SequenceNumberSet, SerializedPayload, Timestamp,
+    },
 };
 use crate::network::udp_sender::UdpSender;
-use crate::rtps::cache::{ChangeForReaderStatusKind, HCKey, HistoryCache, HistoryCacheType};
+use crate::rtps::cache::{
+    CacheChange, ChangeForReaderStatusKind, ChangeKind, HCKey, HistoryCache, HistoryCacheType,
+    InstantHandle,
+};
 use crate::rtps::reader_locator::ReaderLocator;
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
@@ -366,6 +371,31 @@ impl Writer {
                     .remove_change(&HCKey::new(self.guid, *seq_num));
             }
         }
+    }
+
+    fn send_builtin_data_for_loc(&self, builtin_data: SerializedPayload, locator: Locator) {
+        let time_stamp = Timestamp::now().expect("failed get Timestamp");
+        let a_change = CacheChange::new(
+            ChangeKind::Alive,
+            self.guid,
+            SequenceNumber(1),
+            time_stamp,
+            Some(builtin_data),
+            InstantHandle {},
+        );
+        let mut message_builder = MessageBuilder::new();
+        message_builder.info_ts(Endianness::LittleEndian, Some(time_stamp));
+        message_builder.data(
+            Endianness::LittleEndian,
+            self.guid.entity_id,
+            EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR,
+            &a_change,
+        );
+        let message = message_builder.build(self.guid_prefix());
+        let message_buf = message
+            .write_to_vec_with_ctx(self.endianness)
+            .expect("couldn't serialize message");
+        self.send_msg_to_locator(locator, message_buf, "data");
     }
 
     fn is_acked_all_changes(&self) -> bool {
