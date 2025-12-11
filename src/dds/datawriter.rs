@@ -115,13 +115,6 @@ impl<D: Serialize + DdsData> DataWriter<D> {
                         .expect("couldn't send message");
                     break;
                 }
-                Err(AddChangeErr::AlreadyExist) => {
-                    error!(
-                        "DataWriter failed to add change to HistoryCache: {}",
-                        AddChangeErr::AlreadyExist
-                    );
-                    break;
-                }
                 Err(AddChangeErr::WouldBlock(t)) => {
                     warn!(
                         "DataWriter blocked to add change to HistoryCache: {}",

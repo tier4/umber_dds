@@ -7,8 +7,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub(crate) enum AddChangeErr {
-    #[error("attempt to add a change that was already added")]
-    AlreadyExist,
     #[error("add_change blocked: {0}")]
     WouldBlock(String),
 }
@@ -226,7 +224,21 @@ impl HistoryCache {
         let key = HCKey::new(change.writer_guid, seq_num);
         if let Some(c) = self.changes.get(&key) {
             if c.data_value == change.data_value {
-                Err(AddChangeErr::AlreadyExist)
+                match self.hc_type {
+                    HistoryCacheType::Reader => {
+                        // use builtin-Endpoint
+                        self.last_added.insert(key.guid, change.timestamp);
+                        Ok(())
+                    }
+                    HistoryCacheType::Writer => {
+                        // use builtin-Endpoint
+                        self.last_added.insert(key.guid, change.timestamp);
+                        self.unprocessed_seqnum.push(seq_num);
+                        Ok(())
+                    }
+                    HistoryCacheType::Dummy => unreachable!(),
+                }
+                // Err(AddChangeErr::AlreadyExist)
             } else {
                 // maybe unreachable?
                 unreachable!();
