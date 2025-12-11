@@ -334,7 +334,7 @@ impl Discovery {
                         SPDP_SEND_TIMER => {
                             trace!("fired SPDP_SEND_TIMER");
                             self.spdp_builtin_participant_writer
-                                .write_builtin_data(&data);
+                                .write_builtin_data(&data, false);
                             self.spdp_send_timer
                                 .set_timeout(self.dp.get_config().participant_message_period, ());
                         }
@@ -391,7 +391,8 @@ impl Discovery {
                         }
                         DISC_WRITER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_writer_receiver.try_recv() {
-                                self.sedp_builtin_pub_writer.write_builtin_data(&data);
+                                self.sedp_builtin_pub_writer
+                                    .write_builtin_data(&data, false); // TODO: updated: always false?
                                 self.local_writers_data.insert(eid, data);
                                 info!(
                                     "add Writer to Discovery's local_writers\n\tWriter: {} ",
@@ -401,7 +402,8 @@ impl Discovery {
                         }
                         DISC_READER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_reader_receiver.try_recv() {
-                                self.sedp_builtin_sub_writer.write_builtin_data(&data);
+                                self.sedp_builtin_sub_writer
+                                    .write_builtin_data(&data, false); // TODO: updated: always false?
                                 self.local_readers_data.insert(eid, data);
                                 info!(
                                     "add Reader to Discovery's local_readers\n\tReader: {} ",

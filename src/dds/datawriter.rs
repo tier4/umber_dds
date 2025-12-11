@@ -19,7 +19,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::marker::PhantomData;
 use core::time::Duration as CoreDuration;
-use log::{error, info, warn};
+use log::{info, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
 use serde::Serialize;
@@ -78,18 +78,28 @@ impl<D: Serialize + DdsData> DataWriter<D> {
         let ts = Timestamp::now().expect("failed get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
-        self.writer_data_to_hc(ts, serialized_payload);
+        self.writer_data_to_hc(ts, serialized_payload, true);
     }
 
-    pub(crate) fn write_builtin_data(&mut self, data: &D) {
+    /// + updated: whether there are changes since the last write
+    pub(crate) fn write_builtin_data(&mut self, data: &D, updated: bool) {
         let ts = Timestamp::now().expect("failed get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
-        self.writer_data_to_hc(ts, serialized_payload);
+        self.writer_data_to_hc(ts, serialized_payload, updated);
     }
 
-    fn writer_data_to_hc(&mut self, ts: Timestamp, serialized_payload: SerializedPayload) {
-        self.last_change_sequence_number += SequenceNumber(1);
+    fn writer_data_to_hc(
+        &mut self,
+        ts: Timestamp,
+        serialized_payload: SerializedPayload,
+        updated: bool,
+    ) {
+        if updated {
+            self.last_change_sequence_number += SequenceNumber(1);
+        } else if self.last_change_sequence_number == SequenceNumber(0) {
+            self.last_change_sequence_number = SequenceNumber(1);
+        }
         let a_change = CacheChange::new(
             ChangeKind::Alive,
             self.writer_guid,
