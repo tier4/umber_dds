@@ -9,6 +9,7 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::cmp::{max, min};
+use log::{info, warn};
 use serde::{ser::SerializeStruct, Serialize};
 
 #[derive(Clone)]
@@ -107,6 +108,10 @@ impl ReaderProxy {
         // so is_relevant is always set to true.
         let change_for_reader = ChangeForReader::new(seq_num, state, is_relevant);
         self.cache_state.insert(seq_num, change_for_reader);
+        info!(
+            "ReaderProxy.update_cache_state({:?}, {}, {:?})\n\tReader: {}",
+            seq_num, is_relevant, state, self.remote_reader_guid
+        );
     }
 
     pub fn acked_changes_set(&mut self, commited_seq_num: SequenceNumber) {
@@ -184,7 +189,16 @@ impl ReaderProxy {
         }
     }
     pub fn remove_cache_state(&mut self, seq_num: &SequenceNumber) {
-        self.cache_state.remove(seq_num);
+        info!(
+            "ReaderProxy.remove_cache_state({:?})\n\tReader: {}",
+            seq_num, self.remote_reader_guid
+        );
+        if let None = self.cache_state.remove(seq_num) {
+            warn!(
+                "ReaderProxy requested to non-existent cache with {:?}\n\tReader: {}",
+                seq_num, self.remote_reader_guid
+            );
+        }
     }
 
     #[allow(dead_code)]
@@ -431,7 +445,17 @@ impl WriterProxy {
         }
     }
     pub fn remove_cache_state(&mut self, seq_num: &SequenceNumber) {
-        self.cache_state.remove(seq_num);
+        // self.cache_state.remove(seq_num);
+        info!(
+            "WriterProxy.remove_cache_state({:?})\n\tWriter: {}",
+            seq_num, self.remote_writer_guid
+        );
+        if let None = self.cache_state.remove(seq_num) {
+            warn!(
+                "WriterProxy requested to non-existent cache with {:?}\n\tWriter: {}",
+                seq_num, self.remote_writer_guid
+            );
+        }
     }
 }
 impl Serialize for WriterProxy {

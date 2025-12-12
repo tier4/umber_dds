@@ -231,6 +231,10 @@ impl Writer {
         let hdepth = history.depth;
         let durability = self.qos.durability();
         let seq_nums = self.writer_cache.write().get_unprocessed();
+        info!(
+            "handle_write_data_cmd: unprocessed {:?}\n\tWriter: {}",
+            seq_nums, self.guid
+        );
 
         let oldest_unprocessed = match seq_nums.first() {
             Some(v) => *v,
@@ -677,6 +681,10 @@ impl Writer {
     /// Warning: Only use with Reliable Writer
     /// remove changes acked by all matched_readers with a sequence number less than or equal to base-1 (Durability is TransientLocal) or base (Durability is Volatile)
     fn remove_acked_changes(&mut self, base: SequenceNumber) {
+        info!(
+            "Writer::remove_acked_changes({:?})\n\tWriter: {}",
+            base, self.guid.entity_id
+        );
         let base_ = match self.qos.durability() {
             Durability::Volatile => base,
             Durability::TransientLocal => base - SequenceNumber(1),

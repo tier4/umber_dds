@@ -410,8 +410,11 @@ impl HistoryCache {
     }
     */
     pub fn remove_change(&mut self, key: &HCKey) {
+        if self.unprocessed_seqnum.contains(&key.seq_num) {
+            return;
+        }
         if let Some(c) = self.changes.remove(key) {
-            info!("remove cahnge with HCKey: {:?} from HistoryCache", key);
+            info!("remove change with HCKey: {:?} from HistoryCache", key);
             if let HistoryCacheType::Reader = self.hc_type {
                 self.taken_key.push(*key);
                 self.ready_key.remove(key);
