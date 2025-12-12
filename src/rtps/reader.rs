@@ -201,11 +201,14 @@ impl Reader {
                 .get_taken()
                 .iter()
                 .for_each(|key| {
-                    let wp = self
-                        .matched_writers
-                        .get_mut(&key.guid)
-                        .expect("failed get WriterProxy");
-                    wp.remove_cache_state(&key.seq_num);
+                    if let Some(wp) = self.matched_writers.get_mut(&key.guid) {
+                        wp.remove_cache_state(&key.seq_num);
+                    } else {
+                        warn!(
+                            "Reader failed get WriterProxy\n\tReader: {}\n\tWriter: {}",
+                            self.guid, key.guid,
+                        );
+                    }
                 });
             // BestEffort Reader Behavior
             if self.matched_writers.contains_key(&writer_guid) {
