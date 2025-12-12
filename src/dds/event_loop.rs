@@ -25,7 +25,7 @@ use mio_v06::net::UdpSocket;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 
 use crate::message::message_receiver::*;
-use crate::message::submessage::element::{Locator, Timestamp};
+use crate::message::submessage::element::{Locator, SerializedPayload, Timestamp};
 use crate::network::{net_util::*, udp_sender::UdpSender};
 
 const MAX_MESSAGE_SIZE: usize = 64 * 1024; // This is max we can get from UDP.
@@ -85,6 +85,7 @@ impl EventLoop {
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         discovery_db: DiscoveryDB,
         discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
+        spdp_data: SerializedPayload,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
@@ -189,7 +190,8 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("coludn't register wlp_timer to poll");
-        let message_receiver = MessageReceiver::new(participant_guidprefix, wlp_timer_sender);
+        let message_receiver =
+            MessageReceiver::new(participant_guidprefix, wlp_timer_sender, spdp_data);
         EventLoop {
             domain_id,
             guid_prefix,

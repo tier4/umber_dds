@@ -377,7 +377,11 @@ impl Writer {
         }
     }
 
-    fn send_builtin_data_for_loc(&self, builtin_data: SerializedPayload, locator: Locator) {
+    pub fn send_builtin_data_for_loc(
+        &self,
+        builtin_data: SerializedPayload,
+        locator: Vec<Locator>,
+    ) {
         let time_stamp = Timestamp::now().expect("failed get Timestamp");
         let a_change = CacheChange::new(
             ChangeKind::Alive,
@@ -399,7 +403,9 @@ impl Writer {
         let message_buf = message
             .write_to_vec_with_ctx(self.endianness)
             .expect("couldn't serialize message");
-        self.send_msg_to_locator(locator, message_buf, "data");
+        for loc in locator {
+            self.send_msg_to_locator(loc, message_buf.clone(), "data");
+        }
     }
 
     fn is_acked_all_changes(&self) -> bool {

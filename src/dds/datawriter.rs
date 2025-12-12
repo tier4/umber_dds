@@ -89,6 +89,12 @@ impl<D: Serialize + DdsData> DataWriter<D> {
         self.writer_data_to_hc(ts, serialized_payload, updated);
     }
 
+    /// + updated: whether there are changes since the last write
+    pub(crate) fn write_serialized_builtin_data(&mut self, data: SerializedPayload, updated: bool) {
+        let ts = Timestamp::now().expect("failed get Timestamp::now()");
+        self.writer_data_to_hc(ts, data, updated);
+    }
+
     fn writer_data_to_hc(
         &mut self,
         ts: Timestamp,

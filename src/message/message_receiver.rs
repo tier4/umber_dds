@@ -50,12 +50,14 @@ pub struct MessageReceiver {
     wlp_timer_sender: mio_channel::Sender<EntityId>,
     have_timestamp: bool,
     timestamp: Timestamp,
+    spdp_data: SerializedPayload,
 }
 
 impl MessageReceiver {
     pub fn new(
         participant_guidprefix: GuidPrefix,
         wlp_timer_sender: mio_channel::Sender<EntityId>,
+        spdp_data: SerializedPayload,
     ) -> MessageReceiver {
         Self {
             own_guid_prefix: participant_guidprefix,
@@ -68,6 +70,7 @@ impl MessageReceiver {
             wlp_timer_sender,
             have_timestamp: false,
             timestamp: Timestamp::TIME_INVALID,
+            spdp_data,
         }
     }
 
@@ -361,10 +364,31 @@ impl MessageReceiver {
             };
             let guid_prefix = new_data.guid.guid_prefix;
             info!("handle SPDP message from: {}", guid_prefix);
-            disc_db.write_participant_ts(
+            let known = disc_db.write_participant_ts(
                 guid_prefix,
                 Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
             );
+            if !known {
+                let locators = if !new_data.metarraffic_unicast_locator_list.is_empty() {
+                    new_data.metarraffic_unicast_locator_list.clone()
+                } else if !new_data.default_unicast_locator_list.is_empty() {
+                    new_data.default_unicast_locator_list.clone()
+                } else {
+                    Locator::new_list_from_multi_ipv4(
+                        7400,
+                        vec![std::net::Ipv4Addr::new(239, 255, 0, 1)],
+                    )
+                };
+                // spdp from unknown Participant
+                match writers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER) {
+                    Some(w) => {
+                        w.send_builtin_data_for_loc(self.spdp_data.clone(), locators);
+                    }
+                    None => {
+                        error!("not found spdp_builtin_participant_writer");
+                    }
+                }
+            }
             match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
                 Some(r) => {
                     r.matched_writer_add(

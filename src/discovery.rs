@@ -7,22 +7,14 @@ use crate::dds::{
     DataReader, DataReaderStatusChanged, DataWriter, DomainParticipant, Publisher, Subscriber,
 };
 use crate::discovery::discovery_db::DiscoveryDB;
-use crate::discovery::structure::builtin_endpoint::BuiltinEndpoint;
 use crate::discovery::structure::data::{
     DiscoveredReaderData, DiscoveredWriterData, ParticipantMessageData, SDPBuiltinData,
     SPDPdiscoveredParticipantData,
 };
-use crate::message::{
-    message_header::ProtocolVersion,
-    submessage::element::{Locator, Timestamp},
-};
-use crate::network::net_util::{
-    spdp_multicast_port, spdp_unicast_port, usertraffic_multicast_port, usertraffic_unicast_port,
-};
-use crate::structure::{EntityId, GuidPrefix, RTPSEntity, TopicKind, VendorId};
+use crate::message::submessage::element::{SerializedPayload, Timestamp};
+use crate::structure::{EntityId, GuidPrefix, TopicKind};
 use alloc::collections::BTreeMap;
 use core::time::Duration as CoreDuration;
-use enumflags2::make_bitflags;
 use log::{debug, error, info, trace};
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
@@ -63,6 +55,7 @@ pub struct Discovery {
     poll: Poll,
     publisher: Publisher,
     subscriber: Subscriber,
+    self_spdp_data: SerializedPayload,
     spdp_builtin_participant_writer: DataWriter<SPDPdiscoveredParticipantData>,
     spdp_builtin_participant_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData>,
@@ -84,6 +77,7 @@ impl Discovery {
     pub fn new(
         dp: DomainParticipant,
         discovery_db: DiscoveryDB,
+        self_spdp_data: SerializedPayload,
         discdb_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
         notify_new_writer_receiver: mio_channel::Receiver<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_receiver: mio_channel::Receiver<(EntityId, DiscoveredReaderData)>,
@@ -275,6 +269,7 @@ impl Discovery {
             poll,
             publisher,
             subscriber,
+            self_spdp_data,
             spdp_builtin_participant_writer,
             spdp_builtin_participant_reader,
             sedp_builtin_pub_writer,
@@ -295,37 +290,6 @@ impl Discovery {
 
     pub fn discovery_loop(&mut self) {
         let mut events = Events::with_capacity(1024);
-        let domain_id = self.dp.domain_id();
-        let participant_id = self.dp.participant_id();
-        let nics = self.dp.get_network_interfaces();
-        // This data is for test
-        let data = SPDPdiscoveredParticipantData::new(
-            self.dp.domain_id(),
-            String::from("todo"),
-            ProtocolVersion::PROTOCOLVERSION,
-            self.dp.guid(),
-            VendorId::THIS_IMPLEMENTATION,
-            false,
-            make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER}),
-            Locator::new_list_from_multi_ipv4(
-                spdp_unicast_port(domain_id, participant_id) as u32,
-                nics.clone(),
-            ),
-            vec![Locator::new_from_ipv4(
-                spdp_multicast_port(domain_id) as u32,
-                [239, 255, 0, 1],
-            )],
-            Locator::new_list_from_multi_ipv4(
-                usertraffic_unicast_port(domain_id, participant_id) as u32,
-                nics,
-            ),
-            vec![Locator::new_from_ipv4(
-                usertraffic_multicast_port(domain_id) as u32,
-                [239, 255, 0, 1],
-            )],
-            Some(0),
-            self.dp.get_config().lease_duration.into(),
-        );
         loop {
             self.poll.poll(&mut events, None).unwrap();
             for event in events.iter() {
@@ -334,7 +298,7 @@ impl Discovery {
                         SPDP_SEND_TIMER => {
                             trace!("fired SPDP_SEND_TIMER");
                             self.spdp_builtin_participant_writer
-                                .write_builtin_data(&data, false);
+                                .write_serialized_builtin_data(self.self_spdp_data.clone(), false);
                             self.spdp_send_timer
                                 .set_timeout(self.dp.get_config().participant_message_period, ());
                         }

@@ -1,12 +1,19 @@
 use crate::discovery::{
     discovery_db::DiscoveryDB,
-    structure::data::{DiscoveredReaderData, DiscoveredWriterData},
+    structure::{
+        builtin_endpoint::BuiltinEndpoint,
+        data::{DiscoveredReaderData, DiscoveredWriterData, SPDPdiscoveredParticipantData},
+    },
     Discovery, DiscoveryDBUpdateNotifier, ParticipantMessageCmd,
+};
+use crate::message::{
+    message_header::ProtocolVersion,
+    submessage::element::{Locator, RepresentationIdentifier, SerializedPayload},
 };
 use crate::network::{net_util::*, udp_sender::UdpSender};
 use crate::rtps::reader::ReaderIngredients;
 use crate::rtps::writer::WriterIngredients;
-use crate::structure::RTPSEntity;
+use crate::structure::{RTPSEntity, VendorId};
 use crate::{
     dds::{
         event_loop::EventLoop,
@@ -29,26 +36,27 @@ use alloc::sync::Arc;
 use core::net::Ipv4Addr;
 use core::sync::atomic::{AtomicU32, Ordering};
 use core::time::Duration as CoreDuration;
+use enumflags2::make_bitflags;
 use log::info;
 use mio_extras::channel as mio_channel;
 use mio_v06::net::UdpSocket;
 use rand::rngs::SmallRng;
 use std::thread::{self, Builder};
 
-use awkernel_sync::{mcs::MCSNode, mutex::Mutex, rwlock::RwLock};
+use awkernel_sync::{mcs::MCSNode, mutex::Mutex};
 
 /// DDS DomainParticipant
 ///
 /// factory for the Publisher, Subscriber and Topic.
 #[derive(Clone)]
 pub struct DomainParticipant {
-    inner: Arc<Mutex<DomainParticipantDisc>>,
+    inner: Arc<Mutex<DomainParticipantInner>>,
 }
 
 impl RTPSEntity for DomainParticipant {
     fn guid(&self) -> GUID {
         let mut node = MCSNode::new();
-        self.inner.lock(&mut node).guid()
+        self.inner.lock(&mut node).my_guid
     }
 }
 
@@ -71,8 +79,6 @@ impl DomainParticipant {
         config: Option<ParticipantConfig>,
         small_rng: &mut SmallRng,
     ) -> Self {
-        let (disc_thread_sender, disc_thread_receiver) =
-            mio_channel::channel::<thread::JoinHandle<()>>();
         let (discdb_update_sender, discdb_update_receiver) =
             mio_channel::channel::<DiscoveryDBUpdateNotifier>();
         let discovery_db = DiscoveryDB::new();
@@ -102,26 +108,28 @@ impl DomainParticipant {
         };
 
         let dp = Self {
-            inner: Arc::new(Mutex::new(DomainParticipantDisc::new(
+            inner: Arc::new(Mutex::new(DomainParticipantInner::new(
                 domain_id,
-                disc_thread_receiver,
                 discovery_db.clone(),
                 discdb_update_receiver,
                 notify_new_writer_sender,
                 notify_new_reader_sender,
                 participant_msg_cmd_sender,
-                dp_network_interfaces,
+                dp_network_interfaces.clone(),
                 participant_config,
                 small_rng,
             ))),
         };
+        let mut node = MCSNode::new();
+        let serialized_spdp_data = dp.inner.lock(&mut node).serialized_spdp_data.clone();
         let dp_clone = dp.clone();
-        let discovery_handler = Builder::new()
+        let _discovery_handler = Builder::new()
             .name(String::from("discovery"))
             .spawn(|| {
                 let mut discovery = Discovery::new(
                     dp_clone,
                     discovery_db,
+                    serialized_spdp_data,
                     discdb_update_sender,
                     notify_new_writer_receiver,
                     notify_new_reader_receiver,
@@ -130,9 +138,6 @@ impl DomainParticipant {
                 discovery.discovery_loop();
             })
             .expect("couldn't spawn discovery thread");
-        disc_thread_sender
-            .send(discovery_handler)
-            .expect("couldn't send channel 'disc_thread_sender'");
         info!("created new Participant {}", dp.guid());
         dp
     }
@@ -172,11 +177,11 @@ impl DomainParticipant {
     }
     pub fn domain_id(&self) -> u16 {
         let mut node = MCSNode::new();
-        self.inner.lock(&mut node).domain_id()
+        self.inner.lock(&mut node).domain_id
     }
     pub fn participant_id(&self) -> u16 {
         let mut node = MCSNode::new();
-        self.inner.lock(&mut node).participant_id()
+        self.inner.lock(&mut node).participant_id
     }
     pub(crate) fn gen_entity_key(&self) -> [u8; 3] {
         let mut node = MCSNode::new();
@@ -212,114 +217,6 @@ impl DomainParticipant {
     }
 }
 
-struct DomainParticipantDisc {
-    inner: Arc<RwLock<DomainParticipantInner>>,
-    disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
-}
-
-impl DomainParticipantDisc {
-    #[allow(clippy::too_many_arguments)]
-    fn new(
-        domain_id: u16,
-        disc_thread_receiver: mio_channel::Receiver<thread::JoinHandle<()>>,
-        discovery_db: DiscoveryDB,
-        discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
-        notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
-        notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
-        participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
-        network_interfaces: Vec<Ipv4Addr>,
-        participant_config: ParticipantConfig,
-        small_rng: &mut SmallRng,
-    ) -> Self {
-        Self {
-            inner: Arc::new(RwLock::new(DomainParticipantInner::new(
-                domain_id,
-                discovery_db,
-                discdb_update_receiver,
-                notify_new_writer_sender,
-                notify_new_reader_sender,
-                participant_msg_cmd_sender,
-                network_interfaces,
-                participant_config,
-                small_rng,
-            ))),
-            disc_thread_receiver,
-        }
-    }
-    pub fn create_publisher(&self, dp: DomainParticipant, qos: PublisherQos) -> Publisher {
-        self.inner.read().create_publisher(dp, qos)
-    }
-    pub fn create_subscriber(&self, dp: DomainParticipant, qos: SubscriberQos) -> Subscriber {
-        self.inner.read().create_subscriber(dp, qos)
-    }
-    pub fn create_topic<D: DdsData>(
-        &self,
-        dp: DomainParticipant,
-        name: String,
-        qos: TopicQos,
-    ) -> Topic {
-        self.inner.read().create_topic::<D>(dp, name, qos)
-    }
-    pub(crate) fn create_builtin_topic(
-        &self,
-        dp: DomainParticipant,
-        name: String,
-        type_desc: String,
-        kind: TopicKind,
-        qos: TopicQos,
-    ) -> Topic {
-        self.inner
-            .read()
-            .create_builtin_topic(dp, name, type_desc, kind, qos)
-    }
-    pub(crate) fn get_network_interfaces(&self) -> Vec<Ipv4Addr> {
-        self.inner.read().get_network_interfaces()
-    }
-    pub fn domain_id(&self) -> u16 {
-        self.inner.read().domain_id
-    }
-    pub fn participant_id(&self) -> u16 {
-        self.inner.read().participant_id
-    }
-    pub fn gen_entity_key(&self) -> [u8; 3] {
-        self.inner.read().gen_entity_key()
-    }
-    pub(crate) fn get_config(&self) -> ParticipantConfig {
-        self.inner.read().get_config()
-    }
-    pub fn get_default_publisher_qos(&self) -> PublisherQosPolicies {
-        self.inner.read().get_default_publisher_qos()
-    }
-    pub fn set_default_publisher_qos(&mut self, qos: PublisherQosPolicies) {
-        self.inner.write().set_default_publisher_qos(qos);
-    }
-    pub fn get_default_subscriber_qos(&self) -> SubscriberQosPolicies {
-        self.inner.read().get_default_subscriber_qos()
-    }
-    pub fn set_default_subscriber_qos(&mut self, qos: SubscriberQosPolicies) {
-        self.inner.write().set_default_subscriber_qos(qos);
-    }
-    pub fn get_default_topic_qos(&self) -> TopicQosPolicies {
-        self.inner.read().get_default_topic_qos()
-    }
-    pub fn set_default_topic_qos(&mut self, qos: TopicQosPolicies) {
-        self.inner.write().set_default_topic_qos(qos);
-    }
-}
-impl Drop for DomainParticipantDisc {
-    fn drop(&mut self) {
-        if let Ok(djh) = self.disc_thread_receiver.try_recv() {
-            djh.join().unwrap();
-        }
-    }
-}
-
-impl RTPSEntity for DomainParticipantDisc {
-    fn guid(&self) -> GUID {
-        self.inner.read().my_guid
-    }
-}
-
 struct DomainParticipantInner {
     domain_id: u16,
     participant_id: u16,
@@ -334,6 +231,8 @@ struct DomainParticipantInner {
     participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
     participant_config: ParticipantConfig,
     network_interfaces: Vec<Ipv4Addr>,
+    _spdp_data: SPDPdiscoveredParticipantData,
+    serialized_spdp_data: SerializedPayload,
 }
 
 impl DomainParticipantInner {
@@ -410,6 +309,37 @@ impl DomainParticipantInner {
         let udp_sender =
             UdpSender::new(0, network_interfaces.clone()).expect("couldn't gen UdpSender");
 
+        let spdp_data = SPDPdiscoveredParticipantData::new(
+            domain_id,
+            String::from("todo"),
+            ProtocolVersion::PROTOCOLVERSION,
+            my_guid,
+            VendorId::THIS_IMPLEMENTATION,
+            false,
+            make_bitflags!(BuiltinEndpoint::{DISC_BUILTIN_ENDPOINT_PARTICIPANT_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PARTICIPANT_DETECTOR|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER|DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER|BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER}),
+            Locator::new_list_from_multi_ipv4(
+                spdp_unicast_port(domain_id, participant_id) as u32,
+                network_interfaces.clone(),
+            ),
+            vec![Locator::new_from_ipv4(
+                spdp_multicast_port(domain_id) as u32,
+                [239, 255, 0, 1],
+            )],
+            Locator::new_list_from_multi_ipv4(
+                usertraffic_unicast_port(domain_id, participant_id) as u32,
+                network_interfaces.clone(),
+            ),
+            vec![Locator::new_from_ipv4(
+                usertraffic_multicast_port(domain_id) as u32,
+                [239, 255, 0, 1],
+            )],
+            Some(0),
+            participant_config.lease_duration.into(),
+        );
+        let serialized_spdp_data =
+            SerializedPayload::new_from_cdr_data(&spdp_data, RepresentationIdentifier::PL_CDR_LE);
+
+        let serialized_spdp_data_clone = serialized_spdp_data.clone();
         let ev_loop_handler = thread::Builder::new()
             .name("EventLoop".to_string())
             .spawn(move || {
@@ -426,6 +356,7 @@ impl DomainParticipantInner {
                     notify_new_reader_sender,
                     discovery_db,
                     discdb_update_receiver,
+                    serialized_spdp_data_clone,
                 );
                 ev_loop.event_loop();
             })
@@ -450,6 +381,8 @@ impl DomainParticipantInner {
             participant_msg_cmd_sender,
             participant_config,
             network_interfaces,
+            _spdp_data: spdp_data,
+            serialized_spdp_data,
         }
     }
 
