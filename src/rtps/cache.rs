@@ -454,7 +454,7 @@ impl HistoryCache {
     pub fn get_seq_num_min(&self) -> SequenceNumber {
         let mut min = SequenceNumber::MAX;
         for k in self.changes.keys() {
-            if k.seq_num < min {
+            if k.seq_num < min && !self.unprocessed_seqnum.contains(&k.seq_num) {
                 min = k.seq_num;
             }
         }
@@ -467,7 +467,7 @@ impl HistoryCache {
     pub fn get_seq_num_max(&self) -> SequenceNumber {
         let mut max = SequenceNumber::MIN;
         for k in self.changes.keys() {
-            if k.seq_num > max {
+            if k.seq_num > max && !self.unprocessed_seqnum.contains(&k.seq_num) {
                 max = k.seq_num;
             }
         }
