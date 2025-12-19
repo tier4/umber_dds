@@ -190,8 +190,13 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("coludn't register wlp_timer to poll");
-        let message_receiver =
-            MessageReceiver::new(participant_guidprefix, wlp_timer_sender, spdp_data);
+        let message_receiver = MessageReceiver::new(
+            participant_guidprefix,
+            domain_id,
+            discovery_db.clone(),
+            wlp_timer_sender,
+            spdp_data,
+        );
         EventLoop {
             domain_id,
             guid_prefix,
@@ -237,7 +242,6 @@ impl EventLoop {
                                     packets,
                                     &mut self.writers,
                                     &mut self.readers,
-                                    &mut self.discovery_db,
                                 );
                             }
                         }
@@ -248,7 +252,6 @@ impl EventLoop {
                                     packets,
                                     &mut self.writers,
                                     &mut self.readers,
-                                    &mut self.discovery_db,
                                 );
                             }
                         }

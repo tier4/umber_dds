@@ -40,6 +40,7 @@ impl error::Error for MessageError {
 }
 
 pub struct MessageReceiver {
+    domain_id: u16,
     own_guid_prefix: GuidPrefix,
     source_version: ProtocolVersion,
     source_vendor_id: VendorId,
@@ -51,16 +52,20 @@ pub struct MessageReceiver {
     have_timestamp: bool,
     timestamp: Timestamp,
     spdp_data: SerializedPayload,
+    disc_db: DiscoveryDB,
 }
 
 impl MessageReceiver {
     pub fn new(
         participant_guidprefix: GuidPrefix,
+        domain_id: u16,
+        disc_db: DiscoveryDB,
         wlp_timer_sender: mio_channel::Sender<EntityId>,
         spdp_data: SerializedPayload,
     ) -> MessageReceiver {
         Self {
             own_guid_prefix: participant_guidprefix,
+            domain_id,
             source_version: ProtocolVersion::PROTOCOLVERSION,
             source_vendor_id: VendorId::VENDORID_UNKNOW,
             source_guid_prefix: GuidPrefix::UNKNOW,
@@ -71,6 +76,7 @@ impl MessageReceiver {
             have_timestamp: false,
             timestamp: Timestamp::TIME_INVALID,
             spdp_data,
+            disc_db,
         }
     }
 
@@ -90,7 +96,6 @@ impl MessageReceiver {
         messages: Vec<UdpMessage>,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
-        disc_db: &mut DiscoveryDB,
     ) {
         for message in messages {
             let msg = message.message;
@@ -125,7 +130,7 @@ impl MessageReceiver {
                 rtps_message.header.guid_prefix,
                 rtps_message.summary()
             );
-            self.handle_parsed_packet(rtps_message, writers, readers, disc_db);
+            self.handle_parsed_packet(rtps_message, writers, readers);
         }
     }
 
@@ -134,7 +139,6 @@ impl MessageReceiver {
         rtps_msg: Message,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
-        disc_db: &mut DiscoveryDB,
     ) {
         self.reset();
         self.dest_guid_prefix = self.own_guid_prefix;
@@ -142,7 +146,7 @@ impl MessageReceiver {
         for submsg in rtps_msg.submessages {
             match submsg.body {
                 SubMessageBody::Entity(e) => {
-                    if let Err(e) = self.handle_entity_submessage(e, writers, readers, disc_db) {
+                    if let Err(e) = self.handle_entity_submessage(e, writers, readers) {
                         error!("{}", e);
                         return;
                     }
@@ -162,21 +166,20 @@ impl MessageReceiver {
         entity_subm: EntitySubmessage,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
-        disc_db: &mut DiscoveryDB,
     ) -> Result<(), MessageError> {
         match entity_subm {
             EntitySubmessage::AckNack(acknack, flags) => {
                 self.handle_acknack_submsg(acknack, flags, writers)
             }
             EntitySubmessage::Data(data, flags) => {
-                self.handle_data_submsg(data, flags, readers, writers, disc_db)
+                self.handle_data_submsg(data, flags, readers, writers)
             }
             EntitySubmessage::DataFrag(data_frag, flags) => {
                 Self::handle_datafrag_submsg(data_frag, flags)
             }
             EntitySubmessage::Gap(gap, flags) => self.handle_gap_submsg(gap, flags, readers),
             EntitySubmessage::HeartBeat(heartbeat, flags) => {
-                self.handle_heartbeat_submsg(heartbeat, flags, readers, disc_db)
+                self.handle_heartbeat_submsg(heartbeat, flags, readers)
             }
             EntitySubmessage::HeartbeatFrag(heartbeatfrag, flags) => {
                 Self::handle_heartbeatfrag_submsg(heartbeatfrag, flags)
@@ -289,7 +292,6 @@ impl MessageReceiver {
         flag: BitFlags<DataFlag>,
         readers: &mut BTreeMap<EntityId, Reader>,
         writers: &mut BTreeMap<EntityId, Writer>,
-        disc_db: &mut DiscoveryDB,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.2 Data
 
@@ -342,324 +344,27 @@ impl MessageReceiver {
             || data.reader_id == EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
         {
             // if msg is for SPDP
-            let mut deserialized =
-                match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
-                    Some(sp) => sp.to_bytes(),
-                    None => {
-                        return Err(MessageError(
-                            "received spdp message without serializedPayload".to_string(),
-                        ))
-                    }
-                }) {
-                    Ok(d) => d,
-                    Err(e) => {
-                        return Err(MessageError(format!(
-                            "failed deserialize reseived spdp data message: {e:?}",
-                        )));
-                    }
-                };
-            let new_data = match deserialized.gen_spdp_discoverd_participant_data() {
-                Some(nd) => nd,
-                None => return Err(MessageError("received incomplete spdp message".to_string())),
-            };
-            let guid_prefix = new_data.guid.guid_prefix;
-            info!("handle SPDP message from: {}", guid_prefix);
-            let known = disc_db.write_participant_ts(
-                guid_prefix,
-                Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
-            );
-            if !known {
-                let locators = if !new_data.metarraffic_unicast_locator_list.is_empty() {
-                    new_data.metarraffic_unicast_locator_list.clone()
-                } else if !new_data.default_unicast_locator_list.is_empty() {
-                    new_data.default_unicast_locator_list.clone()
-                } else {
-                    Locator::new_list_from_multi_ipv4(
-                        7400,
-                        vec![std::net::Ipv4Addr::new(239, 255, 0, 1)],
-                    )
-                };
-                // spdp from unknown Participant
-                match writers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER) {
-                    Some(w) => {
-                        w.send_builtin_data_for_loc(self.spdp_data.clone(), locators);
-                    }
-                    None => {
-                        error!("not found spdp_builtin_participant_writer");
-                    }
-                }
-            }
-            match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
-                Some(r) => {
-                    r.matched_writer_add(
-                        GUID::new(guid_prefix, EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER),
-                        new_data.metarraffic_unicast_locator_list,
-                        new_data.metarraffic_multicast_locator_list,
-                        0,
-                        DataWriterQosBuilder::new().build(),
-                    );
-                    r.add_change(self.source_guid_prefix, change)
-                }
-                None => {
-                    error!("not found spdp_builtin_participant_reader");
-                }
-            };
+            self.handle_spdp_data(data, change, writers, readers)?;
         } else if data.writer_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER
             || data.reader_id == EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
         {
             // if msg is for SEDP(w)
-            let mut deserialized =
-                match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
-                    Some(sp) => sp.to_bytes(),
-                    None => {
-                        return Err(MessageError(
-                            "received sedp message without serializedPayload".to_string(),
-                        ))
-                    }
-                }) {
-                    Ok(d) => d,
-                    Err(e) => {
-                        return Err(MessageError(format!(
-                            "failed deserialize reseived sedp(w) data message: {e:?}",
-                        )));
-                    }
-                };
-            let writer_proxy = if let Some(participant_data) =
-                disc_db.read_participant_data(self.source_guid_prefix)
-            {
-                let default_unicast_locator_list = participant_data.default_unicast_locator_list;
-                let default_multicast_locator_list =
-                    participant_data.default_multicast_locator_list;
-                match deserialized.gen_writerproxy(
-                    Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
-                    default_unicast_locator_list,
-                    default_multicast_locator_list,
-                ) {
-                    Some(wp) => wp,
-                    None => {
-                        return Err(MessageError(
-                            "failed generate writer_proxy form received DATA(w)".to_string(),
-                        ));
-                    }
-                }
-            } else {
-                return Err(MessageError(
-                    "received sedp(w) from unknown participant".to_string(),
-                ));
-            };
-            let (topic_name, data_type) = match deserialized.topic_info() {
-                Some((tn, dt)) => (tn, dt),
-                None => {
-                    return Err(MessageError(
-                        "falied to get topic_info from received DATA(w)".to_string(),
-                    ));
-                }
-            };
-            disc_db.write_remote_writer(
-                writer_proxy.remote_writer_guid,
-                ts,
-                writer_proxy.qos.liveliness().kind,
-            );
-            for (eid, reader) in readers.iter_mut() {
-                if reader.is_writer_match(topic_name, data_type) {
-                    let remote_writer_topic_kind =
-                        writer_proxy.remote_writer_guid.entity_id.topic_kind();
-                    if let Some(tk) = remote_writer_topic_kind {
-                        if reader.topic_kind() != tk {
-                            error!(
-                                "Reader found Writer which has same topic_name: '{}' & data_type: '{}' , but not match topic_kind\n\tReader: {:?}\n\tWriter: {:?}",
-                                topic_name, data_type,
-                                reader.topic_kind(),
-                                tk,
-                            );
-                            return Ok(());
-                        }
-                    }
-                    info!(
-                        "Reader found matched Writer\n\tReader: {}\n\tWriter: {}",
-                        eid, writer_proxy.remote_writer_guid
-                    );
-                    reader.matched_writer_add_with_default_locator(
-                        writer_proxy.remote_writer_guid,
-                        writer_proxy.unicast_locator_list.clone(),
-                        writer_proxy.multicast_locator_list.clone(),
-                        writer_proxy.default_unicast_locator_list.clone(),
-                        writer_proxy.default_multicast_locator_list.clone(),
-                        writer_proxy.data_max_size_serialized,
-                        writer_proxy.qos.clone(),
-                    );
-                    self.wlp_timer_sender
-                        .send(*eid)
-                        .expect("couldn't send channel 'wlp_timer_sender'");
-                }
-            }
-            match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
-                Some(r) => r.add_change(self.source_guid_prefix, change),
-                None => {
-                    return Err(MessageError(
-                        "not find sedp_builtin_publication_reader".to_string(),
-                    ));
-                }
-            };
+            self.handle_sedp_w_data(data, change, ts, readers)?;
         } else if data.writer_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER
             || data.reader_id == EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
         {
             // if msg is for SEDP(r)
-            let mut deserialized =
-                match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
-                    Some(sp) => sp.to_bytes(),
-                    None => {
-                        return Err(MessageError(
-                            "received sedp message without serializedPayload".to_string(),
-                        ))
-                    }
-                }) {
-                    Ok(d) => d,
-                    Err(e) => {
-                        return Err(MessageError(format!(
-                            "failed deserialize reseived sedp(r) data message: {e:?}",
-                        )));
-                    }
-                };
-            let reader_proxy = if let Some(participant_data) =
-                disc_db.read_participant_data(self.source_guid_prefix)
-            {
-                let default_unicast_locator_list = participant_data.default_unicast_locator_list;
-                let default_multicast_locator_list =
-                    participant_data.default_multicast_locator_list;
-                match deserialized.gen_readerpoxy(
-                    Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
-                    default_unicast_locator_list,
-                    default_multicast_locator_list,
-                ) {
-                    Some(rp) => rp,
-                    None => {
-                        return Err(MessageError(
-                            "failed generate reader_proxy form received DATA(r)".to_string(),
-                        ));
-                    }
-                }
-            } else {
-                return Err(MessageError(
-                    "received sedp(r) from unknown participant".to_string(),
-                ));
-            };
-            let (topic_name, data_type) = match deserialized.topic_info() {
-                Some((tn, dt)) => (tn, dt),
-                None => {
-                    return Err(MessageError(
-                        "falied to get topic_info from received DATA(r)".to_string(),
-                    ));
-                }
-            };
-            for (eid, writer) in writers.iter_mut() {
-                if writer.is_reader_match(topic_name, data_type) {
-                    let remote_reader_topic_kind =
-                        reader_proxy.remote_reader_guid.entity_id.topic_kind();
-                    if let Some(tk) = remote_reader_topic_kind {
-                        if writer.topic_kind() != tk {
-                            error!(
-                                "Writer found Reader which has same topic_name: '{}' & data_type: '{}' , but not match topic_kind\n\tWriter: {:?}\n\tReader: {:?}",
-                                topic_name, data_type,
-                                writer.topic_kind(),
-                                tk,
-                            );
-                            return Ok(());
-                        }
-                    }
-                    info!(
-                        "Writer found matched Reader\n\tWriter: {}\n\tWriter: {}",
-                        eid, reader_proxy.remote_reader_guid
-                    );
-                    writer.matched_reader_add_with_default_locator(
-                        reader_proxy.remote_reader_guid,
-                        reader_proxy.expects_inline_qos,
-                        reader_proxy.unicast_locator_list.clone(),
-                        reader_proxy.multicast_locator_list.clone(),
-                        reader_proxy.default_unicast_locator_list.clone(),
-                        reader_proxy.default_multicast_locator_list.clone(),
-                        reader_proxy.qos.clone(),
-                    )
-                }
-            }
-            match readers.get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR) {
-                Some(r) => r.add_change(self.source_guid_prefix, change),
-                None => {
-                    return Err(MessageError(
-                        "not find sedp_builtin_subscription_reader".to_string(),
-                    ));
-                }
-            };
+            self.handle_sedp_r_data(data, change, writers, readers)?;
         } else if data.writer_id == EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER
             || data.reader_id == EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER
         {
             // if ParticipantMessage
-            let deserialized =
-                match deserialize::<ParticipantMessageData>(&match data.serialized_payload.as_ref()
-                {
-                    Some(sp) => sp.to_bytes(),
-                    None => {
-                        return Err(MessageError(
-                            "received participant message without serializedPayload".to_string(),
-                        ))
-                    }
-                }) {
-                    Ok(d) => d,
-                    Err(e) => {
-                        return Err(MessageError(format!(
-                            "failed deserialize reseived sedp(r) data message: {e:?}",
-                        )));
-                    }
-                };
-            match deserialized.kind {
-                ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
-                    info!(
-                        "receved DATA(m) with ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE from Participant: {}",
-                         self.source_guid_prefix
-                    );
-                    disc_db.update_liveliness_with_guid_prefix(
-                        deserialized.guid_prefix,
-                        ts,
-                        LivelinessQosKind::Automatic,
-                    );
-                }
-                ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE => {
-                    info!(
-                        "receved DATA(m) with ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE from Participant: {}",
-                         self.source_guid_prefix
-                    );
-                    disc_db.update_liveliness_with_guid_prefix(
-                        deserialized.guid_prefix,
-                        ts,
-                        LivelinessQosKind::ManualByParticipant,
-                    );
-                }
-                ParticipantMessageKind::UNKNOWN => {
-                    warn!(
-                        "receved DATA(m) with ParticipantMessageKind::UNKNOWN, which is not processed",
-
-                    );
-                }
-                k => {
-                    warn!(
-                        "receved DATA(m) with ParticipantMessageKind::{:?}, which is not processed",
-                        k.value
-                    );
-                }
-            }
-            match readers.get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER) {
-                Some(r) => r.add_change(self.source_guid_prefix, change),
-                None => {
-                    return Err(MessageError(
-                        "not find p2p_builtin_participant_reader".to_string(),
-                    ));
-                }
-            };
+            self.handle_participant_message(data, change, ts, readers)?;
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(writer_guid) {
                     reader.add_change(self.source_guid_prefix, change.clone());
-                    disc_db.write_remote_writer(
+                    self.disc_db.write_remote_writer(
                         writer_guid,
                         ts,
                         reader.get_matched_writer_qos(writer_guid).liveliness().kind,
@@ -671,7 +376,7 @@ impl MessageReceiver {
                 Some(r) => {
                     if r.is_contain_writer(writer_guid) {
                         r.add_change(self.source_guid_prefix, change);
-                        disc_db.write_remote_writer(
+                        self.disc_db.write_remote_writer(
                             writer_guid,
                             ts,
                             r.get_matched_writer_qos(writer_guid).liveliness().kind,
@@ -688,6 +393,339 @@ impl MessageReceiver {
                 }
             };
         }
+        Ok(())
+    }
+    fn handle_spdp_data(
+        &mut self,
+        data: Data,
+        change: CacheChange,
+        writers: &mut BTreeMap<EntityId, Writer>,
+        readers: &mut BTreeMap<EntityId, Reader>,
+    ) -> Result<(), MessageError> {
+        let mut deserialized =
+            match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
+                Some(sp) => sp.to_bytes(),
+                None => {
+                    return Err(MessageError(
+                        "received spdp message without serializedPayload".to_string(),
+                    ))
+                }
+            }) {
+                Ok(d) => d,
+                Err(e) => {
+                    return Err(MessageError(format!(
+                        "failed deserialize reseived spdp data message: {e:?}",
+                    )));
+                }
+            };
+        let new_data = match deserialized.gen_spdp_discoverd_participant_data() {
+            Some(nd) => nd,
+            None => return Err(MessageError("received incomplete spdp message".to_string())),
+        };
+        let guid_prefix = new_data.guid.guid_prefix;
+        info!("handle SPDP message from: {}", guid_prefix);
+        let known = self.disc_db.write_participant_ts(
+            guid_prefix,
+            Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
+        );
+        if !known {
+            let locators = if !new_data.metarraffic_unicast_locator_list.is_empty() {
+                new_data.metarraffic_unicast_locator_list.clone()
+            } else if !new_data.default_unicast_locator_list.is_empty() {
+                new_data.default_unicast_locator_list.clone()
+            } else {
+                Locator::new_list_from_multi_ipv4(
+                    7400,
+                    vec![std::net::Ipv4Addr::new(239, 255, 0, 1)],
+                )
+            };
+            // spdp from unknown Participant
+            match writers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER) {
+                Some(w) => {
+                    w.send_builtin_data_for_loc(self.spdp_data.clone(), locators);
+                }
+                None => {
+                    error!("not found spdp_builtin_participant_writer");
+                }
+            }
+        }
+        match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
+            Some(r) => {
+                r.matched_writer_add(
+                    GUID::new(guid_prefix, EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER),
+                    new_data.metarraffic_unicast_locator_list,
+                    new_data.metarraffic_multicast_locator_list,
+                    0,
+                    DataWriterQosBuilder::new().build(),
+                );
+                r.add_change(self.source_guid_prefix, change)
+            }
+            None => {
+                error!("not found spdp_builtin_participant_reader");
+            }
+        };
+        Ok(())
+    }
+    fn handle_sedp_w_data(
+        &mut self,
+        data: Data,
+        change: CacheChange,
+        ts: Timestamp,
+        readers: &mut BTreeMap<EntityId, Reader>,
+    ) -> Result<(), MessageError> {
+        let mut deserialized =
+            match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
+                Some(sp) => sp.to_bytes(),
+                None => {
+                    return Err(MessageError(
+                        "received sedp message without serializedPayload".to_string(),
+                    ))
+                }
+            }) {
+                Ok(d) => d,
+                Err(e) => {
+                    return Err(MessageError(format!(
+                        "failed deserialize reseived sedp(w) data message: {e:?}",
+                    )));
+                }
+            };
+        let writer_proxy = if let Some(participant_data) =
+            self.disc_db.read_participant_data(self.source_guid_prefix)
+        {
+            let default_unicast_locator_list = participant_data.default_unicast_locator_list;
+            let default_multicast_locator_list = participant_data.default_multicast_locator_list;
+            match deserialized.gen_writerproxy(
+                Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
+                default_unicast_locator_list,
+                default_multicast_locator_list,
+            ) {
+                Some(wp) => wp,
+                None => {
+                    return Err(MessageError(
+                        "failed generate writer_proxy form received DATA(w)".to_string(),
+                    ));
+                }
+            }
+        } else {
+            return Err(MessageError(
+                "received sedp(w) from unknown participant".to_string(),
+            ));
+        };
+        let (topic_name, data_type) = match deserialized.topic_info() {
+            Some((tn, dt)) => (tn, dt),
+            None => {
+                return Err(MessageError(
+                    "falied to get topic_info from received DATA(w)".to_string(),
+                ));
+            }
+        };
+        self.disc_db.write_remote_writer(
+            writer_proxy.remote_writer_guid,
+            ts,
+            writer_proxy.qos.liveliness().kind,
+        );
+        for (eid, reader) in readers.iter_mut() {
+            if reader.is_writer_match(topic_name, data_type) {
+                let remote_writer_topic_kind =
+                    writer_proxy.remote_writer_guid.entity_id.topic_kind();
+                if let Some(tk) = remote_writer_topic_kind {
+                    if reader.topic_kind() != tk {
+                        error!(
+                                "Reader found Writer which has same topic_name: '{}' & data_type: '{}' , but not match topic_kind\n\tReader: {:?}\n\tWriter: {:?}",
+                                topic_name, data_type,
+                                reader.topic_kind(),
+                                tk,
+                            );
+                        return Ok(());
+                    }
+                }
+                info!(
+                    "Reader found matched Writer\n\tReader: {}\n\tWriter: {}",
+                    eid, writer_proxy.remote_writer_guid
+                );
+                reader.matched_writer_add_with_default_locator(
+                    writer_proxy.remote_writer_guid,
+                    writer_proxy.unicast_locator_list.clone(),
+                    writer_proxy.multicast_locator_list.clone(),
+                    writer_proxy.default_unicast_locator_list.clone(),
+                    writer_proxy.default_multicast_locator_list.clone(),
+                    writer_proxy.data_max_size_serialized,
+                    writer_proxy.qos.clone(),
+                );
+                self.wlp_timer_sender
+                    .send(*eid)
+                    .expect("couldn't send channel 'wlp_timer_sender'");
+            }
+        }
+        match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
+            Some(r) => r.add_change(self.source_guid_prefix, change),
+            None => {
+                return Err(MessageError(
+                    "not find sedp_builtin_publication_reader".to_string(),
+                ));
+            }
+        };
+        Ok(())
+    }
+    fn handle_sedp_r_data(
+        &self,
+        data: Data,
+        change: CacheChange,
+        writers: &mut BTreeMap<EntityId, Writer>,
+        readers: &mut BTreeMap<EntityId, Reader>,
+    ) -> Result<(), MessageError> {
+        let mut deserialized =
+            match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
+                Some(sp) => sp.to_bytes(),
+                None => {
+                    return Err(MessageError(
+                        "received sedp message without serializedPayload".to_string(),
+                    ))
+                }
+            }) {
+                Ok(d) => d,
+                Err(e) => {
+                    return Err(MessageError(format!(
+                        "failed deserialize reseived sedp(r) data message: {e:?}",
+                    )));
+                }
+            };
+        let reader_proxy = if let Some(participant_data) =
+            self.disc_db.read_participant_data(self.source_guid_prefix)
+        {
+            let default_unicast_locator_list = participant_data.default_unicast_locator_list;
+            let default_multicast_locator_list = participant_data.default_multicast_locator_list;
+            match deserialized.gen_readerpoxy(
+                Arc::new(RwLock::new(HistoryCache::new(HistoryCacheType::Dummy))),
+                default_unicast_locator_list,
+                default_multicast_locator_list,
+            ) {
+                Some(rp) => rp,
+                None => {
+                    return Err(MessageError(
+                        "failed generate reader_proxy form received DATA(r)".to_string(),
+                    ));
+                }
+            }
+        } else {
+            return Err(MessageError(
+                "received sedp(r) from unknown participant".to_string(),
+            ));
+        };
+        let (topic_name, data_type) = match deserialized.topic_info() {
+            Some((tn, dt)) => (tn, dt),
+            None => {
+                return Err(MessageError(
+                    "falied to get topic_info from received DATA(r)".to_string(),
+                ));
+            }
+        };
+        for (eid, writer) in writers.iter_mut() {
+            if writer.is_reader_match(topic_name, data_type) {
+                let remote_reader_topic_kind =
+                    reader_proxy.remote_reader_guid.entity_id.topic_kind();
+                if let Some(tk) = remote_reader_topic_kind {
+                    if writer.topic_kind() != tk {
+                        error!(
+                                "Writer found Reader which has same topic_name: '{}' & data_type: '{}' , but not match topic_kind\n\tWriter: {:?}\n\tReader: {:?}",
+                                topic_name, data_type,
+                                writer.topic_kind(),
+                                tk,
+                            );
+                        return Ok(());
+                    }
+                }
+                info!(
+                    "Writer found matched Reader\n\tWriter: {}\n\tWriter: {}",
+                    eid, reader_proxy.remote_reader_guid
+                );
+                writer.matched_reader_add_with_default_locator(
+                    reader_proxy.remote_reader_guid,
+                    reader_proxy.expects_inline_qos,
+                    reader_proxy.unicast_locator_list.clone(),
+                    reader_proxy.multicast_locator_list.clone(),
+                    reader_proxy.default_unicast_locator_list.clone(),
+                    reader_proxy.default_multicast_locator_list.clone(),
+                    reader_proxy.qos.clone(),
+                )
+            }
+        }
+        match readers.get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR) {
+            Some(r) => r.add_change(self.source_guid_prefix, change),
+            None => {
+                return Err(MessageError(
+                    "not find sedp_builtin_subscription_reader".to_string(),
+                ));
+            }
+        };
+        Ok(())
+    }
+    fn handle_participant_message(
+        &mut self,
+        data: Data,
+        change: CacheChange,
+        ts: Timestamp,
+        readers: &mut BTreeMap<EntityId, Reader>,
+    ) -> Result<(), MessageError> {
+        let deserialized =
+            match deserialize::<ParticipantMessageData>(&match data.serialized_payload.as_ref() {
+                Some(sp) => sp.to_bytes(),
+                None => {
+                    return Err(MessageError(
+                        "received participant message without serializedPayload".to_string(),
+                    ))
+                }
+            }) {
+                Ok(d) => d,
+                Err(e) => {
+                    return Err(MessageError(format!(
+                        "failed deserialize reseived sedp(r) data message: {e:?}",
+                    )));
+                }
+            };
+        match deserialized.kind {
+            ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
+                info!(
+                        "receved DATA(m) with ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE from Participant: {}",
+                         self.source_guid_prefix
+                    );
+                self.disc_db.update_liveliness_with_guid_prefix(
+                    deserialized.guid_prefix,
+                    ts,
+                    LivelinessQosKind::Automatic,
+                );
+            }
+            ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE => {
+                info!(
+                        "receved DATA(m) with ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE from Participant: {}",
+                         self.source_guid_prefix
+                    );
+                self.disc_db.update_liveliness_with_guid_prefix(
+                    deserialized.guid_prefix,
+                    ts,
+                    LivelinessQosKind::ManualByParticipant,
+                );
+            }
+            ParticipantMessageKind::UNKNOWN => {
+                warn!(
+                    "receved DATA(m) with ParticipantMessageKind::UNKNOWN, which is not processed",
+                );
+            }
+            k => {
+                warn!(
+                    "receved DATA(m) with ParticipantMessageKind::{:?}, which is not processed",
+                    k.value
+                );
+            }
+        }
+        match readers.get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER) {
+            Some(r) => r.add_change(self.source_guid_prefix, change),
+            None => {
+                return Err(MessageError(
+                    "not find p2p_builtin_participant_reader".to_string(),
+                ));
+            }
+        };
         Ok(())
     }
     fn handle_datafrag_submsg(
@@ -738,11 +776,10 @@ impl MessageReceiver {
         Ok(())
     }
     fn handle_heartbeat_submsg(
-        &self,
+        &mut self,
         heartbeat: Heartbeat,
         flag: BitFlags<HeartbeatFlag>,
         readers: &mut BTreeMap<EntityId, Reader>,
-        disc_db: &mut DiscoveryDB,
     ) -> Result<(), MessageError> {
         // rtps 2.3 spec 8.3.7.5 Heartbeat
 
@@ -768,7 +805,7 @@ impl MessageReceiver {
         macro_rules! update_liveliness_if_need {
             ($r: expr, $ts: expr) => {
                 if flag.contains(HeartbeatFlag::Liveliness) {
-                    disc_db.write_remote_writer(
+                    self.disc_db.write_remote_writer(
                         writer_guid,
                         $ts,
                         $r.get_matched_writer_qos(writer_guid).liveliness().kind,
