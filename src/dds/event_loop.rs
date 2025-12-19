@@ -85,6 +85,7 @@ impl EventLoop {
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         discovery_db: DiscoveryDB,
         discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
+        discdb_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
         spdp_data: SerializedPayload,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
@@ -194,6 +195,7 @@ impl EventLoop {
             participant_guidprefix,
             domain_id,
             discovery_db.clone(),
+            discdb_update_sender,
             wlp_timer_sender,
             spdp_data,
         );

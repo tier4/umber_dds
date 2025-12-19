@@ -115,6 +115,7 @@ impl DomainParticipant {
                 notify_new_writer_sender,
                 notify_new_reader_sender,
                 participant_msg_cmd_sender,
+                discdb_update_sender.clone(),
                 dp_network_interfaces.clone(),
                 participant_config,
                 small_rng,
@@ -244,6 +245,7 @@ impl DomainParticipantInner {
         notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
+        discdb_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
         network_interfaces: Vec<Ipv4Addr>,
         participant_config: ParticipantConfig,
         small_rng: &mut SmallRng,
@@ -356,6 +358,7 @@ impl DomainParticipantInner {
                     notify_new_reader_sender,
                     discovery_db,
                     discdb_update_receiver,
+                    discdb_update_sender,
                     serialized_spdp_data_clone,
                 );
                 ev_loop.event_loop();

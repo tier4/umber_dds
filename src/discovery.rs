@@ -15,7 +15,7 @@ use crate::message::submessage::element::{SerializedPayload, Timestamp};
 use crate::structure::{EntityId, GuidPrefix, TopicKind};
 use alloc::collections::BTreeMap;
 use core::time::Duration as CoreDuration;
-use log::{debug, error, info, trace};
+use log::{info, trace};
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 
@@ -307,7 +307,7 @@ impl Discovery {
                                 match drc {
                                     DataReaderStatusChanged::DataAvailable => {
                                         info!("SPDP_PARTICIPANT_DETECTOR: DataAvailable");
-                                        self.handle_participant_discovery()
+                                        // do nothing, Already processed by MessageReceiver
                                     }
                                     DataReaderStatusChanged::LivelinessChanged(_) => {
                                         info!("SPDP_PARTICIPANT_DETECTOR: LivelinessChanged");
@@ -393,38 +393,6 @@ impl Discovery {
         }
     }
 
-    fn handle_participant_discovery(&mut self) {
-        let vd = self.spdp_builtin_participant_reader.take();
-        info!("handle_participant_discovery: {}", vd.len());
-        for mut d in vd {
-            if let Some(spdp_data) = d.gen_spdp_discoverd_participant_data() {
-                if spdp_data.domain_id != self.dp.domain_id() {
-                    debug!(
-                        "receved SPDP message from different Domain. Self: {}, Remote: {}",
-                        self.dp.domain_id(),
-                        spdp_data.domain_id
-                    );
-                    continue;
-                } else {
-                    let guid_prefix = spdp_data.guid.guid_prefix;
-                    info!(
-                        "write Participant data to discovery_db\n\tParticipant: {}",
-                        spdp_data.guid
-                    );
-                    self.discovery_db.write_participant(
-                        spdp_data.guid.guid_prefix,
-                        Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
-                        spdp_data,
-                    );
-                    self.discdb_update_sender
-                        .send(DiscoveryDBUpdateNotifier::AddParticipant(guid_prefix))
-                        .expect("couldn't send update notification to discdb_update_sender");
-                }
-            } else {
-                error!("failed generate SPDPdiscoveredParticipantData from received DATA(P)");
-            }
-        }
-    }
     /*
      * process DATA(m) which ParticipantMessageKind is MANUAL_LIVELINESS_UPDATE or AUTOMATIC_LIVELINESS_UPDATE @MessageReceiver
      * in the future, I will use this for process DATA(m) which has other ParticipantMessageKind

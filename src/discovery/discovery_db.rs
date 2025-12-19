@@ -2,7 +2,10 @@ use crate::dds::qos::policy::LivelinessQosKind;
 use crate::discovery::structure::data::SPDPdiscoveredParticipantData;
 use crate::message::submessage::element::Timestamp;
 use crate::structure::{GuidPrefix, GUID};
-use alloc::collections::BTreeMap;
+use alloc::collections::{
+    btree_map::Entry::{Occupied, Vacant},
+    BTreeMap,
+};
 use alloc::sync::Arc;
 use awkernel_sync::{mcs::MCSNode, mutex::Mutex};
 use core::time::Duration as CoreDuration;
@@ -30,23 +33,16 @@ impl DiscoveryDB {
         }
     }
 
+    /// return value: whether the Participant represented by guid_prefix is known
     pub fn write_participant(
         &mut self,
         guid_prefix: GuidPrefix,
         timestamp: Timestamp,
         data: SPDPdiscoveredParticipantData,
-    ) {
+    ) -> bool {
         let mut node = MCSNode::new();
         let mut inner = self.inner.lock(&mut node);
         inner.write_participant(guid_prefix, timestamp, data)
-    }
-
-    /// Write the time when liveliness of Participant with guid_prefix was last updated to the discovery_db.
-    /// return value: whether the Participant represented by guid_prefix is known
-    pub fn write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) -> bool {
-        let mut node = MCSNode::new();
-        let mut inner = self.inner.lock(&mut node);
-        inner.write_participant_ts(guid_prefix, timestamp)
     }
 
     pub fn check_participant_liveliness(
@@ -180,17 +176,16 @@ impl DiscoveryDBInner {
         guid_prefix: GuidPrefix,
         timestamp: Timestamp,
         data: SPDPdiscoveredParticipantData,
-    ) {
-        self.participant_data
-            .insert(guid_prefix, (EndpointState::Live(timestamp), data));
-    }
-
-    fn write_participant_ts(&mut self, guid_prefix: GuidPrefix, timestamp: Timestamp) -> bool {
-        if let Some(e) = self.participant_data.get_mut(&guid_prefix) {
-            e.0 = EndpointState::Live(timestamp);
-            true
-        } else {
-            false
+    ) -> bool {
+        match self.participant_data.entry(guid_prefix) {
+            Vacant(e) => {
+                e.insert((EndpointState::Live(timestamp), data));
+                false
+            }
+            Occupied(mut e) => {
+                e.insert((EndpointState::Live(timestamp), data));
+                true
+            }
         }
     }
 

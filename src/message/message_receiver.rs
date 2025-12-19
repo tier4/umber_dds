@@ -4,6 +4,7 @@ use crate::discovery::structure::{
     cdr::deserialize,
     data::{ParticipantMessageData, ParticipantMessageKind, SDPBuiltinData},
 };
+use crate::discovery::DiscoveryDBUpdateNotifier;
 use crate::message::{
     submessage::{element::*, submessage_flag::*, *},
     *,
@@ -53,6 +54,7 @@ pub struct MessageReceiver {
     timestamp: Timestamp,
     spdp_data: SerializedPayload,
     disc_db: DiscoveryDB,
+    disc_db_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
 }
 
 impl MessageReceiver {
@@ -60,6 +62,7 @@ impl MessageReceiver {
         participant_guidprefix: GuidPrefix,
         domain_id: u16,
         disc_db: DiscoveryDB,
+        disc_db_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
         wlp_timer_sender: mio_channel::Sender<EntityId>,
         spdp_data: SerializedPayload,
     ) -> MessageReceiver {
@@ -77,6 +80,7 @@ impl MessageReceiver {
             timestamp: Timestamp::TIME_INVALID,
             spdp_data,
             disc_db,
+            disc_db_update_sender,
         }
     }
 
@@ -422,12 +426,22 @@ impl MessageReceiver {
             Some(nd) => nd,
             None => return Err(MessageError("received incomplete spdp message".to_string())),
         };
+        if self.domain_id != new_data.domain_id {
+            return Err(MessageError(format!(
+                "received spdp message from different DDS domain. Self: {}, Remote: {}",
+                self.domain_id, new_data.domain_id,
+            )));
+        }
         let guid_prefix = new_data.guid.guid_prefix;
         info!("handle SPDP message from: {}", guid_prefix);
-        let known = self.disc_db.write_participant_ts(
+        let known = self.disc_db.write_participant(
             guid_prefix,
             Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
+            new_data.clone(),
         );
+        self.disc_db_update_sender
+            .send(DiscoveryDBUpdateNotifier::AddParticipant(guid_prefix))
+            .expect("failed send update notification to discdb_update_sender");
         if !known {
             let locators = if !new_data.metarraffic_unicast_locator_list.is_empty() {
                 new_data.metarraffic_unicast_locator_list.clone()
