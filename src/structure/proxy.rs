@@ -193,7 +193,7 @@ impl ReaderProxy {
             "ReaderProxy.remove_cache_state({:?})\n\tReader: {}",
             seq_num, self.remote_reader_guid
         );
-        if let None = self.cache_state.remove(seq_num) {
+        if self.cache_state.remove(seq_num).is_none() {
             warn!(
                 "ReaderProxy requested to non-existent cache with {:?}\n\tReader: {}",
                 seq_num, self.remote_reader_guid
@@ -450,7 +450,7 @@ impl WriterProxy {
             "WriterProxy.remove_cache_state({:?})\n\tWriter: {}",
             seq_num, self.remote_writer_guid
         );
-        if let None = self.cache_state.remove(seq_num) {
+        if self.cache_state.remove(seq_num).is_none() {
             warn!(
                 "WriterProxy requested to non-existent cache with {:?}\n\tWriter: {}",
                 seq_num, self.remote_writer_guid
