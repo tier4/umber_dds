@@ -670,6 +670,7 @@ impl EventLoop {
                                         spdp_data.metarraffic_multicast_locator_list.clone(),
                                         qos,
                                     );
+                                    writer.send_heart_beat(false);
                                 } else {
                                     error!("not found self::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER");
                                 }
@@ -728,6 +729,7 @@ impl EventLoop {
                                         spdp_data.metarraffic_multicast_locator_list.clone(),
                                         qos,
                                     );
+                                    writer.send_heart_beat(false);
                                 } else {
                                     error!("not found self::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER");
                                 }

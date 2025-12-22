@@ -439,10 +439,11 @@ impl MessageReceiver {
             Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
             new_data.clone(),
         );
-        self.disc_db_update_sender
-            .send(DiscoveryDBUpdateNotifier::AddParticipant(guid_prefix))
-            .expect("failed send update notification to discdb_update_sender");
+        // TODO: if the participant is known, but parameters updated what to do?
         if !known {
+            self.disc_db_update_sender
+                .send(DiscoveryDBUpdateNotifier::AddParticipant(guid_prefix))
+                .expect("failed send update notification to discdb_update_sender");
             let locators = if !new_data.metarraffic_unicast_locator_list.is_empty() {
                 new_data.metarraffic_unicast_locator_list.clone()
             } else if !new_data.default_unicast_locator_list.is_empty() {
