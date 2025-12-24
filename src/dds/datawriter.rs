@@ -75,7 +75,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
 
     /// publish data for matching DataReader
     pub fn write(&mut self, data: &D) {
-        let ts = Timestamp::now().expect("failed get Timestamp::now()");
+        let ts = Timestamp::now().expect("failed to get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
         self.writer_data_to_hc(ts, serialized_payload, true);
@@ -83,7 +83,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
 
     /// + updated: whether there are changes since the last write
     pub(crate) fn write_builtin_data(&mut self, data: &D, updated: bool) {
-        let ts = Timestamp::now().expect("failed get Timestamp::now()");
+        let ts = Timestamp::now().expect("failed to get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
         self.writer_data_to_hc(ts, serialized_payload, updated);
@@ -91,7 +91,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
 
     /// + updated: whether there are changes since the last write
     pub(crate) fn write_serialized_builtin_data(&mut self, data: SerializedPayload, updated: bool) {
-        let ts = Timestamp::now().expect("failed get Timestamp::now()");
+        let ts = Timestamp::now().expect("failed to get Timestamp::now()");
         self.writer_data_to_hc(ts, data, updated);
     }
 
@@ -128,7 +128,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
                     );
                     self.writer_command_sender
                         .send(WriterCmd::WriteData)
-                        .expect("couldn't send message");
+                        .expect("failed to send WriterCmd via channel 'writer_command_sender'");
                     break;
                 }
                 Err(AddChangeErr::WouldBlock(t)) => {
@@ -153,7 +153,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
                 let writer_cmd = WriterCmd::AssertLiveliness;
                 self.writer_command_sender
                     .send(writer_cmd)
-                    .expect("couldn't send message");
+                    .expect("failed to send WriterCmd via channel 'writer_command_sender'");
             }
         }
     }

@@ -228,7 +228,7 @@ impl InnerSubscriber {
         };
         self.create_reader_sender
             .send(reader_ing)
-            .expect("couldn't send create_reader_sender");
+            .expect("failed to send data via channel 'create_reader_sender'");
         DataReader::<D>::new(
             dr_qos,
             topic,

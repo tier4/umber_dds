@@ -100,7 +100,7 @@ impl DomainParticipant {
                 })
                 .collect();
             if local_ipv4_nics.is_empty() {
-                panic!("failed get local network_interfaces");
+                panic!("failed to get local network_interfaces");
             }
             vec![local_ipv4_nics[0]]
         } else {
@@ -138,7 +138,7 @@ impl DomainParticipant {
                 );
                 discovery.discovery_loop();
             })
-            .expect("couldn't spawn discovery thread");
+            .expect("failed to spawn discovery thread");
         info!("created new Participant {}", dp.guid());
         dp
     }
@@ -309,7 +309,7 @@ impl DomainParticipantInner {
         let my_guid = GUID::new_participant_guid(small_rng);
 
         let udp_sender =
-            UdpSender::new(0, network_interfaces.clone()).expect("couldn't gen UdpSender");
+            UdpSender::new(0, network_interfaces.clone()).expect("failed to gen UdpSender");
 
         let spdp_data = SPDPdiscoveredParticipantData::new(
             domain_id,
@@ -363,7 +363,7 @@ impl DomainParticipantInner {
                 );
                 ev_loop.event_loop();
             })
-            .expect("couldn't spawn EventLoop thread");
+            .expect("failed to spawn EventLoop thread");
         let default_topic_qos = TopicQosBuilder::new().build();
         let default_publisher_qos = PublisherQosBuilder::new().build();
         let default_subscriber_qos = SubscriberQosBuilder::new().build();

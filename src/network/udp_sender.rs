@@ -15,27 +15,27 @@ impl UdpSender {
         // if 0.0.0.0 is binded to sender socket, source IP is decided automatic
         let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), sender_port);
         let unicast_socket = UdpSocket::bind(addr)
-            .unwrap_or_else(|_| panic!("couldn't bind 0.0.0.0:{sender_port} to socket"));
+            .unwrap_or_else(|_| panic!("failed to bind 0.0.0.0:{sender_port} to socket"));
         unicast_socket
             .set_multicast_loop_v4(true)
-            .unwrap_or_else(|_| panic!("couldn't set multicast_loop_v4 to 0.0.0.0:{sender_port}"));
+            .unwrap_or_else(|_| panic!("failed to set multicast_loop_v4 to 0.0.0.0:{sender_port}"));
 
         let mut multicast_sockets: Vec<UdpSocket> = Vec::new();
         // The DDS implementation sends multicast datagrams to all interfaces because it cannot determine which interfaces the nodes joined to the multicast group are connected to and which they are not.
         for li in local_interfaces {
             let raw_socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))
-                .expect("couldn't open raw_socket");
+                .expect("failed to open raw_socket");
             raw_socket
                 .set_multicast_if_v4(&li)
-                .expect("couldn't set multicast_if_v4 to raw_socket");
+                .expect("failed to set multicast_if_v4 to raw_socket");
             let sockaddr = SockAddr::from(SocketAddr::new(IpAddr::V4(li), 0));
             raw_socket
                 .bind(&sockaddr)
-                .unwrap_or_else(|_| panic!("couldn't bind {sockaddr:?} to raw_socket"));
+                .unwrap_or_else(|_| panic!("failed to bind {sockaddr:?} to raw_socket"));
             let mc_socket = std::net::UdpSocket::from(raw_socket);
             mc_socket
                 .set_multicast_loop_v4(true)
-                .expect("couldn't set multicast_loop_v4 to socket");
+                .expect("failed to set multicast_loop_v4 to socket");
             multicast_sockets.push(mc_socket);
         }
         Ok(Self {
@@ -46,7 +46,7 @@ impl UdpSender {
 
     pub fn send_to_unicast(&self, data: &[u8], addr: Ipv4Addr, port: u16) {
         if let Err(e) = self.unicast_socket.send_to(data, (addr, port)) {
-            error!("failed send data to {}:{} because '{:?}'", addr, port, e);
+            error!("failed to send data to {}:{} because '{:?}'", addr, port, e);
         }
     }
 
@@ -54,7 +54,7 @@ impl UdpSender {
         for msocket in &self.multicast_sockets {
             if let Err(e) = msocket.send_to(data, (multicast_group, port)) {
                 error!(
-                    "failed send data to {}:{} because '{:?}'",
+                    "failed to send data to {}:{} because '{:?}'",
                     multicast_group, port, e
                 );
             }

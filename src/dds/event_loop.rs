@@ -91,7 +91,7 @@ impl EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
             poll.register(lister, *token, Ready::readable(), PollOpt::edge())
-                .expect("coludn't register lister to poll");
+                .expect("failed to register UdpSocket lister with poll");
         }
         poll.register(
             &create_writer_receiver,
@@ -99,14 +99,14 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register create_writer_receiver to poll");
+        .expect("failed to register receiver 'create_writer_receiver' with poll");
         poll.register(
             &create_reader_receiver,
             ADD_READER_TOKEN,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register create_reader_receiver to poll");
+        .expect("failed to register receiver 'create_reader_receiver' with poll");
         let writer_hb_timer = Timer::default();
         poll.register(
             &writer_hb_timer,
@@ -114,7 +114,7 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register writer_hb_timer to poll");
+        .expect("failed to register timer 'writer_hb_timer' with poll");
         let mut assert_liveliness_timer = Timer::default();
         assert_liveliness_timer.set_timeout(CoreDuration::from_secs(ASSERT_LIVELINESS_PERIOD), ());
         trace!(
@@ -127,7 +127,7 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register assert_liveliness_timer to poll");
+        .expect("failed to register timer 'assert_liveliness_timer' with poll");
         let check_liveliness_timer = Timer::default();
         poll.register(
             &check_liveliness_timer,
@@ -135,14 +135,14 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register check_liveliness_timer to poll");
+        .expect("failed to register timer 'check_liveliness_timer' with poll");
         poll.register(
             &discdb_update_receiver,
             DISCOVERY_DB_UPDATE,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register discdb_update_receiver to poll");
+        .expect("failed to register receiver 'discdb_update_receiver' with poll");
         let (set_reader_hb_timer_sender, set_reader_hb_timer_receiver) = mio_channel::channel();
         let (set_writer_nack_timer_sender, set_writer_nack_timer_receiver) = mio_channel::channel();
         let (wlp_timer_sender, wlp_timer_receiver) = mio_channel::channel();
@@ -152,21 +152,21 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register set_reader_hb_timer_receiver to poll");
+        .expect("failed to register receiver 'set_reader_hb_timer_receiver' with poll");
         poll.register(
             &set_writer_nack_timer_receiver,
             SET_WRITER_NACK_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register set_writer_nack_timer_receiver to poll");
+        .expect("failed to register receiver 'set_writer_nack_timer_receiver' with poll");
         poll.register(
             &wlp_timer_receiver,
             SET_WLP_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register wlp_timer_receiver to poll");
+        .expect("failed to register receiver 'wlp_timer_receiver' with poll");
         let reader_hb_timer = Timer::default();
         poll.register(
             &reader_hb_timer,
@@ -174,7 +174,7 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register reader_hb_timer to poll");
+        .expect("failed to register timer 'reader_hb_timer' with poll");
         let writer_nack_timer = Timer::default();
         poll.register(
             &writer_nack_timer,
@@ -182,7 +182,7 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register writer_nack_timer to poll");
+        .expect("failed to register timer 'writer_nack_timer' with poll");
         let wlp_timer = Timer::default();
         poll.register(
             &wlp_timer,
@@ -190,7 +190,7 @@ impl EventLoop {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("coludn't register wlp_timer to poll");
+        .expect("failed to register timer 'wlp_timer' with poll");
         let message_receiver = MessageReceiver::new(
             participant_guidprefix,
             domain_id,
@@ -346,7 +346,7 @@ impl EventLoop {
                                         PollOpt::edge(),
                                     )
                                     .expect(
-                                        "coludn't register writer.writer_command_receiver to poll",
+                                        "failed to register receiver 'writer.writer_command_receiver' with poll",
                                     );
                                 if writer.entity_id()
                                     != EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
@@ -359,11 +359,13 @@ impl EventLoop {
                                 {
                                     self.notify_new_writer_sender
                                         .send((writer.entity_id(), writer.sedp_data()))
-                                        .expect("coludn't send channel 'notify_new_writer_sender'");
+                                        .expect(
+                                            "failed to send data via channel 'notify_new_writer_sender'",
+                                        );
                                 }
                                 self.discovery_db.write_local_writer(
                                     writer.guid(),
-                                    Timestamp::now().expect("failed get Timestamp"),
+                                    Timestamp::now().expect("failed to get Timestamp::now()"),
                                     writer.get_qos().liveliness().kind,
                                 );
                                 self.writers.insert(writer.entity_id(), writer);
@@ -386,7 +388,9 @@ impl EventLoop {
                                 {
                                     self.notify_new_reader_sender
                                         .send((reader.entity_id(), reader.sedp_data()))
-                                        .expect("coludn't send channle 'notify_new_reader_sender'");
+                                        .expect(
+                                            "failed to send data via channle 'notify_new_reader_sender'",
+                                        );
                                 }
                                 self.readers.insert(reader.entity_id(), reader);
                             }
@@ -501,7 +505,8 @@ impl EventLoop {
                                         trace!("assert_liveliness()\n\tWriter: {}", guid);
                                         self.discovery_db.write_local_writer(
                                             writer.guid(),
-                                            Timestamp::now().expect("failed get Timestamp"),
+                                            Timestamp::now()
+                                                .expect("failed to get Timestamp::now()"),
                                             writer.get_qos().liveliness().kind,
                                         );
                                     }
@@ -581,7 +586,7 @@ impl EventLoop {
                             if let Some(writer) = self.writers.get_mut(&eid) {
                                 self.discovery_db.write_local_writer(
                                     GUID::new(self.guid_prefix, eid),
-                                    Timestamp::now().expect("failed get Timestamp"),
+                                    Timestamp::now().expect("failed to get Timestamp::now()"),
                                     writer.get_qos().liveliness().kind,
                                 );
                                 writer.handle_writer_cmd();

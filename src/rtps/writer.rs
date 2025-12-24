@@ -198,7 +198,7 @@ impl Writer {
         }
         let writer_cache = self.writer_cache.read();
         if let Some(ts) = writer_cache.get_last_added_ts(self.guid) {
-            let elapse = Timestamp::now().expect("failed get Timestamp::new()") - *ts;
+            let elapse = Timestamp::now().expect("failed to get Timestamp::now()") - *ts;
             if elapse > ld {
                 let data = ParticipantMessageData::new(
                     self.guid_prefix(),
@@ -207,7 +207,7 @@ impl Writer {
                 );
                 self.participant_msg_cmd_sender
                     .send(ParticipantMessageCmd::SendData(data))
-                    .expect("couldn't send channel 'participant_msg_cmd_sender'");
+                    .expect("failed to send ParticipantMessageCmd via channel 'participant_msg_cmd_sender'");
             }
         } else {
             unreachable!(
@@ -336,7 +336,7 @@ impl Writer {
                     let message = message_builder.build(self_guid_prefix);
                     let message_buf = message
                         .write_to_vec_with_ctx(self.endianness)
-                        .expect("couldn't serialize message");
+                        .expect("failed to serialize message");
                     self.send_msg_to_locator(loc, message_buf, "data");
                 }
             } else {
@@ -366,7 +366,7 @@ impl Writer {
                 let message = message_builder.build(self_guid_prefix);
                 let message_buf = message
                     .write_to_vec_with_ctx(self.endianness)
-                    .expect("couldn't serialize message");
+                    .expect("failed to serialize message");
                 self.send_msg_to_locator(loc, message_buf, "gap");
             }
             if !self.is_reliable() {
@@ -382,7 +382,7 @@ impl Writer {
         builtin_data: SerializedPayload,
         locator: Vec<Locator>,
     ) {
-        let time_stamp = Timestamp::now().expect("failed get Timestamp");
+        let time_stamp = Timestamp::now().expect("failed to get Timestamp::now()");
         let a_change = CacheChange::new(
             ChangeKind::Alive,
             self.guid,
@@ -402,7 +402,7 @@ impl Writer {
         let message = message_builder.build(self.guid_prefix());
         let message_buf = message
             .write_to_vec_with_ctx(self.endianness)
-            .expect("couldn't serialize message");
+            .expect("failed to serialize message");
         for loc in locator {
             self.send_msg_to_locator(loc, message_buf.clone(), "data");
         }
@@ -476,7 +476,7 @@ impl Writer {
             let msg = message_builder.build(self_guid_prefix);
             let message_buf = msg
                 .write_to_vec_with_ctx(self.endianness)
-                .expect("couldn't serialize message");
+                .expect("failed to serialize message");
             self.send_msg_to_locator(
                 loc,
                 message_buf,
@@ -509,7 +509,7 @@ impl Writer {
                         } else {
                             self.set_writer_nack_sender
                                 .send((self.entity_id(), reader_guid))
-                                .expect("couldn't send channel 'set_writer_nack_sender'");
+                                .expect("failed to send data via channel 'set_writer_nack_sender'");
                             self.an_state = AckNackState::MustRepair
                         }
                     }
@@ -603,7 +603,7 @@ impl Writer {
                     let message = message_builder.build(self_guid_prefix);
                     let message_buf = message
                         .write_to_vec_with_ctx(self.endianness)
-                        .expect("couldn't serialize message");
+                        .expect("failed to serialize message");
                     self.send_msg_to_locator(loc, message_buf, "data");
                 }
             } else {
@@ -628,7 +628,7 @@ impl Writer {
                     let msg = message_builder.build(self_guid_prefix);
                     let message_buf = msg
                         .write_to_vec_with_ctx(self.endianness)
-                        .expect("couldn't serialize message");
+                        .expect("failed to serialize message");
                     self.send_msg_to_locator(loc, message_buf, "heartbeat");
                 }
             }
@@ -651,7 +651,7 @@ impl Writer {
                 let message = message_builder.build(self_guid_prefix);
                 let message_buf = message
                     .write_to_vec_with_ctx(self.endianness)
-                    .expect("couldn't serialize message");
+                    .expect("failed to serialize message");
                 self.send_msg_to_locator(loc, message_buf, "gap");
             }
         }
@@ -688,7 +688,7 @@ impl Writer {
     /// remove changes acked by all matched_readers with a sequence number less than or equal to base-1 (Durability is TransientLocal) or base (Durability is Volatile)
     fn remove_acked_changes(&mut self, base: SequenceNumber) {
         info!(
-            "Writer::remove_acked_changes({:?})\n\tWriter: {}",
+            "Writer::remove_acked_changes(base: {:?})\n\tWriter: {}",
             base, self.guid.entity_id
         );
         let base_ = match self.qos.durability() {
@@ -842,7 +842,7 @@ impl Writer {
             if let Err(e) = self.qos.is_compatible(&qos) {
                 self.writer_state_notifier
                     .send(DataWriterStatusChanged::OfferedIncompatibleQos(e.clone()))
-                    .expect("couldn't send writer_state_notifier");
+                    .expect("failed to send data via channel 'writer_state_notifier'");
                 warn!(
                 "Writer offered incompatible qos from Reader\n\tWriter: {}\n\tReader: {}\n\terror: {}",
                 self.guid, remote_reader_guid, e
@@ -876,7 +876,7 @@ impl Writer {
             );
             self.writer_state_notifier
                 .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
-                .expect("couldn't send writer_state_notifier");
+                .expect("failed to send data via channel 'writer_state_notifier'");
         } else {
             let remote_reader = self.matched_readers.get_mut(&remote_reader_guid).unwrap();
             macro_rules! update_proxy_if_need {
@@ -916,7 +916,7 @@ impl Writer {
             }
             let writer_cache = self.writer_cache.read();
             if let Some(ts) = writer_cache.get_last_added_ts(self.guid) {
-                let elapse = Timestamp::now().expect("failed get Timestamp::new()") - *ts;
+                let elapse = Timestamp::now().expect("failed to get Timestamp::now()") - *ts;
                 if elapse > ld {
                     self.unmatch_count += 1;
                     self.is_alive = false;
@@ -925,7 +925,7 @@ impl Writer {
                         .send(DataWriterStatusChanged::LivelinessLost(
                             LivelinessLostStatus::new(self.unmatch_count, 1, self.guid),
                         ))
-                        .expect("couldn't send writer_state_notifier");
+                        .expect("failed to send data via channel 'writer_state_notifier'");
                 }
             }
         }
@@ -938,7 +938,7 @@ impl Writer {
                 .send(DataWriterStatusChanged::LivelinessLost(
                     LivelinessLostStatus::new(self.unmatch_count, 1, guid),
                 ))
-                .expect("couldn't send writer_state_notifier");
+                .expect("failed to send data via chennel 'writer_state_notifier'");
         }
     }
 
@@ -953,7 +953,7 @@ impl Writer {
         );
         self.writer_state_notifier
             .send(DataWriterStatusChanged::PublicationMatched(pub_match_state))
-            .expect("couldn't send writer_state_notifier");
+            .expect("failed to send data via chennel 'writer_state_notifier'");
     }
 
     pub fn delete_reader_proxy(&mut self, guid_prefix: GuidPrefix) {

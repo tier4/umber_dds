@@ -144,7 +144,7 @@ impl Reader {
                         writer_guid,
                     ),
                 ))
-                .expect("couldn't send channel 'reader_state_notifier'");
+                .expect("failed to send data via channel 'reader_state_notifier'");
         }
         info!(
             "Reader add change from Writer, seq_num: {}\n\tReader: {}\n\tWriter: {}",
@@ -172,7 +172,7 @@ impl Reader {
                         self.reader_cache.write().flush();
                         self.reader_state_notifier
                             .send(DataReaderStatusChanged::DataAvailable)
-                            .expect("couldn't send reader_state_notifier");
+                            .expect("failed to send data via chennel 'reader_state_notifier'");
                     }
                 }
                 Some(ReaderState::Expect(seq_num)) => {
@@ -180,7 +180,7 @@ impl Reader {
                         self.reader_cache.write().flush();
                         self.reader_state_notifier
                             .send(DataReaderStatusChanged::DataAvailable)
-                            .expect("couldn't send reader_state_notifier");
+                            .expect("failed to send data via channel 'reader_state_notifier'");
                     }
                 }
                 None => (),
@@ -218,7 +218,7 @@ impl Reader {
                     let writer_proxy = self
                         .matched_writers
                         .get(&writer_guid)
-                        .expect("couldn't get writer_proxy");
+                        .expect("failed to get writer_proxy");
                     expected_seq_num = writer_proxy.available_changes_max() + SequenceNumber(1);
                     flag = change.sequence_number >= expected_seq_num;
                 }
@@ -238,11 +238,11 @@ impl Reader {
                     self.reader_cache.write().flush();
                     self.reader_state_notifier
                         .send(DataReaderStatusChanged::DataAvailable)
-                        .expect("couldn't send reader_state_notifier");
+                        .expect("failed to send data via channell 'reader_state_notifier'");
                     let writer_proxy_mut = self
                         .matched_writers
                         .get_mut(&writer_guid)
-                        .expect("couldn't get writer_proxy_mut");
+                        .expect("failed to get writer_proxy_mut");
                     writer_proxy_mut.received_change_set(change.sequence_number);
                     if change.sequence_number > expected_seq_num {
                         writer_proxy_mut.lost_changes_update(change.sequence_number);
@@ -300,7 +300,7 @@ impl Reader {
                 );
                 self.reader_state_notifier
                     .send(DataReaderStatusChanged::RequestedIncompatibleQos(e))
-                    .expect("couldn't send reader_state_notifier");
+                    .expect("failed to send data via channel 'reader_state_notifier'");
                 return;
             }
 
@@ -334,7 +334,7 @@ impl Reader {
                 .send(DataReaderStatusChanged::SubscriptionMatched(
                     sub_match_state,
                 ))
-                .expect("couldn't send reader_state_notifier");
+                .expect("failed to send data via channel 'reader_state_notifier'");
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
                     LivelinessChangedStatus::new(
@@ -345,7 +345,7 @@ impl Reader {
                         remote_writer_guid,
                     ),
                 ))
-                .expect("couldn't send channel 'reader_state_notifier'");
+                .expect("failed to send data via channel 'reader_state_notifier'");
         } else {
             // receive SEDP message from known writer
             let remote_writer = self.matched_writers.get_mut(&remote_writer_guid).unwrap();
@@ -393,7 +393,7 @@ impl Reader {
                         guid,
                     ),
                 ))
-                .expect("couldn't send channel 'reader_state_notifier'");
+                .expect("failed to send data via channel 'reader_state_notifier'");
         }
     }
 
@@ -409,7 +409,7 @@ impl Reader {
                     guid,
                 ),
             ))
-            .expect("couldn't send reader_state_notifier");
+            .expect("failed to send data via channel 'reader_state_notifier'");
     }
 
     #[inline]
@@ -434,7 +434,7 @@ impl Reader {
                         guid,
                     ),
                 ))
-                .expect("couldn't send channel 'reader_state_notifier'");
+                .expect("failed to send data via channel 'reader_state_notifier'");
             self.send_sub_unmatch(guid);
         }
     }
@@ -475,7 +475,7 @@ impl Reader {
                         writer_guid,
                     ),
                 ))
-                .expect("couldn't send channel 'reader_state_notifier'");
+                .expect("failed to send data via channel 'reader_state_notifier'");
         }
 
         macro_rules! remove_seqnum_from_wait_list {
@@ -525,7 +525,7 @@ impl Reader {
                         writer_guid,
                     ),
                 ))
-                .expect("couldn't send channel 'reader_state_notifier'");
+                .expect("failed to send data via channel 'reader_state_notifier'");
         }
         if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {
             trace!(
@@ -570,7 +570,7 @@ impl Reader {
                 );
                 self.set_reader_hb_timer_sender
                     .send((self.entity_id(), writer_guid))
-                    .expect("couldn't send channel 'set_reader_hb_timer_sender'");
+                    .expect("failed to send data via channel 'set_reader_hb_timer_sender'");
             }
         } else if !hb_flag.contains(HeartbeatFlag::Liveliness) {
             // to may_send_ack
@@ -598,7 +598,7 @@ impl Reader {
                         );
                         self.set_reader_hb_timer_sender
                             .send((self.entity_id(), writer_guid))
-                            .expect("couldn't send channel 'set_reader_hb_timer_sender'");
+                            .expect("failed to send data via channel 'set_reader_hb_timer_sender'");
                     }
                 }
             }
@@ -630,7 +630,7 @@ impl Reader {
                     if self.reader_cache.write().flush() {
                         self.reader_state_notifier
                             .send(DataReaderStatusChanged::DataAvailable)
-                            .expect("couldn't send reader_state_notifier");
+                            .expect("failed to send data via channel 'reader_state_notifier'");
                     }
                 }
                 base
@@ -666,7 +666,7 @@ impl Reader {
             let message = message_builder.build(self_guid_prefix);
             let message_buf = message
                 .write_to_vec_with_ctx(self.endianness)
-                .expect("couldn't serialize message");
+                .expect("failed to serialize message");
 
             for loc in ll_u {
                 self.send_msg_to_locator(loc, &message_buf, "acknack");
@@ -765,7 +765,7 @@ impl Reader {
             match disc_db.read_remote_writer(*guid) {
                 EndpointState::Live(last_added) => {
                     let elapse =
-                        Timestamp::now().expect("failed get Timestamp::now()") - last_added;
+                        Timestamp::now().expect("failed to get Timestamp::now()") - last_added;
                     if elapse > wld {
                         debug!("checked liveliness of writer Lost, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
                         to_unmatch.push(*guid);

@@ -249,7 +249,7 @@ impl InnerPublisher {
         };
         self.create_writer_sender
             .send(writer_ing)
-            .expect("couldn't send channel 'create_writer_sender'");
+            .expect("failed to send data via channel 'create_writer_sender'");
         DataWriter::<D>::new(
             writer_command_sender,
             guid,

@@ -248,7 +248,7 @@ impl SDPBuiltinData {
         let remote_guid = match self.remote_guid {
             Some(rg) => rg,
             None => {
-                error!("couldn't gen ReaderProxy from SDPBuiltinData, not found remote_guid",);
+                error!("failed to gen ReaderProxy from SDPBuiltinData, not found remote_guid",);
                 return None;
             }
         };
@@ -292,7 +292,7 @@ impl SDPBuiltinData {
         let remote_guid = match self.remote_guid {
             Some(rg) => rg,
             None => {
-                error!("couldn't gen WriterProxy from SDPBuiltinData, not found remote_guid",);
+                error!("failed to gen WriterProxy from SDPBuiltinData, not found remote_guid",);
                 return None;
             }
         };
@@ -1588,7 +1588,7 @@ mod test {
             },
         );
         let serialized =
-            cdr::serialize::<_, _, PlCdrLe>(&data, Infinite).expect("couldn't serialize message");
+            cdr::serialize::<_, _, PlCdrLe>(&data, Infinite).expect("failed to serialize message");
 
         /*
         let mut serialized_msg = String::new();
@@ -1607,11 +1607,11 @@ mod test {
 
         let mut deseriarized = match deserialize::<SDPBuiltinData>(&serialized) {
             Ok(d) => d,
-            Err(e) => panic!("failed deserialize\n{}", e),
+            Err(e) => panic!("failed to deserialize\n{}", e),
         };
         let new_data = deseriarized
             .gen_spdp_discoverd_participant_data()
-            .expect("couldn't get spdp data from SDPBuiltinData");
+            .expect("failed to get spdp data from SDPBuiltinData");
         assert_eq!(data.domain_id, new_data.domain_id);
         // assert_eq!(data._domain_tag, new_data._domain_tag);
         assert_eq!(data.protocol_version, new_data.protocol_version);

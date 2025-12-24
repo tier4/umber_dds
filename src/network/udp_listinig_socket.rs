@@ -9,7 +9,7 @@ fn new_listening_socket(addr: &str, port: u16, reuse_addr: bool) -> io::Result<U
 
     let address = SocketAddr::new(
         addr.parse()
-            .unwrap_or_else(|_| panic!("could't parce '{addr}' to IP Address")),
+            .unwrap_or_else(|_| panic!("failed to parce '{addr}' to IP Address")),
         port,
     );
 
@@ -18,7 +18,7 @@ fn new_listening_socket(addr: &str, port: u16, reuse_addr: bool) -> io::Result<U
     let udp_socket = std::net::UdpSocket::from(raw_socket);
     udp_socket
         .set_nonblocking(true)
-        .expect("could't set nonbloking");
+        .expect("failed to set UDP socket to non-blocking mode");
     let mio_socket = UdpSocket::from_socket(udp_socket)?;
     Ok(mio_socket)
 }

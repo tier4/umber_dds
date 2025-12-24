@@ -122,7 +122,7 @@ impl Discovery {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("couldn't register spdp_builtin_participant_reader to poll");
+        .expect("failed to register DataReader 'spdp_builtin_participant_reader' with poll");
 
         // For SEDP
         let sedp_writer_qos = DataWriterQos::Policies(Box::new(
@@ -221,7 +221,7 @@ impl Discovery {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("couldn't register p2p_builtin_participant_msg_reader to poll");
+        .expect("failed to register DataReader 'p2p_builtin_participant_msg_reader' with poll");
 
         let mut spdp_send_timer: Timer<()> = Timer::default();
         spdp_send_timer.set_timeout(CoreDuration::new(3, 0), ());
@@ -231,7 +231,7 @@ impl Discovery {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("couldn't register spdp_send_timer to poll");
+        .expect("failed to register timer 'spdp_send_timer' with poll");
         let mut participant_liveliness_timer: Timer<()> = Timer::default();
         participant_liveliness_timer.set_timeout(CoreDuration::new(5, 0), ());
         poll.register(
@@ -240,28 +240,28 @@ impl Discovery {
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("couldn't register participant_liveliness_timer to poll");
+        .expect("failed to register timer 'participant_liveliness_timer' with poll");
         poll.register(
             &notify_new_writer_receiver,
             DISC_WRITER_ADD,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("couldn't register notify_new_writer_receiver to poll");
+        .expect("failed to register receiver 'notify_new_writer_receiver' with poll");
         poll.register(
             &notify_new_reader_receiver,
             DISC_READER_ADD,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("couldn't register notify_new_reader_receiver to poll");
+        .expect("failed to register receiver 'notify_new_reader_receiver' with poll");
         poll.register(
             &participant_msg_cmd_reveiver,
             PARTICIPANT_MESSAGE_CMD_RECEIVER,
             Ready::readable(),
             PollOpt::edge(),
         )
-        .expect("couldn't register notify_new_reader_receiver to poll");
+        .expect("failed to register receiver 'notify_new_reader_receiver' with poll");
         Self {
             dp,
             discovery_db,
@@ -347,7 +347,7 @@ impl Discovery {
                                 self.discdb_update_sender
                                     .send(DiscoveryDBUpdateNotifier::DeleteParticipant(l))
                                     .expect(
-                                        "couldn't send update notification to discdb_update_sender",
+                                        "failed to send update notification to discdb_update_sender",
                                     );
                             }
                             self.participant_liveliness_timer

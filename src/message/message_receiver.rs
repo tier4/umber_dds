@@ -125,7 +125,7 @@ impl MessageReceiver {
             let rtps_message = match Message::new(msg_buf) {
                 Ok(m) => m,
                 Err(e) => {
-                    error!("couldn't deserialize RTPS message: {}", e);
+                    error!("failed to deserialize RTPS message: {}", e);
                     continue;
                 }
             };
@@ -334,7 +334,7 @@ impl MessageReceiver {
         let writer_guid = GUID::new(self.source_guid_prefix, data.writer_id);
         let _reader_guid = GUID::new(self.dest_guid_prefix, data.reader_id);
 
-        let ts = Timestamp::now().expect("failed get Timestamp::new()");
+        let ts = Timestamp::now().expect("failed to get Timestamp::now()");
         let change = CacheChange::new(
             ChangeKind::Alive,
             writer_guid,
@@ -418,7 +418,7 @@ impl MessageReceiver {
                 Ok(d) => d,
                 Err(e) => {
                     return Err(MessageError(format!(
-                        "failed deserialize reseived spdp data message: {e:?}",
+                        "failed to deserialize reseived spdp data message: {e:?}",
                     )));
                 }
             };
@@ -443,7 +443,7 @@ impl MessageReceiver {
         if !known {
             self.disc_db_update_sender
                 .send(DiscoveryDBUpdateNotifier::AddNewParticipant(guid_prefix))
-                .expect("failed send update notification to discdb_update_sender");
+                .expect("failed to send data via channel 'discdb_update_sender'");
             let locators = if !new_data.metarraffic_unicast_locator_list.is_empty() {
                 new_data.metarraffic_unicast_locator_list.clone()
             } else if !new_data.default_unicast_locator_list.is_empty() {
@@ -500,7 +500,7 @@ impl MessageReceiver {
                 Ok(d) => d,
                 Err(e) => {
                     return Err(MessageError(format!(
-                        "failed deserialize reseived sedp(w) data message: {e:?}",
+                        "failed to deserialize reseived sedp(w) data message: {e:?}",
                     )));
                 }
             };
@@ -517,7 +517,7 @@ impl MessageReceiver {
                 Some(wp) => wp,
                 None => {
                     return Err(MessageError(
-                        "failed generate writer_proxy form received DATA(w)".to_string(),
+                        "failed to generate writer_proxy form received DATA(w)".to_string(),
                     ));
                 }
             }
@@ -569,7 +569,7 @@ impl MessageReceiver {
                 );
                 self.wlp_timer_sender
                     .send(*eid)
-                    .expect("couldn't send channel 'wlp_timer_sender'");
+                    .expect("failed to send data via channel 'wlp_timer_sender'");
             }
         }
         match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
@@ -601,7 +601,7 @@ impl MessageReceiver {
                 Ok(d) => d,
                 Err(e) => {
                     return Err(MessageError(format!(
-                        "failed deserialize reseived sedp(r) data message: {e:?}",
+                        "failed to deserialize reseived sedp(r) data message: {e:?}",
                     )));
                 }
             };
@@ -618,7 +618,7 @@ impl MessageReceiver {
                 Some(rp) => rp,
                 None => {
                     return Err(MessageError(
-                        "failed generate reader_proxy form received DATA(r)".to_string(),
+                        "failed to generate reader_proxy form received DATA(r)".to_string(),
                     ));
                 }
             }
@@ -694,7 +694,7 @@ impl MessageReceiver {
                 Ok(d) => d,
                 Err(e) => {
                     return Err(MessageError(format!(
-                        "failed deserialize reseived sedp(r) data message: {e:?}",
+                        "failed to deserialize reseived sedp(r) data message: {e:?}",
                     )));
                 }
             };
@@ -815,7 +815,7 @@ impl MessageReceiver {
             )));
         }
 
-        let ts = Timestamp::now().expect("failed get Timestamp::new()");
+        let ts = Timestamp::now().expect("failed to get Timestamp::now()");
 
         macro_rules! update_liveliness_if_need {
             ($r: expr, $ts: expr) => {
