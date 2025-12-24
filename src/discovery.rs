@@ -39,7 +39,7 @@ pub mod structure;
 // rtps 2.3 spec 8.5.4.2によると、reliableでStatefullな{Writer/Reader}
 
 pub enum DiscoveryDBUpdateNotifier {
-    AddParticipant(GuidPrefix),
+    AddNewParticipant(GuidPrefix),
     DeleteParticipant(GuidPrefix),
 }
 

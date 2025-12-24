@@ -638,7 +638,7 @@ impl EventLoop {
 
         while let Ok(discdb_update) = self.discdb_update_receiver.try_recv() {
             match discdb_update {
-                DiscoveryDBUpdateNotifier::AddParticipant(guid_prefix) => {
+                DiscoveryDBUpdateNotifier::AddNewParticipant(guid_prefix) => {
                     trace!("handle_participant_discovery: {}", guid_prefix);
                     if let Some(spdp_data) = self.discovery_db.read_participant_data(guid_prefix) {
                         if spdp_data.domain_id != self.domain_id {
