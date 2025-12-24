@@ -14,6 +14,7 @@ use crate::structure::{EntityId, EntityKind, RTPSEntity, TopicKind, GUID};
 use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
+use log::info;
 use mio_extras::channel as mio_channel;
 use serde::Deserialize;
 
@@ -142,6 +143,7 @@ impl InnerSubscriber {
         dp: DomainParticipant,
         create_reader_sender: mio_channel::SyncSender<ReaderIngredients>,
     ) -> Self {
+        info!("created new Subscriber {}", guid);
         Self {
             guid,
             qos,

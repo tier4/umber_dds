@@ -19,7 +19,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::marker::PhantomData;
 use core::time::Duration as CoreDuration;
-use log::{info, warn};
+use log::{info, trace, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
 use serde::Serialize;
@@ -54,6 +54,11 @@ impl<D: Serialize + DdsData> DataWriter<D> {
         whc: Arc<RwLock<HistoryCache>>,
         writer_state_receiver: mio_channel::Receiver<DataWriterStatusChanged>,
     ) -> Self {
+        info!(
+            "created new DataWriter with Topic ({}, {})",
+            topic.name(),
+            topic.type_desc()
+        );
         Self {
             data_phantom: PhantomData::<D>,
             writer_guid,
@@ -123,8 +128,14 @@ impl<D: Serialize + DdsData> DataWriter<D> {
             ) {
                 Ok(_) => {
                     info!(
+                        "DataWriter write data to Topic ({}, {})",
+                        self.topic.name(),
+                        self.topic.type_desc()
+                    );
+                    trace!(
                         "DataWriter add change to HistoryCache: seq_num: {}\n\tWriter: {}",
-                        self.last_change_sequence_number.0, self.writer_guid
+                        self.last_change_sequence_number.0,
+                        self.writer_guid
                     );
                     self.writer_command_sender
                         .send(WriterCmd::WriteData)
@@ -148,7 +159,9 @@ impl<D: Serialize + DdsData> DataWriter<D> {
     /// > This operation need only be used if the LIVELINESS setting is either MANUAL_BY_PARTICIPANT or MANUAL_BY_TOPIC. Otherwise, it has no effect.
     pub fn assert_liveliness(&self) {
         match self.qos.liveliness().kind {
-            LivelinessQosKind::Automatic => (),
+            LivelinessQosKind::Automatic => {
+                warn!("DataWriter::assert_liveliness called but LivelinessQosKind is Automatic")
+            }
             LivelinessQosKind::ManualByTopic | LivelinessQosKind::ManualByParticipant => {
                 let writer_cmd = WriterCmd::AssertLiveliness;
                 self.writer_command_sender

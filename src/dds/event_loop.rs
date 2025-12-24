@@ -16,7 +16,7 @@ use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use bytes::BytesMut;
 use core::time::Duration as CoreDuration;
-use log::{debug, error, info, trace};
+use log::{error, info, trace};
 use mio_extras::{
     channel as mio_channel,
     timer::{Timeout, Timer},
@@ -289,7 +289,7 @@ impl EventLoop {
                                 }
                                 if writer.is_reliable() {
                                     trace!(
-                                        "set Writer Heartbeat timer({:?}) of Writer with {}",
+                                        "set Writer Heartbeat timer({:?})\n\tWriter: {}",
                                         writer.heartbeat_period(),
                                         writer.entity_id(),
                                     );
@@ -318,8 +318,9 @@ impl EventLoop {
                                                     self.check_liveliness_timer_to =
                                                         Some((duration, to));
                                                     trace!(
-                                                        "set Writer check_liveliness timer({:?})",
-                                                        duration
+                                                        "set Writer check_liveliness timer({:?})\n\tWriter: {}",
+                                                        duration,
+                                                        writer.entity_id()
                                                     );
                                                 }
                                             } else {
@@ -330,8 +331,9 @@ impl EventLoop {
                                                 self.check_liveliness_timer_to =
                                                     Some((duration, to));
                                                 trace!(
-                                                    "set Writer check_liveliness timer({:?})",
-                                                    duration
+                                                    "set Writer check_liveliness timer({:?})\n\tWriter: {}",
+                                                    duration,
+                                                    writer.entity_id()
                                                 );
                                             }
                                         }
@@ -368,6 +370,10 @@ impl EventLoop {
                                     Timestamp::now().expect("failed to get Timestamp::now()"),
                                     writer.get_qos().liveliness().kind,
                                 );
+                                trace!(
+                                    "new Writer added to writers\n\tWriter: {}",
+                                    writer.entity_id(),
+                                );
                                 self.writers.insert(writer.entity_id(), writer);
                             }
                         }
@@ -392,12 +398,12 @@ impl EventLoop {
                                             "failed to send data via channle 'notify_new_reader_sender'",
                                         );
                                 }
+                                trace!(
+                                    "new Reader added to writers\n\tWriter: {}",
+                                    reader.entity_id(),
+                                );
                                 self.readers.insert(reader.entity_id(), reader);
                             }
-                        }
-                        DISCOVERY_SEND_TOKEN => {
-                            info!("=== @event_loop Discovery cmd received ===");
-                            todo!(); // send spdp msg
                         }
                         DISCOVERY_DB_UPDATE => {
                             self.handle_participant_discovery();
@@ -410,12 +416,12 @@ impl EventLoop {
                                     self.writer_hb_timer
                                         .set_timeout(writer.heartbeat_period(), writer.entity_id());
                                     trace!(
-                                        "set Writer Heartbeat timer({:?}) of Writer with {}",
+                                        "set Writer Heartbeat timer({:?})\n\tWriter: {}",
                                         writer.heartbeat_period(),
                                         writer.entity_id(),
                                     );
                                 } else {
-                                    error!("not found Writer which fired Heartbeat timer\n\tWriter: {}", eid);
+                                    error!("not found Writer from EventLoop.writers which fired Heartbeat timer\n\tWriter: {}", eid);
                                 }
                             }
                         }
@@ -435,7 +441,7 @@ impl EventLoop {
                                         (reader_entity_id, writer_guid),
                                     );
                                 } else {
-                                    error!("not found Reader which attempt to set heartbeat timer\n\tReader: {}", reader_entity_id);
+                                    error!("not found Reader from EventLoop.readers which attempt to set heartbeat timer\n\tReader: {}", reader_entity_id);
                                 }
                             }
                         }
@@ -455,7 +461,7 @@ impl EventLoop {
                                         (writer_entity_id, reader_guid),
                                     );
                                 } else {
-                                    error!("not found Writer which attempt to set nack response timer\n\tWriter: {}", writer_entity_id);
+                                    error!("not found Writer from EventLoop.writers which attempt to set nack response timer\n\tWriter: {}", writer_entity_id);
                                 }
                             }
                         }
@@ -477,7 +483,7 @@ impl EventLoop {
                                         reader.entity_id()
                                     );
                                 } else {
-                                    error!("not found Reader which fired check liveliness timer\n\tReader: {}", eid);
+                                    error!("not found Reader from EventLoop.readers which fired check liveliness timer\n\tReader: {}", eid);
                                 }
                             }
                         }
@@ -511,7 +517,7 @@ impl EventLoop {
                                         );
                                     }
                                 } else {
-                                    debug!("not found local Writer which attempt to assert liveliness\n\tWriter: {}", guid);
+                                    error!("failed to assert liveliness of writer: writer not found in discovery_db or its EndpointState is not alive\n\tWriter: {}", guid);
                                 }
                             }
                             self.assert_liveliness_timer
@@ -579,7 +585,7 @@ impl EventLoop {
                                 }
                             }
                         }
-                        Token(n) => info!("@event_loop: Token(0x{:02X}) is not implemented", n),
+                        Token(n) => error!("@event_loop: Token(0x{:02X}) is not implemented", n),
                     },
                     TokenDec::Entity(eid) => {
                         if eid.is_writer() {
@@ -624,7 +630,7 @@ impl EventLoop {
                     if e.kind() == std::io::ErrorKind::WouldBlock {
                         // pass
                     } else {
-                        panic!();
+                        panic!("{}", e);
                     }
                     return packets;
                 }
@@ -677,7 +683,7 @@ impl EventLoop {
                                     );
                                     writer.send_heart_beat(false);
                                 } else {
-                                    error!("not found self::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER");
+                                    error!("not found writer 'SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER' from EventLoop.writers");
                                 }
                             }
                             if available_builtin_endpoint.contains(
@@ -706,7 +712,7 @@ impl EventLoop {
                                         qos,
                                     );
                                 } else {
-                                    error!("not found self::SEDP_BUILTIN_PUBLICATIONS_DETECTOR");
+                                    error!("not found reader 'SEDP_BUILTIN_PUBLICATIONS_DETECTOR' from EventLoop.readers");
                                 }
                             }
                             if available_builtin_endpoint.contains(
@@ -736,7 +742,7 @@ impl EventLoop {
                                     );
                                     writer.send_heart_beat(false);
                                 } else {
-                                    error!("not found self::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER");
+                                    error!("not found writer 'SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER' from EventLoop.writers");
                                 }
                             }
                             if available_builtin_endpoint.contains(
@@ -765,7 +771,7 @@ impl EventLoop {
                                         qos,
                                     );
                                 } else {
-                                    error!("not found self::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR");
+                                    error!("not found reader 'SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR' from EventLoop.readers");
                                 }
                             }
                             if available_builtin_endpoint.contains(
@@ -804,7 +810,7 @@ impl EventLoop {
                                     );
                                 } else {
                                     error!(
-                                        "not found self::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER"
+                                        "not found writer 'P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER' from EventLoop.writers"
                                     );
                                 }
                             }
@@ -839,7 +845,7 @@ impl EventLoop {
                                     );
                                 } else {
                                     error!(
-                                        "not found self::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER"
+                                        "not found reader 'P2P_BUILTIN_PARTICIPANT_MESSAGE_READER' from EventLoop.readers"
                                     );
                                 }
                             }
@@ -847,7 +853,7 @@ impl EventLoop {
                     }
                 }
                 DiscoveryDBUpdateNotifier::DeleteParticipant(guid_prefix) => {
-                    info!("Participant lost\n\tParticipant: {}", guid_prefix);
+                    info!("remove Participant lost\n\tParticipant: {}", guid_prefix);
                     self.remove_discoverd_participant(guid_prefix);
                 }
             }

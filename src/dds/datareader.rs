@@ -5,6 +5,7 @@ use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::marker::PhantomData;
+use log::info;
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
 use serde::Deserialize;
@@ -14,7 +15,7 @@ use std::io;
 pub struct DataReader<D: for<'de> Deserialize<'de> + DdsData> {
     data_phantom: PhantomData<D>,
     _qos: DataReaderQosPolicies,
-    _topic: Topic,
+    topic: Topic,
     _subscriber: Subscriber,
     rhc: Arc<RwLock<HistoryCache>>,
     reader_state_receiver: mio_channel::Receiver<DataReaderStatusChanged>,
@@ -28,10 +29,15 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
         rhc: Arc<RwLock<HistoryCache>>,
         reader_state_receiver: mio_channel::Receiver<DataReaderStatusChanged>,
     ) -> Self {
+        info!(
+            "created new DataReader with Topic ({}, {})",
+            topic.name(),
+            topic.type_desc()
+        );
         DataReader {
             data_phantom: PhantomData::<D>,
             _qos: qos,
-            _topic: topic,
+            topic,
             _subscriber: subscriber,
             rhc,
             reader_state_receiver,
@@ -48,6 +54,11 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
     ///
     /// When History QoS is set to KeepLast: depth N, this method returns an Vec with a maximum length of N elements.
     pub fn take(&self) -> Vec<D> {
+        info!(
+            "DataReader::take() from Topic ({}, {})",
+            self.topic.name(),
+            self.topic.type_desc()
+        );
         self.get_data()
     }
 
