@@ -378,6 +378,10 @@ impl WriterProxy {
         // so is_relevant is always set to true.
         let change_from_writer = ChangeFromWriter::new(seq_num, state, is_relevant);
         self.cache_state.insert(seq_num, change_from_writer);
+        info!(
+            "WriterProxy.update_cache_state({:?}, {}, {:?})\n\tWriter: {}",
+            seq_num, is_relevant, state, self.remote_writer_guid
+        );
     }
 
     pub fn available_changes_max(&self) -> SequenceNumber {
@@ -398,7 +402,7 @@ impl WriterProxy {
     pub fn lost_changes_update(&mut self, first_available_seq_num: SequenceNumber) {
         for (sn, cfw) in &mut self.cache_state {
             match cfw.status {
-                ChangeFromWriterStatusKind::Uuknown | ChangeFromWriterStatusKind::Missing => {
+                ChangeFromWriterStatusKind::_Uuknown | ChangeFromWriterStatusKind::Missing => {
                     if *sn < first_available_seq_num {
                         cfw.status = ChangeFromWriterStatusKind::Lost;
                     }
@@ -423,7 +427,7 @@ impl WriterProxy {
     ) {
         for sn in first_available_seq_num.0..=last_available_seq_num.0 {
             if let Some(cfw) = self.cache_state.get_mut(&SequenceNumber(sn)) {
-                if let ChangeFromWriterStatusKind::Uuknown = cfw.status {
+                if let ChangeFromWriterStatusKind::_Uuknown = cfw.status {
                     if SequenceNumber(sn) <= last_available_seq_num {
                         cfw.status = ChangeFromWriterStatusKind::Missing;
                     }

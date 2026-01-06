@@ -2,7 +2,7 @@ use crate::dds::qos::policy::{History, HistoryQosKind, ResourceLimits, LENGTH_UN
 use crate::message::submessage::element::{SequenceNumber, SerializedPayload, Timestamp};
 use crate::structure::GUID;
 use alloc::collections::{BTreeMap, BTreeSet};
-use log::{info, warn};
+use log::{debug, warn};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -58,13 +58,12 @@ pub enum ChangeForReaderStatusKind {
     Underway,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub enum ChangeFromWriterStatusKind {
     Lost,
     Missing,
     Received,
-    Uuknown,
+    _Uuknown,
 }
 
 #[derive(Clone, Debug)]
@@ -209,8 +208,10 @@ impl HistoryCache {
         }
     }
     pub fn add_empty_change(&mut self, guid: GUID) {
-        self.last_added
-            .insert(guid, Timestamp::now().expect("failed get time_stamp now"));
+        self.last_added.insert(
+            guid,
+            Timestamp::now().expect("failed to get Timestamp::now()"),
+        );
     }
     pub fn add_change(
         &mut self,
@@ -290,6 +291,7 @@ impl HistoryCache {
             self.ts2key.push(key);
             self.kind2key.entry(change.kind).or_default().insert(key);
             self.changes.insert(key, change);
+            debug!("add change with {:?} to {} HistoryCache", key, self.hc_type);
             if let HistoryCacheType::Reader = self.hc_type {
                 if history.kind == HistoryQosKind::KeepLast {
                     // DDS 1.4 sepc, 2.2.3.18 HISTORY
@@ -418,7 +420,7 @@ impl HistoryCache {
             return;
         }
         if let Some(c) = self.changes.remove(key) {
-            info!(
+            debug!(
                 "remove change with HCKey: {:?} from {} HistoryCache",
                 key, self.hc_type
             );

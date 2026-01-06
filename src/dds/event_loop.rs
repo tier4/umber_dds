@@ -7,7 +7,7 @@ use crate::discovery::{
     discovery_db::{DiscoveryDB, EndpointState},
     structure::builtin_endpoint::BuiltinEndpoint,
     structure::data::{DiscoveredReaderData, DiscoveredWriterData},
-    DiscoveryDBUpdateNotifier,
+    BuiltinEndpointsIngredients, DiscoveryDBUpdateNotifier,
 };
 use crate::rtps::reader::{Reader, ReaderIngredients};
 use crate::rtps::writer::{Writer, WriterIngredients};
@@ -87,6 +87,7 @@ impl EventLoop {
         discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
         discdb_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
         spdp_data: SerializedPayload,
+        builtin_endpoints_ingredients: BuiltinEndpointsIngredients,
     ) -> EventLoop {
         let poll = Poll::new().unwrap();
         for (token, lister) in &mut sockets {
@@ -199,7 +200,7 @@ impl EventLoop {
             wlp_timer_sender,
             spdp_data,
         );
-        EventLoop {
+        let mut ev_loop = EventLoop {
             domain_id,
             guid_prefix,
             poll,
@@ -227,7 +228,23 @@ impl EventLoop {
             check_liveliness_timer_to: None,
             discdb_update_receiver,
             discovery_db,
-        }
+        };
+        ev_loop.register_builtin_endpoints(builtin_endpoints_ingredients);
+        ev_loop
+    }
+
+    fn register_builtin_endpoints(
+        &mut self,
+        builtin_endpoints_ingredients: BuiltinEndpointsIngredients,
+    ) {
+        self.register_writer(builtin_endpoints_ingredients.spdp_builtin_participant_writer_ing);
+        self.register_reader(builtin_endpoints_ingredients.spdp_builtin_participant_reader_ing);
+        self.register_writer(builtin_endpoints_ingredients.sedp_builtin_pub_writer_ing);
+        self.register_reader(builtin_endpoints_ingredients.sedp_builtin_pub_reader_ing);
+        self.register_writer(builtin_endpoints_ingredients.sedp_builtin_sub_writer_ing);
+        self.register_reader(builtin_endpoints_ingredients.sedp_builtin_sub_reader_ing);
+        self.register_writer(builtin_endpoints_ingredients.p2p_builtin_participant_msg_writer_ing);
+        self.register_reader(builtin_endpoints_ingredients.p2p_builtin_participant_msg_reader_ing);
     }
 
     pub fn event_loop(mut self) {
@@ -259,150 +276,12 @@ impl EventLoop {
                         }
                         ADD_WRITER_TOKEN => {
                             while let Ok(writer_ing) = self.create_writer_receiver.try_recv() {
-                                let mut writer = Writer::new(
-                                    writer_ing,
-                                    self.udp_sender.clone(),
-                                    self.set_writer_nack_timer_sender.clone(),
-                                );
-                                if writer.entity_id()
-                                    == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
-                                {
-                                    // this is for sending discovery message
-                                    // readerEntityId of SPDP message from Rust DDS:
-                                    // ENTITYID_BUILT_IN_SDP_PARTICIPANT_READER
-                                    // readerEntityId of SPDP message from Cyclone DDS:
-                                    // ENTITYID_UNKNOW
-                                    // stpr 2.3 sepc, 9.6.1.4, Default multicast address
-                                    let qos = DataReaderQosBuilder::new()
-                                        .reliability(Reliability::default_besteffort())
-                                        .build();
-                                    writer.matched_reader_add(
-                                        GUID::UNKNOW, // this is same to CycloneDDS
-                                        false,
-                                        Vec::new(),
-                                        Vec::from([Locator::new_from_ipv4(
-                                            spdp_multicast_port(self.domain_id) as u32,
-                                            [239, 255, 0, 1],
-                                        )]),
-                                        qos,
-                                    );
-                                }
-                                if writer.is_reliable() {
-                                    trace!(
-                                        "set Writer Heartbeat timer({:?})\n\tWriter: {}",
-                                        writer.heartbeat_period(),
-                                        writer.entity_id(),
-                                    );
-                                    self.writer_hb_timer
-                                        .set_timeout(writer.heartbeat_period(), writer.entity_id());
-                                }
-                                let qos = writer.get_qos();
-                                match qos.liveliness().kind {
-                                    LivelinessQosKind::Automatic => (),
-                                    LivelinessQosKind::ManualByTopic
-                                    | LivelinessQosKind::ManualByParticipant => {
-                                        let ld = qos.liveliness().lease_duration;
-                                        if ld != Duration::INFINITE {
-                                            if let Some((d, to)) =
-                                                self.check_liveliness_timer_to.as_ref()
-                                            {
-                                                if let Some(mut w) =
-                                                    self.check_liveliness_timer.cancel_timeout(to)
-                                                {
-                                                    w.push(writer.guid());
-                                                    let duration =
-                                                        std::cmp::min(*d, ld.half().into());
-                                                    let to = self
-                                                        .check_liveliness_timer
-                                                        .set_timeout(duration, w);
-                                                    self.check_liveliness_timer_to =
-                                                        Some((duration, to));
-                                                    trace!(
-                                                        "set Writer check_liveliness timer({:?})\n\tWriter: {}",
-                                                        duration,
-                                                        writer.entity_id()
-                                                    );
-                                                }
-                                            } else {
-                                                let duration = ld.half().into();
-                                                let to = self
-                                                    .check_liveliness_timer
-                                                    .set_timeout(duration, vec![writer.guid()]);
-                                                self.check_liveliness_timer_to =
-                                                    Some((duration, to));
-                                                trace!(
-                                                    "set Writer check_liveliness timer({:?})\n\tWriter: {}",
-                                                    duration,
-                                                    writer.entity_id()
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                                let token = writer.entity_token();
-                                self.poll
-                                    .register(
-                                        &writer.writer_command_receiver,
-                                        token,
-                                        Ready::readable(),
-                                        PollOpt::edge(),
-                                    )
-                                    .expect(
-                                        "failed to register receiver 'writer.writer_command_receiver' with poll",
-                                    );
-                                if writer.entity_id()
-                                    != EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
-                                    && writer.entity_id()
-                                        != EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER
-                                    && writer.entity_id()
-                                        != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER
-                                    && writer.entity_id()
-                                        != EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER
-                                {
-                                    self.notify_new_writer_sender
-                                        .send((writer.entity_id(), writer.sedp_data()))
-                                        .expect(
-                                            "failed to send data via channel 'notify_new_writer_sender'",
-                                        );
-                                }
-                                self.discovery_db.write_local_writer(
-                                    writer.guid(),
-                                    Timestamp::now().expect("failed to get Timestamp::now()"),
-                                    writer.get_qos().liveliness().kind,
-                                );
-                                trace!(
-                                    "new Writer added to writers\n\tWriter: {}",
-                                    writer.entity_id(),
-                                );
-                                self.writers.insert(writer.entity_id(), writer);
+                                self.register_writer(writer_ing);
                             }
                         }
                         ADD_READER_TOKEN => {
                             while let Ok(reader_ing) = self.create_reader_receiver.try_recv() {
-                                let reader = Reader::new(
-                                    reader_ing,
-                                    self.udp_sender.clone(),
-                                    self.set_reader_hb_timer_sender.clone(),
-                                );
-                                if reader.entity_id() != EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
-                                    && reader.entity_id()
-                                        != EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
-                                    && reader.entity_id()
-                                        != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
-                                    && reader.entity_id()
-                                        != EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER
-                                {
-                                    self.notify_new_reader_sender
-                                        .send((reader.entity_id(), reader.sedp_data()))
-                                        .expect(
-                                            "failed to send data via channle 'notify_new_reader_sender'",
-                                        );
-                                }
-                                trace!(
-                                    "new Reader added to writers\n\tWriter: {}",
-                                    reader.entity_id(),
-                                );
-                                self.readers.insert(reader.entity_id(), reader);
+                                self.register_reader(reader_ing);
                             }
                         }
                         DISCOVERY_DB_UPDATE => {
@@ -615,6 +494,126 @@ impl EventLoop {
                 }
             }
         }
+    }
+
+    fn register_writer(&mut self, writer_ing: WriterIngredients) {
+        let mut writer = Writer::new(
+            writer_ing,
+            self.udp_sender.clone(),
+            self.set_writer_nack_timer_sender.clone(),
+        );
+        if writer.entity_id() == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER {
+            // this is for sending discovery message
+            // readerEntityId of SPDP message from Rust DDS:
+            // ENTITYID_BUILT_IN_SDP_PARTICIPANT_READER
+            // readerEntityId of SPDP message from Cyclone DDS:
+            // ENTITYID_UNKNOW
+            // stpr 2.3 sepc, 9.6.1.4, Default multicast address
+            let qos = DataReaderQosBuilder::new()
+                .reliability(Reliability::default_besteffort())
+                .build();
+            writer.matched_reader_add(
+                GUID::UNKNOW, // this is same to CycloneDDS
+                false,
+                Vec::new(),
+                Vec::from([Locator::new_from_ipv4(
+                    spdp_multicast_port(self.domain_id) as u32,
+                    [239, 255, 0, 1],
+                )]),
+                qos,
+            );
+        }
+        if writer.is_reliable() {
+            trace!(
+                "set Writer Heartbeat timer({:?})\n\tWriter: {}",
+                writer.heartbeat_period(),
+                writer.entity_id(),
+            );
+            self.writer_hb_timer
+                .set_timeout(writer.heartbeat_period(), writer.entity_id());
+        }
+        let qos = writer.get_qos();
+        match qos.liveliness().kind {
+            LivelinessQosKind::Automatic => (),
+            LivelinessQosKind::ManualByTopic | LivelinessQosKind::ManualByParticipant => {
+                let ld = qos.liveliness().lease_duration;
+                if ld != Duration::INFINITE {
+                    if let Some((d, to)) = self.check_liveliness_timer_to.as_ref() {
+                        if let Some(mut w) = self.check_liveliness_timer.cancel_timeout(to) {
+                            w.push(writer.guid());
+                            let duration = std::cmp::min(*d, ld.half().into());
+                            let to = self.check_liveliness_timer.set_timeout(duration, w);
+                            self.check_liveliness_timer_to = Some((duration, to));
+                            trace!(
+                                "set Writer check_liveliness timer({:?})\n\tWriter: {}",
+                                duration,
+                                writer.entity_id()
+                            );
+                        }
+                    } else {
+                        let duration = ld.half().into();
+                        let to = self
+                            .check_liveliness_timer
+                            .set_timeout(duration, vec![writer.guid()]);
+                        self.check_liveliness_timer_to = Some((duration, to));
+                        trace!(
+                            "set Writer check_liveliness timer({:?})\n\tWriter: {}",
+                            duration,
+                            writer.entity_id()
+                        );
+                    }
+                }
+            }
+        }
+        let token = writer.entity_token();
+        self.poll
+            .register(
+                &writer.writer_command_receiver,
+                token,
+                Ready::readable(),
+                PollOpt::edge(),
+            )
+            .expect("failed to register receiver 'writer.writer_command_receiver' with poll");
+        if writer.entity_id() != EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER
+            && writer.entity_id() != EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER
+            && writer.entity_id() != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER
+            && writer.entity_id() != EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER
+        {
+            self.notify_new_writer_sender
+                .send((writer.entity_id(), writer.sedp_data()))
+                .expect("failed to send data via channel 'notify_new_writer_sender'");
+        }
+        self.discovery_db.write_local_writer(
+            writer.guid(),
+            Timestamp::now().expect("failed to get Timestamp::now()"),
+            writer.get_qos().liveliness().kind,
+        );
+        trace!(
+            "new Writer added to writers\n\tWriter: {}",
+            writer.entity_id(),
+        );
+        self.writers.insert(writer.entity_id(), writer);
+    }
+    fn register_reader(&mut self, reader_ing: ReaderIngredients) {
+        let reader = Reader::new(
+            reader_ing,
+            self.udp_sender.clone(),
+            self.set_reader_hb_timer_sender.clone(),
+        );
+        if reader.entity_id() != EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
+            && reader.entity_id() != EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
+            && reader.entity_id() != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
+            && reader.entity_id() != EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER
+        {
+            self.notify_new_reader_sender
+                .send((reader.entity_id(), reader.sedp_data()))
+                .expect("failed to send data via channle 'notify_new_reader_sender'");
+        }
+        trace!(
+            "new Reader added to writers\n\tWriter: {}",
+            reader.entity_id(),
+        );
+        self.readers.insert(reader.entity_id(), reader);
     }
 
     fn receiv_packet(udp_sock: &UdpSocket) -> Vec<UdpMessage> {

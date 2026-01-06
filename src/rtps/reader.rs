@@ -75,7 +75,7 @@ impl Reader {
         for loc in &ri.multicast_locator_list {
             msg += &format!("\t\t{loc}\n");
         }
-        info!(
+        trace!(
             "created new Reader of Topic ({}, {}) with Locators\n{}\tReader: {}",
             ri.topic.name(),
             ri.topic.type_desc(),
@@ -133,6 +133,10 @@ impl Reader {
     pub fn add_change(&mut self, source_guid_prefix: GuidPrefix, change: CacheChange) {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if let Some(wp) = self.unmatched_writers.remove(&writer_guid) {
+            debug!(
+                "rematched with unmatched writer\n\tReader: {}, Writer: {}",
+                self.guid, wp.remote_writer_guid
+            );
             self.matched_writers.insert(writer_guid, wp);
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
@@ -146,8 +150,8 @@ impl Reader {
                 ))
                 .expect("failed to send data via channel 'reader_state_notifier'");
         }
-        info!(
-            "Reader add change from Writer, seq_num: {}\n\tReader: {}\n\tWriter: {}",
+        debug!(
+            "Reader::add_change from Writer, seq_num: {}\n\tReader: {}\n\tWriter: {}",
             change.sequence_number.0, self.guid, writer_guid
         );
         if self.is_reliable() {
@@ -159,7 +163,7 @@ impl Reader {
                 self.qos.history(),
             ) {
                 debug!(
-                    "add_change to Reader failed: {}\n\tReader: {}\n\tWriter: {}",
+                    "failed to add change to Reader: {}\n\tReader: {}\n\tWriter: {}",
                     e, self.guid, change.writer_guid
                 );
                 return;
@@ -189,7 +193,7 @@ impl Reader {
                 writer_proxy.received_change_set(change.sequence_number);
             } else {
                 warn!(
-                    "reached unreachable state: Reliable Reader tried add change from unmatched Writer\n\tReader: {}\n\tWriter: {}",
+                    "reached unreachable state: Reliable Reader attempted to add change from unmatched Writer\n\tReader: {}\n\tWriter: {}",
                     self.guid, writer_guid
                 );
             }
@@ -230,7 +234,7 @@ impl Reader {
                         self.qos.history(),
                     ) {
                         info!(
-                            "add_change to Reader failed: {}\n\tReader: {}\n\tWriter: {}",
+                            "failed to add change to Reader: {}\n\tReader: {}\n\tWriter: {}",
                             e, self.guid, change.writer_guid
                         );
                         return;
@@ -248,11 +252,11 @@ impl Reader {
                         writer_proxy_mut.lost_changes_update(change.sequence_number);
                     }
                 } else {
-                    debug!("BestEffort Reader receive change whose sequence_number < expected_seq_num\n\tReader: {}\n\tWriter: {}", self.guid, writer_guid);
+                    warn!("BestEffort Reader receive change whose sequence_number < expected_seq_num\n\tReader: {}\n\tWriter: {}", self.guid, writer_guid);
                 }
             } else {
                 warn!(
-                    "reached unreachable state: BestEffort Reader tried add change from unmatched Writer\n\tReader: {}\n\tWriter: {}",
+                    "reached unreachable state: BestEffort Reader attempted to add change from unmatched Writer\n\tReader: {}\n\tWriter: {}",
                     self.guid, writer_guid
                 );
             }
@@ -304,8 +308,8 @@ impl Reader {
                 return;
             }
 
-            info!(
-                "Reader found matched Writer\n\tReader: {}\n\tWriter: {}",
+            debug!(
+                "Reader found new matched Writer\n\tReader: {}\n\tWriter: {}",
                 self.guid, remote_writer_guid
             );
 
@@ -382,6 +386,10 @@ impl Reader {
 
     fn matched_writer_unmatch(&mut self, guid: GUID) {
         if let Some(writer_proxy) = self.matched_writers.remove(&guid) {
+            debug!(
+                "writer unmatched\n\tReader: {}, Writer: {}",
+                self.guid, writer_proxy.remote_writer_guid
+            );
             self.unmatched_writers.insert(guid, writer_proxy);
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
@@ -415,14 +423,27 @@ impl Reader {
     #[inline]
     fn unmatched_writer_remove(&mut self, guid: GUID) {
         if self.unmatched_writers.remove(&guid).is_some() {
+            debug!(
+                "reader delete matched wirter\n\tReader: {}\n\tWriter: {}",
+                self.guid, guid
+            );
             self.writer_communication_state.remove(&guid);
             self.send_sub_unmatch(guid);
+        } else {
+            warn!(
+                "reader attempted to delete unmatched wirter, but not found\n\tReader: {}\n\tWriter: {}",
+                self.guid, guid
+            );
         }
     }
 
     #[inline]
     fn matched_writer_remove(&mut self, guid: GUID) {
         if self.matched_writers.remove(&guid).is_some() {
+            debug!(
+                "reader delete matched wirter\n\tReader: {}\n\tWriter: {}",
+                self.guid, guid
+            );
             self.writer_communication_state.remove(&guid);
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
@@ -436,6 +457,11 @@ impl Reader {
                 ))
                 .expect("failed to send data via channel 'reader_state_notifier'");
             self.send_sub_unmatch(guid);
+        } else {
+            warn!(
+                "reader attempted to delete matched wirter, but not found\n\tReader: {}\n\tWriter: {}",
+                self.guid, guid
+            );
         }
     }
 
@@ -463,7 +489,12 @@ impl Reader {
     }
 
     pub fn handle_gap(&mut self, writer_guid: GUID, gap: &Gap) {
+        trace!("reader handle gap from writer. start:{}, base: {}, list: {:?}\n\tReader: {}, writer: {}", gap.gap_start.0, gap.gap_list.base().0, gap.gap_list.set(), self.guid, writer_guid);
         if let Some(wp) = self.unmatched_writers.remove(&writer_guid) {
+            debug!(
+                "rematched with unmatched writer\n\tReader: {}, Writer: {}",
+                self.guid, wp.remote_writer_guid
+            );
             self.matched_writers.insert(writer_guid, wp);
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
@@ -501,7 +532,7 @@ impl Reader {
             }
         } else {
             warn!(
-                "Reader tried handle GAP from unmatched Writer\n\tReader: {}\n\tWriter: {}",
+                "Reader attempted to handle GAP from unmatched Writer\n\tReader: {}\n\tWriter: {}",
                 self.guid, writer_guid
             );
         }
@@ -514,6 +545,10 @@ impl Reader {
         heartbeat: &Heartbeat,
     ) {
         if let Some(wp) = self.unmatched_writers.remove(&writer_guid) {
+            debug!(
+                "rematched with unmatched writer\n\tReader: {}, Writer: {}",
+                self.guid, wp.remote_writer_guid
+            );
             self.matched_writers.insert(writer_guid, wp);
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(
@@ -548,7 +583,7 @@ impl Reader {
             writer_proxy.lost_changes_update(heartbeat.first_sn);
         } else {
             warn!(
-                "Reader tried handle Heartbeat from unmatched Writer\n\tReader: {}\n\tWriter: {}",
+                "reader attempted to handle Heartbeat from unmatched Writer\n\tReader: {}\n\tWriter: {}",
                 self.guid, writer_guid
             );
             return;
@@ -612,6 +647,11 @@ impl Reader {
         let self_guid = self.guid();
         let self_guid_prefix = self.guid_prefix();
         let self_entity_id = self.entity_id();
+        trace!(
+            "Reader::handle_hb_response_timeout\n\tReader: {}\n\tWriter: {}",
+            self.guid,
+            writer_guid
+        );
         if let Some(writer_proxy) = self.matched_writers.get(&writer_guid) {
             let mut missign_seq_num_set = Vec::new();
             for change in writer_proxy.missing_changes() {
@@ -673,7 +713,7 @@ impl Reader {
             }
         } else {
             warn!(
-                "Reader tried send Heartbeat to Writer but, not found\n\tReader: {}\n\tWriter: {}",
+                "Reader attempted to send Heartbeat to Writer but, not found from self.matched_writers\n\tReader: {}\n\tWriter: {}",
                 self.guid, writer_guid
             );
         }
@@ -683,9 +723,15 @@ impl Reader {
         if loc.kind == Locator::KIND_UDPV4 {
             let port = loc.port;
             let addr = loc.address;
-            info!(
+            trace!(
                 "Reader send {} message to {}.{}.{}.{}:{}\n\tReader: {}",
-                msg_kind, addr[12], addr[13], addr[14], addr[15], port, self.guid,
+                msg_kind,
+                addr[12],
+                addr[13],
+                addr[14],
+                addr[15],
+                port,
+                self.guid,
             );
             if Self::is_ipv4_multicast(&addr) {
                 self.udp_sender.send_to_multicast(
@@ -767,13 +813,13 @@ impl Reader {
                     let elapse =
                         Timestamp::now().expect("failed to get Timestamp::now()") - last_added;
                     if elapse > wld {
-                        debug!("checked liveliness of writer Lost, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
+                        trace!("checked liveliness of writer Lost, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
                         to_unmatch.push(*guid);
                     }
-                    debug!("checked liveliness of writer, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
+                    trace!("checked liveliness of writer, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
                 }
                 EndpointState::LivelinessLost => to_unmatch.push(*guid),
-                EndpointState::Unknown => debug!("reader requested check liveliness of Unknown Writer\n\tReader: {}\n\tWriter: {}", self.guid, guid),
+                EndpointState::Unknown => warn!("reader requested check liveliness of Writer which EndpointState is Unknown\n\tReader: {}\n\tWriter: {}", self.guid, guid),
             }
         }
         for g in to_unmatch {

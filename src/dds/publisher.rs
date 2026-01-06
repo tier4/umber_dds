@@ -111,13 +111,22 @@ impl Publisher {
             .create_datawriter(qos, topic, self.clone())
     }
 
+    /// Built-in endpoints must be registered with the EventLoop before its loop
+    /// begins. If registration occurs via a channel after the loop has started,
+    /// initial incoming messages might be discarded as there would be no registered
+    /// handler to process them.
+    ///
+    /// To avoid this race condition, `WriterIngredients` for built-in endpoints are
+    /// passed directly during the EventLoop's construction, allowing them to be
+    /// registered during the initialization phase.
+    ///
     /// See [`Self::create_datawriter`] for a note of qos.
-    pub fn create_datawriter_with_entityid<D: serde::Serialize + DdsData>(
+    pub(crate) fn create_builtin_datawriter<D: serde::Serialize + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
         entity_id: EntityId,
-    ) -> DataWriter<D> {
+    ) -> (DataWriter<D>, WriterIngredients) {
         self.inner
             .read()
             .create_datawriter_with_entityid(qos, topic, self.clone(), entity_id)
@@ -143,7 +152,7 @@ impl Publisher {
 
 #[allow(dead_code)]
 impl InnerPublisher {
-    pub fn new(
+    fn new(
         guid: GUID,
         qos: PublisherQosPolicies,
         default_dw_qos: DataWriterQosPolicies,
@@ -162,15 +171,15 @@ impl InnerPublisher {
         }
     }
 
-    pub fn get_qos(&self) -> PublisherQosPolicies {
+    fn get_qos(&self) -> PublisherQosPolicies {
         self.qos.clone()
     }
 
-    pub fn set_qos(&mut self, qos: PublisherQosPolicies) {
+    fn set_qos(&mut self, qos: PublisherQosPolicies) {
         self.qos = qos;
     }
 
-    pub fn create_datawriter<D: serde::Serialize + DdsData>(
+    fn create_datawriter<D: serde::Serialize + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
@@ -181,16 +190,30 @@ impl InnerPublisher {
             TopicKind::NoKey => EntityKind::WRITER_NO_KEY_USER_DEFIND,
         };
         let entity_id = EntityId::new_with_entity_kind(self.dp.gen_entity_key(), entity_kind);
-        self.create_datawriter_with_entityid(qos, topic, outter, entity_id)
+        let (dw, w_ing) = self.create_datawriter_with_entityid(qos, topic, outter, entity_id);
+        self.create_writer_sender
+            .send(w_ing)
+            .expect("failed to send data via channel 'create_writer_sender'");
+        dw
     }
 
-    pub fn create_datawriter_with_entityid<D: serde::Serialize + DdsData>(
+    fn create_builtin_datawriter<D: serde::Serialize + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
         outter: Publisher,
         entity_id: EntityId,
-    ) -> DataWriter<D> {
+    ) -> (DataWriter<D>, WriterIngredients) {
+        self.create_datawriter_with_entityid(qos, topic, outter, entity_id)
+    }
+
+    fn create_datawriter_with_entityid<D: serde::Serialize + DdsData>(
+        &self,
+        qos: DataWriterQos,
+        topic: Topic,
+        outter: Publisher,
+        entity_id: EntityId,
+    ) -> (DataWriter<D>, WriterIngredients) {
         let dw_qos = match qos {
             // DDS 1.4 spec, 2.2.2.4.1.5 create_datawriter
             // > The special value DATAWRITER_QOS_DEFAULT can be used to indicate that the DataWriter should be created with the
@@ -249,31 +272,31 @@ impl InnerPublisher {
             writer_state_notifier,
             participant_msg_cmd_sender: self.participant_msg_cmd_sender.clone(),
         };
-        self.create_writer_sender
-            .send(writer_ing)
-            .expect("failed to send data via channel 'create_writer_sender'");
-        DataWriter::<D>::new(
-            writer_command_sender,
-            guid,
-            dw_qos,
-            topic,
-            outter,
-            history_cache,
-            writer_state_receiver,
+        (
+            DataWriter::<D>::new(
+                writer_command_sender,
+                guid,
+                dw_qos,
+                topic,
+                outter,
+                history_cache,
+                writer_state_receiver,
+            ),
+            writer_ing,
         )
     }
-    pub fn get_participant(&self) -> DomainParticipant {
+    fn get_participant(&self) -> DomainParticipant {
         self.dp.clone()
     }
-    pub fn get_default_datawriter_qos(&self) -> DataWriterQosPolicies {
+    fn get_default_datawriter_qos(&self) -> DataWriterQosPolicies {
         self.default_dw_qos.clone()
     }
-    pub fn set_default_datawriter_qos(&mut self, qos: DataWriterQosPolicies) {
+    fn set_default_datawriter_qos(&mut self, qos: DataWriterQosPolicies) {
         self.default_dw_qos = qos;
     }
-    pub fn suspend_publications(&self) {}
-    pub fn resume_publications(&self) {}
-    pub fn begin_coherent_change(&self) {}
-    pub fn end_coherent_changes(&self) {}
-    pub fn wait_for_acknowledgments(&self) {}
+    fn suspend_publications(&self) {}
+    fn resume_publications(&self) {}
+    fn begin_coherent_change(&self) {}
+    fn end_coherent_changes(&self) {}
+    fn wait_for_acknowledgments(&self) {}
 }

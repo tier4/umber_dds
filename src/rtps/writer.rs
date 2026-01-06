@@ -30,7 +30,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::net::Ipv4Addr;
 use core::time::Duration as CoreDuration;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
@@ -93,7 +93,7 @@ impl Writer {
         for loc in &wi.multicast_locator_list {
             msg += &format!("\t\t{loc}\n");
         }
-        info!(
+        trace!(
             "created new Writer of Topic ({}, {}) with Locators\n{}\tWriter: {}",
             wi.topic.name(),
             wi.topic.type_desc(),
@@ -231,7 +231,7 @@ impl Writer {
         let hdepth = history.depth;
         let durability = self.qos.durability();
         let seq_nums = self.writer_cache.write().get_unprocessed();
-        info!(
+        debug!(
             "handle_write_data_cmd: unprocessed {:?}\n\tWriter: {}",
             seq_nums, self.guid
         );
@@ -239,7 +239,7 @@ impl Writer {
         let oldest_unprocessed = match seq_nums.first() {
             Some(v) => *v,
             None => {
-                warn!("reached unreachable state: called Writer::handle_write_data_cmd but writer_cache.unprocessed is empty\n\tWriter: {}", self.guid);
+                error!("reached unreachable state: called Writer::handle_write_data_cmd but writer_cache.unprocessed is empty\n\tWriter: {}", self.guid);
                 return;
             }
         };
@@ -437,8 +437,8 @@ impl Writer {
         let first_sn = writer_cache.get_seq_num_min();
         let last_sn = writer_cache.get_seq_num_max();
         if first_sn.0 <= 0 || last_sn.0 < 0 || last_sn.0 < first_sn.0 - 1 {
-            debug!(
-                "heartbeat validation failed\n\tfirstSN: {}, lastSN: {}\n\tWriter: {}",
+            warn!(
+                "Writer::send_heart_beat(): heartbeat validation failed\n\tfirstSN: {}, lastSN: {}\n\tWriter: {}",
                 first_sn.0, last_sn.0, self.guid
             );
             return;
@@ -491,7 +491,7 @@ impl Writer {
     pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) {
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
             let req_seq_num_set = acknack.reader_sn_state.set();
-            info!(
+            trace!(
                 "Writer handle acknack from Reader\n\tSNState: {}, Set: {:?}\n\tWriter: {}\n\tReader: {}",
                 acknack.reader_sn_state.base().0,
                 req_seq_num_set,
@@ -521,7 +521,7 @@ impl Writer {
             }
         } else {
             warn!(
-                "Writer tried handle ACKNACK from unmatched Reader\n\tWriter: {}\n\tReader: {}",
+                "Writer attempted to handle ACKNACK from unmatched Reader\n\tWriter: {}\n\tReader: {}",
                 self.guid, reader_guid
             );
             return;
@@ -581,8 +581,8 @@ impl Writer {
             }
         } else {
             error!(
-                "not found Reader which attempt to send nack response from Writer\n\tReader: {}\n\tWriter: {}",
-                reader_guid,  self.guid
+                "writer attempted to send nack response to reader, but not found from self.matched_readers\n\tWriter: {}\n\tReader: {}",
+                self.guid, reader_guid
             );
         }
         for seq_num in to_send_data.keys() {
@@ -662,9 +662,15 @@ impl Writer {
         if loc.kind == Locator::KIND_UDPV4 {
             let port = loc.port;
             let addr = loc.address;
-            info!(
+            trace!(
                 "Writer send {} message to {}.{}.{}.{}:{}\n\tWriter: {}",
-                msg_kind, addr[12], addr[13], addr[14], addr[15], port, self.guid,
+                msg_kind,
+                addr[12],
+                addr[13],
+                addr[14],
+                addr[15],
+                port,
+                self.guid,
             );
             if Self::is_ipv4_multicast(&addr) {
                 self.udp_sender.send_to_multicast(
@@ -687,7 +693,7 @@ impl Writer {
     /// Warning: Only use with Reliable Writer
     /// remove changes acked by all matched_readers with a sequence number less than or equal to base-1 (Durability is TransientLocal) or base (Durability is Volatile)
     fn remove_acked_changes(&mut self, base: SequenceNumber) {
-        info!(
+        debug!(
             "Writer::remove_acked_changes(base: {:?})\n\tWriter: {}",
             base, self.guid.entity_id
         );
@@ -732,7 +738,7 @@ impl Writer {
                 );
                 None
             } else {
-                debug!("Writer attempted to get unicast locators from the ReaderProxy, but not found. use multicast locators instead\n\tWriter: {}\n\tReader: {}", my_guid, reader_proxy.remote_reader_guid);
+                info!("Writer attempted to get unicast locators from the ReaderProxy, but not found. use multicast locators instead\n\tWriter: {}\n\tReader: {}", my_guid, reader_proxy.remote_reader_guid);
                 Some(ll_m)
             }
         } else {
@@ -754,7 +760,7 @@ impl Writer {
                 );
                 None
             } else {
-                debug!(
+                info!(
                     "Writer attempted to get multicast locators from the ReaderProxy, but not found. use unicast locators instead\n\tWriter: {}\n\tReader: {}",
                     my_guid, reader_proxy.remote_reader_guid
                 );

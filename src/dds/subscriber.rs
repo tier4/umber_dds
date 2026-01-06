@@ -96,16 +96,25 @@ impl Subscriber {
             .create_datareader(qos, topic, self.clone())
     }
 
+    /// Built-in endpoints must be registered with the EventLoop before its loop
+    /// begins. If registration occurs via a channel after the loop has started,
+    /// initial incoming messages might be discarded as there would be no registered
+    /// handler to process them.
+    ///
+    /// To avoid this race condition, `ReaderIngredients` for built-in endpoints are
+    /// passed directly during the EventLoop's construction, allowing them to be
+    /// registered during the initialization phase.
+    ///
     /// See [`Self::create_datareader`] for a note of qos.
-    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de> + DdsData>(
+    pub(crate) fn create_builtin_datareader<D: for<'de> Deserialize<'de> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
         entity_id: EntityId,
-    ) -> DataReader<D> {
+    ) -> (DataReader<D>, ReaderIngredients) {
         self.inner
             .read()
-            .create_datareader_with_entityid(qos, topic, self.clone(), entity_id)
+            .create_builtin_datareader(qos, topic, self.clone(), entity_id)
     }
 
     pub fn get_qos(&self) -> SubscriberQosPolicies {
@@ -136,7 +145,7 @@ struct InnerSubscriber {
 }
 
 impl InnerSubscriber {
-    pub fn new(
+    fn new(
         guid: GUID,
         qos: SubscriberQosPolicies,
         default_dr_qos: DataReaderQosPolicies,
@@ -153,15 +162,15 @@ impl InnerSubscriber {
         }
     }
 
-    pub fn get_qos(&self) -> SubscriberQosPolicies {
+    fn get_qos(&self) -> SubscriberQosPolicies {
         self.qos.clone()
     }
 
-    pub fn set_qos(&mut self, qos: SubscriberQosPolicies) {
+    fn set_qos(&mut self, qos: SubscriberQosPolicies) {
         self.qos = qos
     }
 
-    pub fn create_datareader<D: for<'de> Deserialize<'de> + DdsData>(
+    fn create_datareader<D: for<'de> Deserialize<'de> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
@@ -172,16 +181,30 @@ impl InnerSubscriber {
             TopicKind::NoKey => EntityKind::READER_NO_KEY_USER_DEFIND,
         };
         let entity_id = EntityId::new_with_entity_kind(self.dp.gen_entity_key(), entity_kind);
-        self.create_datareader_with_entityid(qos, topic, subscriber, entity_id)
+        let (dr, r_ing) = self.create_datareader_with_entityid(qos, topic, subscriber, entity_id);
+        self.create_reader_sender
+            .send(r_ing)
+            .expect("failed to send data via channel 'create_reader_sender'");
+        dr
     }
 
-    pub fn create_datareader_with_entityid<D: for<'de> Deserialize<'de> + DdsData>(
+    fn create_builtin_datareader<D: for<'de> Deserialize<'de> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
         subscriber: Subscriber,
         entity_id: EntityId,
-    ) -> DataReader<D> {
+    ) -> (DataReader<D>, ReaderIngredients) {
+        self.create_datareader_with_entityid(qos, topic, subscriber, entity_id)
+    }
+
+    fn create_datareader_with_entityid<D: for<'de> Deserialize<'de> + DdsData>(
+        &self,
+        qos: DataReaderQos,
+        topic: Topic,
+        subscriber: Subscriber,
+        entity_id: EntityId,
+    ) -> (DataReader<D>, ReaderIngredients) {
         let dr_qos = match qos {
             // DDS 1.4 spec, 2.2.2.5.2.5 create_datareader
             // > The special value DATAREADER_QOS_DEFAULT can be used to indicate that the DataReader should be created with the
@@ -228,22 +251,22 @@ impl InnerSubscriber {
             qos: dr_qos.clone(),
             reader_state_notifier,
         };
-        self.create_reader_sender
-            .send(reader_ing)
-            .expect("failed to send data via channel 'create_reader_sender'");
-        DataReader::<D>::new(
-            dr_qos,
-            topic,
-            subscriber,
-            history_cache,
-            reader_state_receiver,
+        (
+            DataReader::<D>::new(
+                dr_qos,
+                topic,
+                subscriber,
+                history_cache,
+                reader_state_receiver,
+            ),
+            reader_ing,
         )
     }
 
-    pub fn get_default_datareader_qos(&self) -> DataReaderQosPolicies {
+    fn get_default_datareader_qos(&self) -> DataReaderQosPolicies {
         self.default_dr_qos.clone()
     }
-    pub fn set_default_datareader_qos(&mut self, qos: DataReaderQosPolicies) {
+    fn set_default_datareader_qos(&mut self, qos: DataReaderQosPolicies) {
         self.default_dr_qos = qos;
     }
 }

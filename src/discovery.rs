@@ -12,6 +12,7 @@ use crate::discovery::structure::data::{
     SPDPdiscoveredParticipantData,
 };
 use crate::message::submessage::element::{SerializedPayload, Timestamp};
+use crate::rtps::{reader::ReaderIngredients, writer::WriterIngredients};
 use crate::structure::{EntityId, GuidPrefix, TopicKind};
 use alloc::collections::BTreeMap;
 use core::time::Duration as CoreDuration;
@@ -37,6 +38,177 @@ pub mod structure;
 //
 // SEDPbuiltin{Publication/Sunscription}{Writer/Reader}
 // rtps 2.3 spec 8.5.4.2によると、reliableでStatefullな{Writer/Reader}
+
+pub struct BuiltinEndpoints {
+    publisher: Publisher,
+    subscriber: Subscriber,
+    spdp_builtin_participant_writer: DataWriter<SPDPdiscoveredParticipantData>,
+    spdp_builtin_participant_reader: DataReader<SDPBuiltinData>,
+    sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData>,
+    sedp_builtin_pub_reader: DataReader<SDPBuiltinData>,
+    sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
+    sedp_builtin_sub_reader: DataReader<SDPBuiltinData>,
+    p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData>,
+    p2p_builtin_participant_msg_reader: DataReader<ParticipantMessageData>,
+}
+
+pub struct BuiltinEndpointsIngredients {
+    pub spdp_builtin_participant_writer_ing: WriterIngredients,
+    pub spdp_builtin_participant_reader_ing: ReaderIngredients,
+    pub sedp_builtin_pub_writer_ing: WriterIngredients,
+    pub sedp_builtin_pub_reader_ing: ReaderIngredients,
+    pub sedp_builtin_sub_writer_ing: WriterIngredients,
+    pub sedp_builtin_sub_reader_ing: ReaderIngredients,
+    pub p2p_builtin_participant_msg_writer_ing: WriterIngredients,
+    pub p2p_builtin_participant_msg_reader_ing: ReaderIngredients,
+}
+
+pub fn create_builtin_endpoints(
+    dp: &DomainParticipant,
+) -> (BuiltinEndpoints, BuiltinEndpointsIngredients) {
+    let publisher = dp.create_publisher(PublisherQos::Default);
+    let subscriber = dp.create_subscriber(SubscriberQos::Default);
+
+    // For SPDP
+    let spdp_topic = dp.create_builtin_topic(
+        "DCPSParticipant".to_string(),
+        "SPDPDiscoveredParticipantData".to_string(),
+        TopicKind::WithKey,
+        TopicQos::Default,
+    );
+    let spdp_writer_qos = DataWriterQos::Policies(Box::new(
+        DataWriterQosBuilder::new()
+            .reliability(Reliability::default_besteffort())
+            .build(),
+    ));
+    let spdp_reader_qos = DataReaderQos::Policies(Box::new(
+        DataReaderQosBuilder::new()
+            .reliability(Reliability::default_besteffort())
+            .build(),
+    ));
+    let spdp_writer_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER;
+    let spdp_reader_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR;
+    let (spdp_builtin_participant_writer, spdp_builtin_participant_writer_ing) = publisher
+        .create_builtin_datawriter(spdp_writer_qos, spdp_topic.clone(), spdp_writer_entity_id);
+    let (spdp_builtin_participant_reader, spdp_builtin_participant_reader_ing) =
+        subscriber.create_builtin_datareader(spdp_reader_qos, spdp_topic, spdp_reader_entity_id);
+
+    // For SEDP
+    let sedp_writer_qos = DataWriterQos::Policies(Box::new(
+        DataWriterQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .build(),
+    ));
+    let sedp_reader_qos = DataReaderQos::Policies(Box::new(
+        DataReaderQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .build(),
+    ));
+    let sedp_topic_qos = TopicQos::Policies(Box::new(
+        TopicQosBuilder::new()
+            .reliability(Reliability::default_reliable())
+            .durability(Durability::TransientLocal)
+            .build(),
+    ));
+    let sedp_publication_topic = dp.create_builtin_topic(
+        "DCPSPublication".to_string(),
+        "PublicationBuiltinTopicData".to_string(),
+        TopicKind::WithKey,
+        sedp_topic_qos.clone(),
+    );
+    let sedp_pub_writer_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER;
+    let sedp_pub_reader_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR;
+    let (sedp_builtin_pub_writer, sedp_builtin_pub_writer_ing) = publisher
+        .create_builtin_datawriter(
+            sedp_writer_qos.clone(),
+            sedp_publication_topic.clone(),
+            sedp_pub_writer_entity_id,
+        );
+    let (sedp_builtin_pub_reader, sedp_builtin_pub_reader_ing) = subscriber
+        .create_builtin_datareader(
+            sedp_reader_qos.clone(),
+            sedp_publication_topic,
+            sedp_pub_reader_entity_id,
+        );
+    let sedp_subscription_topic = dp.create_builtin_topic(
+        "DCPSSucscription".to_string(),
+        "SubscriptionBuiltinTopicData".to_string(),
+        TopicKind::WithKey,
+        sedp_topic_qos,
+    );
+    let sedp_sub_writer_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER;
+    let sedp_sub_reader_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR;
+    let (sedp_builtin_sub_writer, sedp_builtin_sub_writer_ing) = publisher
+        .create_builtin_datawriter(
+            sedp_writer_qos,
+            sedp_subscription_topic.clone(),
+            sedp_sub_writer_entity_id,
+        );
+    let (sedp_builtin_sub_reader, sedp_builtin_sub_reader_ing) = subscriber
+        .create_builtin_datareader(
+            sedp_reader_qos,
+            sedp_subscription_topic,
+            sedp_sub_reader_entity_id,
+        );
+
+    // For Writer Liveliness Protocol
+    let p2p_builtin_participant_topic_qos = TopicQosBuilder::new()
+        .reliability(Reliability::default_reliable())
+        .durability(Durability::TransientLocal)
+        .history(History {
+            kind: HistoryQosKind::KeepLast,
+            depth: 1,
+        })
+        .build();
+    // rtps 2.3 sepc, 8.4.13.3 BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader QoS
+    // > For interoperability, both the BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader shall use the following QoS values:
+    // > + durability.kind = TRANSIENT_LOCAL_DURABILITY
+    //
+    // But Durability QoS of BuiltinParticipantMessage{Writer/Reader} of Cyclone DDS and RustDDS is Volatile.
+    // So, in this implementation use Volatile.
+    let p2p_builtin_participant_topic = dp.create_builtin_topic(
+        "DCPSParticipantMessage".to_string(),
+        "ParticipantMessageData".to_string(),
+        TopicKind::WithKey,
+        TopicQos::Policies(Box::new(p2p_builtin_participant_topic_qos)),
+    );
+    let (p2p_builtin_participant_msg_writer, p2p_builtin_participant_msg_writer_ing) = publisher
+        .create_builtin_datawriter(
+            DataWriterQos::Policies(Box::new(publisher.get_default_datawriter_qos())),
+            p2p_builtin_participant_topic.clone(),
+            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
+        );
+    let (p2p_builtin_participant_msg_reader, p2p_builtin_participant_msg_reader_ing) = subscriber
+        .create_builtin_datareader(
+            DataReaderQos::Policies(Box::new(subscriber.get_default_datareader_qos())),
+            p2p_builtin_participant_topic,
+            EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
+        );
+    let be = BuiltinEndpoints {
+        publisher,
+        subscriber,
+        spdp_builtin_participant_writer,
+        spdp_builtin_participant_reader,
+        sedp_builtin_pub_writer,
+        sedp_builtin_pub_reader,
+        sedp_builtin_sub_writer,
+        sedp_builtin_sub_reader,
+        p2p_builtin_participant_msg_writer,
+        p2p_builtin_participant_msg_reader,
+    };
+
+    let be_ing = BuiltinEndpointsIngredients {
+        spdp_builtin_participant_writer_ing,
+        spdp_builtin_participant_reader_ing,
+        sedp_builtin_pub_writer_ing,
+        sedp_builtin_pub_reader_ing,
+        sedp_builtin_sub_writer_ing,
+        sedp_builtin_sub_reader_ing,
+        p2p_builtin_participant_msg_writer_ing,
+        p2p_builtin_participant_msg_reader_ing,
+    };
+    (be, be_ing)
+}
 
 pub enum DiscoveryDBUpdateNotifier {
     AddNewParticipant(GuidPrefix),
@@ -74,8 +246,10 @@ pub struct Discovery {
 }
 
 impl Discovery {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         dp: DomainParticipant,
+        builtin_endpoints: BuiltinEndpoints,
         discovery_db: DiscoveryDB,
         self_spdp_data: SerializedPayload,
         discdb_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
@@ -84,139 +258,16 @@ impl Discovery {
         participant_msg_cmd_reveiver: mio_channel::Receiver<ParticipantMessageCmd>,
     ) -> Self {
         let poll = Poll::new().unwrap();
-        let publisher = dp.create_publisher(PublisherQos::Default);
-        let subscriber = dp.create_subscriber(SubscriberQos::Default);
-
-        // For SPDP
-        let spdp_topic = dp.create_builtin_topic(
-            "DCPSParticipant".to_string(),
-            "SPDPDiscoveredParticipantData".to_string(),
-            TopicKind::WithKey,
-            TopicQos::Default,
-        );
-        let spdp_writer_qos = DataWriterQos::Policies(Box::new(
-            DataWriterQosBuilder::new()
-                .reliability(Reliability::default_besteffort())
-                .build(),
-        ));
-        let spdp_reader_qos = DataReaderQos::Policies(Box::new(
-            DataReaderQosBuilder::new()
-                .reliability(Reliability::default_besteffort())
-                .build(),
-        ));
-        let spdp_writer_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER;
-        let spdp_reader_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR;
-        let spdp_builtin_participant_writer = publisher.create_datawriter_with_entityid(
-            spdp_writer_qos,
-            spdp_topic.clone(),
-            spdp_writer_entity_id,
-        );
-        let spdp_builtin_participant_reader = subscriber.create_datareader_with_entityid(
-            spdp_reader_qos,
-            spdp_topic,
-            spdp_reader_entity_id,
-        );
         poll.register(
-            &spdp_builtin_participant_reader,
+            &builtin_endpoints.spdp_builtin_participant_reader,
             SPDP_PARTICIPANT_DETECTOR,
             Ready::readable(),
             PollOpt::edge(),
         )
         .expect("failed to register DataReader 'spdp_builtin_participant_reader' with poll");
 
-        // For SEDP
-        let sedp_writer_qos = DataWriterQos::Policies(Box::new(
-            DataWriterQosBuilder::new()
-                .reliability(Reliability::default_reliable())
-                .build(),
-        ));
-        let sedp_reader_qos = DataReaderQos::Policies(Box::new(
-            DataReaderQosBuilder::new()
-                .reliability(Reliability::default_reliable())
-                .build(),
-        ));
-        let sedp_topic_qos = TopicQos::Policies(Box::new(
-            TopicQosBuilder::new()
-                .reliability(Reliability::default_reliable())
-                .durability(Durability::TransientLocal)
-                .build(),
-        ));
-        let sedp_publication_topic = dp.create_builtin_topic(
-            "DCPSPublication".to_string(),
-            "PublicationBuiltinTopicData".to_string(),
-            TopicKind::WithKey,
-            sedp_topic_qos.clone(),
-        );
-        let sedp_pub_writer_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER;
-        let sedp_pub_reader_entity_id = EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR;
-        let sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData> = publisher
-            .create_datawriter_with_entityid(
-                sedp_writer_qos.clone(),
-                sedp_publication_topic.clone(),
-                sedp_pub_writer_entity_id,
-            );
-        let sedp_builtin_pub_reader: DataReader<SDPBuiltinData> = subscriber
-            .create_datareader_with_entityid(
-                sedp_reader_qos.clone(),
-                sedp_publication_topic,
-                sedp_pub_reader_entity_id,
-            );
-        let sedp_subscription_topic = dp.create_builtin_topic(
-            "DCPSSucscription".to_string(),
-            "SubscriptionBuiltinTopicData".to_string(),
-            TopicKind::WithKey,
-            sedp_topic_qos,
-        );
-        let sedp_sub_writer_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER;
-        let sedp_sub_reader_entity_id = EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR;
-        let sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData> = publisher
-            .create_datawriter_with_entityid(
-                sedp_writer_qos,
-                sedp_subscription_topic.clone(),
-                sedp_sub_writer_entity_id,
-            );
-        let sedp_builtin_sub_reader: DataReader<SDPBuiltinData> = subscriber
-            .create_datareader_with_entityid(
-                sedp_reader_qos,
-                sedp_subscription_topic,
-                sedp_sub_reader_entity_id,
-            );
-
-        // For Writer Liveliness Protocol
-        let p2p_builtin_participant_topic_qos = TopicQosBuilder::new()
-            .reliability(Reliability::default_reliable())
-            .durability(Durability::TransientLocal)
-            .history(History {
-                kind: HistoryQosKind::KeepLast,
-                depth: 1,
-            })
-            .build();
-        // rtps 2.3 sepc, 8.4.13.3 BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader QoS
-        // > For interoperability, both the BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader shall use the following QoS values:
-        // > + durability.kind = TRANSIENT_LOCAL_DURABILITY
-        //
-        // But Durability QoS of BuiltinParticipantMessage{Writer/Reader} of Cyclone DDS and RustDDS is Volatile.
-        // So, in this implementation use Volatile.
-        let p2p_builtin_participant_topic = dp.create_builtin_topic(
-            "DCPSParticipantMessage".to_string(),
-            "ParticipantMessageData".to_string(),
-            TopicKind::WithKey,
-            TopicQos::Policies(Box::new(p2p_builtin_participant_topic_qos)),
-        );
-        let p2p_builtin_participant_msg_writer: DataWriter<ParticipantMessageData> = publisher
-            .create_datawriter_with_entityid(
-                DataWriterQos::Policies(Box::new(publisher.get_default_datawriter_qos())),
-                p2p_builtin_participant_topic.clone(),
-                EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
-            );
-        let p2p_builtin_participant_msg_reader: DataReader<ParticipantMessageData> = subscriber
-            .create_datareader_with_entityid(
-                DataReaderQos::Policies(Box::new(subscriber.get_default_datareader_qos())),
-                p2p_builtin_participant_topic,
-                EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
-            );
         poll.register(
-            &p2p_builtin_participant_msg_reader,
+            &builtin_endpoints.p2p_builtin_participant_msg_reader,
             PARTICIPANT_MESSAGE_READER,
             Ready::readable(),
             PollOpt::edge(),
@@ -267,17 +318,19 @@ impl Discovery {
             discovery_db,
             discdb_update_sender,
             poll,
-            publisher,
-            subscriber,
+            publisher: builtin_endpoints.publisher,
+            subscriber: builtin_endpoints.subscriber,
             self_spdp_data,
-            spdp_builtin_participant_writer,
-            spdp_builtin_participant_reader,
-            sedp_builtin_pub_writer,
-            sedp_builtin_pub_reader,
-            sedp_builtin_sub_writer,
-            sedp_builtin_sub_reader,
-            p2p_builtin_participant_msg_writer,
-            p2p_builtin_participant_msg_reader,
+            spdp_builtin_participant_writer: builtin_endpoints.spdp_builtin_participant_writer,
+            spdp_builtin_participant_reader: builtin_endpoints.spdp_builtin_participant_reader,
+            sedp_builtin_pub_writer: builtin_endpoints.sedp_builtin_pub_writer,
+            sedp_builtin_pub_reader: builtin_endpoints.sedp_builtin_pub_reader,
+            sedp_builtin_sub_writer: builtin_endpoints.sedp_builtin_sub_writer,
+            sedp_builtin_sub_reader: builtin_endpoints.sedp_builtin_sub_reader,
+            p2p_builtin_participant_msg_writer: builtin_endpoints
+                .p2p_builtin_participant_msg_writer,
+            p2p_builtin_participant_msg_reader: builtin_endpoints
+                .p2p_builtin_participant_msg_reader,
             spdp_send_timer,
             participant_liveliness_timer,
             local_writers_data: BTreeMap::new(),
