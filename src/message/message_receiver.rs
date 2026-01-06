@@ -323,6 +323,9 @@ impl MessageReceiver {
         if flag.contains(DataFlag::InlineQos) {
             // the inlineQos element contains QoS values that override those of the RTPS Writer and should
             // be used to process the update. For a complete list of possible in-line QoS parameters, see Table 8.80.
+            return Err(MessageError(
+                "received DATA with inlineQos, Umber DDS dosen't support inlineQos yet".to_string(),
+            ));
         }
         if flag.contains(DataFlag::NonStandardPayload) {
             // the serializedPayload element is not formatted according to Section 10.
