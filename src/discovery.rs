@@ -16,7 +16,7 @@ use crate::rtps::{reader::ReaderIngredients, writer::WriterIngredients};
 use crate::structure::{EntityId, GuidPrefix, TopicKind};
 use alloc::collections::BTreeMap;
 use core::time::Duration as CoreDuration;
-use log::{info, trace};
+use log::{debug, info, trace};
 use mio_extras::{channel as mio_channel, timer::Timer};
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 
@@ -258,6 +258,7 @@ impl Discovery {
         participant_msg_cmd_reveiver: mio_channel::Receiver<ParticipantMessageCmd>,
     ) -> Self {
         let poll = Poll::new().unwrap();
+        /*
         poll.register(
             &builtin_endpoints.spdp_builtin_participant_reader,
             SPDP_PARTICIPANT_DETECTOR,
@@ -265,6 +266,7 @@ impl Discovery {
             PollOpt::edge(),
         )
         .expect("failed to register DataReader 'spdp_builtin_participant_reader' with poll");
+        */
 
         poll.register(
             &builtin_endpoints.p2p_builtin_participant_msg_reader,
@@ -355,25 +357,26 @@ impl Discovery {
                             self.spdp_send_timer
                                 .set_timeout(self.dp.get_config().participant_message_period, ());
                         }
+                        /*
                         SPDP_PARTICIPANT_DETECTOR => {
                             while let Ok(drc) = self.spdp_builtin_participant_reader.try_recv() {
                                 match drc {
                                     DataReaderStatusChanged::DataAvailable => {
-                                        info!("SPDP_PARTICIPANT_DETECTOR: DataAvailable");
+                                        trace!("SPDP_PARTICIPANT_DETECTOR: DataAvailable");
                                         // do nothing, Already processed by MessageReceiver
                                     }
                                     DataReaderStatusChanged::LivelinessChanged(_) => {
-                                        info!("SPDP_PARTICIPANT_DETECTOR: LivelinessChanged");
+                                        trace!("SPDP_PARTICIPANT_DETECTOR: LivelinessChanged");
                                     }
                                     DataReaderStatusChanged::RequestedIncompatibleQos(m) => {
-                                        info!(
+                                        trace!(
                                             "SPDP_PARTICIPANT_DETECTOR: RequestedIncompatibleQos('{}')",
                                             m
                                         );
                                     }
                                     DataReaderStatusChanged::SubscriptionMatched(sm) => {
-                                        info!(
-                                            "SPDP_PARTICIPANT_DETECTOR: SubscriptionMatched('{:?}')",
+                                        trace!(
+                                            "SPDP_PARTICIPANT_DETECTOR: SubscriptionMatched('{}')",
                                             sm.guid
                                         );
                                     }
@@ -381,6 +384,7 @@ impl Discovery {
                                 }
                             }
                         }
+                        */
                         PARTICIPANT_MESSAGE_CMD_RECEIVER => {
                             while let Ok(cmd) = self.participant_msg_cmd_reveiver.try_recv() {
                                 match cmd {
@@ -402,6 +406,7 @@ impl Discovery {
                                     .expect(
                                         "failed to send update notification to discdb_update_sender",
                                     );
+                                info!("Liveliness of Participant Lost\n\tParticipant: {}", l);
                             }
                             self.participant_liveliness_timer
                                 .set_timeout(next_duration, ());
@@ -411,7 +416,7 @@ impl Discovery {
                                 self.sedp_builtin_pub_writer
                                     .write_builtin_data(&data, false); // TODO: updated: always false?
                                 self.local_writers_data.insert(eid, data);
-                                info!(
+                                debug!(
                                     "add Writer to Discovery's local_writers\n\tWriter: {} ",
                                     eid
                                 );
@@ -422,7 +427,7 @@ impl Discovery {
                                 self.sedp_builtin_sub_writer
                                     .write_builtin_data(&data, false); // TODO: updated: always false?
                                 self.local_readers_data.insert(eid, data);
-                                info!(
+                                debug!(
                                     "add Reader to Discovery's local_readers\n\tReader: {} ",
                                     eid
                                 );

@@ -852,7 +852,10 @@ impl EventLoop {
                     }
                 }
                 DiscoveryDBUpdateNotifier::DeleteParticipant(guid_prefix) => {
-                    info!("remove Participant lost\n\tParticipant: {}", guid_prefix);
+                    info!(
+                        "remove liveliness lost Participant\n\tParticipant: {}",
+                        guid_prefix
+                    );
                     self.remove_discoverd_participant(guid_prefix);
                 }
             }

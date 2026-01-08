@@ -9,7 +9,7 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::cmp::{max, min};
-use log::{info, warn};
+use log::{debug, warn};
 use serde::{ser::SerializeStruct, Serialize};
 
 #[derive(Clone)]
@@ -108,7 +108,7 @@ impl ReaderProxy {
         // so is_relevant is always set to true.
         let change_for_reader = ChangeForReader::new(seq_num, state, is_relevant);
         self.cache_state.insert(seq_num, change_for_reader);
-        info!(
+        debug!(
             "ReaderProxy.update_cache_state({:?}, {}, {:?})\n\tReader: {}",
             seq_num, is_relevant, state, self.remote_reader_guid
         );
@@ -189,7 +189,7 @@ impl ReaderProxy {
         }
     }
     pub fn remove_cache_state(&mut self, seq_num: &SequenceNumber) {
-        info!(
+        debug!(
             "ReaderProxy.remove_cache_state({:?})\n\tReader: {}",
             seq_num, self.remote_reader_guid
         );
@@ -378,7 +378,7 @@ impl WriterProxy {
         // so is_relevant is always set to true.
         let change_from_writer = ChangeFromWriter::new(seq_num, state, is_relevant);
         self.cache_state.insert(seq_num, change_from_writer);
-        info!(
+        debug!(
             "WriterProxy.update_cache_state({:?}, {}, {:?})\n\tWriter: {}",
             seq_num, is_relevant, state, self.remote_writer_guid
         );
@@ -450,7 +450,7 @@ impl WriterProxy {
     }
     pub fn remove_cache_state(&mut self, seq_num: &SequenceNumber) {
         // self.cache_state.remove(seq_num);
-        info!(
+        debug!(
             "WriterProxy.remove_cache_state({:?})\n\tWriter: {}",
             seq_num, self.remote_writer_guid
         );

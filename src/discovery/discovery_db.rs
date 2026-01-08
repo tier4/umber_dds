@@ -9,7 +9,7 @@ use alloc::collections::{
 use alloc::sync::Arc;
 use awkernel_sync::{mcs::MCSNode, mutex::Mutex};
 use core::time::Duration as CoreDuration;
-use log::warn;
+use log::{debug, trace};
 
 #[derive(Clone, Copy)]
 pub enum EndpointState {
@@ -180,10 +180,18 @@ impl DiscoveryDBInner {
         match self.participant_data.entry(guid_prefix) {
             Vacant(e) => {
                 e.insert((EndpointState::Live(timestamp), data));
+                debug!(
+                    "add new Participant to discovery_db\n\tParticipant: {}",
+                    guid_prefix
+                );
                 false
             }
             Occupied(mut e) => {
                 e.insert((EndpointState::Live(timestamp), data));
+                debug!(
+                    "update livelienss of known Participant on discovery_db\n\tParticipant: {}",
+                    guid_prefix
+                );
                 true
             }
         }
@@ -193,15 +201,12 @@ impl DiscoveryDBInner {
         &mut self,
         timestamp: Timestamp,
     ) -> (CoreDuration, Vec<GuidPrefix>) {
+        trace!("check livelienss of remote Participants",);
         let mut next_duration = CoreDuration::MAX;
         let mut lost = Vec::new();
         for (prefix, (es, data)) in &mut self.participant_data {
             if let EndpointState::Live(ts) = es {
                 if timestamp - *ts > data.lease_duration {
-                    warn!(
-                        "checked Liveliness of Participant Lost\n\tParticipant: {}",
-                        prefix
-                    );
                     lost.push(*prefix);
                 } else {
                     next_duration = data.lease_duration.half().into();
@@ -210,6 +215,10 @@ impl DiscoveryDBInner {
         }
         for l in &lost {
             self.participant_data.remove(l);
+            debug!(
+                "Participant that livelienss lost removed from discovery_db\n\tParticipant: {}",
+                l
+            );
         }
         if next_duration == CoreDuration::MAX {
             (CoreDuration::new(5, 0), lost)

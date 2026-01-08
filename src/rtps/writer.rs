@@ -738,7 +738,7 @@ impl Writer {
                 );
                 None
             } else {
-                info!("Writer attempted to get unicast locators from the ReaderProxy, but not found. use multicast locators instead\n\tWriter: {}\n\tReader: {}", my_guid, reader_proxy.remote_reader_guid);
+                trace!("Writer attempted to get unicast locators from the ReaderProxy, but not found. use multicast locators instead\n\tWriter: {}\n\tReader: {}", my_guid, reader_proxy.remote_reader_guid);
                 Some(ll_m)
             }
         } else {
@@ -760,7 +760,7 @@ impl Writer {
                 );
                 None
             } else {
-                info!(
+                trace!(
                     "Writer attempted to get multicast locators from the ReaderProxy, but not found. use unicast locators instead\n\tWriter: {}\n\tReader: {}",
                     my_guid, reader_proxy.remote_reader_guid
                 );
@@ -856,8 +856,8 @@ impl Writer {
                 return;
             }
 
-            info!(
-                "Writer found matched Reader\n\tWriter: {}\n\tReader: {}",
+            debug!(
+                "add new matched Reader to Writer\n\tWriter: {}\n\tReader: {}",
                 self.guid, remote_reader_guid
             );
 

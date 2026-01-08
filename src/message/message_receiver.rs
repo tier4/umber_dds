@@ -21,16 +21,22 @@ use alloc::collections::BTreeMap;
 use alloc::fmt;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
-use log::{debug, error, info, warn};
+use log::{error, info, trace, warn};
 use mio_extras::channel as mio_channel;
 use std::error;
 
 #[derive(Debug, Clone)]
-struct MessageError(String);
+enum MessageError {
+    Error(String),
+    Warn(String),
+}
 
 impl fmt::Display for MessageError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "MessageError: ('{}')", self.0)
+        match self {
+            Self::Error(e) => write!(f, "MessageError: ('{}')", e),
+            Self::Warn(w) => write!(f, "MessageWarn: ('{}')", w),
+        }
     }
 }
 
@@ -114,7 +120,7 @@ impl MessageReceiver {
             if msg.len() < 20 {
                 // Is DDSPING
                 if msg[9..16] == b"DDSPING"[..] {
-                    info!("Received DDSPING");
+                    trace!("Received DDSPING");
                     continue;
                 } else {
                     warn!("receive too small message: len = {}", msg.len());
@@ -129,7 +135,7 @@ impl MessageReceiver {
                     continue;
                 }
             };
-            info!(
+            trace!(
                 "receive RTPS message form {} with {}",
                 rtps_message.header.guid_prefix,
                 rtps_message.summary()
@@ -150,17 +156,29 @@ impl MessageReceiver {
         for submsg in rtps_msg.submessages {
             match submsg.body {
                 SubMessageBody::Entity(e) => {
-                    if let Err(e) = self.handle_entity_submessage(e, writers, readers) {
+                    match self.handle_entity_submessage(e, writers, readers) {
+                        Ok(_) => {}
+                        Err(MessageError::Error(e)) => {
+                            error!("{}", e);
+                            return;
+                        }
+                        Err(MessageError::Warn(w)) => {
+                            warn!("{}", w);
+                            return;
+                        }
+                    }
+                }
+                SubMessageBody::Interpreter(i) => match self.handle_interpreter_submessage(i) {
+                    Ok(_) => {}
+                    Err(MessageError::Error(e)) => {
                         error!("{}", e);
                         return;
                     }
-                }
-                SubMessageBody::Interpreter(i) => {
-                    if let Err(e) = self.handle_interpreter_submessage(i) {
-                        error!("{}", e);
+                    Err(MessageError::Warn(w)) => {
+                        warn!("{}", w);
                         return;
                     }
-                }
+                },
             }
         }
     }
@@ -204,7 +222,9 @@ impl MessageReceiver {
                     if let Some(multi_loc_list) = info_reply.multicast_locator_list {
                         self.multicast_reply_locator_list = multi_loc_list;
                     } else {
-                        return Err(MessageError("Invalid InfoReply Submessage".to_string()));
+                        return Err(MessageError::Warn(
+                            "Invalid InfoReply Submessage".to_string(),
+                        ));
                     }
                 } else {
                     self.multicast_reply_locator_list.clear();
@@ -216,7 +236,9 @@ impl MessageReceiver {
                     if let Some(multi_rep_loc_list) = info_reply_ip4.multicast_locator_list {
                         self.multicast_reply_locator_list = multi_rep_loc_list;
                     } else {
-                        return Err(MessageError("Invalid InfoReplyIp4 Submessage".to_string()));
+                        return Err(MessageError::Warn(
+                            "Invalid InfoReplyIp4 Submessage".to_string(),
+                        ));
                     }
                 } else {
                     self.multicast_reply_locator_list.clear();
@@ -228,7 +250,9 @@ impl MessageReceiver {
                     if let Some(ts) = info_ts.timestamp {
                         self.timestamp = ts;
                     } else {
-                        return Err(MessageError("Invalid InfoTimestamp Submessage".to_string()));
+                        return Err(MessageError::Warn(
+                            "Invalid InfoTimestamp Submessage".to_string(),
+                        ));
                     }
                 } else {
                     self.have_timestamp = false;
@@ -260,7 +284,7 @@ impl MessageReceiver {
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
-            debug!("message from same Participant & dest_guid_prefix is not UNKNOWN");
+            trace!("message from same Participant & dest_guid_prefix is not UNKNOWN");
             return Ok(());
         }
 
@@ -275,12 +299,12 @@ impl MessageReceiver {
             // this is invalid AckNack but, WireShark call this Preemptive ACKNACK
             // I think Preemptive ACKNACK is the ACKNACK message which sent before discover remote
             // reader.
-            info!("received Preemptive ACKNACK from Reader {}", reader_guid);
+            trace!("received Preemptive ACKNACK from Reader {}", reader_guid);
             return Ok(());
         }
 
         if !ackanck.is_valid() {
-            return Err(MessageError(format!(
+            return Err(MessageError::Warn(format!(
                 "Invalid AckNack Submessage from Reader {reader_guid}",
             )));
         }
@@ -302,7 +326,7 @@ impl MessageReceiver {
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
-            debug!("message from same Participant & dest_guid_prefix is not UNKNOWN");
+            trace!("message from same Participant & dest_guid_prefix is not UNKNOWN");
             return Ok(());
         }
 
@@ -310,7 +334,7 @@ impl MessageReceiver {
         if data.writer_sn < SequenceNumber(0)
             || data.writer_sn == SequenceNumber::SEQUENCENUMBER_UNKNOWN
         {
-            return Err(MessageError("Invalid Data Submessage".to_string()));
+            return Err(MessageError::Warn("Invalid Data Submessage".to_string()));
         }
 
         // TODO: check inlineQos is valid
@@ -323,7 +347,7 @@ impl MessageReceiver {
         if flag.contains(DataFlag::InlineQos) {
             // the inlineQos element contains QoS values that override those of the RTPS Writer and should
             // be used to process the update. For a complete list of possible in-line QoS parameters, see Table 8.80.
-            return Err(MessageError(
+            return Err(MessageError::Warn(
                 "received DATA with inlineQos, Umber DDS dosen't support inlineQos yet".to_string(),
             ));
         }
@@ -405,38 +429,42 @@ impl MessageReceiver {
     fn handle_spdp_data(
         &mut self,
         data: Data,
-        change: CacheChange,
+        _change: CacheChange,
         writers: &mut BTreeMap<EntityId, Writer>,
-        readers: &mut BTreeMap<EntityId, Reader>,
+        _readers: &mut BTreeMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
         let mut deserialized =
             match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
                 Some(sp) => sp.to_bytes(),
                 None => {
-                    return Err(MessageError(
+                    return Err(MessageError::Warn(
                         "received spdp message without serializedPayload".to_string(),
                     ))
                 }
             }) {
                 Ok(d) => d,
                 Err(e) => {
-                    return Err(MessageError(format!(
+                    return Err(MessageError::Error(format!(
                         "failed to deserialize reseived spdp data message: {e:?}",
                     )));
                 }
             };
         let new_data = match deserialized.gen_spdp_discoverd_participant_data() {
             Some(nd) => nd,
-            None => return Err(MessageError("received incomplete spdp message".to_string())),
+            None => {
+                return Err(MessageError::Warn(
+                    "received incomplete spdp message".to_string(),
+                ))
+            }
         };
         if self.domain_id != new_data.domain_id {
-            return Err(MessageError(format!(
+            return Err(MessageError::Warn(format!(
                 "received spdp message from different DDS domain. Self: {}, Remote: {}",
                 self.domain_id, new_data.domain_id,
             )));
         }
         let guid_prefix = new_data.guid.guid_prefix;
-        info!("handle SPDP message from: {}", guid_prefix);
+        trace!("handle SPDP message from: {}", guid_prefix);
         let known = self.disc_db.write_participant(
             guid_prefix,
             Timestamp::now().unwrap_or(Timestamp::TIME_INVALID),
@@ -467,6 +495,7 @@ impl MessageReceiver {
                 }
             }
         }
+        /*
         match readers.get_mut(&EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR) {
             Some(r) => {
                 r.matched_writer_add(
@@ -482,6 +511,7 @@ impl MessageReceiver {
                 error!("not found spdp_builtin_participant_reader");
             }
         };
+        */
         Ok(())
     }
     fn handle_sedp_w_data(
@@ -495,14 +525,14 @@ impl MessageReceiver {
             match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
                 Some(sp) => sp.to_bytes(),
                 None => {
-                    return Err(MessageError(
+                    return Err(MessageError::Warn(
                         "received sedp message without serializedPayload".to_string(),
                     ))
                 }
             }) {
                 Ok(d) => d,
                 Err(e) => {
-                    return Err(MessageError(format!(
+                    return Err(MessageError::Error(format!(
                         "failed to deserialize reseived sedp(w) data message: {e:?}",
                     )));
                 }
@@ -519,20 +549,20 @@ impl MessageReceiver {
             ) {
                 Some(wp) => wp,
                 None => {
-                    return Err(MessageError(
+                    return Err(MessageError::Warn(
                         "failed to generate writer_proxy form received DATA(w)".to_string(),
                     ));
                 }
             }
         } else {
-            return Err(MessageError(
+            return Err(MessageError::Warn(
                 "received sedp(w) from unknown participant".to_string(),
             ));
         };
         let (topic_name, data_type) = match deserialized.topic_info() {
             Some((tn, dt)) => (tn, dt),
             None => {
-                return Err(MessageError(
+                return Err(MessageError::Warn(
                     "falied to get topic_info from received DATA(w)".to_string(),
                 ));
             }
@@ -557,9 +587,10 @@ impl MessageReceiver {
                         return Ok(());
                     }
                 }
-                info!(
+                trace!(
                     "Reader found matched Writer\n\tReader: {}\n\tWriter: {}",
-                    eid, writer_proxy.remote_writer_guid
+                    eid,
+                    writer_proxy.remote_writer_guid
                 );
                 reader.matched_writer_add_with_default_locator(
                     writer_proxy.remote_writer_guid,
@@ -578,7 +609,7 @@ impl MessageReceiver {
         match readers.get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR) {
             Some(r) => r.add_change(self.source_guid_prefix, change),
             None => {
-                return Err(MessageError(
+                return Err(MessageError::Error(
                     "not find sedp_builtin_publication_reader".to_string(),
                 ));
             }
@@ -596,14 +627,14 @@ impl MessageReceiver {
             match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
                 Some(sp) => sp.to_bytes(),
                 None => {
-                    return Err(MessageError(
+                    return Err(MessageError::Warn(
                         "received sedp message without serializedPayload".to_string(),
                     ))
                 }
             }) {
                 Ok(d) => d,
                 Err(e) => {
-                    return Err(MessageError(format!(
+                    return Err(MessageError::Error(format!(
                         "failed to deserialize reseived sedp(r) data message: {e:?}",
                     )));
                 }
@@ -620,20 +651,20 @@ impl MessageReceiver {
             ) {
                 Some(rp) => rp,
                 None => {
-                    return Err(MessageError(
+                    return Err(MessageError::Warn(
                         "failed to generate reader_proxy form received DATA(r)".to_string(),
                     ));
                 }
             }
         } else {
-            return Err(MessageError(
+            return Err(MessageError::Warn(
                 "received sedp(r) from unknown participant".to_string(),
             ));
         };
         let (topic_name, data_type) = match deserialized.topic_info() {
             Some((tn, dt)) => (tn, dt),
             None => {
-                return Err(MessageError(
+                return Err(MessageError::Warn(
                     "falied to get topic_info from received DATA(r)".to_string(),
                 ));
             }
@@ -671,7 +702,7 @@ impl MessageReceiver {
         match readers.get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR) {
             Some(r) => r.add_change(self.source_guid_prefix, change),
             None => {
-                return Err(MessageError(
+                return Err(MessageError::Error(
                     "not find sedp_builtin_subscription_reader".to_string(),
                 ));
             }
@@ -689,21 +720,21 @@ impl MessageReceiver {
             match deserialize::<ParticipantMessageData>(&match data.serialized_payload.as_ref() {
                 Some(sp) => sp.to_bytes(),
                 None => {
-                    return Err(MessageError(
+                    return Err(MessageError::Warn(
                         "received participant message without serializedPayload".to_string(),
                     ))
                 }
             }) {
                 Ok(d) => d,
                 Err(e) => {
-                    return Err(MessageError(format!(
+                    return Err(MessageError::Error(format!(
                         "failed to deserialize reseived sedp(r) data message: {e:?}",
                     )));
                 }
             };
         match deserialized.kind {
             ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
-                info!(
+                trace!(
                         "receved DATA(m) with ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE from Participant: {}",
                          self.source_guid_prefix
                     );
@@ -714,7 +745,7 @@ impl MessageReceiver {
                 );
             }
             ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE => {
-                info!(
+                trace!(
                         "receved DATA(m) with ParticipantMessageKind::MANUAL_LIVELINESS_UPDATE from Participant: {}",
                          self.source_guid_prefix
                     );
@@ -739,7 +770,7 @@ impl MessageReceiver {
         match readers.get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER) {
             Some(r) => r.add_change(self.source_guid_prefix, change),
             None => {
-                return Err(MessageError(
+                return Err(MessageError::Error(
                     "not find p2p_builtin_participant_reader".to_string(),
                 ));
             }
@@ -750,7 +781,9 @@ impl MessageReceiver {
         _data_frag: DataFrag,
         _flag: BitFlags<DataFragFlag>,
     ) -> Result<(), MessageError> {
-        Ok(())
+        Err(MessageError::Warn(
+            "received DATA_FRAG submessage, Umber DDS dosen't support DATA_FRAG yet".to_string(),
+        ))
     }
     fn handle_gap_submsg(
         &self,
@@ -763,7 +796,7 @@ impl MessageReceiver {
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
-            debug!("message from same Participant & dest_guid_prefix is not UNKNOWN");
+            trace!("message from same Participant & dest_guid_prefix is not UNKNOWN");
             return Ok(());
         }
 
@@ -772,7 +805,7 @@ impl MessageReceiver {
 
         // validation
         if !gap.is_valid(flag) {
-            return Err(MessageError(format!(
+            return Err(MessageError::Warn(format!(
                 "Invalid Gap Submessage from Writer\n\tWriter: {writer_guid}",
             )));
         }
@@ -804,7 +837,7 @@ impl MessageReceiver {
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
-            debug!("message from same Participant & dest_guid_prefix is not UNKNOWN");
+            trace!("message from same Participant & dest_guid_prefix is not UNKNOWN");
             return Ok(());
         }
 
@@ -813,7 +846,7 @@ impl MessageReceiver {
 
         // validation
         if !heartbeat.is_valid(flag) {
-            return Err(MessageError(format!(
+            return Err(MessageError::Warn(format!(
                 "Invalid Heartbeat Submessage from Writer\n\tWriter: {writer_guid}",
             )));
         }
@@ -886,12 +919,17 @@ impl MessageReceiver {
         _heartbeat_frag: HeartbeatFrag,
         _flag: BitFlags<HeartbeatFragFlag>,
     ) -> Result<(), MessageError> {
-        Ok(())
+        Err(MessageError::Warn(
+            "received HEARTBEAT_FRAG submessage, Umber DDS dosen't support HEARTBEAT_FRAG yet"
+                .to_string(),
+        ))
     }
     fn handle_nackfrag_submsg(
         _nack_frag: NackFrag,
         _flag: BitFlags<NackFragFlag>,
     ) -> Result<(), MessageError> {
-        Ok(())
+        Err(MessageError::Warn(
+            "received NACK_FRAG submessage, Umber DDS dosen't support NACK_FRAG yet".to_string(),
+        ))
     }
 }

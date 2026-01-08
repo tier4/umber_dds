@@ -236,8 +236,9 @@ impl InnerSubscriber {
             usertraffic_unicast_port(domain_id, participant_id) as u32,
             nics,
         );
+        let reader_guid = GUID::new(self.dp.guid_prefix(), entity_id);
         let reader_ing = ReaderIngredients {
-            guid: GUID::new(self.dp.guid_prefix(), entity_id),
+            guid: reader_guid,
             reliability_level,
             unicast_locator_list,
             multicast_locator_list: vec![Locator::new_from_ipv4(
@@ -253,6 +254,7 @@ impl InnerSubscriber {
         };
         (
             DataReader::<D>::new(
+                reader_guid,
                 dr_qos,
                 topic,
                 subscriber,

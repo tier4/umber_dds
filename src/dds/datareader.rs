@@ -1,6 +1,7 @@
 use crate::dds::{qos::DataReaderQosPolicies, subscriber::Subscriber, topic::Topic};
 use crate::discovery::structure::cdr::deserialize;
 use crate::rtps::{cache::HistoryCache, reader::DataReaderStatusChanged};
+use crate::structure::GUID;
 use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
@@ -14,6 +15,7 @@ use std::io;
 /// DDS DataReader
 pub struct DataReader<D: for<'de> Deserialize<'de> + DdsData> {
     data_phantom: PhantomData<D>,
+    _reader_guid: GUID,
     _qos: DataReaderQosPolicies,
     topic: Topic,
     _subscriber: Subscriber,
@@ -23,19 +25,29 @@ pub struct DataReader<D: for<'de> Deserialize<'de> + DdsData> {
 
 impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
     pub(crate) fn new(
+        reader_guid: GUID,
         qos: DataReaderQosPolicies,
         topic: Topic,
         subscriber: Subscriber,
         rhc: Arc<RwLock<HistoryCache>>,
         reader_state_receiver: mio_channel::Receiver<DataReaderStatusChanged>,
     ) -> Self {
-        info!(
-            "created new DataReader with Topic ({}, {})",
-            topic.name(),
-            topic.type_desc()
-        );
+        if reader_guid.entity_id.is_builtin() {
+            info!(
+                "created new builtin DataReader with Topic ({}, {})",
+                topic.name(),
+                topic.type_desc()
+            );
+        } else {
+            info!(
+                "created new DataReader with Topic ({}, {})",
+                topic.name(),
+                topic.type_desc()
+            );
+        }
         DataReader {
             data_phantom: PhantomData::<D>,
+            _reader_guid: reader_guid,
             _qos: qos,
             topic,
             _subscriber: subscriber,

@@ -5,7 +5,7 @@ use crate::discovery::structure::data::{
 };
 use crate::structure::TopicKind;
 use alloc::sync::Arc;
-use log::info;
+use log::{info, trace};
 
 /// DDS Topic
 #[derive(Clone)]
@@ -25,6 +25,7 @@ impl Topic {
         } else {
             TopicKind::NoKey
         };
+        info!("crated new Topic ({}, {})", name, type_desc);
         Self {
             inner: Arc::new(InnerTopic::new(
                 name,
@@ -43,6 +44,7 @@ impl Topic {
         kind: TopicKind,
         my_qos_policies: TopicQosPolicies,
     ) -> Self {
+        trace!("crated new builtin Topic ({}, {})", name, type_desc);
         Self {
             inner: Arc::new(InnerTopic::new(
                 name,
@@ -94,7 +96,6 @@ impl InnerTopic {
         my_qos_policies: TopicQosPolicies,
         kind: TopicKind,
     ) -> Self {
-        info!("crated new Topic ({}, {})", name, type_desc);
         Self {
             name,
             type_desc,

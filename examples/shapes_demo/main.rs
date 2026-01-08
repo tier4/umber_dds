@@ -148,14 +148,11 @@ fn main() {
                                         DataWriterStatusChanged::PublicationMatched(state) => {
                                             match state.current_count_change {
                                                 1 => {
-                                                    println!(
-                                                        "PublicationMatched, guid: {}",
-                                                        state.guid
-                                                    );
+                                                    println!("PublicationMatched, {}", state.guid);
                                                 }
                                                 -1 => {
                                                     println!(
-                                                        "PublicationUnmatched, guid: {}",
+                                                        "PublicationUnmatched, {}",
                                                         state.guid
                                                     );
                                                 }
@@ -214,14 +211,11 @@ fn main() {
                                         DataReaderStatusChanged::SubscriptionMatched(state) => {
                                             match state.current_count_change {
                                                 1 => {
-                                                    println!(
-                                                        "SubscriptionMatched, guid: {}",
-                                                        state.guid
-                                                    );
+                                                    println!("SubscriptionMatched, {}", state.guid);
                                                 }
                                                 -1 => {
                                                     println!(
-                                                        "SubscriptionUnmatched, guid: {}",
+                                                        "SubscriptionUnmatched, {}",
                                                         state.guid
                                                     );
                                                 }

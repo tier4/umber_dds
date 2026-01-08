@@ -233,7 +233,7 @@ impl Reader {
                         self.qos.resource_limits(),
                         self.qos.history(),
                     ) {
-                        info!(
+                        warn!(
                             "failed to add change to Reader: {}\n\tReader: {}\n\tWriter: {}",
                             e, self.guid, change.writer_guid
                         );
@@ -252,7 +252,7 @@ impl Reader {
                         writer_proxy_mut.lost_changes_update(change.sequence_number);
                     }
                 } else {
-                    warn!("BestEffort Reader receive change whose sequence_number < expected_seq_num\n\tReader: {}\n\tWriter: {}", self.guid, writer_guid);
+                    warn!("BestEffort Reader receive change whose sequence_number({}) < expected_seq_num({})\n\tReader: {}\n\tWriter: {}", change.sequence_number.0, expected_seq_num.0, self.guid, writer_guid);
                 }
             } else {
                 warn!(
@@ -309,7 +309,7 @@ impl Reader {
             }
 
             debug!(
-                "Reader found new matched Writer\n\tReader: {}\n\tWriter: {}",
+                "add new matched Writer to Reader\n\tReader: {}\n\tWriter: {}",
                 self.guid, remote_writer_guid
             );
 
@@ -693,6 +693,8 @@ impl Reader {
                 return;
             };
 
+            let bitmap_base = reader_sn_state.bitmap_base;
+            let num_bits = reader_sn_state.num_bits;
             let mut message_builder = MessageBuilder::new();
             message_builder.info_dst(self.endianness, writer_proxy.remote_writer_guid.guid_prefix);
             message_builder.acknack(
@@ -709,7 +711,14 @@ impl Reader {
                 .expect("failed to serialize message");
 
             for loc in ll_u {
-                self.send_msg_to_locator(loc, &message_buf, "acknack");
+                self.send_msg_to_locator(
+                    loc,
+                    &message_buf,
+                    &format!(
+                        "acknack {{ base: {}, numBits: {} }}",
+                        bitmap_base.0, num_bits
+                    ),
+                );
             }
         } else {
             warn!(
@@ -765,7 +774,7 @@ impl Reader {
                 );
                 None
             } else {
-                debug!("Reader attempted to get unicast locators from the WriterProxy, but not found. use multicast locators instead\n\tReader: {}\n\tWriter: {}", my_guid, writer_proxy.remote_writer_guid);
+                trace!("Reader attempted to get unicast locators from the WriterProxy, but not found. use multicast locators instead\n\tReader: {}\n\tWriter: {}", my_guid, writer_proxy.remote_writer_guid);
                 Some(ll_m)
             }
         } else {

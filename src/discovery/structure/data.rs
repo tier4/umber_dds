@@ -12,8 +12,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use cdr::{CdrBe, Infinite};
 use enumflags2::BitFlags;
-use log::error;
-use log::info;
+use log::{trace, warn};
 use md5::compute;
 use serde::de::{self, Deserialize, Deserializer, SeqAccess, Visitor};
 use serde::{ser::SerializeStruct, Serialize};
@@ -248,7 +247,7 @@ impl SDPBuiltinData {
         let remote_guid = match self.remote_guid {
             Some(rg) => rg,
             None => {
-                error!("failed to gen ReaderProxy from SDPBuiltinData, not found remote_guid",);
+                warn!("failed to gen ReaderProxy from SDPBuiltinData, not found remote_guid",);
                 return None;
             }
         };
@@ -292,7 +291,7 @@ impl SDPBuiltinData {
         let remote_guid = match self.remote_guid {
             Some(rg) => rg,
             None => {
-                error!("failed to gen WriterProxy from SDPBuiltinData, not found remote_guid",);
+                warn!("failed to gen WriterProxy from SDPBuiltinData, not found remote_guid",);
                 return None;
             }
         };
@@ -706,7 +705,10 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                                     .next_element()?
                                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                             }
-                            info!("unimplemented ParameterId: 0x{:04X} received", pid);
+                            trace!(
+                                "received DATA with ParameterList with unimplemented ParameterId: 0x{:04X}",
+                                pid
+                            );
                         }
                     }
                 }

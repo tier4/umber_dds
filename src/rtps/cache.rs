@@ -143,6 +143,12 @@ impl Ord for HCKey {
     }
 }
 
+impl core::fmt::Display for HCKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "HCKey {{ {}, seq_num: {} }}", self.guid, self.seq_num.0)
+    }
+}
+
 pub(crate) enum HistoryCacheType {
     Reader,
     Writer,
@@ -291,7 +297,7 @@ impl HistoryCache {
             self.ts2key.push(key);
             self.kind2key.entry(change.kind).or_default().insert(key);
             self.changes.insert(key, change);
-            debug!("add change with {:?} to {} HistoryCache", key, self.hc_type);
+            debug!("add change with {} to {} HistoryCache", key, self.hc_type);
             if let HistoryCacheType::Reader = self.hc_type {
                 if history.kind == HistoryQosKind::KeepLast {
                     // DDS 1.4 sepc, 2.2.3.18 HISTORY
@@ -421,7 +427,7 @@ impl HistoryCache {
         }
         if let Some(c) = self.changes.remove(key) {
             debug!(
-                "remove change with HCKey: {:?} from {} HistoryCache",
+                "remove change with {} from {} HistoryCache",
                 key, self.hc_type
             );
             if let HistoryCacheType::Reader = self.hc_type {
@@ -431,14 +437,14 @@ impl HistoryCache {
             if let Some(v) = self.kind2key.get_mut(&c.kind) {
                 if !v.remove(key) {
                     warn!(
-                        "attempt to remove change with HCKey: {:?} from {} HistoryCache::kind2key but not found",
+                        "attempt to remove change with {} from {} HistoryCache::kind2key but not found",
                         key, self.hc_type
                     );
                 }
             }
         } else {
             warn!(
-                "attempt to remove nox-existent change with HCKey: {:?} from {} HistoryCache",
+                "attempt to remove nox-existent change with {} from {} HistoryCache",
                 key, self.hc_type
             );
         }
@@ -446,7 +452,7 @@ impl HistoryCache {
             self.ts2key.remove(idx);
         } else {
             warn!(
-                "attempt to remove change with HCKey: {:?} from {} HistoryCache::ts2key but not found",
+                "attempt to remove change with {} from {} HistoryCache::ts2key but not found",
                 key, self.hc_type
             );
         }

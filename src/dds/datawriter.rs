@@ -54,11 +54,19 @@ impl<D: Serialize + DdsData> DataWriter<D> {
         whc: Arc<RwLock<HistoryCache>>,
         writer_state_receiver: mio_channel::Receiver<DataWriterStatusChanged>,
     ) -> Self {
-        info!(
-            "created new DataWriter with Topic ({}, {})",
-            topic.name(),
-            topic.type_desc()
-        );
+        if writer_guid.entity_id.is_builtin() {
+            info!(
+                "created new builtin DataWriter with Topic ({}, {})",
+                topic.name(),
+                topic.type_desc()
+            );
+        } else {
+            info!(
+                "created new DataWriter with Topic ({}, {})",
+                topic.name(),
+                topic.type_desc()
+            );
+        }
         Self {
             data_phantom: PhantomData::<D>,
             writer_guid,
@@ -127,11 +135,13 @@ impl<D: Serialize + DdsData> DataWriter<D> {
                 self.qos.history(),
             ) {
                 Ok(_) => {
-                    info!(
-                        "DataWriter write data to Topic ({}, {})",
-                        self.topic.name(),
-                        self.topic.type_desc()
-                    );
+                    if !self.writer_guid.entity_id.is_builtin() {
+                        info!(
+                            "DataWriter write data to Topic ({}, {})",
+                            self.topic.name(),
+                            self.topic.type_desc()
+                        );
+                    }
                     trace!(
                         "DataWriter add change to HistoryCache: seq_num: {}\n\tWriter: {}",
                         self.last_change_sequence_number.0,

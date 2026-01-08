@@ -242,9 +242,9 @@ fn main() {
                                 }
                                 DataReaderStatusChanged::SubscriptionMatched(state) => {
                                     if state.current_count_change == 1 {
-                                        println!("SubscriptionMatched, guid: {:?}", state.guid);
+                                        println!("SubscriptionMatched, {}", state.guid);
                                     } else {
-                                        println!("SubscriptionUnmatched, guid: {:?}", state.guid);
+                                        println!("SubscriptionUnmatched, {}", state.guid);
                                     }
                                 }
                                 _ => (),
@@ -258,9 +258,9 @@ fn main() {
                             match w {
                                 DataWriterStatusChanged::PublicationMatched(state) => {
                                     if state.current_count_change == 1 {
-                                        println!("PublicationMatched, guid: {:?}", state.guid);
+                                        println!("PublicationMatched, {}", state.guid);
                                     } else {
-                                        println!("PublicationUnmatched, guid: {:?}", state.guid);
+                                        println!("PublicationUnmatched, {}", state.guid);
                                     }
                                 }
                                 _ => (),
