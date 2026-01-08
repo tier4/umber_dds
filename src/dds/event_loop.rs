@@ -238,7 +238,7 @@ impl EventLoop {
         builtin_endpoints_ingredients: BuiltinEndpointsIngredients,
     ) {
         self.register_writer(builtin_endpoints_ingredients.spdp_builtin_participant_writer_ing);
-        self.register_reader(builtin_endpoints_ingredients.spdp_builtin_participant_reader_ing);
+        // self.register_reader(builtin_endpoints_ingredients.spdp_builtin_participant_reader_ing);
         self.register_writer(builtin_endpoints_ingredients.sedp_builtin_pub_writer_ing);
         self.register_reader(builtin_endpoints_ingredients.sedp_builtin_pub_reader_ing);
         self.register_writer(builtin_endpoints_ingredients.sedp_builtin_sub_writer_ing);

@@ -4,7 +4,7 @@ use crate::dds::{
         PublisherQos, SubscriberQos, TopicQos, TopicQosBuilder,
     },
     tokens::*,
-    DataReader, DataReaderStatusChanged, DataWriter, DomainParticipant, Publisher, Subscriber,
+    DataReader, DataWriter, DomainParticipant, Publisher, Subscriber,
 };
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::data::{
@@ -43,7 +43,7 @@ pub struct BuiltinEndpoints {
     publisher: Publisher,
     subscriber: Subscriber,
     spdp_builtin_participant_writer: DataWriter<SPDPdiscoveredParticipantData>,
-    spdp_builtin_participant_reader: DataReader<SDPBuiltinData>,
+    // spdp_builtin_participant_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData>,
     sedp_builtin_pub_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
@@ -54,7 +54,7 @@ pub struct BuiltinEndpoints {
 
 pub struct BuiltinEndpointsIngredients {
     pub spdp_builtin_participant_writer_ing: WriterIngredients,
-    pub spdp_builtin_participant_reader_ing: ReaderIngredients,
+    // pub spdp_builtin_participant_reader_ing: ReaderIngredients,
     pub sedp_builtin_pub_writer_ing: WriterIngredients,
     pub sedp_builtin_pub_reader_ing: ReaderIngredients,
     pub sedp_builtin_sub_writer_ing: WriterIngredients,
@@ -81,17 +81,21 @@ pub fn create_builtin_endpoints(
             .reliability(Reliability::default_besteffort())
             .build(),
     ));
+    /*
     let spdp_reader_qos = DataReaderQos::Policies(Box::new(
         DataReaderQosBuilder::new()
             .reliability(Reliability::default_besteffort())
             .build(),
     ));
+    */
     let spdp_writer_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER;
-    let spdp_reader_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR;
+    // let spdp_reader_entity_id = EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR;
     let (spdp_builtin_participant_writer, spdp_builtin_participant_writer_ing) = publisher
         .create_builtin_datawriter(spdp_writer_qos, spdp_topic.clone(), spdp_writer_entity_id);
+    /*
     let (spdp_builtin_participant_reader, spdp_builtin_participant_reader_ing) =
         subscriber.create_builtin_datareader(spdp_reader_qos, spdp_topic, spdp_reader_entity_id);
+    */
 
     // For SEDP
     let sedp_writer_qos = DataWriterQos::Policies(Box::new(
@@ -188,7 +192,7 @@ pub fn create_builtin_endpoints(
         publisher,
         subscriber,
         spdp_builtin_participant_writer,
-        spdp_builtin_participant_reader,
+        // spdp_builtin_participant_reader,
         sedp_builtin_pub_writer,
         sedp_builtin_pub_reader,
         sedp_builtin_sub_writer,
@@ -199,7 +203,7 @@ pub fn create_builtin_endpoints(
 
     let be_ing = BuiltinEndpointsIngredients {
         spdp_builtin_participant_writer_ing,
-        spdp_builtin_participant_reader_ing,
+        // spdp_builtin_participant_reader_ing,
         sedp_builtin_pub_writer_ing,
         sedp_builtin_pub_reader_ing,
         sedp_builtin_sub_writer_ing,
@@ -229,7 +233,9 @@ pub struct Discovery {
     subscriber: Subscriber,
     self_spdp_data: SerializedPayload,
     spdp_builtin_participant_writer: DataWriter<SPDPdiscoveredParticipantData>,
-    spdp_builtin_participant_reader: DataReader<SDPBuiltinData>,
+    // Since the processing of incoming SPDP message is fully handled within the MessageReceiver.
+    // The SPDPbuiltinParticipantReader is no longer necessary.
+    // spdp_builtin_participant_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_pub_writer: DataWriter<DiscoveredWriterData>,
     sedp_builtin_pub_reader: DataReader<SDPBuiltinData>,
     sedp_builtin_sub_writer: DataWriter<DiscoveredReaderData>,
@@ -258,15 +264,6 @@ impl Discovery {
         participant_msg_cmd_reveiver: mio_channel::Receiver<ParticipantMessageCmd>,
     ) -> Self {
         let poll = Poll::new().unwrap();
-        /*
-        poll.register(
-            &builtin_endpoints.spdp_builtin_participant_reader,
-            SPDP_PARTICIPANT_DETECTOR,
-            Ready::readable(),
-            PollOpt::edge(),
-        )
-        .expect("failed to register DataReader 'spdp_builtin_participant_reader' with poll");
-        */
 
         poll.register(
             &builtin_endpoints.p2p_builtin_participant_msg_reader,
@@ -324,7 +321,7 @@ impl Discovery {
             subscriber: builtin_endpoints.subscriber,
             self_spdp_data,
             spdp_builtin_participant_writer: builtin_endpoints.spdp_builtin_participant_writer,
-            spdp_builtin_participant_reader: builtin_endpoints.spdp_builtin_participant_reader,
+            // spdp_builtin_participant_reader: builtin_endpoints.spdp_builtin_participant_reader,
             sedp_builtin_pub_writer: builtin_endpoints.sedp_builtin_pub_writer,
             sedp_builtin_pub_reader: builtin_endpoints.sedp_builtin_pub_reader,
             sedp_builtin_sub_writer: builtin_endpoints.sedp_builtin_sub_writer,
@@ -357,34 +354,6 @@ impl Discovery {
                             self.spdp_send_timer
                                 .set_timeout(self.dp.get_config().participant_message_period, ());
                         }
-                        /*
-                        SPDP_PARTICIPANT_DETECTOR => {
-                            while let Ok(drc) = self.spdp_builtin_participant_reader.try_recv() {
-                                match drc {
-                                    DataReaderStatusChanged::DataAvailable => {
-                                        trace!("SPDP_PARTICIPANT_DETECTOR: DataAvailable");
-                                        // do nothing, Already processed by MessageReceiver
-                                    }
-                                    DataReaderStatusChanged::LivelinessChanged(_) => {
-                                        trace!("SPDP_PARTICIPANT_DETECTOR: LivelinessChanged");
-                                    }
-                                    DataReaderStatusChanged::RequestedIncompatibleQos(m) => {
-                                        trace!(
-                                            "SPDP_PARTICIPANT_DETECTOR: RequestedIncompatibleQos('{}')",
-                                            m
-                                        );
-                                    }
-                                    DataReaderStatusChanged::SubscriptionMatched(sm) => {
-                                        trace!(
-                                            "SPDP_PARTICIPANT_DETECTOR: SubscriptionMatched('{}')",
-                                            sm.guid
-                                        );
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
-                        */
                         PARTICIPANT_MESSAGE_CMD_RECEIVER => {
                             while let Ok(cmd) = self.participant_msg_cmd_reveiver.try_recv() {
                                 match cmd {
