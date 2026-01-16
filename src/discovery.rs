@@ -215,7 +215,7 @@ pub fn create_builtin_endpoints(
 }
 
 pub enum DiscoveryDBUpdateNotifier {
-    AddNewParticipant(GuidPrefix),
+    // AddNewParticipant(GuidPrefix),
     DeleteParticipant(GuidPrefix),
 }
 

@@ -1,11 +1,10 @@
 use crate::dds::qos::{
-    policy::{Durability, History, HistoryQosKind, LivelinessQosKind, Reliability},
-    DataReaderQosBuilder, DataWriterQosBuilder,
+    policy::{LivelinessQosKind, Reliability},
+    DataReaderQosBuilder,
 };
 use crate::dds::tokens::*;
 use crate::discovery::{
     discovery_db::{DiscoveryDB, EndpointState},
-    structure::builtin_endpoint::BuiltinEndpoint,
     structure::data::{DiscoveredReaderData, DiscoveredWriterData},
     BuiltinEndpointsIngredients, DiscoveryDBUpdateNotifier,
 };
@@ -85,7 +84,6 @@ impl EventLoop {
         notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
         discovery_db: DiscoveryDB,
         discdb_update_receiver: mio_channel::Receiver<DiscoveryDBUpdateNotifier>,
-        discdb_update_sender: mio_channel::Sender<DiscoveryDBUpdateNotifier>,
         spdp_data: SerializedPayload,
         builtin_endpoints_ingredients: BuiltinEndpointsIngredients,
     ) -> EventLoop {
@@ -196,7 +194,6 @@ impl EventLoop {
             participant_guidprefix,
             domain_id,
             discovery_db.clone(),
-            discdb_update_sender,
             wlp_timer_sender,
             spdp_data,
         );
@@ -648,209 +645,6 @@ impl EventLoop {
 
         while let Ok(discdb_update) = self.discdb_update_receiver.try_recv() {
             match discdb_update {
-                DiscoveryDBUpdateNotifier::AddNewParticipant(guid_prefix) => {
-                    trace!("handle_participant_discovery: {}", guid_prefix);
-                    if let Some(spdp_data) = self.discovery_db.read_participant_data(guid_prefix) {
-                        if spdp_data.domain_id != self.domain_id {
-                            continue;
-                        } else {
-                            let available_builtin_endpoint = spdp_data.available_builtin_endpoint;
-                            if available_builtin_endpoint.contains(
-                                BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_PUBLICATIONS_DETECTOR,
-                            ) {
-                                let guid = GUID::new(
-                                    spdp_data.guid.guid_prefix,
-                                    EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR,
-                                );
-                                if let Some(writer) = self
-                                    .writers
-                                    .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER)
-                                {
-                                    trace!(
-                                        "sedp_writer.matched_reader_add(remote_sedp_pub_reader)"
-                                    );
-                                    let qos = DataReaderQosBuilder::new()
-                                        .reliability(Reliability::default_besteffort())
-                                        .durability(Durability::TransientLocal)
-                                        .build();
-                                    writer.matched_reader_add(
-                                        guid,
-                                        spdp_data.expects_inline_qos,
-                                        spdp_data.metarraffic_unicast_locator_list.clone(),
-                                        spdp_data.metarraffic_multicast_locator_list.clone(),
-                                        qos,
-                                    );
-                                    writer.send_heart_beat(false);
-                                } else {
-                                    error!("not found writer 'SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER' from EventLoop.writers");
-                                }
-                            }
-                            if available_builtin_endpoint.contains(
-                                BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_PUBLICATIONS_ANNOUNCER,
-                            ) {
-                                let guid = GUID::new(
-                                    spdp_data.guid.guid_prefix,
-                                    EntityId::SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER,
-                                );
-                                if let Some(reader) = self
-                                    .readers
-                                    .get_mut(&EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR)
-                                {
-                                    trace!(
-                                        "sedp_reader.matched_writer_add(remote_sedp_pub_writer)"
-                                    );
-                                    let qos = DataWriterQosBuilder::new()
-                                        .reliability(Reliability::default_reliable())
-                                        .durability(Durability::TransientLocal)
-                                        .build();
-                                    reader.matched_writer_add(
-                                        guid,
-                                        spdp_data.metarraffic_unicast_locator_list.clone(),
-                                        spdp_data.metarraffic_multicast_locator_list.clone(),
-                                        0, // TODO: What value should I set?
-                                        qos,
-                                    );
-                                } else {
-                                    error!("not found reader 'SEDP_BUILTIN_PUBLICATIONS_DETECTOR' from EventLoop.readers");
-                                }
-                            }
-                            if available_builtin_endpoint.contains(
-                                BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_DETECTOR,
-                            ) {
-                                let guid = GUID::new(
-                                    spdp_data.guid.guid_prefix,
-                                    EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR,
-                                );
-                                if let Some(writer) = self
-                                    .writers
-                                    .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER)
-                                {
-                                    trace!(
-                                        "sedp_writer.matched_reader_add(remote_sedp_sub_reader)"
-                                    );
-                                    let qos = DataReaderQosBuilder::new()
-                                        .reliability(Reliability::default_reliable())
-                                        .durability(Durability::TransientLocal)
-                                        .build();
-                                    writer.matched_reader_add(
-                                        guid,
-                                        spdp_data.expects_inline_qos,
-                                        spdp_data.metarraffic_unicast_locator_list.clone(),
-                                        spdp_data.metarraffic_multicast_locator_list.clone(),
-                                        qos,
-                                    );
-                                    writer.send_heart_beat(false);
-                                } else {
-                                    error!("not found writer 'SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER' from EventLoop.writers");
-                                }
-                            }
-                            if available_builtin_endpoint.contains(
-                                BuiltinEndpoint::DISC_BUILTIN_ENDPOINT_SUBSCRIPTIONS_ANNOUNCER,
-                            ) {
-                                let guid = GUID::new(
-                                    spdp_data.guid.guid_prefix,
-                                    EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER,
-                                );
-                                if let Some(reader) = self
-                                    .readers
-                                    .get_mut(&EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR)
-                                {
-                                    trace!(
-                                        "sedp_reader.matched_writer_add(remote_sedp_sub_writer)"
-                                    );
-                                    let qos = DataWriterQosBuilder::new()
-                                        .reliability(Reliability::default_reliable())
-                                        .durability(Durability::TransientLocal)
-                                        .build();
-                                    reader.matched_writer_add(
-                                        guid,
-                                        spdp_data.metarraffic_unicast_locator_list.clone(),
-                                        spdp_data.metarraffic_multicast_locator_list.clone(),
-                                        0, // TODO: What value should I set?
-                                        qos,
-                                    );
-                                } else {
-                                    error!("not found reader 'SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR' from EventLoop.readers");
-                                }
-                            }
-                            if available_builtin_endpoint.contains(
-                                BuiltinEndpoint::BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER,
-                            ) {
-                                let guid = GUID::new(
-                                    spdp_data.guid.guid_prefix,
-                                    EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER,
-                                );
-                                if let Some(writer) = self
-                                    .writers
-                                    .get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER)
-                                {
-                                    trace!(
-                                        "p2p_msg_writer.matched_reader_add(remote_p2p_msg_reader)"
-                                    );
-                                    // rtps 2.3 sepc, 8.4.13.3 BuiltinParticipantMessageWriter and BuiltinParticipantMessageReader QoS
-                                    // If the ParticipantProxy::builtinEndpointQos is included in the SPDPdiscoveredParticipantData, then the
-                                    // BuiltinParticipantMessageWriter shall treat the BuiltinParticipantMessageReader as indicated by the flags If the
-                                    // ParticipantProxy::builtinEndpointQos is not included then the BuiltinParticipantMessageWriter shall treat the
-                                    // BuiltinParticipantMessageReader as if it is configured with RELIABLE_RELIABILITY_QOS.
-                                    let qos = DataReaderQosBuilder::new()
-                                        .reliability(Reliability::default_reliable()) // TODO: set best_effort if the flag indicated
-                                        .durability(Durability::TransientLocal)
-                                        .history(History {
-                                            kind: HistoryQosKind::KeepLast,
-                                            depth: 1,
-                                        })
-                                        .build();
-                                    writer.matched_reader_add(
-                                        guid,
-                                        spdp_data.expects_inline_qos,
-                                        spdp_data.metarraffic_unicast_locator_list.clone(),
-                                        spdp_data.metarraffic_multicast_locator_list.clone(),
-                                        qos,
-                                    );
-                                } else {
-                                    error!(
-                                        "not found writer 'P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER' from EventLoop.writers"
-                                    );
-                                }
-                            }
-                            if available_builtin_endpoint.contains(
-                                BuiltinEndpoint::BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER,
-                            ) {
-                                let guid = GUID::new(
-                                    spdp_data.guid.guid_prefix,
-                                    EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER,
-                                );
-                                if let Some(reader) = self
-                                    .readers
-                                    .get_mut(&EntityId::P2P_BUILTIN_PARTICIPANT_MESSAGE_READER)
-                                {
-                                    trace!(
-                                        "p2p_msg_reader.matched_writer_add(remote_p2p_msg_writer)"
-                                    );
-                                    let qos = DataWriterQosBuilder::new()
-                                        .reliability(Reliability::default_reliable())
-                                        .durability(Durability::TransientLocal)
-                                        .history(History {
-                                            kind: HistoryQosKind::KeepLast,
-                                            depth: 1,
-                                        })
-                                        .build();
-                                    reader.matched_writer_add(
-                                        guid,
-                                        spdp_data.metarraffic_unicast_locator_list,
-                                        spdp_data.metarraffic_multicast_locator_list,
-                                        0, // TODO: What value should I set?
-                                        qos,
-                                    );
-                                } else {
-                                    error!(
-                                        "not found reader 'P2P_BUILTIN_PARTICIPANT_MESSAGE_READER' from EventLoop.readers"
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
                 DiscoveryDBUpdateNotifier::DeleteParticipant(guid_prefix) => {
                     info!(
                         "remove liveliness lost Participant\n\tParticipant: {}",

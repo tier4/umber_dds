@@ -1295,7 +1295,7 @@ impl Serialize for DiscoveredWriterData {
     }
 }
 
-#[derive(Clone, DdsData)]
+#[derive(Clone, DdsData, Debug)]
 pub struct SPDPdiscoveredParticipantData {
     pub domain_id: u16,
     pub _domain_tag: String,

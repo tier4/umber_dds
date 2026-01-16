@@ -132,7 +132,6 @@ impl DomainParticipant {
         let serialized_spdp_data_clone = serialized_spdp_data.clone();
         let dp_clone = dp.clone();
         let discovery_db_clone = discovery_db.clone();
-        let discdb_update_sender_clone = discdb_update_sender.clone();
         let ev_loop_handler = thread::Builder::new()
             .name("EventLoop".to_string())
             .spawn(move || {
@@ -149,7 +148,6 @@ impl DomainParticipant {
                     notify_new_reader_sender,
                     discovery_db_clone,
                     discdb_update_receiver,
-                    discdb_update_sender_clone,
                     serialized_spdp_data_clone,
                     be_ing,
                 );
