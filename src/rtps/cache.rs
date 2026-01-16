@@ -316,7 +316,8 @@ impl HistoryCache {
                         .cloned()
                         .collect();
                     todo_delete.iter().for_each(|key| {
-                        self.changes.remove(key);
+                        debug!("remove change with {} due to HistoryQosKind::KeepLast", key);
+                        self.remove_change(key);
                     });
                 }
             }
@@ -394,7 +395,7 @@ impl HistoryCache {
             let mut res: Vec<(HCKey, &CacheChange)> = keys
                 .iter()
                 .filter(|k| self.ready_key.contains(k))
-                .map(|k| (*k, self.changes.get(k).expect("Access to HistoryCache changes occurs for keys included in kind2key but not in changes")))
+                .map(|k| (*k, self.changes.get(k).unwrap_or_else(|| panic!("Access to HistoryCache changes occurs for keys included in kind2key but not in changes: {}", k))))
                 .collect();
             res.sort_by(|(ka, _ca), (kb, _cb)| ka.cmp(kb));
             res.into_iter().unzip()

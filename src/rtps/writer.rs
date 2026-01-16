@@ -409,7 +409,7 @@ impl Writer {
     }
 
     fn is_acked_all_changes(&self) -> bool {
-        for key in self.writer_cache.write().changes.keys() {
+        for key in self.writer_cache.read().changes.keys() {
             if !self.is_acked_by_all(key.seq_num) {
                 return false;
             }
