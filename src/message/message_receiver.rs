@@ -919,6 +919,15 @@ impl MessageReceiver {
                     )));
                 }
             };
+        if self
+            .disc_db
+            .read_participant_data(self.source_guid_prefix)
+            .is_none()
+        {
+            return Err(MessageError::Warn(
+                "received DATA(m) from unknown participant".to_string(),
+            ));
+        }
         match deserialized.kind {
             ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE => {
                 trace!(
