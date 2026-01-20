@@ -14,6 +14,22 @@ git clone --recursive https://github.com/tier4/umber_dds.git
 Umber DDS implement logging using [log crate](https://docs.rs/log/latest/log/).
 You can log behavior of the Umber DDS using logger implementation compatible with the facade.
 
+Each log level is utilized as follows:
+
+User-Facing Logs: Recommended for most users to monitor system health and behavior.
+
++ error: Indicates critical issues that require immediate attention or code changes.
+
++ warn: Highlights potential problems or unexpected behaviors that may require investigation.
+
++ info: Tracks the high-level operational flow of the user's program. This primarily focuses on the DDS layer to confirm everything is running as intended.
+
+Developer-Facing Logs: Highly detailed logs intended for library contributors and debugging deep-seated issues.
+
++ debug: Provides insights into the internal state and logic transitions of the library.
+
++ trace: Offers the most granular details, specifically tracking RTPS layer events such as individual message reception, timer triggers, and low-level network activity.
+
 ## How to define exchanged data
 I'll explain using the following IDL as an example.
 ```
@@ -102,6 +118,7 @@ This is used for test/test.sh.
 - [x] Logging
 - [x] Topics kinds: with_key and no_key
 - [ ] Instance
+- [ ] InlineQoS
 
 ### Supporting QoS
 
