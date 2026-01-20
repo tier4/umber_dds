@@ -316,12 +316,16 @@ impl HistoryCache {
                         .cloned()
                         .collect();
                     todo_delete.iter().for_each(|key| {
-                        debug!("remove change with {} due to HistoryQosKind::KeepLast", key);
+                        debug!("remove change with {} from {} HistoryCache due to HistoryQosKind::KeepLast", key, self.hc_type);
                         self.remove_change(key, false);
                     });
                 }
             }
             if let HistoryCacheType::Writer = self.hc_type {
+                debug!(
+                    "add change with {} to unprocessed_seqnum in {} HistoryCache",
+                    key, self.hc_type
+                );
                 self.unprocessed_seqnum.insert(seq_num);
             }
             Ok(())
