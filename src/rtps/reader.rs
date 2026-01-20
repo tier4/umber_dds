@@ -444,6 +444,7 @@ impl Reader {
                 "reader delete matched wirter\n\tReader: {}\n\tWriter: {}",
                 self.guid, guid
             );
+            self.reader_cache.write().remove_change_from_writer(&guid);
             self.writer_communication_state.remove(&guid);
             self.reader_state_notifier
                 .send(DataReaderStatusChanged::LivelinessChanged(

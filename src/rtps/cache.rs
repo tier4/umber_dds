@@ -422,6 +422,17 @@ impl HistoryCache {
         }
     }
     */
+    pub fn remove_change_from_writer(&mut self, guid: &GUID) {
+        if let HistoryCacheType::Reader = self.hc_type {
+            let todo_remove: Vec<HCKey> = self
+                .changes
+                .keys()
+                .filter(|k| k.guid == *guid)
+                .cloned()
+                .collect();
+            todo_remove.iter().for_each(|k| self.remove_change(k));
+        }
+    }
     pub fn remove_change(&mut self, key: &HCKey) {
         if self.unprocessed_seqnum.contains(&key.seq_num) {
             return;
