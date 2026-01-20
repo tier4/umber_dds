@@ -85,7 +85,7 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
             }
         }
         for key in keys.iter() {
-            hc.remove_change(key);
+            hc.remove_change(key, true);
         }
         v
     }

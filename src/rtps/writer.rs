@@ -345,7 +345,7 @@ impl Writer {
             if !self.is_reliable() {
                 self.writer_cache
                     .write()
-                    .remove_change(&HCKey::new(self.guid, *seq_num));
+                    .remove_change(&HCKey::new(self.guid, *seq_num), false);
             }
         }
         for seq_num in to_send_gap.keys() {
@@ -372,7 +372,7 @@ impl Writer {
             if !self.is_reliable() {
                 self.writer_cache
                     .write()
-                    .remove_change(&HCKey::new(self.guid, *seq_num));
+                    .remove_change(&HCKey::new(self.guid, *seq_num), false);
             }
         }
     }
@@ -717,7 +717,7 @@ impl Writer {
                 "Writer remove key: {:?} form HistoryCache\n\tWriter: {}",
                 key.seq_num, self.guid.entity_id
             );
-            self.writer_cache.write().remove_change(&key);
+            self.writer_cache.write().remove_change(&key, false);
             for (_guid, rp) in self.matched_readers.iter_mut() {
                 rp.remove_cache_state(&key.seq_num);
             }

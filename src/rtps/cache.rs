@@ -274,7 +274,7 @@ impl HistoryCache {
                         } else {
                             // remove oldest sample
                             warn!("BestEffort Writer HistoryCache reached ResourceLimits, remove {:?}", self.ts2key[0]);
-                            self.remove_change(&self.ts2key[0].clone());
+                            self.remove_change(&self.ts2key[0].clone(), false);
                         }
                     }
                     HistoryCacheType::Reader => {
@@ -287,7 +287,7 @@ impl HistoryCache {
                                 "BestEffort Reader HistoryCache reached ResourceLimits, remove {:?}",
                                 self.ts2key[0]
                             );
-                            self.remove_change(&self.ts2key[0].clone());
+                            self.remove_change(&self.ts2key[0].clone(), false);
                         }
                     }
                     HistoryCacheType::Dummy => unreachable!(),
@@ -317,7 +317,7 @@ impl HistoryCache {
                         .collect();
                     todo_delete.iter().for_each(|key| {
                         debug!("remove change with {} due to HistoryQosKind::KeepLast", key);
-                        self.remove_change(key);
+                        self.remove_change(key, false);
                     });
                 }
             }
@@ -430,10 +430,13 @@ impl HistoryCache {
                 .filter(|k| k.guid == *guid)
                 .cloned()
                 .collect();
-            todo_remove.iter().for_each(|k| self.remove_change(k));
+            todo_remove
+                .iter()
+                .for_each(|k| self.remove_change(k, false));
         }
     }
-    pub fn remove_change(&mut self, key: &HCKey) {
+    ///taken: Used exclusively by the Reader's HistoryCache. It does not affect behavior in any other context. Indicates whether this method has been called via a DataReader::take call.
+    pub fn remove_change(&mut self, key: &HCKey, taken: bool) {
         if self.unprocessed_seqnum.contains(&key.seq_num) {
             return;
         }
@@ -443,7 +446,9 @@ impl HistoryCache {
                 key, self.hc_type
             );
             if let HistoryCacheType::Reader = self.hc_type {
-                self.taken_key.insert(*key);
+                if taken {
+                    self.taken_key.insert(*key);
+                }
                 self.ready_key.remove(key);
             }
             if let Some(v) = self.kind2key.get_mut(&c.kind) {
