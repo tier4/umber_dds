@@ -56,6 +56,20 @@ static void on_liveliness_changed(
 
 }
 
+static void on_requested_deadline_missed(
+    dds_entity_t reader,
+    const dds_requested_deadline_missed_status_t status,
+    void *listener_data
+)
+{
+    (void)reader;
+    (void)listener_data;
+
+    printf("[on_requested_deadline_missed]\n");
+    printf("  total_count         : %d\n", status.total_count);
+    printf("  total_count_change  : %d\n", status.total_count_change);
+}
+
 int main (int argc, char ** argv)
 {
   dds_entity_t participant;
@@ -86,6 +100,7 @@ int main (int argc, char ** argv)
   dds_lset_requested_incompatible_qos(listener, on_requested_incompatible_qos);
   dds_lset_subscription_matched(listener, on_subscription_matched);
   dds_lset_liveliness_changed(listener, on_liveliness_changed);
+  dds_lset_requested_deadline_missed(listener, on_requested_deadline_missed);
   // listener = NULL;
 
   /* Create a besteffort Reader. */
@@ -98,6 +113,7 @@ int main (int argc, char ** argv)
   // dds_qset_resource_limits (qos, 10, 10, 10);
   dds_qset_durability(qos, DDS_DURABILITY_VOLATILE);
   // dds_qset_durability(qos, DDS_DURABILITY_TRANSIENT_LOCAL);
+  dds_qset_deadline(qos, DDS_SECS (2));
   reader = dds_create_reader (participant, topic, qos, listener);
   if (reader < 0)
     DDS_FATAL("dds_create_reader: %s\n", dds_strretcode(-reader));

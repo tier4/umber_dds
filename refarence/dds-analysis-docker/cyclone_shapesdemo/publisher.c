@@ -50,6 +50,20 @@ static void on_liveliness_lost(
 
 }
 
+static void on_offered_deadline_missed(
+    dds_entity_t writer,
+    const dds_offered_deadline_missed_status_t status,
+    void *listener_data
+)
+{
+    (void)writer;
+    (void)listener_data;
+
+    printf("[on_offered_deadline_missed]\n");
+    printf("  total_count         : %d\n", status.total_count);
+    printf("  total_count_change  : %d\n", status.total_count_change);
+}
+
 int main (int argc, char ** argv)
 {
   dds_entity_t participant;
@@ -79,6 +93,7 @@ int main (int argc, char ** argv)
   dds_lset_offered_incompatible_qos(listener, on_offered_incompatible_qos);
   dds_lset_publication_matched(listener, on_publication_matched);
   dds_lset_liveliness_lost(listener, on_liveliness_lost);
+  dds_lset_offered_deadline_missed(listener, on_offered_deadline_missed);
   // listener = NULL;
 
   /* Create a besteffort Writer. */
@@ -91,6 +106,7 @@ int main (int argc, char ** argv)
   // dds_qset_resource_limits (qos, 10, 10, 10);
   dds_qset_durability(qos, DDS_DURABILITY_VOLATILE);
   // dds_qset_durability(qos, DDS_DURABILITY_TRANSIENT_LOCAL);
+  dds_qset_deadline(qos, DDS_SECS (2));
   writer = dds_create_writer (participant, topic, qos, listener);
   if (writer < 0)
     DDS_FATAL("dds_create_writer: %s\n", dds_strretcode(-writer));
