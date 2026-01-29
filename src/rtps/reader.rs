@@ -816,9 +816,11 @@ impl Reader {
         ((ipv4_addr[12] >> 4) ^ 0b1110) == 0
     }
 
-    pub fn notify_reqested_deadline_missed(&self) {
+    pub fn notify_reqested_deadline_missed(&self, writer_guid: GUID) {
         self.reader_state_notifier
-            .send(DataReaderStatusChanged::RequestedDeadlineMissed)
+            .send(DataReaderStatusChanged::RequestedDeadlineMissed(
+                writer_guid,
+            ))
             .expect("failed to send data via channel 'reader_state_notifier'");
         info!("Reader requested deadline missed\n\tReader: {}", self.guid);
     }
@@ -895,7 +897,7 @@ impl Reader {
 pub enum DataReaderStatusChanged {
     SampleRejected,
     LivelinessChanged(LivelinessChangedStatus),
-    RequestedDeadlineMissed,
+    RequestedDeadlineMissed(GUID),
     RequestedIncompatibleQos(String),
     DataAvailable,
     SampleLost,

@@ -387,7 +387,7 @@ impl EventLoop {
                                     wguid
                                 );
                                 if let Some(reader) = self.readers.get(&reid) {
-                                    reader.notify_reqested_deadline_missed();
+                                    reader.notify_reqested_deadline_missed(wguid);
                                     trace!(
                                         "set Reader Deadline timer({:?})\n\tReader: {}",
                                         duration,
