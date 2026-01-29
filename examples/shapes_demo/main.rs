@@ -165,7 +165,9 @@ fn main() {
                                         DataWriterStatusChanged::LivelinessLost(_) => {
                                             println!("LivelinessLost");
                                         }
-                                        _ => (),
+                                        DataWriterStatusChanged::OfferedDeadlineMissed => {
+                                            println!("Deadline missed");
+                                        }
                                     }
                                 }
                             }
@@ -227,6 +229,9 @@ fn main() {
                                         }
                                         DataReaderStatusChanged::LivelinessChanged(l) => {
                                             println!("LivelinessChanged: alive:{}, not_alive: {}, guid: {}", l.alive_count_change, l.not_alive_count_change, l.guid);
+                                        }
+                                        DataReaderStatusChanged::RequestedDeadlineMissed => {
+                                            println!("Deadline missed");
                                         }
                                         _ => (), // TODO
                                     }
