@@ -201,6 +201,7 @@ impl Reader {
                         self.reader_state_notifier
                             .send(DataReaderStatusChanged::DataAvailable)
                             .expect("failed to send data via channel 'reader_state_notifier'");
+                        *seq_num += SequenceNumber(1);
                     }
                 }
                 None => (),
