@@ -22,10 +22,16 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::net::Ipv4Addr;
 use core::time::Duration as StdDuration;
+use core::time::Duration as CoreDuration;
 use enumflags2::BitFlags;
 use log::{debug, error, info, trace, warn};
 use mio_extras::channel as mio_channel;
 use speedy::{Endianness, Writable};
+
+pub enum ReaderTimer {
+    Heartbeat(EntityId, GUID),              // self.entity_id, Writer GUID
+    Deadline(EntityId, GUID, CoreDuration), // self.entity_id, Writer GUID, deadline.period
+}
 
 enum ReaderState {
     Initial,
@@ -54,7 +60,7 @@ pub struct Reader {
     qos: DataReaderQosPolicies,
     endianness: Endianness,
     reader_state_notifier: mio_channel::Sender<DataReaderStatusChanged>,
-    set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
+    set_reader_timer_sender: mio_channel::Sender<ReaderTimer>,
     udp_sender: Rc<UdpSender>,
     // for reodering
     writer_communication_state: BTreeMap<GUID, ReaderState>,
@@ -64,7 +70,7 @@ impl Reader {
     pub fn new(
         ri: ReaderIngredients,
         udp_sender: Rc<UdpSender>,
-        set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
+        set_reader_timer_sender: mio_channel::Sender<ReaderTimer>,
     ) -> Self {
         let mut msg = String::new();
         msg += "\tunicast locators\n";
@@ -97,7 +103,7 @@ impl Reader {
             qos: ri.qos,
             endianness: Endianness::LittleEndian,
             reader_state_notifier: ri.reader_state_notifier,
-            set_reader_hb_timer_sender,
+            set_reader_timer_sender,
             udp_sender,
             writer_communication_state: BTreeMap::new(),
         }
@@ -154,6 +160,16 @@ impl Reader {
             "Reader::add_change from Writer, seq_num: {}\n\tReader: {}\n\tWriter: {}",
             change.sequence_number.0, self.guid, writer_guid
         );
+        let deadline_period = self.qos.deadline().period;
+        if deadline_period != Duration::INFINITE {
+            self.set_reader_timer_sender
+                .send(ReaderTimer::Deadline(
+                    self.guid.entity_id,
+                    writer_guid,
+                    deadline_period.into(),
+                ))
+                .expect("failed to send ReaderTimer via channel 'set_reader_timer_sender'");
+        }
         if self.is_reliable() {
             // Reliable Reader Behavior
             if let Err(e) = self.reader_cache.write().add_change(
@@ -350,6 +366,17 @@ impl Reader {
                     ),
                 ))
                 .expect("failed to send data via channel 'reader_state_notifier'");
+
+            let deadline_period = self.qos.deadline().period;
+            if deadline_period != Duration::INFINITE {
+                self.set_reader_timer_sender
+                    .send(ReaderTimer::Deadline(
+                        self.guid.entity_id,
+                        remote_writer_guid,
+                        deadline_period.into(),
+                    ))
+                    .expect("failed to send ReaderTimer via channel 'set_reader_timer_sender'");
+            }
         } else {
             // receive SEDP message from known writer
             let remote_writer = self.matched_writers.get_mut(&remote_writer_guid).unwrap();
@@ -601,12 +628,12 @@ impl Reader {
                 self.handle_hb_response_timeout(writer_guid);
             } else {
                 trace!(
-                    "Reader send set_reader_hb_timer_sender to set Heartbeat timer\n\tReader: {}",
+                    "Reader send set_reader_timer_sender to set Heartbeat timer\n\tReader: {}",
                     self.guid
                 );
-                self.set_reader_hb_timer_sender
-                    .send((self.entity_id(), writer_guid))
-                    .expect("failed to send data via channel 'set_reader_hb_timer_sender'");
+                self.set_reader_timer_sender
+                    .send(ReaderTimer::Heartbeat(self.entity_id(), writer_guid))
+                    .expect("failed to send data via channel 'set_reader_timer_sender'");
             }
         } else if !hb_flag.contains(HeartbeatFlag::Liveliness) {
             // to may_send_ack
@@ -629,12 +656,12 @@ impl Reader {
                         self.handle_hb_response_timeout(writer_guid);
                     } else {
                         trace!(
-                            "Reader send set_reader_hb_timer_sender to set Heartbeat timer\n\tReader: {}",
+                            "Reader send set_reader_timer_sender to set Heartbeat timer\n\tReader: {}",
                             self.guid
                         );
-                        self.set_reader_hb_timer_sender
-                            .send((self.entity_id(), writer_guid))
-                            .expect("failed to send data via channel 'set_reader_hb_timer_sender'");
+                        self.set_reader_timer_sender
+                            .send(ReaderTimer::Heartbeat(self.entity_id(), writer_guid))
+                            .expect("failed to send data via channel 'set_reader_timer_sender'");
                     }
                 }
             }
@@ -786,6 +813,13 @@ impl Reader {
     fn is_ipv4_multicast(ipv4_addr: &[u8; 16]) -> bool {
         // 224.0.0.0 - 239.255.255.255
         ((ipv4_addr[12] >> 4) ^ 0b1110) == 0
+    }
+
+    pub fn notify_reqested_deadline_missed(&self) {
+        self.reader_state_notifier
+            .send(DataReaderStatusChanged::RequestedDeadlineMissed)
+            .expect("failed to send data via channel 'reader_state_notifier'");
+        info!("Reader requested deadline missed\n\tReader: {}", self.guid);
     }
 
     pub fn heartbeat_response_delay(&self) -> StdDuration {

@@ -762,6 +762,7 @@ pub mod policy {
     //! For more details on each QoS policy, please refer to the DDS specification.
     //! DDS v1.4 spec, 2.2.3 Supported QoS (<https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386>)
     use crate::structure::Duration;
+    use core::time::Duration as CoreDuration;
     use serde::{Deserialize, Serialize};
     use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -855,6 +856,11 @@ pub mod policy {
         pub period: Duration,
     }
     impl Deadline {
+        pub fn new(period: CoreDuration) -> Self {
+            Self {
+                period: period.into(),
+            }
+        }
         /// offered is Publisher side QoS value
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {

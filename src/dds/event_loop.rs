@@ -8,8 +8,8 @@ use crate::discovery::{
     structure::data::{DiscoveredReaderData, DiscoveredWriterData},
     BuiltinEndpointsIngredients, DiscoveryDBUpdateNotifier,
 };
-use crate::rtps::reader::{Reader, ReaderIngredients};
-use crate::rtps::writer::{Writer, WriterIngredients};
+use crate::rtps::reader::{Reader, ReaderIngredients, ReaderTimer};
+use crate::rtps::writer::{Writer, WriterIngredients, WriterTimer};
 use crate::structure::{Duration, EntityId, GuidPrefix, RTPSEntity, GUID};
 use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
@@ -46,19 +46,23 @@ pub struct EventLoop {
     // notify new reader to discovery module
     notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
     // to distribute to reader
-    set_reader_hb_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
-    // receive heartbeat_response_delay timer from reader
-    set_reader_hb_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
+    set_reader_timer_sender: mio_channel::Sender<ReaderTimer>,
+    // receive reader timer from reader
+    set_reader_timer_receiver: mio_channel::Receiver<ReaderTimer>,
     // to distribute to writer
-    set_writer_nack_timer_sender: mio_channel::Sender<(EntityId, GUID)>,
-    // receive nack_response_delay timer from writer
-    set_writer_nack_timer_receiver: mio_channel::Receiver<(EntityId, GUID)>,
+    set_writer_timer_sender: mio_channel::Sender<WriterTimer>,
+    // receive writer timer from writer
+    set_writer_timer_receiver: mio_channel::Receiver<WriterTimer>,
     writers: BTreeMap<EntityId, Writer>,
     readers: BTreeMap<EntityId, Reader>,
     udp_sender: Rc<UdpSender>,
     writer_hb_timer: Timer<EntityId>,
     reader_hb_timer: Timer<(EntityId, GUID)>, // (reader EntityId, writer GUID)
-    writer_nack_timer: Timer<(EntityId, GUID)>, // (writer EntityId, reader GUID)
+    reader_deadline_timer: Timer<((EntityId, GUID), CoreDuration)>, // (reader EntityId, writer GUID)
+    reader_deadline_timeout: BTreeMap<(EntityId, GUID), Timeout>, // (reader EntityId, writer GUID)
+    writer_nack_timer: Timer<(EntityId, GUID)>,                   // (writer EntityId, reader GUID)
+    writer_deadline_timer: Timer<(EntityId, CoreDuration)>,
+    writer_deadline_timeout: BTreeMap<EntityId, Timeout>,
     wlp_timer_receiver: mio_channel::Receiver<EntityId>,
     wlp_timer: Timer<EntityId>,                //  reader EntityId
     wlp_timeouts: BTreeMap<EntityId, Timeout>, //  reader EntityId
@@ -142,19 +146,19 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("failed to register receiver 'discdb_update_receiver' with poll");
-        let (set_reader_hb_timer_sender, set_reader_hb_timer_receiver) = mio_channel::channel();
-        let (set_writer_nack_timer_sender, set_writer_nack_timer_receiver) = mio_channel::channel();
+        let (set_reader_timer_sender, set_reader_timer_receiver) = mio_channel::channel();
+        let (set_writer_timer_sender, set_writer_timer_receiver) = mio_channel::channel();
         let (wlp_timer_sender, wlp_timer_receiver) = mio_channel::channel();
         poll.register(
-            &set_reader_hb_timer_receiver,
-            SET_READER_HEARTBEAT_TIMER,
+            &set_reader_timer_receiver,
+            SET_READER_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
         .expect("failed to register receiver 'set_reader_hb_timer_receiver' with poll");
         poll.register(
-            &set_writer_nack_timer_receiver,
-            SET_WRITER_NACK_TIMER,
+            &set_writer_timer_receiver,
+            SET_WRITER_TIMER,
             Ready::readable(),
             PollOpt::edge(),
         )
@@ -174,6 +178,14 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("failed to register timer 'reader_hb_timer' with poll");
+        let reader_deadline_timer = Timer::default();
+        poll.register(
+            &reader_deadline_timer,
+            READER_DEADLINE_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("failed to register timer 'reader_deadline_timer' with poll");
         let writer_nack_timer = Timer::default();
         poll.register(
             &writer_nack_timer,
@@ -182,6 +194,14 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("failed to register timer 'writer_nack_timer' with poll");
+        let writer_deadline_timer = Timer::default();
+        poll.register(
+            &writer_deadline_timer,
+            WRITER_DEADLINE_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("failed to register timer 'writer_deadline_timer' with poll");
         let wlp_timer = Timer::default();
         poll.register(
             &wlp_timer,
@@ -207,16 +227,20 @@ impl EventLoop {
             create_reader_receiver,
             notify_new_writer_sender,
             notify_new_reader_sender,
-            set_reader_hb_timer_sender,
-            set_reader_hb_timer_receiver,
-            set_writer_nack_timer_sender,
-            set_writer_nack_timer_receiver,
+            set_reader_timer_sender,
+            set_reader_timer_receiver,
+            set_writer_timer_sender,
+            set_writer_timer_receiver,
             writers: BTreeMap::new(),
             readers: BTreeMap::new(),
             udp_sender: Rc::new(udp_sender),
             writer_hb_timer,
             reader_hb_timer,
+            reader_deadline_timer,
+            reader_deadline_timeout: BTreeMap::new(),
             writer_nack_timer,
+            writer_deadline_timer,
+            writer_deadline_timeout: BTreeMap::new(),
             wlp_timer_receiver,
             wlp_timer,
             wlp_timeouts: BTreeMap::new(),
@@ -301,43 +325,142 @@ impl EventLoop {
                                 }
                             }
                         }
-                        SET_READER_HEARTBEAT_TIMER => {
-                            while let Ok((reader_entity_id, writer_guid)) =
-                                self.set_reader_hb_timer_receiver.try_recv()
-                            {
-                                if let Some(reader) = self.readers.get(&reader_entity_id) {
-                                    trace!(
-                                        "set Heartbeat response delay timer({:?}) of Reader\n\tReader: {}\n\tWriter: {}",
-                                        reader.heartbeat_response_delay(),
+                        SET_READER_TIMER => {
+                            while let Ok(reader_timer) = self.set_reader_timer_receiver.try_recv() {
+                                match reader_timer {
+                                    ReaderTimer::Heartbeat(reader_entity_id, writer_guid) => {
+                                        if let Some(reader) = self.readers.get(&reader_entity_id) {
+                                            trace!(
+                                                "set Heartbeat response delay timer({:?}) of Reader\n\tReader: {}\n\tWriter: {}",
+                                                reader.heartbeat_response_delay(),
+                                                reader_entity_id,
+                                                writer_guid
+                                            );
+                                            self.reader_hb_timer.set_timeout(
+                                                reader.heartbeat_response_delay(),
+                                                (reader_entity_id, writer_guid),
+                                            );
+                                        } else {
+                                            error!("not found Reader from EventLoop.readers which attempt to set heartbeat timer\n\tReader: {}", reader_entity_id);
+                                        }
+                                    }
+                                    ReaderTimer::Deadline(
                                         reader_entity_id,
-                                        writer_guid
-                                    );
-                                    self.reader_hb_timer.set_timeout(
-                                        reader.heartbeat_response_delay(),
-                                        (reader_entity_id, writer_guid),
-                                    );
-                                } else {
-                                    error!("not found Reader from EventLoop.readers which attempt to set heartbeat timer\n\tReader: {}", reader_entity_id);
+                                        writer_guid,
+                                        duration,
+                                    ) => {
+                                        if let Some(to) = self
+                                            .reader_deadline_timeout
+                                            .get(&(reader_entity_id, writer_guid))
+                                        {
+                                            trace!(
+                                                "cancel Writer Deadline timer({:?})\n\tReader: {}\n\tWriter: {}",
+                                                duration,
+                                                reader_entity_id,
+                                                writer_guid,
+                                            );
+                                            self.reader_deadline_timer.cancel_timeout(to);
+                                        }
+                                        trace!(
+                                            "set Reader Deadline timer({:?})\n\tReader: {}\n\tWriter: {}",
+                                            duration,
+                                            reader_entity_id,
+                                            writer_guid,
+                                        );
+                                        let to = self.reader_deadline_timer.set_timeout(
+                                            duration,
+                                            ((reader_entity_id, writer_guid), duration),
+                                        );
+                                        self.reader_deadline_timeout
+                                            .insert((reader_entity_id, writer_guid), to);
+                                    }
                                 }
                             }
                         }
-                        SET_WRITER_NACK_TIMER => {
-                            while let Ok((writer_entity_id, reader_guid)) =
-                                self.set_writer_nack_timer_receiver.try_recv()
+                        READER_DEADLINE_TIMER => {
+                            while let Some(((reid, wguid), duration)) =
+                                self.reader_deadline_timer.poll()
                             {
-                                if let Some(writer) = self.writers.get(&writer_entity_id) {
+                                trace!(
+                                    "fired Reader Deadline timer\n\tReader: {}\n\tWriter: {}",
+                                    reid,
+                                    wguid
+                                );
+                                if let Some(reader) = self.readers.get(&reid) {
+                                    reader.notify_reqested_deadline_missed();
                                     trace!(
-                                        "set Writer AckNack timer({:?})\n\tWriter: {}\n\tReader: {}",
-                                        writer.nack_response_delay(),
-                                        writer_entity_id,
-                                        reader_guid
+                                        "set Reader Deadline timer({:?})\n\tReader: {}",
+                                        duration,
+                                        reid,
                                     );
-                                    self.writer_nack_timer.set_timeout(
-                                        writer.nack_response_delay(),
-                                        (writer_entity_id, reader_guid),
-                                    );
+                                    let to = self
+                                        .reader_deadline_timer
+                                        .set_timeout(duration, ((reid, wguid), duration));
+                                    self.reader_deadline_timeout.insert((reid, wguid), to);
                                 } else {
-                                    error!("not found Writer from EventLoop.writers which attempt to set nack response timer\n\tWriter: {}", writer_entity_id);
+                                    unreachable!();
+                                }
+                            }
+                        }
+                        SET_WRITER_TIMER => {
+                            while let Ok(writer_timer) = self.set_writer_timer_receiver.try_recv() {
+                                match writer_timer {
+                                    WriterTimer::Nack(writer_entity_id, reader_guid) => {
+                                        if let Some(writer) = self.writers.get(&writer_entity_id) {
+                                            trace!(
+                                                "set Writer AckNack timer({:?})\n\tWriter: {}\n\tReader: {}",
+                                                writer.nack_response_delay(),
+                                                writer_entity_id,
+                                                reader_guid
+                                            );
+                                            self.writer_nack_timer.set_timeout(
+                                                writer.nack_response_delay(),
+                                                (writer_entity_id, reader_guid),
+                                            );
+                                        } else {
+                                            error!("not found Writer from EventLoop.writers which attempt to set nack response timer\n\tWriter: {}", writer_entity_id);
+                                        }
+                                    }
+                                    WriterTimer::Deadline(writer_entity_id, duration) => {
+                                        if let Some(to) =
+                                            self.writer_deadline_timeout.get(&writer_entity_id)
+                                        {
+                                            trace!(
+                                                "cancel Writer Deadline timer({:?})\n\tWriter: {}",
+                                                duration,
+                                                writer_entity_id,
+                                            );
+                                            self.writer_deadline_timer.cancel_timeout(to);
+                                        }
+                                        trace!(
+                                            "set Writer Deadline timer({:?})\n\tWriter: {}",
+                                            duration,
+                                            writer_entity_id,
+                                        );
+                                        let to = self
+                                            .writer_deadline_timer
+                                            .set_timeout(duration, (writer_entity_id, duration));
+                                        self.writer_deadline_timeout.insert(writer_entity_id, to);
+                                    }
+                                }
+                            }
+                        }
+                        WRITER_DEADLINE_TIMER => {
+                            while let Some((eid, duration)) = self.writer_deadline_timer.poll() {
+                                trace!("fired Writer Deadline timer\n\tWriter: {}", eid);
+                                if let Some(writer) = self.writers.get(&eid) {
+                                    writer.notify_offered_deadline_missed();
+                                    trace!(
+                                        "set Writer Deadline timer({:?})\n\tWriter: {}",
+                                        duration,
+                                        eid,
+                                    );
+                                    let to = self
+                                        .writer_deadline_timer
+                                        .set_timeout(duration, (eid, duration));
+                                    self.writer_deadline_timeout.insert(eid, to);
+                                } else {
+                                    unreachable!();
                                 }
                             }
                         }
@@ -497,7 +620,7 @@ impl EventLoop {
         let mut writer = Writer::new(
             writer_ing,
             self.udp_sender.clone(),
-            self.set_writer_nack_timer_sender.clone(),
+            self.set_writer_timer_sender.clone(),
         );
         if writer.entity_id() == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER {
             // this is for sending discovery message
@@ -595,7 +718,7 @@ impl EventLoop {
         let reader = Reader::new(
             reader_ing,
             self.udp_sender.clone(),
-            self.set_reader_hb_timer_sender.clone(),
+            self.set_reader_timer_sender.clone(),
         );
         if reader.entity_id() != EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
             && reader.entity_id() != EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR

@@ -35,6 +35,11 @@ use mio_extras::channel as mio_channel;
 use mio_v06::Token;
 use speedy::{Endianness, Writable};
 
+pub enum WriterTimer {
+    Nack(EntityId, GUID),             // self.entity_id, Reader GUID
+    Deadline(EntityId, CoreDuration), // self.entity_id, deadline.period
+}
+
 /// RTPS StatefulWriter
 pub struct Writer {
     // Entity
@@ -62,7 +67,7 @@ pub struct Writer {
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
     writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
-    set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
+    set_writer_timer_sender: mio_channel::Sender<WriterTimer>,
     participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
     udp_sender: Rc<UdpSender>,
     hb_counter: Count,
@@ -82,7 +87,7 @@ impl Writer {
     pub fn new(
         wi: WriterIngredients,
         udp_sender: Rc<UdpSender>,
-        set_writer_nack_sender: mio_channel::Sender<(EntityId, GUID)>,
+        set_writer_timer_sender: mio_channel::Sender<WriterTimer>,
     ) -> Self {
         let mut msg = String::new();
         msg += "\tunicast locators\n";
@@ -102,6 +107,15 @@ impl Writer {
         );
         let writer_cache = wi.whc;
         writer_cache.write().add_empty_change(wi.guid);
+        let deadline_period = wi.qos.deadline().period;
+        if deadline_period != Duration::INFINITE {
+            set_writer_timer_sender
+                .send(WriterTimer::Deadline(
+                    wi.guid.entity_id,
+                    deadline_period.into(),
+                ))
+                .expect("failed to send WriterTimer via channel 'set_writer_timer_sender'");
+        }
         Self {
             guid: wi.guid,
             topic_kind: wi.topic.kind(),
@@ -122,7 +136,7 @@ impl Writer {
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
             writer_state_notifier: wi.writer_state_notifier,
-            set_writer_nack_sender,
+            set_writer_timer_sender,
             participant_msg_cmd_sender: wi.participant_msg_cmd_sender,
             udp_sender,
             hb_counter: 0,
@@ -267,6 +281,16 @@ impl Writer {
         }
         if self.is_reliable() {
             self.remove_acked_changes(oldest_unprocessed);
+        }
+
+        let deadline_period = self.qos.deadline().period;
+        if deadline_period != Duration::INFINITE {
+            self.set_writer_timer_sender
+                .send(WriterTimer::Deadline(
+                    self.guid.entity_id,
+                    deadline_period.into(),
+                ))
+                .expect("failed to send WriterTimer via channel 'set_writer_timer_sender'");
         }
 
         let self_guid = self.guid();
@@ -507,9 +531,11 @@ impl Writer {
                             // Transistion T11
                             self.handle_nack_response_timeout(reader_guid);
                         } else {
-                            self.set_writer_nack_sender
-                                .send((self.entity_id(), reader_guid))
-                                .expect("failed to send data via channel 'set_writer_nack_sender'");
+                            self.set_writer_timer_sender
+                                .send(WriterTimer::Nack(self.entity_id(), reader_guid))
+                                .expect(
+                                    "failed to send data via channel 'set_writer_timer_sender'",
+                                );
                             self.an_state = AckNackState::MustRepair
                         }
                     }
@@ -935,6 +961,13 @@ impl Writer {
                 }
             }
         }
+    }
+
+    pub fn notify_offered_deadline_missed(&self) {
+        self.writer_state_notifier
+            .send(DataWriterStatusChanged::OfferedDeadlineMissed)
+            .expect("failed to send data via channel 'writer_state_notifier'");
+        info!("Writer offered deadline missed\n\tWriter: {}", self.guid);
     }
 
     fn _matched_reader_unmatch(&mut self, guid: GUID) {
