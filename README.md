@@ -129,7 +129,7 @@ Unsuporting QoS can be set, but it dosn't effect behavior of Umber DDS.
     - [x] kind (Reliability, BestEffort)
     - [ ] max_bloking_time
 - [X] Durability (Volatile, TransientLocal only)
-- [ ] Deadline
+- [x] Deadline
 - [X] History
 - [ ] Lifespan
 - [x] Liveliness (ManualByTopic is not suported)
