@@ -20,7 +20,7 @@ members = [".", "ddsdata_derive"]
 ddsdata_derive = { version = "0.1.0", path = "ddsdata_derive" }
 log = { version = "0.4" }
 byteorder = { version = "1.4.3", default-features = false }
-bytes = { version = "1.7", default-features = false }
+bytes = { version = "1.11", default-features = false }
 enumflags2 = { version = "0.7.7", default-features = false, features = [
     "serde",
 ] }
