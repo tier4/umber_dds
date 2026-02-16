@@ -7,6 +7,7 @@ pub mod key;
 mod participant;
 mod publisher;
 pub mod qos;
+mod sample;
 mod subscriber;
 pub(crate) mod tokens;
 mod topic;

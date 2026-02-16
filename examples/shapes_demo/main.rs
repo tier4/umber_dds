@@ -207,7 +207,7 @@ fn main() {
                                         DataReaderStatusChanged::DataAvailable => {
                                             let received_shapes = datareader.take();
                                             for shape in received_shapes {
-                                                println!("received: {:?}", shape);
+                                                println!("received: {:?}", shape.data());
                                             }
                                         }
                                         DataReaderStatusChanged::SubscriptionMatched(state) => {

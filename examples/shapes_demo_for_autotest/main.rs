@@ -233,7 +233,7 @@ fn main() {
                                     let received_shapes = dr.take();
                                     for shape in received_shapes {
                                         received += 1;
-                                        println!("received: {:?}", shape);
+                                        println!("received: {:?}", shape.data());
                                     }
                                     if received > 5 {
                                         println!("--- shapes_demo_for_autotest end");
