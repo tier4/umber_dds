@@ -131,7 +131,7 @@ Unsuporting QoS can be set, but it dosn't effect behavior of Umber DDS.
 - [X] Durability (Volatile, TransientLocal only)
 - [x] Deadline
 - [X] History
-- [ ] Lifespan
+- [X] Lifespan
 - [x] Liveliness (ManualByTopic is not suported)
 
 #### ROS 2 unsuported QoS
