@@ -1052,6 +1052,17 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct Lifespan(pub Duration);
+    impl Lifespan {
+        pub fn from_secs(secs: i32) -> Self {
+            Self(Duration::from_secs(secs))
+        }
+        pub fn from_millis(millis: i64) -> Self {
+            Self(Duration::from_millis(millis))
+        }
+        pub fn from_nanos(nanos: i64) -> Self {
+            Self(Duration::from_nanos(nanos))
+        }
+    }
     impl Default for Lifespan {
         fn default() -> Self {
             Self(Duration::INFINITE)

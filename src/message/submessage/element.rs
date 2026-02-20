@@ -26,6 +26,7 @@ use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
 use core::cmp::{max, min};
 use core::ops::{Add, AddAssign};
 use core::ops::{Sub, SubAssign};
+use core::time::Duration as CoreDuration;
 use serde::{Deserialize, Serialize};
 use speedy::{Context, Readable, Reader, Writable, Writer};
 use std::io;
@@ -293,6 +294,23 @@ impl Sub for Timestamp {
         let r = rsec * 1_000_000_000 + rnanos;
 
         Duration::from_nanos(l - r)
+    }
+}
+
+impl Add<CoreDuration> for Timestamp {
+    type Output = Self;
+
+    fn add(self, rhs: CoreDuration) -> Self::Output {
+        let mut secs = self.seconds as u64 + rhs.as_secs();
+        let added_fraction = (rhs.subsec_nanos() as u64 * (1u64 << 32)) / 1_000_000_000;
+        let (new_fraction, overflow) = self.fraction.overflowing_add(added_fraction as u32);
+        if overflow {
+            secs += 1;
+        }
+        Self {
+            seconds: secs as u32,
+            fraction: new_fraction,
+        }
     }
 }
 

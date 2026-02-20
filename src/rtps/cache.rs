@@ -439,6 +439,13 @@ impl HistoryCache {
                 .for_each(|k| self.remove_change(k, false));
         }
     }
+
+    pub fn remove_change_if_exist(&mut self, key: &HCKey) {
+        if self.changes.contains_key(key) {
+            self.remove_change(key, false);
+        }
+    }
+
     ///taken: Used exclusively by the Reader's HistoryCache. It does not affect behavior in any other context. Indicates whether this method has been called via a DataReader::take call.
     pub fn remove_change(&mut self, key: &HCKey, taken: bool) {
         if self.unprocessed_seqnum.contains(&key.seq_num) {

@@ -8,6 +8,7 @@ use crate::discovery::{
     structure::data::{DiscoveredReaderData, DiscoveredWriterData},
     BuiltinEndpointsIngredients, DiscoveryDBUpdateNotifier,
 };
+use crate::rtps::cache::HCKey;
 use crate::rtps::reader::{Reader, ReaderIngredients, ReaderTimer};
 use crate::rtps::writer::{Writer, WriterIngredients, WriterTimer};
 use crate::structure::{Duration, EntityId, GuidPrefix, RTPSEntity, GUID};
@@ -52,6 +53,7 @@ pub struct EventLoop {
     reader_hb_timer: Timer<(EntityId, GUID)>, // (reader EntityId, writer GUID)
     reader_deadline_timer: Timer<((EntityId, GUID), CoreDuration)>, // (reader EntityId, writer GUID)
     reader_deadline_timeout: BTreeMap<(EntityId, GUID), Timeout>, // (reader EntityId, writer GUID)
+    reader_lifespan_timer: Timer<(EntityId, HCKey)>,              // (reader EntityId, writer GUID)
     writer_nack_timer: Timer<(EntityId, GUID)>,                   // (writer EntityId, reader GUID)
     writer_deadline_timer: Timer<(EntityId, CoreDuration)>,
     writer_deadline_timeout: BTreeMap<EntityId, Timeout>,
@@ -162,6 +164,14 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("failed to register timer 'reader_deadline_timer' with poll");
+        let reader_lifespan_timer = Timer::default();
+        poll.register(
+            &reader_lifespan_timer,
+            READER_LIFESPAN_TIMER,
+            Ready::readable(),
+            PollOpt::edge(),
+        )
+        .expect("failed to register timer 'reader_lifespan_timer' with poll");
         let writer_nack_timer = Timer::default();
         poll.register(
             &writer_nack_timer,
@@ -210,6 +220,7 @@ impl EventLoop {
             reader_hb_timer,
             reader_deadline_timer,
             reader_deadline_timeout: BTreeMap::new(),
+            reader_lifespan_timer,
             writer_nack_timer,
             writer_deadline_timer,
             writer_deadline_timeout: BTreeMap::new(),
@@ -283,6 +294,18 @@ impl EventLoop {
                         .set_timeout(*duration, ((*reader_entity_id, *writer_guid), *duration));
                     self.reader_deadline_timeout
                         .insert((*reader_entity_id, *writer_guid), to);
+                }
+                ReaderTimer::Lifespan(reader_entity_id, hc_key, ts, lifespan_duration) => {
+                    let now = Timestamp::now().expect("failed get Timestamp::now");
+                    let duration = (*ts + *lifespan_duration) - now;
+                    self.reader_lifespan_timer
+                        .set_timeout(duration.into(), (*reader_entity_id, *hc_key));
+                    trace!(
+                        "set Reader Lifespan timer({:?})\n\tReader: {}\n\t{}",
+                        duration,
+                        reader_entity_id,
+                        hc_key
+                    );
                 }
             }
         }
@@ -410,6 +433,24 @@ impl EventLoop {
                                         .reader_deadline_timer
                                         .set_timeout(duration, ((reid, wguid), duration));
                                     self.reader_deadline_timeout.insert((reid, wguid), to);
+                                } else {
+                                    unreachable!();
+                                }
+                            }
+                        }
+                        READER_LIFESPAN_TIMER => {
+                            // NOTE: The `reader_lifespan_timer` does not get canceled when a change
+                            // associated with an `hc_key` is removed via `DataReader::take()`.
+                            // As a result, when the timer fires, the target change may no longer
+                            // exist in the `HistoryCache`.
+                            while let Some((reid, hc_key)) = self.reader_lifespan_timer.poll() {
+                                trace!(
+                                    "fired Reader Lifespan timer\n\tReader: {}\n\t{}",
+                                    reid,
+                                    hc_key
+                                );
+                                if let Some(reader) = self.readers.get_mut(&reid) {
+                                    reader.remove_change_if_exist(hc_key);
                                 } else {
                                     unreachable!();
                                 }

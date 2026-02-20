@@ -424,8 +424,9 @@ impl MessageReceiver {
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(writer_guid) {
-                    if let Some(rt) = reader.add_change(self.source_guid_prefix, change.clone()) {
-                        rtv.push(rt);
+                    if let Some(mut rt) = reader.add_change(self.source_guid_prefix, change.clone())
+                    {
+                        rtv.append(&mut rt);
                     };
                     self.disc_db.write_remote_writer(
                         writer_guid,
@@ -438,8 +439,8 @@ impl MessageReceiver {
             match readers.get_mut(&data.reader_id) {
                 Some(r) => {
                     if r.is_contain_writer(writer_guid) {
-                        if let Some(rt) = r.add_change(self.source_guid_prefix, change) {
-                            rtv.push(rt);
+                        if let Some(mut rt) = r.add_change(self.source_guid_prefix, change) {
+                            rtv.append(&mut rt);
                         };
                         self.disc_db.write_remote_writer(
                             writer_guid,

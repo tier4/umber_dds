@@ -12,7 +12,7 @@ use crate::message::submessage::{
     submessage_flag::HeartbeatFlag,
 };
 use crate::network::udp_sender::UdpSender;
-use crate::rtps::cache::{CacheChange, HistoryCache, HistoryCacheType};
+use crate::rtps::cache::{CacheChange, HCKey, HistoryCache, HistoryCacheType};
 use crate::structure::{
     Duration, EntityId, GuidPrefix, RTPSEntity, ReaderProxy, TopicKind, WriterProxy, GUID,
 };
@@ -31,6 +31,7 @@ use speedy::{Endianness, Writable};
 pub enum ReaderTimer {
     Heartbeat(EntityId, GUID),              // self.entity_id, Writer GUID
     Deadline(EntityId, GUID, CoreDuration), // self.entity_id, Writer GUID, deadline.period
+    Lifespan(EntityId, HCKey, Timestamp, CoreDuration), // self.entity_id, HCKey of the change, source Timestamp, lifespan.period
 }
 
 enum ReaderState {
@@ -134,7 +135,7 @@ impl Reader {
         &mut self,
         source_guid_prefix: GuidPrefix,
         change: CacheChange,
-    ) -> Option<ReaderTimer> {
+    ) -> Option<Vec<ReaderTimer>> {
         let writer_guid = GUID::new(source_guid_prefix, change.writer_guid.entity_id);
         if let Some(wp) = self.unmatched_writers.remove(&writer_guid) {
             debug!(
@@ -158,16 +159,33 @@ impl Reader {
             "Reader::add_change from Writer, seq_num: {}\n\tReader: {}\n\tWriter: {}",
             change.sequence_number.0, self.guid, writer_guid
         );
+        let lifespan = match self.matched_writers.get(&writer_guid) {
+            Some(wp) => wp.qos.lifespan(),
+            None => {
+                warn!("attempt to add change to Reader from unmatched writers\n\tReader: {}\n\tWriter: {}", self.guid, writer_guid);
+                return None;
+            }
+        };
         let deadline_period = self.qos.deadline().period;
-        let rt: Option<ReaderTimer> = if deadline_period != Duration::INFINITE {
-            Some(ReaderTimer::Deadline(
+        let mut rt: Vec<ReaderTimer> = Vec::new();
+        if lifespan.0 != Duration::INFINITE {
+            rt.push(ReaderTimer::Lifespan(
+                self.entity_id(),
+                HCKey {
+                    guid: writer_guid,
+                    seq_num: change.sequence_number,
+                },
+                change.timestamp,
+                lifespan.0.into(),
+            ))
+        }
+        if deadline_period != Duration::INFINITE {
+            rt.push(ReaderTimer::Deadline(
                 self.guid.entity_id,
                 writer_guid,
                 deadline_period.into(),
-            ))
-        } else {
-            None
-        };
+            ));
+        }
         if self.is_reliable() {
             // Reliable Reader Behavior
             if let Err(e) = self.reader_cache.write().add_change(
@@ -180,7 +198,7 @@ impl Reader {
                     "failed to add change to Reader: {}\n\tReader: {}\n\tWriter: {}",
                     e, self.guid, change.writer_guid
                 );
-                return rt;
+                return if rt.is_empty() { None } else { Some(rt) };
             }
             match self.writer_communication_state.get_mut(&writer_guid) {
                 Some(ReaderState::Initial) => (),
@@ -212,7 +230,11 @@ impl Reader {
                     self.guid, writer_guid
                 );
             }
-            rt
+            if rt.is_empty() {
+                None
+            } else {
+                Some(rt)
+            }
         } else {
             // remove from the WriterProxy the cache_state corresponding to a cache_change
             // that has been taken by the DataReader
@@ -253,7 +275,7 @@ impl Reader {
                             "failed to add change to Reader: {}\n\tReader: {}\n\tWriter: {}",
                             e, self.guid, change.writer_guid
                         );
-                        return rt;
+                        return if rt.is_empty() { None } else { Some(rt) };
                     }
                     self.reader_cache.write().flush();
                     self.reader_state_notifier
@@ -276,7 +298,11 @@ impl Reader {
                     self.guid, writer_guid
                 );
             }
-            rt
+            if rt.is_empty() {
+                None
+            } else {
+                Some(rt)
+            }
         }
     }
 
@@ -889,6 +915,10 @@ impl Reader {
         } else {
             StdDuration::new(min_ld.seconds as u64, min_ld.fraction)
         }
+    }
+
+    pub fn remove_change_if_exist(&mut self, key: HCKey) {
+        self.reader_cache.write().remove_change_if_exist(&key);
     }
 }
 
