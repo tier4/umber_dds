@@ -240,11 +240,11 @@ impl EventLoop {
         self.register_reader(builtin_endpoints_ingredients.p2p_builtin_participant_msg_reader_ing);
     }
 
-    fn handle_set_reader_timer(&mut self, reader_timers: Vec<ReaderTimer>) {
+    fn handle_set_reader_timer(&mut self, reader_timers: &[ReaderTimer]) {
         for reader_timer in reader_timers {
             match reader_timer {
                 ReaderTimer::Heartbeat(reader_entity_id, writer_guid) => {
-                    if let Some(reader) = self.readers.get(&reader_entity_id) {
+                    if let Some(reader) = self.readers.get(reader_entity_id) {
                         trace!(
                                                 "set Heartbeat response delay timer({:?}) of Reader\n\tReader: {}\n\tWriter: {}",
                                                 reader.heartbeat_response_delay(),
@@ -253,7 +253,7 @@ impl EventLoop {
                                             );
                         self.reader_hb_timer.set_timeout(
                             reader.heartbeat_response_delay(),
-                            (reader_entity_id, writer_guid),
+                            (*reader_entity_id, *writer_guid),
                         );
                     } else {
                         error!("not found Reader from EventLoop.readers which attempt to set heartbeat timer\n\tReader: {}", reader_entity_id);
@@ -262,7 +262,7 @@ impl EventLoop {
                 ReaderTimer::Deadline(reader_entity_id, writer_guid, duration) => {
                     if let Some(to) = self
                         .reader_deadline_timeout
-                        .get(&(reader_entity_id, writer_guid))
+                        .get(&(*reader_entity_id, *writer_guid))
                     {
                         trace!(
                             "cancel Writer Deadline timer({:?})\n\tReader: {}\n\tWriter: {}",
@@ -280,18 +280,18 @@ impl EventLoop {
                     );
                     let to = self
                         .reader_deadline_timer
-                        .set_timeout(duration, ((reader_entity_id, writer_guid), duration));
+                        .set_timeout(*duration, ((*reader_entity_id, *writer_guid), *duration));
                     self.reader_deadline_timeout
-                        .insert((reader_entity_id, writer_guid), to);
+                        .insert((*reader_entity_id, *writer_guid), to);
                 }
             }
         }
     }
-    fn handle_set_writer_timer(&mut self, writer_timers: Vec<WriterTimer>) {
+    fn handle_set_writer_timer(&mut self, writer_timers: &[WriterTimer]) {
         for writer_timer in writer_timers {
             match writer_timer {
                 WriterTimer::Nack(writer_entity_id, reader_guid) => {
-                    if let Some(writer) = self.writers.get(&writer_entity_id) {
+                    if let Some(writer) = self.writers.get(writer_entity_id) {
                         trace!(
                             "set Writer AckNack timer({:?})\n\tWriter: {}\n\tReader: {}",
                             writer.nack_response_delay(),
@@ -300,14 +300,14 @@ impl EventLoop {
                         );
                         self.writer_nack_timer.set_timeout(
                             writer.nack_response_delay(),
-                            (writer_entity_id, reader_guid),
+                            (*writer_entity_id, *reader_guid),
                         );
                     } else {
                         error!("not found Writer from EventLoop.writers which attempt to set nack response timer\n\tWriter: {}", writer_entity_id);
                     }
                 }
                 WriterTimer::Deadline(writer_entity_id, duration) => {
-                    if let Some(to) = self.writer_deadline_timeout.get(&writer_entity_id) {
+                    if let Some(to) = self.writer_deadline_timeout.get(writer_entity_id) {
                         trace!(
                             "cancel Writer Deadline timer({:?})\n\tWriter: {}",
                             duration,
@@ -322,8 +322,8 @@ impl EventLoop {
                     );
                     let to = self
                         .writer_deadline_timer
-                        .set_timeout(duration, (writer_entity_id, duration));
-                    self.writer_deadline_timeout.insert(writer_entity_id, to);
+                        .set_timeout(*duration, (*writer_entity_id, *duration));
+                    self.writer_deadline_timeout.insert(*writer_entity_id, to);
                 }
             }
         }
@@ -344,7 +344,7 @@ impl EventLoop {
                                     &mut self.writers,
                                     &mut self.readers,
                                 ) {
-                                    self.handle_set_reader_timer(reader_timers);
+                                    self.handle_set_reader_timer(&reader_timers);
                                 };
                             }
                         }
@@ -356,7 +356,7 @@ impl EventLoop {
                                     &mut self.writers,
                                     &mut self.readers,
                                 ) {
-                                    self.handle_set_reader_timer(reader_timers);
+                                    self.handle_set_reader_timer(&reader_timers);
                                 };
                             }
                         }
@@ -565,7 +565,7 @@ impl EventLoop {
                                     writer.get_qos().liveliness().kind,
                                 );
                                 if let Some(wtv) = writer.handle_writer_cmd() {
-                                    self.handle_set_writer_timer(wtv);
+                                    self.handle_set_writer_timer(&wtv);
                                 };
                             } else {
                                 error!(
@@ -589,7 +589,10 @@ impl EventLoop {
     }
 
     fn register_writer(&mut self, writer_ing: WriterIngredients) {
-        let mut writer = Writer::new(writer_ing, self.udp_sender.clone());
+        let (mut writer, wt) = Writer::new(writer_ing, self.udp_sender.clone());
+        if let Some(wt) = wt {
+            self.handle_set_writer_timer(&[wt]);
+        }
         if writer.entity_id() == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER {
             // this is for sending discovery message
             // readerEntityId of SPDP message from Rust DDS:

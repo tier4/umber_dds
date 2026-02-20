@@ -83,7 +83,7 @@ enum AckNackState {
 }
 
 impl Writer {
-    pub fn new(wi: WriterIngredients, udp_sender: Rc<UdpSender>) -> Self {
+    pub fn new(wi: WriterIngredients, udp_sender: Rc<UdpSender>) -> (Self, Option<WriterTimer>) {
         let mut msg = String::new();
         msg += "\tunicast locators\n";
         for loc in &wi.unicast_locator_list {
@@ -103,34 +103,44 @@ impl Writer {
         let writer_cache = wi.whc;
         writer_cache.write().add_empty_change(wi.guid);
         let deadline_period = wi.qos.deadline().period;
-        if deadline_period != Duration::INFINITE {}
-        Self {
-            guid: wi.guid,
-            topic_kind: wi.topic.kind(),
-            reliability_level: wi.reliability_level,
-            unicast_locator_list: wi.unicast_locator_list,
-            multicast_locator_list: wi.multicast_locator_list,
-            push_mode: wi.push_mode,
-            heartbeat_period: wi.heartbeat_period,
-            nack_response_delay: wi.nack_response_delay,
-            _nack_suppression_duration: wi.nack_suppression_duration,
-            writer_cache,
-            data_max_size_serialized: wi.data_max_size_serialized,
-            _reader_locators: Vec::new(),
-            matched_readers: BTreeMap::new(),
-            total_matched_readers: BTreeSet::new(),
-            topic: wi.topic,
-            qos: wi.qos,
-            endianness: Endianness::LittleEndian,
-            writer_command_receiver: wi.writer_command_receiver,
-            writer_state_notifier: wi.writer_state_notifier,
-            participant_msg_cmd_sender: wi.participant_msg_cmd_sender,
-            udp_sender,
-            hb_counter: 0,
-            an_state: AckNackState::Waiting,
-            unmatch_count: 0,
-            is_alive: true,
-        }
+        let wt = if deadline_period != Duration::INFINITE {
+            Some(WriterTimer::Deadline(
+                wi.guid.entity_id,
+                deadline_period.into(),
+            ))
+        } else {
+            None
+        };
+        (
+            Self {
+                guid: wi.guid,
+                topic_kind: wi.topic.kind(),
+                reliability_level: wi.reliability_level,
+                unicast_locator_list: wi.unicast_locator_list,
+                multicast_locator_list: wi.multicast_locator_list,
+                push_mode: wi.push_mode,
+                heartbeat_period: wi.heartbeat_period,
+                nack_response_delay: wi.nack_response_delay,
+                _nack_suppression_duration: wi.nack_suppression_duration,
+                writer_cache,
+                data_max_size_serialized: wi.data_max_size_serialized,
+                _reader_locators: Vec::new(),
+                matched_readers: BTreeMap::new(),
+                total_matched_readers: BTreeSet::new(),
+                topic: wi.topic,
+                qos: wi.qos,
+                endianness: Endianness::LittleEndian,
+                writer_command_receiver: wi.writer_command_receiver,
+                writer_state_notifier: wi.writer_state_notifier,
+                participant_msg_cmd_sender: wi.participant_msg_cmd_sender,
+                udp_sender,
+                hb_counter: 0,
+                an_state: AckNackState::Waiting,
+                unmatch_count: 0,
+                is_alive: true,
+            },
+            wt,
+        )
     }
 
     pub fn topic_kind(&self) -> TopicKind {
