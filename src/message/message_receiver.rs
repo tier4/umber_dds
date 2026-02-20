@@ -19,8 +19,8 @@ use crate::net_util::*;
 use crate::rtps::cache::{HistoryCache, HistoryCacheType};
 use crate::rtps::{
     cache::{CacheChange, ChangeKind, InstantHandle},
-    reader::Reader,
-    writer::Writer,
+    reader::{Reader, ReaderTimer},
+    writer::{Writer, WriterTimer},
 };
 use crate::structure::{EntityId, GuidPrefix, VendorId, GUID};
 use alloc::collections::BTreeMap;
@@ -109,7 +109,8 @@ impl MessageReceiver {
         messages: Vec<UdpMessage>,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
-    ) {
+    ) -> Option<Vec<ReaderTimer>> {
+        let mut rtv = Vec::new();
         for message in messages {
             let msg = message.message;
             if msg.len() < 16 {
@@ -143,7 +144,14 @@ impl MessageReceiver {
                 rtps_message.header.guid_prefix,
                 rtps_message.summary()
             );
-            self.handle_parsed_packet(rtps_message, writers, readers);
+            if let Some(mut rt) = self.handle_parsed_packet(rtps_message, writers, readers) {
+                rtv.append(&mut rt);
+            };
+        }
+        if rtv.is_empty() {
+            None
+        } else {
+            Some(rtv)
         }
     }
 
@@ -152,22 +160,27 @@ impl MessageReceiver {
         rtps_msg: Message,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
-    ) {
+    ) -> Option<Vec<ReaderTimer>> {
         self.reset();
         self.dest_guid_prefix = self.own_guid_prefix;
         self.source_guid_prefix = rtps_msg.header.guid_prefix;
+        let mut rtv = Vec::new();
         for submsg in rtps_msg.submessages {
             match submsg.body {
                 SubMessageBody::Entity(e) => {
                     match self.handle_entity_submessage(e, writers, readers) {
-                        Ok(_) => {}
+                        Ok(rt) => {
+                            if let Some(mut rt) = rt {
+                                rtv.append(&mut rt)
+                            }
+                        }
                         Err(MessageError::Error(e)) => {
                             error!("{}", e);
-                            return;
+                            return if rtv.is_empty() { None } else { Some(rtv) };
                         }
                         Err(MessageError::Warn(w)) => {
                             warn!("{}", w);
-                            return;
+                            return if rtv.is_empty() { None } else { Some(rtv) };
                         }
                     }
                 }
@@ -175,14 +188,19 @@ impl MessageReceiver {
                     Ok(_) => {}
                     Err(MessageError::Error(e)) => {
                         error!("{}", e);
-                        return;
+                        return if rtv.is_empty() { None } else { Some(rtv) };
                     }
                     Err(MessageError::Warn(w)) => {
                         warn!("{}", w);
-                        return;
+                        return if rtv.is_empty() { None } else { Some(rtv) };
                     }
                 },
             }
+        }
+        if rtv.is_empty() {
+            None
+        } else {
+            Some(rtv)
         }
     }
 
@@ -191,26 +209,28 @@ impl MessageReceiver {
         entity_subm: EntitySubmessage,
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
-    ) -> Result<(), MessageError> {
+    ) -> Result<Option<Vec<ReaderTimer>>, MessageError> {
         match entity_subm {
-            EntitySubmessage::AckNack(acknack, flags) => {
-                self.handle_acknack_submsg(acknack, flags, writers)
-            }
+            EntitySubmessage::AckNack(acknack, flags) => self
+                .handle_acknack_submsg(acknack, flags, writers)
+                .map(|_| None),
             EntitySubmessage::Data(data, flags) => {
                 self.handle_data_submsg(data, flags, readers, writers)
             }
             EntitySubmessage::DataFrag(data_frag, flags) => {
-                Self::handle_datafrag_submsg(data_frag, flags)
+                Self::handle_datafrag_submsg(data_frag, flags).map(|_| None)
             }
-            EntitySubmessage::Gap(gap, flags) => self.handle_gap_submsg(gap, flags, readers),
-            EntitySubmessage::HeartBeat(heartbeat, flags) => {
-                self.handle_heartbeat_submsg(heartbeat, flags, readers)
+            EntitySubmessage::Gap(gap, flags) => {
+                self.handle_gap_submsg(gap, flags, readers).map(|_| None)
             }
+            EntitySubmessage::HeartBeat(heartbeat, flags) => self
+                .handle_heartbeat_submsg(heartbeat, flags, readers)
+                .map(|_| None),
             EntitySubmessage::HeartbeatFrag(heartbeatfrag, flags) => {
-                Self::handle_heartbeatfrag_submsg(heartbeatfrag, flags)
+                Self::handle_heartbeatfrag_submsg(heartbeatfrag, flags).map(|_| None)
             }
             EntitySubmessage::NackFrag(nack_frag, flags) => {
-                Self::handle_nackfrag_submsg(nack_frag, flags)
+                Self::handle_nackfrag_submsg(nack_frag, flags).map(|_| None)
             }
         }
     }
@@ -281,14 +301,14 @@ impl MessageReceiver {
         ackanck: AckNack,
         _flag: BitFlags<AckNackFlag>,
         writers: &mut BTreeMap<EntityId, Writer>,
-    ) -> Result<(), MessageError> {
+    ) -> Result<Option<WriterTimer>, MessageError> {
         // rtps 2.3 spec 8.3.7. AckNack
 
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
             trace!("message from same Participant & dest_guid_prefix is not UNKNOWN");
-            return Ok(());
+            return Ok(None);
         }
 
         let _writer_guid = GUID::new(self.dest_guid_prefix, ackanck.writer_id);
@@ -303,7 +323,7 @@ impl MessageReceiver {
             // I think Preemptive ACKNACK is the ACKNACK message which sent before discover remote
             // reader.
             trace!("received Preemptive ACKNACK from Reader {}", reader_guid);
-            return Ok(());
+            return Ok(None);
         }
 
         if !ackanck.is_valid() {
@@ -313,9 +333,10 @@ impl MessageReceiver {
         }
 
         if let Some(w) = writers.get_mut(&ackanck.writer_id) {
-            w.handle_acknack(ackanck, reader_guid)
-        };
-        Ok(())
+            Ok(w.handle_acknack(ackanck, reader_guid))
+        } else {
+            Ok(None)
+        }
     }
     fn handle_data_submsg(
         &mut self,
@@ -323,14 +344,20 @@ impl MessageReceiver {
         flag: BitFlags<DataFlag>,
         readers: &mut BTreeMap<EntityId, Reader>,
         writers: &mut BTreeMap<EntityId, Writer>,
-    ) -> Result<(), MessageError> {
+    ) -> Result<Option<Vec<ReaderTimer>>, MessageError> {
         // rtps 2.3 spec 8.3.7.2 Data
+
+        let mut rtv = Vec::new();
 
         if self.source_guid_prefix == self.own_guid_prefix
             && self.dest_guid_prefix != GuidPrefix::UNKNOW
         {
             trace!("message from same Participant & dest_guid_prefix is not UNKNOWN");
-            return Ok(());
+            if rtv.is_empty() {
+                return Ok(None);
+            } else {
+                return Ok(Some(rtv));
+            }
         }
 
         // validation
@@ -397,7 +424,9 @@ impl MessageReceiver {
         } else if data.reader_id == EntityId::UNKNOW {
             for reader in readers.values_mut() {
                 if reader.is_contain_writer(writer_guid) {
-                    reader.add_change(self.source_guid_prefix, change.clone());
+                    if let Some(rt) = reader.add_change(self.source_guid_prefix, change.clone()) {
+                        rtv.push(rt);
+                    };
                     self.disc_db.write_remote_writer(
                         writer_guid,
                         ts,
@@ -409,7 +438,9 @@ impl MessageReceiver {
             match readers.get_mut(&data.reader_id) {
                 Some(r) => {
                     if r.is_contain_writer(writer_guid) {
-                        r.add_change(self.source_guid_prefix, change);
+                        if let Some(rt) = r.add_change(self.source_guid_prefix, change) {
+                            rtv.push(rt);
+                        };
                         self.disc_db.write_remote_writer(
                             writer_guid,
                             ts,
@@ -427,7 +458,11 @@ impl MessageReceiver {
                 }
             };
         }
-        Ok(())
+        if rtv.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(rtv))
+        }
     }
     fn handle_participant_discovery(
         &self,

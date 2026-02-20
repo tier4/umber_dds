@@ -67,7 +67,6 @@ pub struct Writer {
     endianness: Endianness,
     pub writer_command_receiver: mio_channel::Receiver<WriterCmd>,
     writer_state_notifier: mio_channel::Sender<DataWriterStatusChanged>,
-    set_writer_timer_sender: mio_channel::Sender<WriterTimer>,
     participant_msg_cmd_sender: mio_channel::SyncSender<ParticipantMessageCmd>,
     udp_sender: Rc<UdpSender>,
     hb_counter: Count,
@@ -84,11 +83,7 @@ enum AckNackState {
 }
 
 impl Writer {
-    pub fn new(
-        wi: WriterIngredients,
-        udp_sender: Rc<UdpSender>,
-        set_writer_timer_sender: mio_channel::Sender<WriterTimer>,
-    ) -> Self {
+    pub fn new(wi: WriterIngredients, udp_sender: Rc<UdpSender>) -> Self {
         let mut msg = String::new();
         msg += "\tunicast locators\n";
         for loc in &wi.unicast_locator_list {
@@ -108,14 +103,7 @@ impl Writer {
         let writer_cache = wi.whc;
         writer_cache.write().add_empty_change(wi.guid);
         let deadline_period = wi.qos.deadline().period;
-        if deadline_period != Duration::INFINITE {
-            set_writer_timer_sender
-                .send(WriterTimer::Deadline(
-                    wi.guid.entity_id,
-                    deadline_period.into(),
-                ))
-                .expect("failed to send WriterTimer via channel 'set_writer_timer_sender'");
-        }
+        if deadline_period != Duration::INFINITE {}
         Self {
             guid: wi.guid,
             topic_kind: wi.topic.kind(),
@@ -136,7 +124,6 @@ impl Writer {
             endianness: Endianness::LittleEndian,
             writer_command_receiver: wi.writer_command_receiver,
             writer_state_notifier: wi.writer_state_notifier,
-            set_writer_timer_sender,
             participant_msg_cmd_sender: wi.participant_msg_cmd_sender,
             udp_sender,
             hb_counter: 0,
@@ -195,12 +182,22 @@ impl Writer {
         self.entity_id().as_token()
     }
 
-    pub fn handle_writer_cmd(&mut self) {
+    pub fn handle_writer_cmd(&mut self) -> Option<Vec<WriterTimer>> {
+        let mut wtv = Vec::new();
         while let Ok(cmd) = self.writer_command_receiver.try_recv() {
             match cmd {
-                WriterCmd::WriteData => self.handle_write_data_cmd(),
+                WriterCmd::WriteData => {
+                    if let Some(wt) = self.handle_write_data_cmd() {
+                        wtv.push(wt);
+                    }
+                }
                 WriterCmd::AssertLiveliness => self.assert_liveliness_manually(),
             }
+        }
+        if wtv.is_empty() {
+            None
+        } else {
+            Some(wtv)
         }
     }
 
@@ -237,8 +234,11 @@ impl Writer {
         self.send_heart_beat(true);
     }
 
-    fn handle_write_data_cmd(&mut self) {
+    fn handle_write_data_cmd(&mut self) -> Option<WriterTimer> {
         self.is_alive = true;
+
+        let wt: Option<WriterTimer>;
+
         // get changes from HistoryCache and register it to cache_state of ReaderProxy
         let history = self.qos.history();
         let hkind = history.kind;
@@ -254,7 +254,8 @@ impl Writer {
             Some(v) => *v,
             None => {
                 error!("reached unreachable state: called Writer::handle_write_data_cmd but writer_cache.unprocessed is empty\n\tWriter: {}", self.guid);
-                return;
+                wt = None;
+                return wt;
             }
         };
         for (i, seq_num) in seq_nums.iter().rev().enumerate() {
@@ -285,12 +286,12 @@ impl Writer {
 
         let deadline_period = self.qos.deadline().period;
         if deadline_period != Duration::INFINITE {
-            self.set_writer_timer_sender
-                .send(WriterTimer::Deadline(
-                    self.guid.entity_id,
-                    deadline_period.into(),
-                ))
-                .expect("failed to send WriterTimer via channel 'set_writer_timer_sender'");
+            wt = Some(WriterTimer::Deadline(
+                self.guid.entity_id,
+                deadline_period.into(),
+            ));
+        } else {
+            wt = None;
         }
 
         let self_guid = self.guid();
@@ -399,6 +400,7 @@ impl Writer {
                     .remove_change(&HCKey::new(self.guid, *seq_num), false);
             }
         }
+        wt
     }
 
     pub fn send_builtin_data_for_loc(
@@ -512,7 +514,8 @@ impl Writer {
         }
     }
 
-    pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) {
+    pub fn handle_acknack(&mut self, acknack: AckNack, reader_guid: GUID) -> Option<WriterTimer> {
+        let wt: Option<WriterTimer>;
         if let Some(reader_proxy) = self.matched_readers.get_mut(&reader_guid) {
             let req_seq_num_set = acknack.reader_sn_state.set();
             trace!(
@@ -530,18 +533,18 @@ impl Writer {
                         if self.nack_response_delay == Duration::ZERO {
                             // Transistion T11
                             self.handle_nack_response_timeout(reader_guid);
+                            wt = None;
                         } else {
-                            self.set_writer_timer_sender
-                                .send(WriterTimer::Nack(self.entity_id(), reader_guid))
-                                .expect(
-                                    "failed to send data via channel 'set_writer_timer_sender'",
-                                );
+                            wt = Some(WriterTimer::Nack(self.entity_id(), reader_guid));
                             self.an_state = AckNackState::MustRepair
                         }
+                    } else {
+                        wt = None;
                     }
                 }
                 AckNackState::MustRepair => {
                     // Transistion T10
+                    wt = None;
                 }
                 AckNackState::Repairing => unreachable!(),
             }
@@ -550,10 +553,12 @@ impl Writer {
                 "Writer attempted to handle ACKNACK from unmatched Reader\n\tWriter: {}\n\tReader: {}",
                 self.guid, reader_guid
             );
-            return;
+            wt = None;
+            return wt;
         }
         // maximum acked SequenceNumber is acknack.reader_sn_state.base() - 1
         self.remove_acked_changes(acknack.reader_sn_state.base() - SequenceNumber(1));
+        wt
     }
 
     pub fn handle_nack_response_timeout(&mut self, reader_guid: GUID) {

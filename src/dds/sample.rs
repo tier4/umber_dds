@@ -21,7 +21,6 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataSample<D> {
     }
 }
 
-#[derive(Debug)]
 pub struct SampleInfo {
     source_timestamp: Timestamp,
 }

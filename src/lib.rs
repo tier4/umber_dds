@@ -166,7 +166,7 @@
 //!                                 let received_hello = datareader.take();
 //!                                 for hello in received_hello {
 //!                                     received += 1;
-//!                                     println!("received: {:?}", hello);
+//!                                     println!("received: {:?}", hello.data());
 //!                                 }
 //!                                 if received > 5 {
 //!                                     std::process::exit(0);

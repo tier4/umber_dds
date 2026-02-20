@@ -45,14 +45,6 @@ pub struct EventLoop {
     notify_new_writer_sender: mio_channel::Sender<(EntityId, DiscoveredWriterData)>,
     // notify new reader to discovery module
     notify_new_reader_sender: mio_channel::Sender<(EntityId, DiscoveredReaderData)>,
-    // to distribute to reader
-    set_reader_timer_sender: mio_channel::Sender<ReaderTimer>,
-    // receive reader timer from reader
-    set_reader_timer_receiver: mio_channel::Receiver<ReaderTimer>,
-    // to distribute to writer
-    set_writer_timer_sender: mio_channel::Sender<WriterTimer>,
-    // receive writer timer from writer
-    set_writer_timer_receiver: mio_channel::Receiver<WriterTimer>,
     writers: BTreeMap<EntityId, Writer>,
     readers: BTreeMap<EntityId, Reader>,
     udp_sender: Rc<UdpSender>,
@@ -146,23 +138,7 @@ impl EventLoop {
             PollOpt::edge(),
         )
         .expect("failed to register receiver 'discdb_update_receiver' with poll");
-        let (set_reader_timer_sender, set_reader_timer_receiver) = mio_channel::channel();
-        let (set_writer_timer_sender, set_writer_timer_receiver) = mio_channel::channel();
         let (wlp_timer_sender, wlp_timer_receiver) = mio_channel::channel();
-        poll.register(
-            &set_reader_timer_receiver,
-            SET_READER_TIMER,
-            Ready::readable(),
-            PollOpt::edge(),
-        )
-        .expect("failed to register receiver 'set_reader_hb_timer_receiver' with poll");
-        poll.register(
-            &set_writer_timer_receiver,
-            SET_WRITER_TIMER,
-            Ready::readable(),
-            PollOpt::edge(),
-        )
-        .expect("failed to register receiver 'set_writer_nack_timer_receiver' with poll");
         poll.register(
             &wlp_timer_receiver,
             SET_WLP_TIMER,
@@ -227,10 +203,6 @@ impl EventLoop {
             create_reader_receiver,
             notify_new_writer_sender,
             notify_new_reader_sender,
-            set_reader_timer_sender,
-            set_reader_timer_receiver,
-            set_writer_timer_sender,
-            set_writer_timer_receiver,
             writers: BTreeMap::new(),
             readers: BTreeMap::new(),
             udp_sender: Rc::new(udp_sender),
@@ -268,6 +240,95 @@ impl EventLoop {
         self.register_reader(builtin_endpoints_ingredients.p2p_builtin_participant_msg_reader_ing);
     }
 
+    fn handle_set_reader_timer(&mut self, reader_timers: Vec<ReaderTimer>) {
+        for reader_timer in reader_timers {
+            match reader_timer {
+                ReaderTimer::Heartbeat(reader_entity_id, writer_guid) => {
+                    if let Some(reader) = self.readers.get(&reader_entity_id) {
+                        trace!(
+                                                "set Heartbeat response delay timer({:?}) of Reader\n\tReader: {}\n\tWriter: {}",
+                                                reader.heartbeat_response_delay(),
+                                                reader_entity_id,
+                                                writer_guid
+                                            );
+                        self.reader_hb_timer.set_timeout(
+                            reader.heartbeat_response_delay(),
+                            (reader_entity_id, writer_guid),
+                        );
+                    } else {
+                        error!("not found Reader from EventLoop.readers which attempt to set heartbeat timer\n\tReader: {}", reader_entity_id);
+                    }
+                }
+                ReaderTimer::Deadline(reader_entity_id, writer_guid, duration) => {
+                    if let Some(to) = self
+                        .reader_deadline_timeout
+                        .get(&(reader_entity_id, writer_guid))
+                    {
+                        trace!(
+                            "cancel Writer Deadline timer({:?})\n\tReader: {}\n\tWriter: {}",
+                            duration,
+                            reader_entity_id,
+                            writer_guid,
+                        );
+                        self.reader_deadline_timer.cancel_timeout(to);
+                    }
+                    trace!(
+                        "set Reader Deadline timer({:?})\n\tReader: {}\n\tWriter: {}",
+                        duration,
+                        reader_entity_id,
+                        writer_guid,
+                    );
+                    let to = self
+                        .reader_deadline_timer
+                        .set_timeout(duration, ((reader_entity_id, writer_guid), duration));
+                    self.reader_deadline_timeout
+                        .insert((reader_entity_id, writer_guid), to);
+                }
+            }
+        }
+    }
+    fn handle_set_writer_timer(&mut self, writer_timers: Vec<WriterTimer>) {
+        for writer_timer in writer_timers {
+            match writer_timer {
+                WriterTimer::Nack(writer_entity_id, reader_guid) => {
+                    if let Some(writer) = self.writers.get(&writer_entity_id) {
+                        trace!(
+                            "set Writer AckNack timer({:?})\n\tWriter: {}\n\tReader: {}",
+                            writer.nack_response_delay(),
+                            writer_entity_id,
+                            reader_guid
+                        );
+                        self.writer_nack_timer.set_timeout(
+                            writer.nack_response_delay(),
+                            (writer_entity_id, reader_guid),
+                        );
+                    } else {
+                        error!("not found Writer from EventLoop.writers which attempt to set nack response timer\n\tWriter: {}", writer_entity_id);
+                    }
+                }
+                WriterTimer::Deadline(writer_entity_id, duration) => {
+                    if let Some(to) = self.writer_deadline_timeout.get(&writer_entity_id) {
+                        trace!(
+                            "cancel Writer Deadline timer({:?})\n\tWriter: {}",
+                            duration,
+                            writer_entity_id,
+                        );
+                        self.writer_deadline_timer.cancel_timeout(to);
+                    }
+                    trace!(
+                        "set Writer Deadline timer({:?})\n\tWriter: {}",
+                        duration,
+                        writer_entity_id,
+                    );
+                    let to = self
+                        .writer_deadline_timer
+                        .set_timeout(duration, (writer_entity_id, duration));
+                    self.writer_deadline_timeout.insert(writer_entity_id, to);
+                }
+            }
+        }
+    }
+
     pub fn event_loop(mut self) {
         let mut events = Events::with_capacity(1024);
         loop {
@@ -278,21 +339,25 @@ impl EventLoop {
                         DISCOVERY_MULTI_TOKEN | DISCOVERY_UNI_TOKEN => {
                             if let Some(udp_sock) = self.sockets.get_mut(&event.token()) {
                                 let packets = EventLoop::receiv_packet(udp_sock);
-                                self.message_receiver.handle_packet(
+                                if let Some(reader_timers) = self.message_receiver.handle_packet(
                                     packets,
                                     &mut self.writers,
                                     &mut self.readers,
-                                );
+                                ) {
+                                    self.handle_set_reader_timer(reader_timers);
+                                };
                             }
                         }
                         USERTRAFFIC_MULTI_TOKEN | USERTRAFFIC_UNI_TOKEN => {
                             if let Some(udp_sock) = self.sockets.get_mut(&event.token()) {
                                 let packets = EventLoop::receiv_packet(udp_sock);
-                                self.message_receiver.handle_packet(
+                                if let Some(reader_timers) = self.message_receiver.handle_packet(
                                     packets,
                                     &mut self.writers,
                                     &mut self.readers,
-                                );
+                                ) {
+                                    self.handle_set_reader_timer(reader_timers);
+                                };
                             }
                         }
                         ADD_WRITER_TOKEN => {
@@ -325,58 +390,6 @@ impl EventLoop {
                                 }
                             }
                         }
-                        SET_READER_TIMER => {
-                            while let Ok(reader_timer) = self.set_reader_timer_receiver.try_recv() {
-                                match reader_timer {
-                                    ReaderTimer::Heartbeat(reader_entity_id, writer_guid) => {
-                                        if let Some(reader) = self.readers.get(&reader_entity_id) {
-                                            trace!(
-                                                "set Heartbeat response delay timer({:?}) of Reader\n\tReader: {}\n\tWriter: {}",
-                                                reader.heartbeat_response_delay(),
-                                                reader_entity_id,
-                                                writer_guid
-                                            );
-                                            self.reader_hb_timer.set_timeout(
-                                                reader.heartbeat_response_delay(),
-                                                (reader_entity_id, writer_guid),
-                                            );
-                                        } else {
-                                            error!("not found Reader from EventLoop.readers which attempt to set heartbeat timer\n\tReader: {}", reader_entity_id);
-                                        }
-                                    }
-                                    ReaderTimer::Deadline(
-                                        reader_entity_id,
-                                        writer_guid,
-                                        duration,
-                                    ) => {
-                                        if let Some(to) = self
-                                            .reader_deadline_timeout
-                                            .get(&(reader_entity_id, writer_guid))
-                                        {
-                                            trace!(
-                                                "cancel Writer Deadline timer({:?})\n\tReader: {}\n\tWriter: {}",
-                                                duration,
-                                                reader_entity_id,
-                                                writer_guid,
-                                            );
-                                            self.reader_deadline_timer.cancel_timeout(to);
-                                        }
-                                        trace!(
-                                            "set Reader Deadline timer({:?})\n\tReader: {}\n\tWriter: {}",
-                                            duration,
-                                            reader_entity_id,
-                                            writer_guid,
-                                        );
-                                        let to = self.reader_deadline_timer.set_timeout(
-                                            duration,
-                                            ((reader_entity_id, writer_guid), duration),
-                                        );
-                                        self.reader_deadline_timeout
-                                            .insert((reader_entity_id, writer_guid), to);
-                                    }
-                                }
-                            }
-                        }
                         READER_DEADLINE_TIMER => {
                             while let Some(((reid, wguid), duration)) =
                                 self.reader_deadline_timer.poll()
@@ -399,49 +412,6 @@ impl EventLoop {
                                     self.reader_deadline_timeout.insert((reid, wguid), to);
                                 } else {
                                     unreachable!();
-                                }
-                            }
-                        }
-                        SET_WRITER_TIMER => {
-                            while let Ok(writer_timer) = self.set_writer_timer_receiver.try_recv() {
-                                match writer_timer {
-                                    WriterTimer::Nack(writer_entity_id, reader_guid) => {
-                                        if let Some(writer) = self.writers.get(&writer_entity_id) {
-                                            trace!(
-                                                "set Writer AckNack timer({:?})\n\tWriter: {}\n\tReader: {}",
-                                                writer.nack_response_delay(),
-                                                writer_entity_id,
-                                                reader_guid
-                                            );
-                                            self.writer_nack_timer.set_timeout(
-                                                writer.nack_response_delay(),
-                                                (writer_entity_id, reader_guid),
-                                            );
-                                        } else {
-                                            error!("not found Writer from EventLoop.writers which attempt to set nack response timer\n\tWriter: {}", writer_entity_id);
-                                        }
-                                    }
-                                    WriterTimer::Deadline(writer_entity_id, duration) => {
-                                        if let Some(to) =
-                                            self.writer_deadline_timeout.get(&writer_entity_id)
-                                        {
-                                            trace!(
-                                                "cancel Writer Deadline timer({:?})\n\tWriter: {}",
-                                                duration,
-                                                writer_entity_id,
-                                            );
-                                            self.writer_deadline_timer.cancel_timeout(to);
-                                        }
-                                        trace!(
-                                            "set Writer Deadline timer({:?})\n\tWriter: {}",
-                                            duration,
-                                            writer_entity_id,
-                                        );
-                                        let to = self
-                                            .writer_deadline_timer
-                                            .set_timeout(duration, (writer_entity_id, duration));
-                                        self.writer_deadline_timeout.insert(writer_entity_id, to);
-                                    }
                                 }
                             }
                         }
@@ -594,7 +564,9 @@ impl EventLoop {
                                     Timestamp::now().expect("failed to get Timestamp::now()"),
                                     writer.get_qos().liveliness().kind,
                                 );
-                                writer.handle_writer_cmd();
+                                if let Some(wtv) = writer.handle_writer_cmd() {
+                                    self.handle_set_writer_timer(wtv);
+                                };
                             } else {
                                 error!(
                                     "EventLoop's poll received event with Token of unregisterd Writer {}",
@@ -617,11 +589,7 @@ impl EventLoop {
     }
 
     fn register_writer(&mut self, writer_ing: WriterIngredients) {
-        let mut writer = Writer::new(
-            writer_ing,
-            self.udp_sender.clone(),
-            self.set_writer_timer_sender.clone(),
-        );
+        let mut writer = Writer::new(writer_ing, self.udp_sender.clone());
         if writer.entity_id() == EntityId::SPDP_BUILTIN_PARTICIPANT_ANNOUNCER {
             // this is for sending discovery message
             // readerEntityId of SPDP message from Rust DDS:
@@ -715,11 +683,7 @@ impl EventLoop {
         self.writers.insert(writer.entity_id(), writer);
     }
     fn register_reader(&mut self, reader_ing: ReaderIngredients) {
-        let reader = Reader::new(
-            reader_ing,
-            self.udp_sender.clone(),
-            self.set_reader_timer_sender.clone(),
-        );
+        let reader = Reader::new(reader_ing, self.udp_sender.clone());
         if reader.entity_id() != EntityId::SPDP_BUILTIN_PARTICIPANT_DETECTOR
             && reader.entity_id() != EntityId::SEDP_BUILTIN_PUBLICATIONS_DETECTOR
             && reader.entity_id() != EntityId::SEDP_BUILTIN_SUBSCRIPTIONS_DETECTOR
