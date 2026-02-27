@@ -499,7 +499,17 @@ impl MessageReceiver {
                         spdp_data.metarraffic_multicast_locator_list.clone(),
                         qos,
                     );
-                    writer.send_heart_beat(false);
+                    // Executing heavy operations inside the event loop can severely impact
+                    // performance, particularly under high load. It was identified that
+                    // `min_message_cover()`, called via `Writer::send_heartbeat()`, was
+                    // causing bottlenecks during periods of high activity.
+                    //
+                    // This specific `send_heartbeat()` call was an optimization intended to
+                    // reduce the latency between Participant discovery and the first
+                    // Heartbeat, but it is not essential for correct protocol operation.
+                    // Removing this call improves event loop responsiveness without
+                    // compromising reliability.
+                    // writer.send_heart_beat(false);
                 } else {
                     error!("not found writer 'SEDP_BUILTIN_PUBLICATIONS_ANNOUNCER' from EventLoop.writers");
                 }
@@ -551,7 +561,7 @@ impl MessageReceiver {
                         spdp_data.metarraffic_multicast_locator_list.clone(),
                         qos,
                     );
-                    writer.send_heart_beat(false);
+                    // writer.send_heart_beat(false);
                 } else {
                     error!("not found writer 'SEDP_BUILTIN_SUBSCRIPTIONS_ANNOUNCER' from EventLoop.writers");
                 }
