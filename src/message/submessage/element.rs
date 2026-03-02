@@ -248,7 +248,7 @@ impl<C: Context> Writable<C> for ParameterList {
     }
 }
 
-#[derive(PartialEq, Eq, Readable, Writable, Clone, Copy)]
+#[derive(PartialEq, Eq, Readable, Writable, Clone, Copy, Debug)]
 pub struct Timestamp {
     // time in seconds
     pub seconds: u32,
@@ -279,6 +279,12 @@ impl Timestamp {
             seconds: (now / 1_000_000_000) as u32,
             fraction: fraction as u32,
         })
+    }
+}
+
+impl fmt::Display for Timestamp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}.{}", self.seconds, self.fraction)
     }
 }
 
