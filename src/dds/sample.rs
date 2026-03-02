@@ -22,7 +22,7 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataSample<D> {
 }
 
 pub struct SampleInfo {
-    source_timestamp: Timestamp,
+    pub source_timestamp: Timestamp,
 }
 
 impl SampleInfo {
