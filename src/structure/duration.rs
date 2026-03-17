@@ -3,8 +3,16 @@ use core::convert::From;
 use core::time::Duration as CoreDuration;
 use serde::{Deserialize, Serialize};
 
+/// Duration in a format compliant with the RTPS specification
+/// RTPS 2.3 spec, 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
+/// ```cpp
+/// struct Duration_t {
+///     long seconds; // time in seconds
+///     unsigned long fraction; // time in sec/2^32
+/// };
+/// ```
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Duration {
+pub(crate) struct Duration {
     /// time in seconds
     pub seconds: i32,
     /// time in sec/2^32

@@ -289,7 +289,7 @@ impl fmt::Display for Timestamp {
 }
 
 impl Sub for Timestamp {
-    type Output = Duration;
+    type Output = CoreDuration;
 
     fn sub(self, rhs: Self) -> Self::Output {
         let lsec = self.seconds as i64;
@@ -299,7 +299,7 @@ impl Sub for Timestamp {
         let rnanos = (1_000_000_000 * rhs.fraction as u64 / (1_u64 << 32)) as i64;
         let r = rsec * 1_000_000_000 + rnanos;
 
-        Duration::from_nanos(l - r)
+        Duration::from_nanos(l - r).into()
     }
 }
 

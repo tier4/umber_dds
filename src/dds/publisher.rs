@@ -40,7 +40,7 @@ struct InnerPublisher {
 }
 
 impl Publisher {
-    pub fn new(
+    pub(crate) fn new(
         guid: GUID,
         qos: PublisherQosPolicies,
         dp: DomainParticipant,

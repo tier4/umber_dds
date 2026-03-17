@@ -220,7 +220,7 @@ impl Writer {
         let writer_cache = self.writer_cache.read();
         if let Some(ts) = writer_cache.get_last_added_ts(self.guid) {
             let elapse = Timestamp::now().expect("failed to get Timestamp::now()") - *ts;
-            if elapse > ld {
+            if elapse > ld.into() {
                 let data = ParticipantMessageData::new(
                     self.guid_prefix(),
                     ParticipantMessageKind::AUTOMATIC_LIVELINESS_UPDATE,
@@ -964,7 +964,7 @@ impl Writer {
             let writer_cache = self.writer_cache.read();
             if let Some(ts) = writer_cache.get_last_added_ts(self.guid) {
                 let elapse = Timestamp::now().expect("failed to get Timestamp::now()") - *ts;
-                if elapse > ld {
+                if elapse > ld.into() {
                     self.unmatch_count += 1;
                     self.is_alive = false;
                     debug!("checked liveliness of local wirter Lost, ld: {:?}, elapse: {:?}\n\tWriter: {}", ld, elapse, self.guid.entity_id);
@@ -1102,7 +1102,7 @@ impl PublicationMatchedStatus {
     }
 }
 
-pub struct WriterIngredients {
+pub(crate) struct WriterIngredients {
     // Entity
     pub guid: GUID,
     // Endpoint

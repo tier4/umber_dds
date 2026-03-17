@@ -27,7 +27,7 @@ pub struct Subscriber {
 }
 
 impl Subscriber {
-    pub fn new(
+    pub(crate) fn new(
         guid: GUID,
         qos: SubscriberQosPolicies,
         dp: DomainParticipant,

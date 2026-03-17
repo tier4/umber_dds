@@ -11,7 +11,6 @@ mod vendor_id;
 
 #[doc(inline)]
 pub use {
-    duration::Duration,
     entity::RTPSEntity,
     entity_id::{EntityId, EntityKind},
     guid::{GuidPrefix, GUID},
@@ -19,6 +18,7 @@ pub use {
 };
 
 pub(crate) use {
+    duration::Duration,
     parameter_id::ParameterId,
     proxy::{ReaderProxy, WriterProxy},
     vendor_id::VendorId,

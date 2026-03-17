@@ -820,11 +820,22 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct Presentation {
-        pub access_scope: PresentationQosAccessScopeKind,
-        pub coherent_access: bool,
-        pub ordered_access: bool,
+        pub(crate) access_scope: PresentationQosAccessScopeKind,
+        pub(crate) coherent_access: bool,
+        pub(crate) ordered_access: bool,
     }
     impl Presentation {
+        pub fn _new(
+            access_scope: PresentationQosAccessScopeKind,
+            coherent_access: bool,
+            ordered_access: bool,
+        ) -> Self {
+            Self {
+                access_scope,
+                coherent_access,
+                ordered_access,
+            }
+        }
         /// offered is Publisher side QoS value
         /// requested is Subscriber side QoS value
         pub(crate) fn _is_compatible(offered: Self, requested: Self) -> bool {
@@ -853,7 +864,7 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct Deadline {
-        pub period: Duration,
+        pub(crate) period: Duration,
     }
     impl Deadline {
         pub fn new(period: CoreDuration) -> Self {
@@ -876,8 +887,11 @@ pub mod policy {
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-    pub struct LatencyBudget(pub Duration);
+    pub struct LatencyBudget(pub(crate) Duration);
     impl LatencyBudget {
+        pub fn new(duration: CoreDuration) -> Self {
+            Self(duration.into())
+        }
         /// offered is Publisher side QoS value
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
@@ -916,10 +930,16 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct Liveliness {
-        pub kind: LivelinessQosKind,
-        pub lease_duration: Duration,
+        pub(crate) kind: LivelinessQosKind,
+        pub(crate) lease_duration: Duration,
     }
     impl Liveliness {
+        pub fn new(kind: LivelinessQosKind, lease_duration: CoreDuration) -> Self {
+            Self {
+                kind,
+                lease_duration: lease_duration.into(),
+            }
+        }
         /// offered is Publisher side QoS value
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
@@ -946,7 +966,14 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct TimeBasedFilter {
-        pub minimun_separation: Duration,
+        pub(crate) minimun_separation: Duration,
+    }
+    impl TimeBasedFilter {
+        pub fn new(minimun_separation: CoreDuration) -> Self {
+            Self {
+                minimun_separation: minimun_separation.into(),
+            }
+        }
     }
     impl Default for TimeBasedFilter {
         fn default() -> Self {
@@ -958,29 +985,30 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct Reliability {
-        pub kind: ReliabilityQosKind,
-        pub max_bloking_time: Duration,
+        pub(crate) kind: ReliabilityQosKind,
+        pub(crate) max_bloking_time: Duration,
     }
     impl Reliability {
         // DDS v1.4 spec, 2.2.3 Supported QoS specifies
         // default value of max_bloking_time is 100ms
+        //
+        pub fn new(kind: ReliabilityQosKind, max_bloking_time: CoreDuration) -> Self {
+            Self {
+                kind,
+                max_bloking_time: max_bloking_time.into(),
+            }
+        }
 
         pub fn default_besteffort() -> Self {
             Self {
                 kind: ReliabilityQosKind::BestEffort,
-                max_bloking_time: Duration {
-                    seconds: 0,
-                    fraction: 100,
-                },
+                max_bloking_time: Duration::from_millis(100),
             }
         }
         pub fn default_reliable() -> Self {
             Self {
                 kind: ReliabilityQosKind::Reliable,
-                max_bloking_time: Duration {
-                    seconds: 0,
-                    fraction: 100,
-                },
+                max_bloking_time: Duration::from_millis(100),
             }
         }
 
@@ -1015,8 +1043,13 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct History {
-        pub kind: HistoryQosKind,
-        pub depth: i32,
+        pub(crate) kind: HistoryQosKind,
+        pub(crate) depth: i32,
+    }
+    impl History {
+        pub fn new(kind: HistoryQosKind, depth: i32) -> Self {
+            Self { kind, depth }
+        }
     }
     impl Default for History {
         fn default() -> Self {
@@ -1051,7 +1084,7 @@ pub mod policy {
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-    pub struct Lifespan(pub Duration);
+    pub struct Lifespan(pub(crate) Duration);
     impl Lifespan {
         pub fn from_secs(secs: i32) -> Self {
             Self(Duration::from_secs(secs))
@@ -1144,8 +1177,8 @@ pub mod policy {
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct ReaderDataLifecycle {
-        pub autopurge_nowriter_samples_delay: Duration,
-        pub autopurge_dispose_samples_delay: Duration,
+        pub(crate) autopurge_nowriter_samples_delay: Duration,
+        pub(crate) autopurge_dispose_samples_delay: Duration,
     }
     impl Default for ReaderDataLifecycle {
         fn default() -> Self {

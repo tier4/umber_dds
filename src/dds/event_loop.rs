@@ -299,7 +299,7 @@ impl EventLoop {
                     let now = Timestamp::now().expect("failed get Timestamp::now");
                     let duration = (*ts + *lifespan_duration) - now;
                     self.reader_lifespan_timer
-                        .set_timeout(duration.into(), (*reader_entity_id, *hc_key));
+                        .set_timeout(duration, (*reader_entity_id, *hc_key));
                     trace!(
                         "set Reader Lifespan timer({:?})\n\tReader: {}\n\t{}",
                         duration,
@@ -516,7 +516,7 @@ impl EventLoop {
                                         trace!("assert_liveliness continue because duration INFINITE\n\tWriter: {}", guid);
                                         continue;
                                     }
-                                    if duration > liveliness.lease_duration.half() {
+                                    if duration > liveliness.lease_duration.half().into() {
                                         writer.assert_liveliness();
                                         trace!("assert_liveliness()\n\tWriter: {}", guid);
                                         self.discovery_db.write_local_writer(

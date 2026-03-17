@@ -206,7 +206,7 @@ impl DiscoveryDBInner {
         let mut lost = Vec::new();
         for (prefix, (es, data)) in &mut self.participant_data {
             if let EndpointState::Live(ts) = es {
-                if timestamp - *ts > data.lease_duration {
+                if timestamp - *ts > data.lease_duration.into() {
                     lost.push(*prefix);
                 } else {
                     next_duration = data.lease_duration.half().into();

@@ -886,7 +886,7 @@ impl Reader {
                 EndpointState::Live(last_added) => {
                     let elapse =
                         Timestamp::now().expect("failed to get Timestamp::now()") - last_added;
-                    if elapse > wld {
+                    if elapse > wld.into() {
                         trace!("checked liveliness of writer Lost, ld: {:?}, elapse: {:?}\n\tReader: {}\n\tWriter: {}", wld, elapse, self.guid, guid);
                         to_unmatch.push(*guid);
                     }
@@ -991,7 +991,7 @@ impl LivelinessChangedStatus {
     }
 }
 
-pub struct ReaderIngredients {
+pub(crate) struct ReaderIngredients {
     // Entity
     pub guid: GUID,
     // Endpoint
