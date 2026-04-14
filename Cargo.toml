@@ -27,7 +27,7 @@ enumflags2 = { version = "0.7.7", default-features = false, features = [
 mio_v06 = { package = "mio", version = "0.6.23" }
 mio_v08 = { package = "mio", version = "0.8.11", features = ["os-poll", "net"] }
 mio-extras = "2.0.6"
-rand = { version = "0.8", default-features = false, features = ["small_rng"] }
+rand = { version = "0.9", default-features = false, features = ["small_rng"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 socket2 = "0.5"
 speedy = { git = "https://github.com/koute/speedy", default-features = false, features = [
