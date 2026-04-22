@@ -211,15 +211,14 @@ impl Reader {
                             .expect("failed to send data via chennel 'reader_state_notifier'");
                     }
                 }
-                Some(ReaderState::Expect(seq_num)) => {
-                    if change.sequence_number == *seq_num {
-                        self.reader_cache.write().flush();
-                        self.reader_state_notifier
-                            .send(DataReaderStatusChanged::DataAvailable)
-                            .expect("failed to send data via channel 'reader_state_notifier'");
-                        *seq_num += SequenceNumber(1);
-                    }
+                Some(ReaderState::Expect(seq_num)) if change.sequence_number == *seq_num => {
+                    self.reader_cache.write().flush();
+                    self.reader_state_notifier
+                        .send(DataReaderStatusChanged::DataAvailable)
+                        .expect("failed to send data via channel 'reader_state_notifier'");
+                    *seq_num += SequenceNumber(1);
                 }
+                Some(ReaderState::Expect(_seq_num)) => (),
                 None => (),
             };
             if let Some(writer_proxy) = self.matched_writers.get_mut(&writer_guid) {

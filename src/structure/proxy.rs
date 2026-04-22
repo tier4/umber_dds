@@ -402,10 +402,10 @@ impl WriterProxy {
     pub fn lost_changes_update(&mut self, first_available_seq_num: SequenceNumber) {
         for (sn, cfw) in &mut self.cache_state {
             match cfw.status {
-                ChangeFromWriterStatusKind::_Uuknown | ChangeFromWriterStatusKind::Missing => {
-                    if *sn < first_available_seq_num {
-                        cfw.status = ChangeFromWriterStatusKind::Lost;
-                    }
+                ChangeFromWriterStatusKind::_Uuknown | ChangeFromWriterStatusKind::Missing
+                    if *sn < first_available_seq_num =>
+                {
+                    cfw.status = ChangeFromWriterStatusKind::Lost;
                 }
                 _ => (),
             }

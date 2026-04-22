@@ -401,7 +401,7 @@ impl HistoryCache {
                 .filter(|k| self.ready_key.contains(k))
                 .map(|k| (*k, self.changes.get(k).unwrap_or_else(|| panic!("Access to HistoryCache changes occurs for keys included in kind2key but not in changes: {}", k))))
                 .collect();
-            res.sort_by(|(ka, _ca), (kb, _cb)| ka.cmp(kb));
+            res.sort_by_key(|(k, _c)| *k);
             res.into_iter().unzip()
         } else {
             (Vec::new(), Vec::new())
