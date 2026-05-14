@@ -94,27 +94,31 @@ impl<D: Serialize + DdsData> DataWriter<D> {
         self.writer_data_to_hc(ts, serialized_payload, true);
     }
 
-    /// + updated: whether there are changes since the last write
-    pub(crate) fn write_builtin_data(&mut self, data: &D, updated: bool) {
+    /// + inc_seq_num: whether the seq_num needs to be incremented.
+    pub(crate) fn write_builtin_data(&mut self, data: &D, inc_seq_num: bool) {
         let ts = Timestamp::now().expect("failed to get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
-        self.writer_data_to_hc(ts, serialized_payload, updated);
+        self.writer_data_to_hc(ts, serialized_payload, inc_seq_num);
     }
 
-    /// + updated: whether there are changes since the last write
-    pub(crate) fn write_serialized_builtin_data(&mut self, data: SerializedPayload, updated: bool) {
+    /// + inc_seq_num: whether the seq_num needs to be incremented.
+    pub(crate) fn write_serialized_builtin_data(
+        &mut self,
+        data: SerializedPayload,
+        inc_seq_num: bool,
+    ) {
         let ts = Timestamp::now().expect("failed to get Timestamp::now()");
-        self.writer_data_to_hc(ts, data, updated);
+        self.writer_data_to_hc(ts, data, inc_seq_num);
     }
 
     fn writer_data_to_hc(
         &mut self,
         ts: Timestamp,
         serialized_payload: SerializedPayload,
-        updated: bool,
+        inc_seq_num: bool,
     ) {
-        if updated {
+        if inc_seq_num {
             self.last_change_sequence_number += SequenceNumber(1);
         } else if self.last_change_sequence_number == SequenceNumber(0) {
             self.last_change_sequence_number = SequenceNumber(1);

@@ -247,7 +247,9 @@ impl HistoryCache {
                 // Err(AddChangeErr::AlreadyExist)
             } else {
                 // maybe unreachable?
-                unreachable!();
+                let sp_exist = &c.data_value.as_ref().unwrap().value;
+                let sp_added = &change.data_value.as_ref().unwrap().value;
+                unreachable!("attempt to add change with known key({}), but different contents. exist: '{:?}', added: '{:?}'", key, sp_exist, sp_added);
                 /*
                 self.last_added.insert(key.guid, change.timestamp);
                 self.changes.insert(key, change);
@@ -401,7 +403,7 @@ impl HistoryCache {
                 .filter(|k| self.ready_key.contains(k))
                 .map(|k| (*k, self.changes.get(k).unwrap_or_else(|| panic!("Access to HistoryCache changes occurs for keys included in kind2key but not in changes: {}", k))))
                 .collect();
-            res.sort_by(|(ka, _ca), (kb, _cb)| ka.cmp(kb));
+            res.sort_by_key(|(key, _cache)| *key);
             res.into_iter().unzip()
         } else {
             (Vec::new(), Vec::new())
