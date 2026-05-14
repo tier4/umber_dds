@@ -813,6 +813,9 @@ impl Writer {
     }
 
     pub fn is_acked_by_all(&self, seq_num: SequenceNumber) -> bool {
+        if self.entity_id().is_builtin() {
+            return false;
+        }
         for reader_proxy in self.matched_readers.values() {
             if !reader_proxy.is_acked(seq_num) {
                 return false;
