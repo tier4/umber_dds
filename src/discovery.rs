@@ -101,6 +101,7 @@ pub fn create_builtin_endpoints(
     let sedp_writer_qos = DataWriterQos::Policies(Box::new(
         DataWriterQosBuilder::new()
             .reliability(Reliability::default_reliable())
+            .history(History::new(HistoryQosKind::KeepAll, 0))
             .build(),
     ));
     let sedp_reader_qos = DataReaderQos::Policies(Box::new(
