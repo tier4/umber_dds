@@ -382,8 +382,7 @@ impl Discovery {
                         }
                         DISC_WRITER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_writer_receiver.try_recv() {
-                                self.sedp_builtin_pub_writer
-                                    .write_builtin_data(&data, false); // TODO: updated: always false?
+                                self.sedp_builtin_pub_writer.write_builtin_data(&data, true);
                                 self.local_writers_data.insert(eid, data);
                                 debug!(
                                     "add Writer to Discovery's local_writers\n\tWriter: {} ",
@@ -393,8 +392,7 @@ impl Discovery {
                         }
                         DISC_READER_ADD => {
                             while let Ok((eid, data)) = self.notify_new_reader_receiver.try_recv() {
-                                self.sedp_builtin_sub_writer
-                                    .write_builtin_data(&data, false); // TODO: updated: always false?
+                                self.sedp_builtin_sub_writer.write_builtin_data(&data, true);
                                 self.local_readers_data.insert(eid, data);
                                 debug!(
                                     "add Reader to Discovery's local_readers\n\tReader: {} ",
