@@ -734,6 +734,9 @@ impl Writer {
     /// Warning: Only use with Reliable Writer
     /// remove changes acked by all matched_readers with a sequence number less than or equal to base-1 (Durability is TransientLocal) or base (Durability is Volatile)
     fn remove_acked_changes(&mut self, base: SequenceNumber) {
+        if self.entity_id().is_builtin() {
+            return;
+        }
         debug!(
             "Writer::remove_acked_changes(base: {:?})\n\tWriter: {}",
             base, self.guid.entity_id
@@ -813,9 +816,6 @@ impl Writer {
     }
 
     pub fn is_acked_by_all(&self, seq_num: SequenceNumber) -> bool {
-        if self.entity_id().is_builtin() {
-            return false;
-        }
         for reader_proxy in self.matched_readers.values() {
             if !reader_proxy.is_acked(seq_num) {
                 return false;
