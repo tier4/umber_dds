@@ -263,7 +263,9 @@ impl Writer {
         let oldest_unprocessed = match seq_nums.first() {
             Some(v) => *v,
             None => {
-                error!("reached unreachable state: called Writer::handle_write_data_cmd but writer_cache.unprocessed is empty\n\tWriter: {}", self.guid);
+                // called Writer::handle_write_data_cmd but writer_cache.unprocessed is empty.
+                // This decrease occurs when multiple data samples are written to the same DataWriter
+                // within a short period of time.
                 wt = None;
                 return wt;
             }
