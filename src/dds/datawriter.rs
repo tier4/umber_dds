@@ -132,12 +132,13 @@ impl<D: Serialize + DdsData> DataWriter<D> {
             InstantHandle {},
         );
         loop {
-            match self.whc.write().add_change(
+            let write_res = self.whc.write().add_change(
                 a_change.clone(),
                 self.is_reliable(),
                 self.qos.resource_limits(),
                 self.qos.history(),
-            ) {
+            );
+            match write_res {
                 Ok(_) => {
                     if !self.writer_guid.entity_id.is_builtin() {
                         info!(
