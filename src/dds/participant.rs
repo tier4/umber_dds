@@ -650,20 +650,25 @@ impl ParticipantConfigBuilder {
         }
     }
 
-    pub fn participant_period(&mut self, period: CoreDuration) {
+    pub fn participant_period(mut self, period: CoreDuration) -> Self {
         self.participant_message_period = Some(period);
+        self
     }
-    pub fn lease_duration(&mut self, duration: CoreDuration) {
+    pub fn lease_duration(mut self, duration: CoreDuration) -> Self {
         self.lease_duration = Some(duration);
+        self
     }
-    pub fn heartbeat_period(&mut self, period: CoreDuration) {
+    pub fn heartbeat_period(mut self, period: CoreDuration) -> Self {
         self.heartbeat_period = Some(period);
+        self
     }
-    pub fn nack_response_delay(&mut self, period: CoreDuration) {
+    pub fn nack_response_delay(mut self, period: CoreDuration) -> Self {
         self.nack_response_delay = Some(period);
+        self
     }
-    pub fn heartbeat_response_delay(&mut self, period: CoreDuration) {
+    pub fn heartbeat_response_delay(mut self, period: CoreDuration) -> Self {
         self.heartbeat_response_delay = Some(period);
+        self
     }
 }
 
