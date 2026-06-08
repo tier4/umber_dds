@@ -32,7 +32,7 @@ impl ParameterId {
     pub const PID_PRESENTATION: Self = Self { value: 0x0021 };
     pub const PID_PARTITION: Self = Self { value: 0x0029 };
     pub const PID_TIME_BASED_FILTER: Self = Self { value: 0x0004 };
-    pub const PID_TRANSPORT_PRIO: Self = Self { value: 0x0049 };
+    pub const PID_TRANSPORT_PRIORITY: Self = Self { value: 0x0049 };
     pub const PID_PROTOCOL_VERSION: Self = Self { value: 0x0015 };
     pub const PID_VENDOR_ID: Self = Self { value: 0x0016 };
     pub const PID_UNICAST_LOCATOR: Self = Self { value: 0x002f };

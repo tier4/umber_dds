@@ -547,7 +547,7 @@ impl Serialize for WriterProxy {
         s.serialize_field("reliability", &self.qos.resource_limits())?;
 
         // transport_priority
-        s.serialize_field("parameterId", &ParameterId::PID_TRANSPORT_PRIO.value)?;
+        s.serialize_field("parameterId", &ParameterId::PID_TRANSPORT_PRIORITY.value)?;
         s.serialize_field::<u16>("parameterLength", &4)?;
         s.serialize_field("reliability", &self.qos.transport_priority())?;
 

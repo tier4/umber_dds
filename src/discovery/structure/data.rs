@@ -98,6 +98,9 @@ pub struct SDPBuiltinData {
     pub user_data: Option<UserData>,
     pub ownership: Option<Ownership>,
     pub destination_order: Option<DestinationOrder>,
+    pub history: Option<History>,
+    pub resource_limits: Option<ResourceLimits>,
+    pub transport_priority: Option<TransportPriority>,
     pub time_based_filter: Option<TimeBasedFilter>,
     pub presentation: Option<Presentation>,
     pub partition: Option<Partition>,
@@ -141,6 +144,9 @@ impl SDPBuiltinData {
         user_data: Option<UserData>,
         ownership: Option<Ownership>,
         destination_order: Option<DestinationOrder>,
+        history: Option<History>,
+        resource_limits: Option<ResourceLimits>,
+        transport_priority: Option<TransportPriority>,
         time_based_filter: Option<TimeBasedFilter>,
         presentation: Option<Presentation>,
         partition: Option<Partition>,
@@ -180,6 +186,9 @@ impl SDPBuiltinData {
             user_data,
             ownership,
             destination_order,
+            history,
+            resource_limits,
+            transport_priority,
             time_based_filter,
             presentation,
             partition,
@@ -265,6 +274,8 @@ impl SDPBuiltinData {
                     .unwrap_or(Reliability::default_besteffort()),
             )
             .destination_order(self.destination_order.unwrap_or_default())
+            .history(self.history.unwrap_or_default())
+            .resource_limits(self.resource_limits.unwrap_or_default())
             .user_data(self.user_data.clone().unwrap_or_default())
             .ownership(self.ownership.unwrap_or_default())
             .time_based_filter(self.time_based_filter.unwrap_or_default())
@@ -307,6 +318,9 @@ impl SDPBuiltinData {
             .liveliness(self.liveliness.unwrap_or_default())
             .reliability(self.reliability.unwrap_or(Reliability::default_reliable()))
             .destination_order(self.destination_order.unwrap_or_default())
+            .history(self.history.unwrap_or_default())
+            .resource_limits(self.resource_limits.unwrap_or_default())
+            .transport_priority(self.transport_priority.unwrap_or_default())
             .user_data(self.user_data.clone().unwrap_or_default())
             .ownership(self.ownership.unwrap_or_default())
             .ownership_strength(self.ownership_strength.unwrap_or_default())
@@ -374,6 +388,9 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
             UserData,
             Ownership,
             DestinationOrder,
+            History,
+            ResourceLimits,
+            TransportPriority,
             TimeBasedFilter,
             Presentation,
             Partition,
@@ -444,6 +461,9 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                             ParameterId::PID_USER_DATA => Ok(Field::UserData),
                             ParameterId::PID_OWNERSHIP => Ok(Field::Ownership),
                             ParameterId::PID_DESTINATION_ORDER => Ok(Field::DestinationOrder),
+                            ParameterId::PID_HISTORY => Ok(Field::History),
+                            ParameterId::PID_RESOURCE_LIMITS => Ok(Field::ResourceLimits),
+                            ParameterId::PID_TRANSPORT_PRIORITY => Ok(Field::TransportPriority),
                             ParameterId::PID_TIME_BASED_FILTER => Ok(Field::TimeBasedFilter),
                             ParameterId::PID_PRESENTATION => Ok(Field::Presentation),
                             ParameterId::PID_PARTITION => Ok(Field::Partition),
@@ -504,6 +524,9 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                 let mut user_data: Option<UserData> = None;
                 let mut ownership: Option<Ownership> = None;
                 let mut destination_order: Option<DestinationOrder> = None;
+                let mut history: Option<History> = None;
+                let mut resource_limits: Option<ResourceLimits> = None;
+                let mut transport_priority: Option<TransportPriority> = None;
                 let mut time_based_filter: Option<TimeBasedFilter> = None;
                 let mut presentation: Option<Presentation> = None;
                 let mut partition: Option<Partition> = None;
@@ -665,6 +688,15 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                         ParameterId::PID_DESTINATION_ORDER => {
                             destination_order = seq.next_element()?;
                         }
+                        ParameterId::PID_HISTORY => {
+                            history = seq.next_element()?;
+                        }
+                        ParameterId::PID_RESOURCE_LIMITS => {
+                            resource_limits = seq.next_element()?;
+                        }
+                        ParameterId::PID_TRANSPORT_PRIORITY => {
+                            transport_priority = seq.next_element()?;
+                        }
                         ParameterId::PID_TIME_BASED_FILTER => {
                             time_based_filter = seq.next_element()?;
                         }
@@ -743,6 +775,9 @@ impl<'de> Deserialize<'de> for SDPBuiltinData {
                     user_data,
                     ownership,
                     destination_order,
+                    history,
+                    resource_limits,
+                    transport_priority,
                     time_based_filter,
                     presentation,
                     partition,
