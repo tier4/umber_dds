@@ -19,16 +19,16 @@ pub(crate) use {
 
 use crate::structure::Duration;
 use crate::structure::ParameterId;
+use crate::utils::pad_len;
 use alloc::fmt;
 use byteorder::ReadBytesExt;
 use bytes::{BufMut, Bytes, BytesMut};
-use cdr::{CdrBe, CdrLe, Infinite, PlCdrBe, PlCdrLe};
 use core::cmp::{max, min};
 use core::ops::{Add, AddAssign};
 use core::ops::{Sub, SubAssign};
 use core::time::Duration as CoreDuration;
 use serde::{Deserialize, Serialize};
-use speedy::{Context, Readable, Reader, Writable, Writer};
+use speedy::{Context, Endianness, Readable, Reader, Writable, Writer};
 use std::io;
 use std::net::Ipv4Addr;
 
@@ -194,16 +194,15 @@ impl<C: Context> Writable<C> for Parameter {
         writer.write_value(&self.parameter_id)?;
 
         let length = self.value.len();
-        let alignment = length % 4;
-        writer.write_u16((length + alignment) as u16)?;
+        let pad_len = pad_len(length);
+        writer.write_u16((length + pad_len) as u16)?;
 
         for byte in &self.value {
             writer.write_u8(*byte)?;
         }
 
-        for _ in 0..alignment {
-            writer.write_u8(0x00)?;
-        }
+        const ZEROS: [u8; 3] = [0; 3];
+        writer.write_bytes(&ZEROS[..pad_len])?;
 
         Ok(())
     }
@@ -321,9 +320,7 @@ impl Add<CoreDuration> for Timestamp {
 }
 
 // spec versin 2.3, 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
-#[derive(
-    Readable, Writable, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Readable, Writable, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Locator {
     pub kind: i32,
     pub port: u32,
@@ -449,6 +446,9 @@ pub struct RepresentationIdentifier {
 
 #[allow(dead_code)]
 impl RepresentationIdentifier {
+    pub fn new(bytes: [u8; 2]) -> Self {
+        Self { bytes }
+    }
     pub fn bytes(&self) -> [u8; 2] {
         self.bytes
     }
@@ -528,31 +528,29 @@ impl SerializedPayload {
         buf.freeze()
     }
 
-    pub fn new_from_cdr_data<D: Serialize>(data: &D, rep_id: RepresentationIdentifier) -> Self {
-        let mut serialized_data = match rep_id {
-            RepresentationIdentifier::CDR_LE => {
-                cdr::serialize::<_, _, CdrLe>(data, Infinite).expect("failed to serialize data")
-            }
+    pub fn new_from_cdr_data<W: Writable<Endianness>>(
+        data: &W,
+        rep_id: RepresentationIdentifier,
+    ) -> Self {
+        let serialized_data = match rep_id {
+            RepresentationIdentifier::CDR_LE => data
+                .write_to_vec_with_ctx(Endianness::LittleEndian)
+                .unwrap(),
             RepresentationIdentifier::CDR_BE => {
-                cdr::serialize::<_, _, CdrBe>(data, Infinite).expect("failed to serialize data")
+                data.write_to_vec_with_ctx(Endianness::BigEndian).unwrap()
             }
-            RepresentationIdentifier::PL_CDR_LE => {
-                cdr::serialize::<_, _, PlCdrLe>(data, Infinite).expect("failed to serialize data")
-            }
+            RepresentationIdentifier::PL_CDR_LE => data
+                .write_to_vec_with_ctx(Endianness::LittleEndian)
+                .unwrap(),
             RepresentationIdentifier::PL_CDR_BE => {
-                cdr::serialize::<_, _, PlCdrBe>(data, Infinite).expect("failed to serialize data")
+                data.write_to_vec_with_ctx(Endianness::BigEndian).unwrap()
             }
             _ => unimplemented!(),
         };
-        let serialized_rep_id: Vec<_> = serialized_data.drain(0..=1).collect();
-        assert_eq!(serialized_rep_id, Vec::from(rep_id.bytes));
-        let representation_options = [0; 2];
-        let rep_opt: Vec<_> = serialized_data.drain(0..=1).collect();
-        assert_eq!(rep_opt, Vec::from(representation_options));
         let value = Bytes::from(serialized_data);
         Self {
             representation_identifier: rep_id,
-            representation_options,
+            representation_options: [0; 2],
             value,
         }
     }

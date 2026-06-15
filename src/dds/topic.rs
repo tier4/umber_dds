@@ -80,6 +80,16 @@ impl Topic {
     }
 }
 
+impl core::fmt::Display for Topic {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(
+            f,
+            "Topic {{ name: {}, type: {} }}",
+            self.inner.name, self.inner.type_desc
+        )
+    }
+}
+
 struct InnerTopic {
     name: String,
     type_desc: String,

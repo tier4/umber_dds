@@ -22,13 +22,13 @@ use core::time::Duration as CoreDuration;
 use log::{info, trace, warn};
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
-use serde::Serialize;
+use speedy::{Endianness, Writable};
 use std::io;
 
 /// DDS DataWriter
 #[allow(dead_code)]
-pub struct DataWriter<D: Serialize + DdsData> {
-    data_phantom: PhantomData<D>,
+pub struct DataWriter<W: Writable<Endianness> + DdsData> {
+    data_phantom: PhantomData<W>,
     writer_guid: GUID,
     qos: DataWriterQosPolicies,
     topic: Topic,
@@ -44,7 +44,7 @@ pub struct DataWriter<D: Serialize + DdsData> {
     writer_state_receiver: mio_channel::Receiver<DataWriterStatusChanged>,
 }
 
-impl<D: Serialize + DdsData> DataWriter<D> {
+impl<W: Writable<Endianness> + DdsData> DataWriter<W> {
     pub(crate) fn new(
         writer_command_sender: mio_channel::SyncSender<WriterCmd>,
         writer_guid: GUID,
@@ -68,7 +68,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
             );
         }
         Self {
-            data_phantom: PhantomData::<D>,
+            data_phantom: PhantomData::<W>,
             writer_guid,
             qos,
             topic,
@@ -87,7 +87,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
     }
 
     /// publish data for matching DataReader
-    pub fn write(&mut self, data: &D) {
+    pub fn write(&mut self, data: &W) {
         let ts = Timestamp::now().expect("failed to get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::CDR_LE);
@@ -95,7 +95,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
     }
 
     /// + inc_seq_num: whether the seq_num needs to be incremented.
-    pub(crate) fn write_builtin_data(&mut self, data: &D, inc_seq_num: bool) {
+    pub(crate) fn write_builtin_data(&mut self, data: &W, inc_seq_num: bool) {
         let ts = Timestamp::now().expect("failed to get Timestamp::now()");
         let serialized_payload =
             SerializedPayload::new_from_cdr_data(data, RepresentationIdentifier::PL_CDR_LE);
@@ -203,7 +203,7 @@ impl<D: Serialize + DdsData> DataWriter<D> {
     }
 }
 
-impl<D: Serialize + DdsData> Evented for DataWriter<D> {
+impl<W: Writable<Endianness> + DdsData> Evented for DataWriter<W> {
     fn register(
         &self,
         poll: &Poll,

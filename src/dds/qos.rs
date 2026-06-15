@@ -762,9 +762,11 @@ pub mod policy {
     //! For more details on each QoS policy, please refer to the DDS specification.
     //! DDS v1.4 spec, 2.2.3 Supported QoS (<https://www.omg.org/spec/DDS/1.4/PDF#G5.1034386>)
     use crate::structure::Duration;
+    use crate::utils::pad_len;
     use core::time::Duration as CoreDuration;
     use serde::{Deserialize, Serialize};
     use serde_repr::{Deserialize_repr, Serialize_repr};
+    use speedy::{Error, Readable, Writable};
 
     // Default value of QoS Policies is on DDS v1.4 spec 2.2.3 Supported QoS
     pub const LENGTH_UNLIMITED: i32 = -1;
@@ -788,6 +790,37 @@ pub mod policy {
                 max_instance: LENGTH_UNLIMITED,
                 max_samples_per_instanse: LENGTH_UNLIMITED,
             }
+        }
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for DurabilityService {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let service_cleanup_delay = reader.read_value()?;
+            let history_kind = reader.read_value()?;
+            let history_depth = reader.read_i32()?;
+            let max_samples = reader.read_i32()?;
+            let max_instance = reader.read_i32()?;
+            let max_samples_per_instanse = reader.read_i32()?;
+            Ok(Self {
+                service_cleanup_delay,
+                history_kind,
+                history_depth,
+                max_samples,
+                max_instance,
+                max_samples_per_instanse,
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for DurabilityService {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_value(&self.service_cleanup_delay)?;
+            writer.write_value(&self.history_kind)?;
+            writer.write_i32(self.history_depth)?;
+            writer.write_i32(self.max_samples)?;
+            writer.write_i32(self.max_instance)?;
+            writer.write_i32(self.max_samples_per_instanse)?;
+            Ok(())
         }
     }
 
@@ -815,6 +848,26 @@ pub mod policy {
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
             offered as usize >= requested as usize
+        }
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for Durability {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let val: i32 = reader.read_value()?;
+            Ok(match val {
+                0 => Self::Volatile,
+                1 => Self::TransientLocal,
+                _n => {
+                    return Err(todo!());
+                }
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for Durability {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(*self as i32)?;
+            Ok(())
         }
     }
 
@@ -852,6 +905,37 @@ pub mod policy {
             }
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for Presentation {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let access_scope = reader.read_value()?;
+            let coherent_access = reader.read_u8()? == 1;
+            let ordered_access = reader.read_u8()? == 1;
+            Ok(Self {
+                access_scope,
+                coherent_access,
+                ordered_access,
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for Presentation {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_value(&self.access_scope)?;
+            if self.coherent_access {
+                writer.write_u8(0)?;
+            } else {
+                writer.write_u8(1)?;
+            }
+            if self.ordered_access {
+                writer.write_u8(0)?;
+            } else {
+                writer.write_u8(1)?;
+            }
+            writer.write_u16(0)?; // padding
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
@@ -860,6 +944,25 @@ pub mod policy {
         Instance = 0,
         Topic = 1,
         Group = 2,
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for PresentationQosAccessScopeKind {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let val = reader.read_i32()?;
+            Ok(match val {
+                0 => Self::Instance,
+                1 => Self::Topic,
+                2 => Self::Group,
+                _n => return Err(todo!()),
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for PresentationQosAccessScopeKind {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(*self as i32)?;
+            Ok(())
+        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -885,6 +988,20 @@ pub mod policy {
             }
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for Deadline {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let duration = reader.read_value()?;
+            Ok(Self { period: duration })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for Deadline {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_value(&self.period)?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct LatencyBudget(pub(crate) Duration);
@@ -903,6 +1020,20 @@ pub mod policy {
             Self(Duration::ZERO)
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for LatencyBudget {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let duration = reader.read_value()?;
+            Ok(Self(duration))
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for LatencyBudget {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_value(&self.0)?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
@@ -918,6 +1049,24 @@ pub mod policy {
             offered as usize == requested as usize
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for Ownership {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let val = reader.read_i32()?;
+            Ok(match val {
+                0 => Self::Shared,
+                1 => Self::Exclusive,
+                _n => return Err(todo!()),
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for Ownership {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(*self as i32)?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
     pub struct OwnershipStrength(pub i32);
@@ -925,6 +1074,20 @@ pub mod policy {
     impl Default for OwnershipStrength {
         fn default() -> Self {
             Self(0)
+        }
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for OwnershipStrength {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let val = reader.read_i32()?;
+            Ok(Self(val))
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for OwnershipStrength {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(self.0)?;
+            Ok(())
         }
     }
 
@@ -955,6 +1118,25 @@ pub mod policy {
             }
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for Liveliness {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let kind = reader.read_value()?;
+            let lease_duration = reader.read_value()?;
+            Ok(Self {
+                kind,
+                lease_duration,
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for Liveliness {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_value(&self.kind)?;
+            writer.write_value(&self.lease_duration)?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
@@ -962,6 +1144,25 @@ pub mod policy {
         Automatic = 0,
         ManualByParticipant = 1,
         ManualByTopic = 2,
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for LivelinessQosKind {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let val = reader.read_i32()?;
+            Ok(match val {
+                0 => Self::Automatic,
+                1 => Self::ManualByTopic,
+                2 => Self::ManualByParticipant,
+                _n => return Err(todo!()),
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for LivelinessQosKind {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(*self as i32)?;
+            Ok(())
+        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -980,6 +1181,20 @@ pub mod policy {
             Self {
                 minimun_separation: Duration::ZERO,
             }
+        }
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for TimeBasedFilter {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let minimun_separation = reader.read_value()?;
+            Ok(Self { minimun_separation })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for TimeBasedFilter {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_value(&self.minimun_separation)?;
+            Ok(())
         }
     }
 
@@ -1018,12 +1233,49 @@ pub mod policy {
             offered.kind as usize >= requested.kind as usize
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for Reliability {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let kind = reader.read_value()?;
+            let max_bloking_time = reader.read_value()?;
+            Ok(Self {
+                kind,
+                max_bloking_time,
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for Reliability {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_value(&self.kind)?;
+            writer.write_value(&self.max_bloking_time)?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     pub enum ReliabilityQosKind {
         Reliable = 2,
         BestEffort = 1,
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for ReliabilityQosKind {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let val = reader.read_i32()?;
+            Ok(match val {
+                2 => Self::Reliable,
+                1 => Self::BestEffort,
+                _n => return Err(todo!()),
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for ReliabilityQosKind {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(*self as i32)?;
+            Ok(())
+        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
@@ -1038,6 +1290,24 @@ pub mod policy {
         /// requested is Subscriber side QoS value
         pub(crate) fn is_compatible(offered: Self, requested: Self) -> bool {
             offered as usize >= requested as usize
+        }
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for DestinationOrder {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let val = reader.read_i32()?;
+            Ok(match val {
+                0 => Self::ByReceptionTimestamp,
+                1 => Self::BySourceTimestamp,
+                _n => return Err(todo!()),
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for DestinationOrder {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(*self as i32)?;
+            Ok(())
         }
     }
 
@@ -1059,12 +1329,46 @@ pub mod policy {
             }
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for History {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let kind = reader.read_value()?;
+            let depth = reader.read_i32()?;
+            Ok(Self { kind, depth })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for History {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_value(&self.kind)?;
+            writer.write_i32(self.depth)?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
     #[repr(i32)]
     pub enum HistoryQosKind {
         KeepLast = 0,
         KeepAll = 1,
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for HistoryQosKind {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let val = reader.read_i32()?;
+            Ok(match val {
+                0 => Self::KeepLast,
+                1 => Self::KeepAll,
+                _n => return Err(todo!()),
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for HistoryQosKind {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(*self as i32)?;
+            Ok(())
+        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -1080,6 +1384,28 @@ pub mod policy {
                 max_instance: LENGTH_UNLIMITED,
                 max_samples_per_instanse: LENGTH_UNLIMITED,
             }
+        }
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for ResourceLimits {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let max_samples = reader.read_i32()?;
+            let max_instance = reader.read_i32()?;
+            let max_samples_per_instanse = reader.read_i32()?;
+            Ok(Self {
+                max_samples,
+                max_instance,
+                max_samples_per_instanse,
+            })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for ResourceLimits {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(self.max_samples)?;
+            writer.write_i32(self.max_instance)?;
+            writer.write_i32(self.max_samples_per_instanse)?;
+            Ok(())
         }
     }
 
@@ -1101,6 +1427,20 @@ pub mod policy {
             Self(Duration::INFINITE)
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for Lifespan {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let lifespan = reader.read_value()?;
+            Ok(Self(lifespan))
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for Lifespan {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_value(&self.0)?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
     pub struct Partition {
@@ -1113,14 +1453,7 @@ pub mod policy {
             for n in &self.name {
                 len += 4; // length of n: i32, 4octet
                 len += (n.len() as u16) + 1; // length of n+1: `+1` means null char
-                match len % 4 {
-                    // padding
-                    0 => (),
-                    1 => len += 3,
-                    2 => len += 2,
-                    3 => len += 1,
-                    _ => unreachable!(),
-                }
+                len += pad_len(len as usize) as u16;
             }
             len
         }
@@ -1130,6 +1463,39 @@ pub mod policy {
             Self {
                 name: vec![String::new()],
             }
+        }
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for Partition {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let vec_len = reader.read_i32()?;
+            let mut name = Vec::with_capacity(vec_len as usize);
+            for _ in 0..vec_len {
+                let cdr_name_len = reader.read_i32()?;
+                let n = reader.read_string((cdr_name_len - 1) as usize)?;
+                name.push(n);
+                reader.read_u8()?; // null char
+                reader.skip_bytes(pad_len(cdr_name_len as usize))?; // skip padding
+            }
+            Ok(Self { name })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for Partition {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            let vec_len = self.name.len();
+            writer.write_i32(vec_len as i32)?;
+            for n in &self.name {
+                let cdr_name_len = n.len() + 1;
+                writer.write_i32(cdr_name_len as i32)?;
+                writer.write_bytes(n.as_bytes())?;
+                writer.write_u8(0)?; // null char
+
+                // padding
+                const ZEROS: [u8; 3] = [0; 3];
+                writer.write_bytes(&ZEROS[..pad_len(cdr_name_len)])?;
+            }
+            Ok(())
         }
     }
 
@@ -1142,6 +1508,27 @@ pub mod policy {
             4 + self.value.len() as u16
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for UserData {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let length = reader.read_u16()?;
+            let value = reader.read_vec(length as usize)?;
+            // skip padding
+            reader.skip_bytes(pad_len(length as usize))?;
+            Ok(Self { value })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for UserData {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            let len = self.value.len();
+            writer.write_value(&self.value)?;
+            // write padding
+            const ZEROS: [u8; 3] = [0; 3];
+            writer.write_bytes(&ZEROS[..pad_len(len)])?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
     pub struct TopicData {
@@ -1152,6 +1539,28 @@ pub mod policy {
             4 + self.value.len() as u16
         }
     }
+    impl<'a, C: speedy::Context> Readable<'a, C> for TopicData {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let length = reader.read_u16()?;
+            let value = reader.read_vec(length as usize)?;
+            // skip padding
+            reader.skip_bytes(pad_len(length as usize))?;
+            Ok(Self { value })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for TopicData {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            let len = self.value.len();
+            writer.write_u16(len as u16)?;
+            writer.write_value(&self.value)?;
+            // write padding
+            const ZEROS: [u8; 3] = [0; 3];
+            writer.write_bytes(&ZEROS[..pad_len(len)])?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
     pub struct GroupData {
@@ -1160,6 +1569,28 @@ pub mod policy {
     impl GroupData {
         pub fn serialized_size(&self) -> u16 {
             4 + self.value.len() as u16
+        }
+    }
+    impl<'a, C: speedy::Context> Readable<'a, C> for GroupData {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let length = reader.read_u16()?;
+            let value = reader.read_vec(length as usize)?;
+            // skip padding
+            reader.skip_bytes(pad_len(length as usize))?;
+            Ok(Self { value })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for GroupData {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            let len = self.value.len();
+            writer.write_u16(len as u16)?;
+            writer.write_value(&self.value)?;
+            // write padding
+            const ZEROS: [u8; 3] = [0; 3];
+            writer.write_bytes(&ZEROS[..pad_len(len)])?;
+            Ok(())
         }
     }
 
@@ -1197,6 +1628,21 @@ pub mod policy {
     impl Default for TransportPriority {
         fn default() -> Self {
             Self { value: 0 }
+        }
+    }
+
+    impl<'a, C: speedy::Context> Readable<'a, C> for TransportPriority {
+        #[inline]
+        fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+            let value = reader.read_i32()?;
+            Ok(Self { value })
+        }
+    }
+    impl<C: speedy::Context> Writable<C> for TransportPriority {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            writer.write_i32(self.value)?;
+            Ok(())
         }
     }
 

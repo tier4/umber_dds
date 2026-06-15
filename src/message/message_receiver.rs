@@ -29,6 +29,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use log::{error, info, trace, warn};
 use mio_extras::channel as mio_channel;
+use speedy::Endianness;
 use std::error;
 
 #[derive(Debug, Clone)]
@@ -668,22 +669,36 @@ impl MessageReceiver {
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
-        let mut deserialized =
-            match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
-                Some(sp) => sp.to_bytes(),
-                None => {
-                    return Err(MessageError::Warn(
-                        "received spdp message without serializedPayload".to_string(),
-                    ))
+        let mut deserialized = if let Some(sp) = data.serialized_payload.as_ref() {
+            let bytes = sp.to_bytes();
+            let encapsulation_kind = RepresentationIdentifier::new([bytes[0], bytes[1]]);
+            let _encapsulation_option = [bytes[2], bytes[3]];
+            let endianness = match encapsulation_kind {
+                RepresentationIdentifier::CDR_LE => Endianness::LittleEndian,
+                RepresentationIdentifier::CDR_BE => Endianness::BigEndian,
+                RepresentationIdentifier::PL_CDR_LE => Endianness::LittleEndian,
+                RepresentationIdentifier::PL_CDR_BE => Endianness::BigEndian,
+                rep => {
+                    let bytes = rep.bytes();
+                    panic!(
+                        "unexpected encapsulation_kind: [0x{:02x}, 0x{:02x}]",
+                        bytes[0], bytes[1]
+                    )
                 }
-            }) {
-                Ok(d) => d,
+            };
+            match SDPBuiltinData::read_from_buffer_with_ctx(endianness, &bytes[4..]) {
+                Ok(data) => data,
                 Err(e) => {
                     return Err(MessageError::Error(format!(
                         "failed to deserialize reseived spdp data message: {e:?}",
                     )));
                 }
-            };
+            }
+        } else {
+            return Err(MessageError::Warn(
+                "received participant message without serializedPayload".to_string(),
+            ));
+        };
         let new_data = match deserialized.gen_spdp_discoverd_participant_data() {
             Some(nd) => nd,
             None => {
@@ -754,22 +769,36 @@ impl MessageReceiver {
         ts: Timestamp,
         readers: &mut BTreeMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
-        let mut deserialized =
-            match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
-                Some(sp) => sp.to_bytes(),
-                None => {
-                    return Err(MessageError::Warn(
-                        "received sedp message without serializedPayload".to_string(),
-                    ))
+        let mut deserialized = if let Some(sp) = data.serialized_payload.as_ref() {
+            let bytes = sp.to_bytes();
+            let encapsulation_kind = RepresentationIdentifier::new([bytes[0], bytes[1]]);
+            let _encapsulation_option = [bytes[2], bytes[3]];
+            let endianness = match encapsulation_kind {
+                RepresentationIdentifier::CDR_LE => Endianness::LittleEndian,
+                RepresentationIdentifier::CDR_BE => Endianness::BigEndian,
+                RepresentationIdentifier::PL_CDR_LE => Endianness::LittleEndian,
+                RepresentationIdentifier::PL_CDR_BE => Endianness::BigEndian,
+                rep => {
+                    let bytes = rep.bytes();
+                    panic!(
+                        "unexpected encapsulation_kind: [0x{:02x}, 0x{:02x}]",
+                        bytes[0], bytes[1]
+                    )
                 }
-            }) {
-                Ok(d) => d,
+            };
+            match SDPBuiltinData::read_from_buffer_with_ctx(endianness, &bytes[4..]) {
+                Ok(data) => data,
                 Err(e) => {
                     return Err(MessageError::Error(format!(
                         "failed to deserialize reseived sedp(w) data message: {e:?}",
                     )));
                 }
-            };
+            }
+        } else {
+            return Err(MessageError::Warn(
+                "received sedp message without serializedPayload".to_string(),
+            ));
+        };
         let writer_proxy = if let Some(participant_data) =
             self.disc_db.read_participant_data(self.source_guid_prefix)
         {
@@ -856,22 +885,36 @@ impl MessageReceiver {
         writers: &mut BTreeMap<EntityId, Writer>,
         readers: &mut BTreeMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
-        let mut deserialized =
-            match deserialize::<SDPBuiltinData>(&match data.serialized_payload.as_ref() {
-                Some(sp) => sp.to_bytes(),
-                None => {
-                    return Err(MessageError::Warn(
-                        "received sedp message without serializedPayload".to_string(),
-                    ))
+        let mut deserialized = if let Some(sp) = data.serialized_payload.as_ref() {
+            let bytes = sp.to_bytes();
+            let encapsulation_kind = RepresentationIdentifier::new([bytes[0], bytes[1]]);
+            let _encapsulation_option = [bytes[2], bytes[3]];
+            let endianness = match encapsulation_kind {
+                RepresentationIdentifier::CDR_LE => Endianness::LittleEndian,
+                RepresentationIdentifier::CDR_BE => Endianness::BigEndian,
+                RepresentationIdentifier::PL_CDR_LE => Endianness::LittleEndian,
+                RepresentationIdentifier::PL_CDR_BE => Endianness::BigEndian,
+                rep => {
+                    let bytes = rep.bytes();
+                    panic!(
+                        "unexpected encapsulation_kind: [0x{:02x}, 0x{:02x}]",
+                        bytes[0], bytes[1]
+                    )
                 }
-            }) {
-                Ok(d) => d,
+            };
+            match SDPBuiltinData::read_from_buffer_with_ctx(endianness, &bytes[4..]) {
+                Ok(data) => data,
                 Err(e) => {
                     return Err(MessageError::Error(format!(
                         "failed to deserialize reseived sedp(r) data message: {e:?}",
                     )));
                 }
-            };
+            }
+        } else {
+            return Err(MessageError::Warn(
+                "received sedp message without serializedPayload".to_string(),
+            ));
+        };
         let reader_proxy = if let Some(participant_data) =
             self.disc_db.read_participant_data(self.source_guid_prefix)
         {
@@ -949,22 +992,36 @@ impl MessageReceiver {
         ts: Timestamp,
         readers: &mut BTreeMap<EntityId, Reader>,
     ) -> Result<(), MessageError> {
-        let deserialized =
-            match deserialize::<ParticipantMessageData>(&match data.serialized_payload.as_ref() {
-                Some(sp) => sp.to_bytes(),
-                None => {
-                    return Err(MessageError::Warn(
-                        "received participant message without serializedPayload".to_string(),
-                    ))
-                }
-            }) {
-                Ok(d) => d,
-                Err(e) => {
-                    return Err(MessageError::Error(format!(
-                        "failed to deserialize reseived sedp(r) data message: {e:?}",
-                    )));
+        let deserialized = if let Some(sp) = data.serialized_payload.as_ref() {
+            let bytes = sp.to_bytes();
+            let encapsulation_kind = RepresentationIdentifier::new([bytes[0], bytes[1]]);
+            let _encapsulation_option = [bytes[2], bytes[3]];
+            let endianness = match encapsulation_kind {
+                RepresentationIdentifier::CDR_LE => Endianness::LittleEndian,
+                RepresentationIdentifier::CDR_BE => Endianness::BigEndian,
+                RepresentationIdentifier::PL_CDR_LE => Endianness::LittleEndian,
+                RepresentationIdentifier::PL_CDR_BE => Endianness::BigEndian,
+                rep => {
+                    let bytes = rep.bytes();
+                    panic!(
+                        "unexpected encapsulation_kind: [0x{:02x}, 0x{:02x}]",
+                        bytes[0], bytes[1]
+                    )
                 }
             };
+            match ParticipantMessageData::read_from_buffer_with_ctx(endianness, &bytes[4..]) {
+                Ok(data) => data,
+                Err(e) => {
+                    return Err(MessageError::Error(format!(
+                        "failed to deserialize reseived participant data message: {e:?}",
+                    )));
+                }
+            }
+        } else {
+            return Err(MessageError::Warn(
+                "received participant message without serializedPayload".to_string(),
+            ));
+        };
         if self
             .disc_db
             .read_participant_data(self.source_guid_prefix)

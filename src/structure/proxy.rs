@@ -10,7 +10,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use core::cmp::{max, min};
 use log::{debug, warn};
-use serde::{ser::SerializeStruct, Serialize};
+use speedy::{Context, Writable, Writer};
 
 #[derive(Clone)]
 pub struct ReaderProxy {
@@ -218,96 +218,97 @@ impl ReaderProxy {
         unacked_changes
     }
 }
-impl Serialize for ReaderProxy {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut s = serializer.serialize_struct("ReaderProxy", 4)?;
+
+impl<C: Context> Writable<C> for ReaderProxy {
+    #[inline]
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
         // remote_reader_guid
-        s.serialize_field("parameterId", &ParameterId::PID_ENDPOINT_GUID.value)?;
-        s.serialize_field::<u16>("parameterLength", &16)?;
-        s.serialize_field("remote_reader_guid", &self.remote_reader_guid)?;
+        writer.write_u16(ParameterId::PID_ENDPOINT_GUID.value)?;
+        writer.write_u16(16)?;
+        writer.write_value(&self.remote_reader_guid)?;
 
         // expects_inline_qos
-        s.serialize_field("parameterId", &ParameterId::PID_EXPECTS_INLINE_QOS.value)?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("expects_inline_qos", &self.expects_inline_qos)?;
-        s.serialize_field::<u16>("padding", &0)?;
+        writer.write_u16(ParameterId::PID_EXPECTS_INLINE_QOS.value)?;
+        writer.write_u16(4)?;
+        // writer.write_value(&self.expects_inline_qos)?;
+        if self.expects_inline_qos {
+            writer.write_u8(1)?;
+        } else {
+            writer.write_u8(0)?;
+        }
+        // padding alignment to 4 bytes for bool + u16
+        writer.write_bytes(&[0; 3])?;
 
         // unicast_locator_list
         for unicast_locator in &self.unicast_locator_list {
-            s.serialize_field("parameterId", &ParameterId::PID_UNICAST_LOCATOR.value)?;
-            s.serialize_field::<u16>("parameterLength", &24)?;
-            s.serialize_field("unicast_locator_list", &unicast_locator)?;
+            writer.write_u16(ParameterId::PID_UNICAST_LOCATOR.value)?;
+            writer.write_u16(24)?;
+            writer.write_value(unicast_locator)?;
         }
 
         // multicast_locator_list
         for multicast_locator in &self.multicast_locator_list {
-            s.serialize_field("parameterId", &ParameterId::PID_MULTICAST_LOCATOR.value)?;
-            s.serialize_field::<u16>("parameterLength", &24)?;
-            s.serialize_field("multicast_locator_list", &multicast_locator)?;
+            writer.write_u16(ParameterId::PID_MULTICAST_LOCATOR.value)?;
+            writer.write_u16(24)?;
+            writer.write_value(multicast_locator)?;
         }
 
         // durability
-        s.serialize_field("parameterId", &ParameterId::PID_DURABILITY.value)?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("durability", &self.qos.durability())?;
+        writer.write_u16(ParameterId::PID_DURABILITY.value)?;
+        writer.write_u16(4)?;
+        writer.write_value(&self.qos.durability())?;
 
         // deadline
-        s.serialize_field("parameterId", &ParameterId::PID_DEADLINE.value)?;
-        s.serialize_field::<u16>("parameterLength", &8)?;
-        s.serialize_field("deadline", &self.qos.deadline())?;
+        writer.write_u16(ParameterId::PID_DEADLINE.value)?;
+        writer.write_u16(8)?;
+        writer.write_value(&self.qos.deadline())?;
 
         // latency_budget
-        s.serialize_field("parameterId", &ParameterId::PID_LATENCY_BUDGET.value)?;
-        s.serialize_field::<u16>("parameterLength", &8)?;
-        s.serialize_field("latency_budget", &self.qos.latency_budget())?;
+        writer.write_u16(ParameterId::PID_LATENCY_BUDGET.value)?;
+        writer.write_u16(8)?;
+        writer.write_value(&self.qos.latency_budget())?;
 
         // liveliness
-        s.serialize_field("parameterId", &ParameterId::PID_LIVELINESS.value)?;
-        s.serialize_field::<u16>("parameterLength", &12)?;
-        s.serialize_field("liveliness", &self.qos.liveliness())?;
+        writer.write_u16(ParameterId::PID_LIVELINESS.value)?;
+        writer.write_u16(12)?;
+        writer.write_value(&self.qos.liveliness())?;
 
         // reliability
-        s.serialize_field("parameterId", &ParameterId::PID_RELIABILITY.value)?;
-        s.serialize_field::<u16>("parameterLength", &12)?;
-        s.serialize_field("reliability", &self.qos.reliability())?;
+        writer.write_u16(ParameterId::PID_RELIABILITY.value)?;
+        writer.write_u16(12)?;
+        writer.write_value(&self.qos.reliability())?;
 
         // destination_order
-        s.serialize_field("parameterId", &ParameterId::PID_DESTINATION_ORDER.value)?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("reliability", &self.qos.destination_order())?;
+        writer.write_u16(ParameterId::PID_DESTINATION_ORDER.value)?;
+        writer.write_u16(4)?;
+        writer.write_value(&self.qos.destination_order())?;
 
         // history
-        s.serialize_field("parameterId", &ParameterId::PID_HISTORY.value)?;
-        s.serialize_field::<u16>("parameterLength", &8)?;
-        s.serialize_field("reliability", &self.qos.history())?;
+        writer.write_u16(ParameterId::PID_HISTORY.value)?;
+        writer.write_u16(8)?;
+        writer.write_value(&self.qos.history())?;
 
         // resouce_limits
-        s.serialize_field("parameterId", &ParameterId::PID_RESOURCE_LIMITS.value)?;
-        s.serialize_field::<u16>("parameterLength", &12)?;
-        s.serialize_field("reliability", &self.qos.resource_limits())?;
+        writer.write_u16(ParameterId::PID_RESOURCE_LIMITS.value)?;
+        writer.write_u16(12)?;
+        writer.write_value(&self.qos.resource_limits())?;
 
         // user_data
-        s.serialize_field("parameterId", &ParameterId::PID_USER_DATA.value)?;
-        s.serialize_field::<u16>(
-            "parameterLength",
-            &(4 + self.qos.user_data().value.len() as u16),
-        )?;
-        s.serialize_field("user_data", &self.qos.user_data())?;
+        writer.write_u16(ParameterId::PID_USER_DATA.value)?;
+        writer.write_u16(4 + self.qos.user_data().value.len() as u16)?;
+        writer.write_value(&self.qos.user_data())?;
 
         // ownership
-        s.serialize_field("parameterId", &ParameterId::PID_OWNERSHIP.value)?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("ownership", &self.qos.ownership())?;
+        writer.write_u16(ParameterId::PID_OWNERSHIP.value)?;
+        writer.write_u16(4)?;
+        writer.write_value(&self.qos.ownership())?;
 
         // time_based_filter
-        s.serialize_field("parameterId", &ParameterId::PID_TIME_BASED_FILTER.value)?;
-        s.serialize_field::<u16>("parameterLength", &8)?;
-        s.serialize_field("reliability", &self.qos.time_based_filter())?;
+        writer.write_u16(ParameterId::PID_TIME_BASED_FILTER.value)?;
+        writer.write_u16(8)?;
+        writer.write_value(&self.qos.time_based_filter())?;
 
-        s.end()
+        Ok(())
     }
 }
 
@@ -468,112 +469,104 @@ impl WriterProxy {
         }
     }
 }
-impl Serialize for WriterProxy {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut s = serializer.serialize_struct("WriterProxy", 4)?;
+
+impl<C: Context> Writable<C> for WriterProxy {
+    #[inline]
+    fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
         // remote_writer_guid
-        s.serialize_field("parameterId", &ParameterId::PID_ENDPOINT_GUID.value)?;
-        s.serialize_field::<u16>("parameterLength", &16)?;
-        s.serialize_field("remote_reader_guid", &self.remote_writer_guid)?;
+        writer.write_u16(ParameterId::PID_ENDPOINT_GUID.value)?;
+        writer.write_u16(16)?;
+        writer.write_value(&self.remote_writer_guid)?;
 
         // unicast_locator_list
         for unicast_locator in &self.unicast_locator_list {
-            s.serialize_field("parameterId", &ParameterId::PID_UNICAST_LOCATOR.value)?;
-            s.serialize_field::<u16>("parameterLength", &24)?;
-            s.serialize_field("unicast_locator_list", &unicast_locator)?;
+            writer.write_u16(ParameterId::PID_UNICAST_LOCATOR.value)?;
+            writer.write_u16(24)?;
+            writer.write_value(unicast_locator)?;
         }
 
         // multicast_locator_list
         for multicast_locator in &self.multicast_locator_list {
-            s.serialize_field("parameterId", &ParameterId::PID_MULTICAST_LOCATOR.value)?;
-            s.serialize_field::<u16>("parameterLength", &24)?;
-            s.serialize_field("multicast_locator_list", &multicast_locator)?;
+            writer.write_u16(ParameterId::PID_MULTICAST_LOCATOR.value)?;
+            writer.write_u16(24)?;
+            writer.write_value(multicast_locator)?;
         }
 
         // data_max_size_serialized
-        s.serialize_field(
-            "parameterId",
-            &ParameterId::PID_TYPE_MAX_SIZE_SERIALIZED.value,
-        )?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("data_max_size_serialized", &self.data_max_size_serialized)?;
+        writer.write_u16(ParameterId::PID_TYPE_MAX_SIZE_SERIALIZED.value)?;
+        writer.write_u16(4)?;
+        writer.write_i32(self.data_max_size_serialized)?;
 
         // durability
-        s.serialize_field("parameterId", &ParameterId::PID_DURABILITY.value)?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("durability", &self.qos.durability())?;
+        writer.write_u16(ParameterId::PID_DURABILITY.value)?;
+        writer.write_u16(4)?;
+        writer.write_value(&self.qos.durability())?;
 
         // durability_service
-        s.serialize_field("parameterId", &ParameterId::PID_DURABILITY_SERVICE.value)?;
-        s.serialize_field::<u16>("parameterLength", &28)?;
-        s.serialize_field("durability_service", &self.qos.durability_service())?;
+        writer.write_u16(ParameterId::PID_DURABILITY_SERVICE.value)?;
+        writer.write_u16(28)?;
+        writer.write_value(&self.qos.durability_service())?;
 
         // deadline
-        s.serialize_field("parameterId", &ParameterId::PID_DEADLINE.value)?;
-        s.serialize_field::<u16>("parameterLength", &8)?;
-        s.serialize_field("deadline", &self.qos.deadline())?;
+        writer.write_u16(ParameterId::PID_DEADLINE.value)?;
+        writer.write_u16(8)?;
+        writer.write_value(&self.qos.deadline())?;
 
         // latency_budget
-        s.serialize_field("parameterId", &ParameterId::PID_LATENCY_BUDGET.value)?;
-        s.serialize_field::<u16>("parameterLength", &8)?;
-        s.serialize_field("latency_budget", &self.qos.latency_budget())?;
+        writer.write_u16(ParameterId::PID_LATENCY_BUDGET.value)?;
+        writer.write_u16(8)?;
+        writer.write_value(&self.qos.latency_budget())?;
 
         // liveliness
-        s.serialize_field("parameterId", &ParameterId::PID_LIVELINESS.value)?;
-        s.serialize_field::<u16>("parameterLength", &12)?;
-        s.serialize_field("liveliness", &self.qos.liveliness())?;
+        writer.write_u16(ParameterId::PID_LIVELINESS.value)?;
+        writer.write_u16(12)?;
+        writer.write_value(&self.qos.liveliness())?;
 
         // reliability
-        s.serialize_field("parameterId", &ParameterId::PID_RELIABILITY.value)?;
-        s.serialize_field::<u16>("parameterLength", &12)?;
-        s.serialize_field("reliability", &self.qos.reliability())?;
+        writer.write_u16(ParameterId::PID_RELIABILITY.value)?;
+        writer.write_u16(12)?;
+        writer.write_value(&self.qos.reliability())?;
 
         // destination_order
-        s.serialize_field("parameterId", &ParameterId::PID_DESTINATION_ORDER.value)?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("reliability", &self.qos.destination_order())?;
+        writer.write_u16(ParameterId::PID_DESTINATION_ORDER.value)?;
+        writer.write_u16(4)?;
+        writer.write_value(&self.qos.destination_order())?;
 
         // history
-        s.serialize_field("parameterId", &ParameterId::PID_HISTORY.value)?;
-        s.serialize_field::<u16>("parameterLength", &8)?;
-        s.serialize_field("reliability", &self.qos.history())?;
+        writer.write_u16(ParameterId::PID_HISTORY.value)?;
+        writer.write_u16(8)?;
+        writer.write_value(&self.qos.history())?;
 
         // resouce_limits
-        s.serialize_field("parameterId", &ParameterId::PID_RESOURCE_LIMITS.value)?;
-        s.serialize_field::<u16>("parameterLength", &12)?;
-        s.serialize_field("reliability", &self.qos.resource_limits())?;
+        writer.write_u16(ParameterId::PID_RESOURCE_LIMITS.value)?;
+        writer.write_u16(12)?;
+        writer.write_value(&self.qos.resource_limits())?;
 
         // transport_priority
-        s.serialize_field("parameterId", &ParameterId::PID_TRANSPORT_PRIORITY.value)?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("reliability", &self.qos.transport_priority())?;
+        writer.write_u16(ParameterId::PID_TRANSPORT_PRIORITY.value)?;
+        writer.write_u16(4)?;
+        writer.write_value(&self.qos.transport_priority())?;
 
         // lifespan
-        s.serialize_field("parameterId", &ParameterId::PID_LIFESPAN.value)?;
-        s.serialize_field::<u16>("parameterLength", &8)?;
-        s.serialize_field("lifespan", &self.qos.lifespan())?;
+        writer.write_u16(ParameterId::PID_LIFESPAN.value)?;
+        writer.write_u16(8)?;
+        writer.write_value(&self.qos.lifespan())?;
 
         // user_data
-        s.serialize_field("parameterId", &ParameterId::PID_USER_DATA.value)?;
-        s.serialize_field::<u16>(
-            "parameterLength",
-            &(4 + self.qos.user_data().value.len() as u16),
-        )?;
-        s.serialize_field("user_data", &self.qos.user_data())?;
+        writer.write_u16(ParameterId::PID_USER_DATA.value)?;
+        writer.write_u16(4 + self.qos.user_data().value.len() as u16)?;
+        writer.write_value(&self.qos.user_data())?;
 
         // ownership
-        s.serialize_field("parameterId", &ParameterId::PID_OWNERSHIP.value)?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("ownership", &self.qos.ownership())?;
+        writer.write_u16(ParameterId::PID_OWNERSHIP.value)?;
+        writer.write_u16(4)?;
+        writer.write_value(&self.qos.ownership())?;
 
         // ownership_strength
-        s.serialize_field("parameterId", &ParameterId::PID_OWNERSHIP_STRENGTH.value)?;
-        s.serialize_field::<u16>("parameterLength", &4)?;
-        s.serialize_field("ownership_strength", &self.qos.ownership_strength())?;
+        writer.write_u16(ParameterId::PID_OWNERSHIP_STRENGTH.value)?;
+        writer.write_u16(4)?;
+        writer.write_value(&self.qos.ownership_strength())?;
 
-        s.end()
+        Ok(())
     }
 }

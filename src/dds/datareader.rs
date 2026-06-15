@@ -4,7 +4,7 @@ use crate::dds::{
     subscriber::Subscriber,
     topic::Topic,
 };
-use crate::discovery::structure::cdr::deserialize;
+use crate::message::submessage::element::RepresentationIdentifier;
 use crate::rtps::{cache::HistoryCache, reader::DataReaderStatusChanged};
 use crate::structure::GUID;
 use crate::DdsData;
@@ -14,12 +14,12 @@ use core::marker::PhantomData;
 use log::{error, info};
 use mio_extras::channel as mio_channel;
 use mio_v06::{event::Evented, Poll, PollOpt, Ready, Token};
-use serde::Deserialize;
+use speedy::{Endianness, Readable};
 use std::io;
 
 /// DDS DataReader
-pub struct DataReader<D: for<'de> Deserialize<'de> + DdsData> {
-    data_phantom: PhantomData<D>,
+pub struct DataReader<R: for<'a> Readable<'a, Endianness> + DdsData> {
+    data_phantom: PhantomData<R>,
     _reader_guid: GUID,
     _qos: DataReaderQosPolicies,
     topic: Topic,
@@ -28,7 +28,7 @@ pub struct DataReader<D: for<'de> Deserialize<'de> + DdsData> {
     reader_state_receiver: mio_channel::Receiver<DataReaderStatusChanged>,
 }
 
-impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
+impl<R: for<'a> Readable<'a, Endianness> + DdsData> DataReader<R> {
     pub(crate) fn new(
         reader_guid: GUID,
         qos: DataReaderQosPolicies,
@@ -51,7 +51,7 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
             );
         }
         DataReader {
-            data_phantom: PhantomData::<D>,
+            data_phantom: PhantomData::<R>,
             _reader_guid: reader_guid,
             _qos: qos,
             topic,
@@ -70,7 +70,7 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
     /// The (i+1)-th element of the return value of this method is newer than the i-th element.
     ///
     /// When History QoS is set to KeepLast: depth N, this method returns an Vec with a maximum length of N elements.
-    pub fn take(&self) -> Vec<DataSample<D>> {
+    pub fn take(&self) -> Vec<DataSample<R>> {
         info!(
             "DataReader::take() from Topic ({}, {})",
             self.topic.name(),
@@ -79,18 +79,36 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
         self.get_data()
     }
 
-    fn get_data(&self) -> Vec<DataSample<D>> {
+    fn get_data(&self) -> Vec<DataSample<R>> {
         let mut hc = self.rhc.write();
         let (keys, changes) = hc.get_ready_changes();
-        let mut v: Vec<DataSample<D>> = Vec::new();
+        let mut v: Vec<DataSample<R>> = Vec::new();
         for (d, ts) in changes
             .iter()
             .filter(|change| change.data_value().is_some())
             .map(|change| (change.data_value().unwrap(), change.timestamp))
         {
-            match deserialize::<D>(&d.to_bytes()) {
-                Ok(neko) => v.push(DataSample::new(neko, SampleInfo::new(ts))),
-                Err(e) => error!("failed to deserialize: '{}'", e),
+            let received_bytes = d.to_bytes();
+            let encapsulation_kind =
+                RepresentationIdentifier::new([received_bytes[0], received_bytes[1]]);
+            let _encapsulation_option = [received_bytes[2], received_bytes[3]];
+            let endianness = match encapsulation_kind {
+                RepresentationIdentifier::CDR_LE => Endianness::LittleEndian,
+                RepresentationIdentifier::CDR_BE => Endianness::BigEndian,
+                rep => {
+                    let bytes = rep.bytes();
+                    panic!(
+                        "unexpected encapsulation_kind: [0x{:02x}, 0x{:02x}]",
+                        bytes[0], bytes[1]
+                    )
+                }
+            };
+            match R::read_from_buffer_with_ctx(endianness, &received_bytes[4..]) {
+                Ok(data) => v.push(DataSample::new(data, SampleInfo::new(ts))),
+                Err(e) => error!(
+                    "DataReader failed to deserialize: '{}'\n\tDataReader: {}\n\tTopic: {}",
+                    e, self._reader_guid, self.topic
+                ),
             }
         }
         for key in keys.iter() {
@@ -115,7 +133,7 @@ impl<D: for<'de> Deserialize<'de> + DdsData> DataReader<D> {
     }
 }
 
-impl<D: for<'de> Deserialize<'de> + DdsData> Evented for DataReader<D> {
+impl<R: for<'a> Readable<'a, Endianness> + DdsData> Evented for DataReader<R> {
     fn register(
         &self,
         poll: &Poll,

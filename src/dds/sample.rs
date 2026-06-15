@@ -1,18 +1,18 @@
 use crate::message::submessage::element::Timestamp;
 use crate::DdsData;
-use serde::Deserialize;
+use speedy::{Endianness, Readable};
 
-pub struct DataSample<D: for<'de> Deserialize<'de> + DdsData> {
-    data: D,
+pub struct DataSample<R: for<'a> Readable<'a, Endianness> + DdsData> {
+    data: R,
     sample_info: SampleInfo,
 }
 
-impl<D: for<'de> Deserialize<'de> + DdsData> DataSample<D> {
-    pub(crate) fn new(data: D, sample_info: SampleInfo) -> Self {
+impl<R: for<'a> Readable<'a, Endianness> + DdsData> DataSample<R> {
+    pub(crate) fn new(data: R, sample_info: SampleInfo) -> Self {
         Self { data, sample_info }
     }
 
-    pub fn data(&self) -> &D {
+    pub fn data(&self) -> &R {
         &self.data
     }
 

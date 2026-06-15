@@ -16,6 +16,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use log::info;
 use mio_extras::channel as mio_channel;
+use speedy::{Endianness, Writable};
 
 /// DDS Publisher
 ///
@@ -101,11 +102,11 @@ impl Publisher {
     /// ```ignore
     /// publisher.create_datawriter::<Hoge>(publisher.get_default_datawriter_qos(), &topic)
     /// ```
-    pub fn create_datawriter<D: serde::Serialize + DdsData>(
+    pub fn create_datawriter<W: Writable<Endianness> + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
-    ) -> DataWriter<D> {
+    ) -> DataWriter<W> {
         self.inner
             .read()
             .create_datawriter(qos, topic, self.clone())
@@ -121,12 +122,12 @@ impl Publisher {
     /// registered during the initialization phase.
     ///
     /// See [`Self::create_datawriter`] for a note of qos.
-    pub(crate) fn create_builtin_datawriter<D: serde::Serialize + DdsData>(
+    pub(crate) fn create_builtin_datawriter<W: Writable<Endianness> + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
         entity_id: EntityId,
-    ) -> (DataWriter<D>, WriterIngredients) {
+    ) -> (DataWriter<W>, WriterIngredients) {
         self.inner
             .read()
             .create_datawriter_with_entityid(qos, topic, self.clone(), entity_id)
@@ -179,12 +180,12 @@ impl InnerPublisher {
         self.qos = qos;
     }
 
-    fn create_datawriter<D: serde::Serialize + DdsData>(
+    fn create_datawriter<W: Writable<Endianness> + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
         outter: Publisher,
-    ) -> DataWriter<D> {
+    ) -> DataWriter<W> {
         let entity_kind = match topic.kind() {
             TopicKind::WithKey => EntityKind::WRITER_WITH_KEY_USER_DEFIND,
             TopicKind::NoKey => EntityKind::WRITER_NO_KEY_USER_DEFIND,
@@ -197,23 +198,23 @@ impl InnerPublisher {
         dw
     }
 
-    fn create_builtin_datawriter<D: serde::Serialize + DdsData>(
+    fn create_builtin_datawriter<W: Writable<Endianness> + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
         outter: Publisher,
         entity_id: EntityId,
-    ) -> (DataWriter<D>, WriterIngredients) {
+    ) -> (DataWriter<W>, WriterIngredients) {
         self.create_datawriter_with_entityid(qos, topic, outter, entity_id)
     }
 
-    fn create_datawriter_with_entityid<D: serde::Serialize + DdsData>(
+    fn create_datawriter_with_entityid<W: Writable<Endianness> + DdsData>(
         &self,
         qos: DataWriterQos,
         topic: Topic,
         outter: Publisher,
         entity_id: EntityId,
-    ) -> (DataWriter<D>, WriterIngredients) {
+    ) -> (DataWriter<W>, WriterIngredients) {
         let dw_qos = match qos {
             // DDS 1.4 spec, 2.2.2.4.1.5 create_datawriter
             // > The special value DATAWRITER_QOS_DEFAULT can be used to indicate that the DataWriter should be created with the
@@ -273,7 +274,7 @@ impl InnerPublisher {
             participant_msg_cmd_sender: self.participant_msg_cmd_sender.clone(),
         };
         (
-            DataWriter::<D>::new(
+            DataWriter::<W>::new(
                 writer_command_sender,
                 guid,
                 dw_qos,

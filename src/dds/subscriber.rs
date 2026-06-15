@@ -16,7 +16,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use log::info;
 use mio_extras::channel as mio_channel;
-use serde::Deserialize;
+use speedy::{Endianness, Readable};
 
 /// DDS Subscriber
 ///
@@ -86,11 +86,11 @@ impl Subscriber {
     /// ```ignore
     /// subscriber.create_datareader::<Hoge>(subscriber.get_default_datareader_qos(), &topic)
     /// ```
-    pub fn create_datareader<D: for<'de> Deserialize<'de> + DdsData>(
+    pub fn create_datareader<R: for<'a> Readable<'a, Endianness> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
-    ) -> DataReader<D> {
+    ) -> DataReader<R> {
         self.inner
             .read()
             .create_datareader(qos, topic, self.clone())
@@ -106,12 +106,12 @@ impl Subscriber {
     /// registered during the initialization phase.
     ///
     /// See [`Self::create_datareader`] for a note of qos.
-    pub(crate) fn create_builtin_datareader<D: for<'de> Deserialize<'de> + DdsData>(
+    pub(crate) fn create_builtin_datareader<R: for<'a> Readable<'a, Endianness> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
         entity_id: EntityId,
-    ) -> (DataReader<D>, ReaderIngredients) {
+    ) -> (DataReader<R>, ReaderIngredients) {
         self.inner
             .read()
             .create_builtin_datareader(qos, topic, self.clone(), entity_id)
@@ -170,12 +170,12 @@ impl InnerSubscriber {
         self.qos = qos
     }
 
-    fn create_datareader<D: for<'de> Deserialize<'de> + DdsData>(
+    fn create_datareader<R: for<'a> Readable<'a, Endianness> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
         subscriber: Subscriber,
-    ) -> DataReader<D> {
+    ) -> DataReader<R> {
         let entity_kind = match topic.kind() {
             TopicKind::WithKey => EntityKind::READER_WITH_KEY_USER_DEFIND,
             TopicKind::NoKey => EntityKind::READER_NO_KEY_USER_DEFIND,
@@ -188,23 +188,23 @@ impl InnerSubscriber {
         dr
     }
 
-    fn create_builtin_datareader<D: for<'de> Deserialize<'de> + DdsData>(
+    fn create_builtin_datareader<R: for<'a> Readable<'a, Endianness> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
         subscriber: Subscriber,
         entity_id: EntityId,
-    ) -> (DataReader<D>, ReaderIngredients) {
+    ) -> (DataReader<R>, ReaderIngredients) {
         self.create_datareader_with_entityid(qos, topic, subscriber, entity_id)
     }
 
-    fn create_datareader_with_entityid<D: for<'de> Deserialize<'de> + DdsData>(
+    fn create_datareader_with_entityid<R: for<'a> Readable<'a, Endianness> + DdsData>(
         &self,
         qos: DataReaderQos,
         topic: Topic,
         subscriber: Subscriber,
         entity_id: EntityId,
-    ) -> (DataReader<D>, ReaderIngredients) {
+    ) -> (DataReader<R>, ReaderIngredients) {
         let dr_qos = match qos {
             // DDS 1.4 spec, 2.2.2.5.2.5 create_datareader
             // > The special value DATAREADER_QOS_DEFAULT can be used to indicate that the DataReader should be created with the
@@ -253,7 +253,7 @@ impl InnerSubscriber {
             reader_state_notifier,
         };
         (
-            DataReader::<D>::new(
+            DataReader::<R>::new(
                 reader_guid,
                 dr_qos,
                 topic,

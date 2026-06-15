@@ -2,6 +2,7 @@ use core::cmp::{Ord, Ordering, PartialOrd};
 use core::convert::From;
 use core::time::Duration as CoreDuration;
 use serde::{Deserialize, Serialize};
+use speedy::{Readable, Writable};
 
 /// Duration in a format compliant with the RTPS specification
 /// RTPS 2.3 spec, 9.3.2 Mapping of the Types that Appear Within Submessages or Built-in Topic Data
@@ -11,7 +12,7 @@ use serde::{Deserialize, Serialize};
 ///     unsigned long fraction; // time in sec/2^32
 /// };
 /// ```
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Readable, Writable)]
 pub(crate) struct Duration {
     /// time in seconds
     pub seconds: i32,
