@@ -43,17 +43,21 @@ struct ShapeType
 };
 ```
 
-The structure representing the exchanged data must implement three traits: `serde::{Serialize, Deserialize}`, and `umber_dds::DdsData`.
-`serde::{Serialize, Deserialize}` is necessary for serializing and deserializing the data into the RTPS message format.
+The structure representing the exchanged data must implement three traits: `speedy::{Writable, Readable}`, and `umber_dds::DdsData`.
+
+Crucially, to send and receive messages in DDS, the data must be serialized and deserialized strictly following the OMG CDR (Common Data Representation) format.
+Simply deriving the standard `speedy::{Writable, Readable}` on your structure will not produce the correct CDR format due to specific alignment and padding rules.
+Instead, you must use the `DdsSerialize` and `DdsDeserialize` derive macros provided by `umber_dds`.
+These macros automatically generate the proper Writable and Readable implementations to guarantee CDR-compliant serialization and deserialization.
+
 `umber_dds::DdsData` is required to specify the DataType name and the key.
 If some keys exists, annotate it with `#[key]`.
 If the structure name does not match the DataType name, specify the DataType name using `#[dds_data(type_name = "{name}")]`.
 ```
-use umber_dds::{DdsData, kye::KeyHash};
+use umber_dds::{DdsData, DdsSerialize, DdsDeserialize, kye::KeyHash};
 use md5::compute;
-use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, DdsData)]
+#[derive(DdsData, DdsSerialize, DdsDeserialize)]
 #[dds_data(type_name = "ShapeType")]
 struct Shape {
     #[key]
