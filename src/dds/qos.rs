@@ -764,7 +764,7 @@ pub mod policy {
     use crate::structure::Duration;
     use crate::utils::pad_len;
     use core::time::Duration as CoreDuration;
-    use speedy::{Error, Readable, Writable};
+    use speedy::{Readable, Writable};
 
     // Default value of QoS Policies is on DDS v1.4 spec 2.2.3 Supported QoS
     pub const LENGTH_UNLIMITED: i32 = -1;
@@ -856,7 +856,9 @@ pub mod policy {
                 0 => Self::Volatile,
                 1 => Self::TransientLocal,
                 _n => {
-                    return Err(todo!());
+                    return Err(
+                        speedy::private::error_invalid_enum_variant::<speedy::Error>().into(),
+                    );
                 }
             })
         }
@@ -951,7 +953,11 @@ pub mod policy {
                 0 => Self::Instance,
                 1 => Self::Topic,
                 2 => Self::Group,
-                _n => return Err(todo!()),
+                _n => {
+                    return Err(
+                        speedy::private::error_invalid_enum_variant::<speedy::Error>().into(),
+                    );
+                }
             })
         }
     }
@@ -1054,7 +1060,11 @@ pub mod policy {
             Ok(match val {
                 0 => Self::Shared,
                 1 => Self::Exclusive,
-                _n => return Err(todo!()),
+                _n => {
+                    return Err(
+                        speedy::private::error_invalid_enum_variant::<speedy::Error>().into(),
+                    );
+                }
             })
         }
     }
@@ -1151,7 +1161,11 @@ pub mod policy {
                 0 => Self::Automatic,
                 1 => Self::ManualByTopic,
                 2 => Self::ManualByParticipant,
-                _n => return Err(todo!()),
+                _n => {
+                    return Err(
+                        speedy::private::error_invalid_enum_variant::<speedy::Error>().into(),
+                    );
+                }
             })
         }
     }
@@ -1264,7 +1278,11 @@ pub mod policy {
             Ok(match val {
                 2 => Self::Reliable,
                 1 => Self::BestEffort,
-                _n => return Err(todo!()),
+                _n => {
+                    return Err(
+                        speedy::private::error_invalid_enum_variant::<speedy::Error>().into(),
+                    );
+                }
             })
         }
     }
@@ -1297,7 +1315,11 @@ pub mod policy {
             Ok(match val {
                 0 => Self::ByReceptionTimestamp,
                 1 => Self::BySourceTimestamp,
-                _n => return Err(todo!()),
+                _n => {
+                    return Err(
+                        speedy::private::error_invalid_enum_variant::<speedy::Error>().into(),
+                    );
+                }
             })
         }
     }
@@ -1357,7 +1379,11 @@ pub mod policy {
             Ok(match val {
                 0 => Self::KeepLast,
                 1 => Self::KeepAll,
-                _n => return Err(todo!()),
+                _n => {
+                    return Err(
+                        speedy::private::error_invalid_enum_variant::<speedy::Error>().into(),
+                    );
+                }
             })
         }
     }
