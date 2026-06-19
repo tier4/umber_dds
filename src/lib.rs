@@ -1,7 +1,7 @@
 //! An experimental Rust implementation of Data Distribution Service.
 //! # Usage Example
 //!
-//! ```Cargo.toml
+//! ```toml
 //! [dependencies]
 //! umber_dds = { git = "https://github.com/tier4/umber_dds" }
 //! speedy = { git = "https://github.com/koute/speedy" }
@@ -12,7 +12,7 @@
 //! ```
 //!
 //! publish sample
-//! ```ignore
+//! ```rust
 //! use mio_extras::timer::Timer;
 //! use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 //! use rand::SeedableRng;
@@ -108,7 +108,7 @@
 //! ```
 //!
 //! subscribe sample
-//! ```ignore
+//! ```rust
 //! use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 //! use rand::SeedableRng;
 //! use std::net::Ipv4Addr;
