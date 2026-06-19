@@ -1,6 +1,16 @@
 //! An experimental Rust implementation of Data Distribution Service.
 //! # Usage Example
 //!
+//! ```Cargo.toml
+//! [dependencies]
+//! umber_dds = { git = "https://github.com/tier4/umber_dds" }
+//! speedy = { git = "https://github.com/koute/speedy" }
+//! md5 = { version = "0.7.0" }
+//! rand = { version = "0.8" }
+//! mio_v06 = { package = "mio", version = "0.6.23" }
+//! mio-extras = "2.0.6"
+//! ```
+//!
 //! publish sample
 //! ```ignore
 //! use mio_extras::timer::Timer;
@@ -12,7 +22,6 @@
 //! use umber_dds::{DdsData, DdsDeserialize, DdsSerialize};
 //!
 //! // for DdsData
-//! use md5::compute;
 //! use umber_dds::dds::key::KeyHash;
 //!
 //! #[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]
@@ -108,7 +117,6 @@
 //! use umber_dds::{DdsData, DdsDeserialize, DdsSerialize};
 //!
 //! // for DdsData
-//! use md5::compute;
 //! use umber_dds::dds::key::KeyHash;
 //!
 //! #[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]

@@ -77,7 +77,6 @@ impl<K: Key> Key for Vec<K> {} // IDL: sequence<K: Key>
 mod test {
     use super::KeyHash;
     use crate::DdsData;
-    use md5::compute;
     use speedy::{Endianness, Writable};
 
     #[derive(DdsData, Debug)]

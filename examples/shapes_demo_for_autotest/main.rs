@@ -5,7 +5,6 @@ use log4rs::{
     config::{Appender, Config, Root},
     encode::pattern::PatternEncoder,
 };
-use md5::compute;
 use mio_extras::timer::Timer;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;

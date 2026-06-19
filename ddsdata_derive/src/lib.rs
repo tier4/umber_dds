@@ -68,7 +68,7 @@ pub fn derive_ddsdata(input: TokenStream) -> TokenStream {
                     }
                     KeyHash::new(&result[0 .. 16])
                 } else {
-                    let md5 = compute(result);
+                    let md5 = md5::compute(result);
                     KeyHash::new(&md5.0)
                 }
             }
