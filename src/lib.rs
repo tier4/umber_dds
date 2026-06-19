@@ -252,14 +252,13 @@
 mod network;
 use network::net_util;
 pub mod dds;
-mod rtps;
-use serde::{Deserialize, Serialize};
 mod discovery;
 mod error;
 pub mod helper;
 mod message;
+mod rtps;
 pub mod structure;
-mod utils;
+pub mod utils;
 
 pub use dds::key::DdsData;
 pub use ddsdata_derive::DdsData;

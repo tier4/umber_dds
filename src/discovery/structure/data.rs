@@ -11,10 +11,10 @@ use crate::utils::pad_len;
 use crate::DdsData;
 use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
-use cdr::{CdrBe, Infinite};
 use enumflags2::BitFlags;
 use log::{trace, warn};
 use md5::compute;
+use speedy::{Endianness, Writable};
 
 /// rtps spec, 8.4.13.4 Data Types Associated with Built-in Endpoints used by Writer Liveliness Protocol
 /// rtps spec, 9.6.2.1 Data Representation for the ParticipantMessageData Built-in Endpoints

@@ -1,7 +1,6 @@
 use core::cmp::{Ord, Ordering, PartialOrd};
 use core::convert::From;
 use core::time::Duration as CoreDuration;
-use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
 /// Duration in a format compliant with the RTPS specification
@@ -12,7 +11,7 @@ use speedy::{Readable, Writable};
 ///     unsigned long fraction; // time in sec/2^32
 /// };
 /// ```
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Readable, Writable)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Readable, Writable)]
 pub(crate) struct Duration {
     /// time in seconds
     pub seconds: i32,

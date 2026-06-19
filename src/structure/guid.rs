@@ -1,12 +1,9 @@
 use crate::structure::entity_id::*;
 use alloc::fmt;
 use rand::{self, rngs::SmallRng, Rng};
-use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Readable, Writable,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Readable, Writable)]
 pub struct GUID {
     pub guid_prefix: GuidPrefix,
     pub entity_id: EntityId,
@@ -39,9 +36,7 @@ impl fmt::Display for GUID {
     }
 }
 
-#[derive(
-    Readable, Writable, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord,
-)]
+#[derive(Readable, Writable, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GuidPrefix {
     pub guid_prefix: [u8; 12],
 }

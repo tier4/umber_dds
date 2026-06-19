@@ -21,15 +21,13 @@ use crate::structure::Duration;
 use crate::structure::ParameterId;
 use crate::utils::pad_len;
 use alloc::fmt;
-use byteorder::ReadBytesExt;
 use bytes::{BufMut, Bytes, BytesMut};
 use core::cmp::{max, min};
 use core::ops::{Add, AddAssign};
 use core::ops::{Sub, SubAssign};
 use core::time::Duration as CoreDuration;
-use serde::{Deserialize, Serialize};
 use speedy::{Context, Endianness, Readable, Reader, Writable, Writer};
-use std::io;
+use std::io::{self, Read};
 use std::net::Ipv4Addr;
 
 // spec 9.4.2 Mapping of the PIM SubmessageElements
@@ -501,10 +499,12 @@ pub struct SerializedPayload {
 impl SerializedPayload {
     pub fn from_bytes(buffer: &Bytes) -> io::Result<Self> {
         let mut cursor = io::Cursor::new(&buffer);
-        let representation_identifier = RepresentationIdentifier {
-            bytes: [cursor.read_u8()?, cursor.read_u8()?],
-        };
-        let representation_options = [cursor.read_u8()?, cursor.read_u8()?];
+        let mut rep_id_buf = [0; 2];
+        cursor.read_exact(&mut rep_id_buf).unwrap();
+        let representation_identifier = RepresentationIdentifier { bytes: rep_id_buf };
+        let mut rep_opt_buf = [0; 2];
+        cursor.read_exact(&mut rep_opt_buf).unwrap();
+        let representation_options = rep_opt_buf;
         const HEADER_LEN: usize = 4;
         let value = if buffer.len() > HEADER_LEN {
             buffer.slice(HEADER_LEN..)
@@ -572,15 +572,34 @@ impl<C: Context> Writable<C> for SerializedPayload {
 #[cfg(test)]
 mod test {
     use super::{SequenceNumber, SequenceNumberSet};
-    use cdr::{CdrLe, Infinite};
-    use serde::{Deserialize, Serialize};
+    use crate::utils::pad_len;
+    use speedy::{Context, Endianness, Writable};
 
-    #[derive(Serialize, Deserialize, Clone)]
+    #[derive(Clone)]
     struct Shape {
         color: String,
         x: i32,
         y: i32,
         shapesize: i32,
+    }
+
+    impl<C: Context> Writable<C> for Shape {
+        #[inline]
+        fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+            let cdr_str_len = self.color.len() + 1;
+            writer.write_i32(cdr_str_len as i32)?;
+            writer.write_bytes(self.color.as_bytes())?;
+            writer.write_u8(0)?; // null char
+
+            // padding
+            const ZEROS: [u8; 3] = [0; 3];
+            writer.write_bytes(&ZEROS[..(pad_len(cdr_str_len))])?;
+
+            writer.write_i32(self.x)?;
+            writer.write_i32(self.y)?;
+            writer.write_i32(self.shapesize)?;
+            Ok(())
+        }
     }
 
     #[test]
@@ -623,10 +642,12 @@ mod test {
             y: 51,
             shapesize: 12,
         };
-        let test_serialized = cdr::serialize::<_, _, CdrLe>(&test_shape, Infinite).unwrap();
-        const SERIALIZED: [u8; 28] = [
-            0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x42, 0x4C, 0x55, 0x45, 0x00, 0x00,
-            0x00, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00,
+        let test_serialized = test_shape
+            .write_to_vec_with_ctx(Endianness::LittleEndian)
+            .unwrap();
+        const SERIALIZED: [u8; 24] = [
+            0x05, 0x00, 0x00, 0x00, 0x42, 0x4C, 0x55, 0x45, 0x00, 0x00, 0x00, 0x00, 0x2A, 0x00,
+            0x00, 0x00, 0x33, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00,
         ];
         let ser = Vec::from(SERIALIZED);
         assert_eq!(test_serialized, ser);

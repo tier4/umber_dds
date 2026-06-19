@@ -1,1 +1,0 @@
-pub const ENCAPSULATION_HEADER_SIZE: u64 = 4;

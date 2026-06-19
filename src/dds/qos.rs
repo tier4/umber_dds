@@ -764,14 +764,12 @@ pub mod policy {
     use crate::structure::Duration;
     use crate::utils::pad_len;
     use core::time::Duration as CoreDuration;
-    use serde::{Deserialize, Serialize};
-    use serde_repr::{Deserialize_repr, Serialize_repr};
     use speedy::{Error, Readable, Writable};
 
     // Default value of QoS Policies is on DDS v1.4 spec 2.2.3 Supported QoS
     pub const LENGTH_UNLIMITED: i32 = -1;
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct DurabilityService {
         service_cleanup_delay: Duration,
         history_kind: HistoryQosKind,
@@ -824,7 +822,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default)]
     #[repr(i32)]
     /// Durability QoS policy
     ///
@@ -871,7 +869,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Presentation {
         pub(crate) access_scope: PresentationQosAccessScopeKind,
         pub(crate) coherent_access: bool,
@@ -923,21 +921,21 @@ pub mod policy {
         fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
             writer.write_value(&self.access_scope)?;
             if self.coherent_access {
-                writer.write_u8(0)?;
-            } else {
                 writer.write_u8(1)?;
+            } else {
+                writer.write_u8(0)?;
             }
             if self.ordered_access {
-                writer.write_u8(0)?;
-            } else {
                 writer.write_u8(1)?;
+            } else {
+                writer.write_u8(0)?;
             }
             writer.write_u16(0)?; // padding
             Ok(())
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default)]
     #[repr(i32)]
     pub enum PresentationQosAccessScopeKind {
         #[default]
@@ -965,7 +963,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Deadline {
         pub(crate) period: Duration,
     }
@@ -1003,7 +1001,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct LatencyBudget(pub(crate) Duration);
     impl LatencyBudget {
         pub fn new(duration: CoreDuration) -> Self {
@@ -1035,7 +1033,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default)]
     #[repr(i32)]
     pub enum Ownership {
         #[default]
@@ -1068,7 +1066,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct OwnershipStrength(pub i32);
     #[allow(clippy::derivable_impls)]
     impl Default for OwnershipStrength {
@@ -1091,7 +1089,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Liveliness {
         pub(crate) kind: LivelinessQosKind,
         pub(crate) lease_duration: Duration,
@@ -1138,7 +1136,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     #[repr(i32)]
     pub enum LivelinessQosKind {
         Automatic = 0,
@@ -1165,7 +1163,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct TimeBasedFilter {
         pub(crate) minimun_separation: Duration,
     }
@@ -1198,7 +1196,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Reliability {
         pub(crate) kind: ReliabilityQosKind,
         pub(crate) max_bloking_time: Duration,
@@ -1253,7 +1251,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     #[repr(i32)]
     pub enum ReliabilityQosKind {
         Reliable = 2,
@@ -1278,7 +1276,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq, Default)]
     #[repr(i32)]
     pub enum DestinationOrder {
         #[default]
@@ -1311,7 +1309,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct History {
         pub(crate) kind: HistoryQosKind,
         pub(crate) depth: i32,
@@ -1346,7 +1344,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize_repr, Deserialize_repr)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     #[repr(i32)]
     pub enum HistoryQosKind {
         KeepLast = 0,
@@ -1371,7 +1369,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct ResourceLimits {
         pub max_samples: i32,
         pub max_instance: i32,
@@ -1409,7 +1407,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Lifespan(pub(crate) Duration);
     impl Lifespan {
         pub fn from_secs(secs: i32) -> Self {
@@ -1442,7 +1440,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Debug, PartialEq)]
     pub struct Partition {
         pub name: Vec<String>,
     }
@@ -1499,7 +1497,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, PartialEq)]
     pub struct UserData {
         pub value: Vec<u8>,
     }
@@ -1530,7 +1528,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, PartialEq)]
     pub struct TopicData {
         pub value: Vec<u8>,
     }
@@ -1562,7 +1560,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Default, PartialEq)]
     pub struct GroupData {
         pub value: Vec<u8>,
     }
@@ -1594,7 +1592,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct WriterDataLifecycle {
         pub autodispose_unregistered_instance: bool,
     }
@@ -1606,7 +1604,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct ReaderDataLifecycle {
         pub(crate) autopurge_nowriter_samples_delay: Duration,
         pub(crate) autopurge_dispose_samples_delay: Duration,
@@ -1620,7 +1618,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct TransportPriority {
         pub value: i32,
     }
@@ -1646,7 +1644,7 @@ pub mod policy {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct EntityFactory {
         pub autoenable_created_entites: bool,
     }
@@ -1663,7 +1661,7 @@ pub mod policy {
 mod test {
     use super::{policy, DataWriterQosBuilder, TopicQosBuilder};
     use crate::structure::Duration;
-    use cdr::{Infinite, PlCdrLe};
+    use speedy::{Endianness, Readable, Writable};
 
     #[test]
     fn test_combine() {
@@ -1731,7 +1729,9 @@ mod test {
             kind: policy::HistoryQosKind::KeepAll,
             depth: 100,
         };
-        let serialized = cdr::serialize::<_, _, PlCdrLe>(&history, Infinite).unwrap();
+        let serialized = history
+            .write_to_vec_with_ctx(Endianness::LittleEndian)
+            .unwrap();
         /*
         let mut serialized_str = String::new();
         let mut count = 0;
@@ -1747,7 +1747,7 @@ mod test {
         */
         assert_eq!(
             serialized,
-            vec![0x00, 0x3, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00]
+            vec![0x01, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00]
         );
     }
     #[test]
@@ -1757,8 +1757,12 @@ mod test {
             coherent_access: false,
             ordered_access: true,
         };
-        let serialized = cdr::serialize::<_, _, PlCdrLe>(&presentation, Infinite).unwrap();
-        let deserialized = cdr::deserialize::<policy::Presentation>(&serialized).unwrap();
+        let serialized = presentation
+            .write_to_vec_with_ctx(Endianness::LittleEndian)
+            .unwrap();
+        let deserialized =
+            policy::Presentation::read_from_buffer_with_ctx(Endianness::LittleEndian, &serialized)
+                .unwrap();
         match deserialized.access_scope {
             policy::PresentationQosAccessScopeKind::Topic => (),
             _ => panic!(),

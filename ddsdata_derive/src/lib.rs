@@ -47,8 +47,8 @@ pub fn derive_ddsdata(input: TokenStream) -> TokenStream {
 
     let constract_key = keys.iter().map(|key| {
         quote! {
-            let mut serialize_data = cdr::serialize::<_,_, CdrBe>(&self.#key, Infinite).expect("");
-            let _ = serialize_data.drain(0..=3);
+            // TODO: keyがStringだったときにCDR形式からはずれてしまう。
+            let serialize_data = self.#key.write_to_vec_with_ctx(Endianness::BigEndian).unwrap();
             for b in serialize_data {
                 result.push(b)
             }

@@ -5,7 +5,6 @@ use crate::dds::qos::{
 use crate::discovery::discovery_db::DiscoveryDB;
 use crate::discovery::structure::{
     builtin_endpoint::BuiltinEndpoint,
-    cdr::deserialize,
     data::{
         ParticipantMessageData, ParticipantMessageKind, SDPBuiltinData,
         SPDPdiscoveredParticipantData,

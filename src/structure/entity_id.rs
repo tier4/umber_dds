@@ -1,13 +1,10 @@
 use crate::structure::TopicKind;
-use crate::{Deserialize, Serialize};
 use alloc::fmt;
 use mio_v06::Token;
 use speedy::{Readable, Writable};
 
 // spec 9.2.2
-#[derive(
-    PartialEq, Readable, Writable, Clone, Copy, Eq, Serialize, Deserialize, PartialOrd, Ord,
-)]
+#[derive(PartialEq, Readable, Writable, Clone, Copy, Eq, PartialOrd, Ord)]
 pub struct EntityId {
     entity_key: [u8; 3],
     entity_kind: EntityKind,
@@ -250,9 +247,7 @@ impl fmt::Display for EntityId {
     }
 }
 
-#[derive(
-    PartialEq, Readable, Writable, Clone, Copy, Eq, Serialize, Deserialize, PartialOrd, Ord,
-)]
+#[derive(PartialEq, Readable, Writable, Clone, Copy, Eq, PartialOrd, Ord)]
 pub struct EntityKind {
     value: u8,
 }

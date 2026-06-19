@@ -1,4 +1,3 @@
-use cdr::{CdrBe, Infinite};
 use clap::{Arg, Command};
 use log::LevelFilter;
 use log4rs::{
@@ -11,14 +10,14 @@ use md5::compute;
 use mio_extras::timer::Timer;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;
-use serde::{Deserialize, Serialize};
-use speedy::{Context, Readable, Writable};
+use speedy::{Context, Endianness, Readable, Writable};
 use std::time::{Duration, SystemTime};
 use umber_dds::dds::key::KeyHash;
 use umber_dds::dds::{qos::*, DataReaderStatusChanged, DataWriterStatusChanged, DomainParticipant};
+use umber_dds::utils::pad_len;
 use umber_dds::DdsData;
 
-#[derive(Serialize, Deserialize, Clone, Debug, DdsData)]
+#[derive(Clone, Debug, DdsData)]
 #[dds_data(type_name = "ShapeType")]
 struct Shape {
     #[key]
@@ -34,7 +33,7 @@ impl<'a, C: Context> Readable<'a, C> for Shape {
             let cdr_str_len = reader.read_i32()?;
             let c = reader.read_string((cdr_str_len - 1) as usize)?;
             reader.read_u8()?; // null char
-            reader.skip_bytes(cdr_str_len as usize % 4)?;
+            reader.skip_bytes(pad_len(cdr_str_len as usize))?;
             c
         };
         let x = reader.read_i32()?;
@@ -58,7 +57,7 @@ impl<C: Context> Writable<C> for Shape {
 
         // padding
         const ZEROS: [u8; 3] = [0; 3];
-        writer.write_bytes(&ZEROS[..(cdr_str_len % 4)])?;
+        writer.write_bytes(&ZEROS[..(pad_len(cdr_str_len))])?;
 
         writer.write_i32(self.x)?;
         writer.write_i32(self.y)?;

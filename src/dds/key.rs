@@ -1,4 +1,4 @@
-use serde::ser::Serialize;
+use speedy::{Endianness, Writable};
 
 #[derive(Debug)]
 pub struct KeyHash {
@@ -56,7 +56,7 @@ pub trait DdsData {
     fn is_with_key() -> bool;
 }
 
-pub trait Key: std::fmt::Debug + Serialize {}
+pub trait Key: std::fmt::Debug + Writable<Endianness> {}
 
 impl Key for bool {} // IDL: boolean
 impl Key for char {} // IDL: char
@@ -77,8 +77,8 @@ impl<K: Key> Key for Vec<K> {} // IDL: sequence<K: Key>
 mod test {
     use super::KeyHash;
     use crate::DdsData;
-    use cdr::{CdrBe, Infinite};
     use md5::compute;
+    use speedy::{Endianness, Writable};
 
     #[derive(DdsData, Debug)]
     struct Shape {
