@@ -10,14 +10,13 @@ use md5::compute;
 use mio_extras::timer::Timer;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;
-use speedy::{Context, Endianness, Readable, Writable};
+use speedy::{Endianness, Writable};
 use std::time::{Duration, SystemTime};
 use umber_dds::dds::key::KeyHash;
 use umber_dds::dds::{qos::*, DataReaderStatusChanged, DataWriterStatusChanged, DomainParticipant};
-use umber_dds::utils::pad_len;
-use umber_dds::DdsData;
+use umber_dds::{DdsData, DdsDeserialize, DdsSerialize};
 
-#[derive(Clone, Debug, DdsData)]
+#[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]
 #[dds_data(type_name = "ShapeType")]
 struct Shape {
     #[key]
@@ -25,45 +24,6 @@ struct Shape {
     x: i32,
     y: i32,
     shapesize: i32,
-}
-impl<'a, C: Context> Readable<'a, C> for Shape {
-    #[inline]
-    fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
-        let color = {
-            let cdr_str_len = reader.read_i32()?;
-            let c = reader.read_string((cdr_str_len - 1) as usize)?;
-            reader.read_u8()?; // null char
-            reader.skip_bytes(pad_len(cdr_str_len as usize))?;
-            c
-        };
-        let x = reader.read_i32()?;
-        let y = reader.read_i32()?;
-        let shapesize = reader.read_i32()?;
-        Ok(Self {
-            color: color,
-            x,
-            y,
-            shapesize,
-        })
-    }
-}
-impl<C: Context> Writable<C> for Shape {
-    #[inline]
-    fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
-        let cdr_str_len = self.color.len() + 1;
-        writer.write_i32(cdr_str_len as i32)?;
-        writer.write_bytes(self.color.as_bytes())?;
-        writer.write_u8(0)?; // null char
-
-        // padding
-        const ZEROS: [u8; 3] = [0; 3];
-        writer.write_bytes(&ZEROS[..(pad_len(cdr_str_len))])?;
-
-        writer.write_i32(self.x)?;
-        writer.write_i32(self.y)?;
-        writer.write_i32(self.shapesize)?;
-        Ok(())
-    }
 }
 /*
 Shape.idl

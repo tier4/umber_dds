@@ -6,49 +6,19 @@
 //! use mio_extras::timer::Timer;
 //! use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 //! use rand::SeedableRng;
-//! use speedy::{Context, Readable, Writable};
 //! use std::net::Ipv4Addr;
 //! use std::time::{Duration, SystemTime};
 //! use umber_dds::dds::{qos::*, DataWriterStatusChanged, DomainParticipant};
-//! use umber_dds::DdsData;
+//! use umber_dds::{DdsData, DdsDeserialize, DdsSerialize};
 //!
 //! // for DdsData
 //! use md5::compute;
 //! use umber_dds::dds::key::KeyHash;
 //!
-//! #[derive(Clone, Debug, DdsData)]
+//! #[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]
 //! struct HelloWorld {
 //!     index: u32,
 //!     message: String,
-//! }
-//! impl<'a, C: Context> Readable<'a, C> for HelloWorld {
-//!     #[inline]
-//!     fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
-//!         let index = reader.read_u32()?;
-//!         let message = {
-//!             let cdr_str_len = reader.read_i32()?;
-//!             let c = reader.read_string((cdr_str_len - 1) as usize)?;
-//!             reader.read_u8()?; // null char
-//!             reader.skip_bytes((4 - cdr_str_len as usize % 4) % 4)?;
-//!             c
-//!         };
-//!         Ok(Self { index, message })
-//!     }
-//! }
-//! impl<C: Context> Writable<C> for HelloWorld {
-//!     #[inline]
-//!     fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
-//!         writer.write_u32(self.index)?;
-//!         let cdr_str_len = self.message.len() + 1;
-//!         writer.write_i32(cdr_str_len as i32)?;
-//!         writer.write_bytes(self.message.as_bytes())?;
-//!         writer.write_u8(0)?; // null char
-//!
-//!         // padding
-//!         const ZEROS: [u8; 3] = [0; 3];
-//!         writer.write_bytes(&ZEROS[..((4 - cdr_str_len % 4) % 4)])?;
-//!         Ok(())
-//!     }
 //! }
 //!
 //! fn main() {
@@ -132,49 +102,19 @@
 //! ```ignore
 //! use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 //! use rand::SeedableRng;
-//! use speedy::{Context, Readable, Writable};
 //! use std::net::Ipv4Addr;
 //! use std::time::SystemTime;
 //! use umber_dds::dds::{qos::*, DataReaderStatusChanged, DomainParticipant};
-//! use umber_dds::DdsData;
+//! use umber_dds::{DdsData, DdsDeserialize, DdsSerialize};
 //!
 //! // for DdsData
 //! use md5::compute;
 //! use umber_dds::dds::key::KeyHash;
 //!
-//! #[derive(Clone, Debug, DdsData)]
+//! #[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]
 //! struct HelloWorld {
 //!     index: u32,
 //!     message: String,
-//! }
-//! impl<'a, C: Context> Readable<'a, C> for HelloWorld {
-//!     #[inline]
-//!     fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
-//!         let index = reader.read_u32()?;
-//!         let message = {
-//!             let cdr_str_len = reader.read_i32()?;
-//!             let c = reader.read_string((cdr_str_len - 1) as usize)?;
-//!             reader.read_u8()?; // null char
-//!             reader.skip_bytes((4 - cdr_str_len as usize % 4) % 4)?;
-//!             c
-//!         };
-//!         Ok(Self { index, message })
-//!     }
-//! }
-//! impl<C: Context> Writable<C> for HelloWorld {
-//!     #[inline]
-//!     fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
-//!         writer.write_u32(self.index)?;
-//!         let cdr_str_len = self.message.len() + 1;
-//!         writer.write_i32(cdr_str_len as i32)?;
-//!         writer.write_bytes(self.message.as_bytes())?;
-//!         writer.write_u8(0)?; // null char
-//!
-//!         // padding
-//!         const ZEROS: [u8; 3] = [0; 3];
-//!         writer.write_bytes(&ZEROS[..((4 - cdr_str_len % 4) % 4)])?;
-//!         Ok(())
-//!     }
 //! }
 //!
 //! fn main() {
@@ -261,6 +201,6 @@ pub mod structure;
 pub mod utils;
 
 pub use dds::key::DdsData;
-pub use ddsdata_derive::DdsData;
+pub use ddsdata_derive::{DdsData, DdsDeserialize, DdsSerialize};
 
 extern crate alloc;
