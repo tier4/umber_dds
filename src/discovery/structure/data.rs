@@ -519,7 +519,10 @@ impl<'a, C: speedy::Context> speedy::Readable<'a, C> for SDPBuiltinData {
                     domain_tag = Some(reader.read_value()?);
                 }
                 ParameterId::PID_ENTITY_NAME => {
-                    let _entity_name: String = reader.read_value()?;
+                    let cdr_str_len = reader.read_u32()?;
+                    let bytes: Vec<u8> = reader.read_vec((cdr_str_len - 1) as usize)?;
+                    reader.skip_bytes(1 + pad_len(cdr_str_len as usize))?; // null char + padding
+                    let _entity_name = Some(unsafe { String::from_utf8_unchecked(bytes) });
                 }
                 ParameterId::PID_PROTOCOL_VERSION => {
                     protocol_version = Some(reader.read_value()?);
