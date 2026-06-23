@@ -13,3 +13,4 @@ quote = "1.0.37"
 syn = "2.0.98"
 cdr = "0.2.4"
 md5 = { version = "0.7.0", default-features = false }
+proc-macro2 = "1.0.106"
