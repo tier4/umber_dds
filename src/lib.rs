@@ -19,13 +19,13 @@
 //! use std::net::Ipv4Addr;
 //! use std::time::{Duration, SystemTime};
 //! use umber_dds::dds::{qos::*, DataWriterStatusChanged, DomainParticipant};
-//! use umber_dds::{DdsData, DdsDeserialize, DdsSerialize};
+//! use umber_dds::{DdsData, DdsSerialize};
 //!
 //! // for DdsData
-//! use umber_dds::dds::key::KeyHash;
 //! use speedy::Writable;
+//! use umber_dds::dds::key::KeyHash;
 //!
-//! #[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]
+//! #[derive(Clone, Debug, DdsData, DdsSerialize)]
 //! struct HelloWorld {
 //!     index: u32,
 //!     message: String,
@@ -38,8 +38,12 @@
 //!     let mut small_rng = rand::rngs::SmallRng::seed_from_u64(now.as_nanos() as u64);
 //!
 //!     let domain_id = 0;
-//!     let participant =
-//!         DomainParticipant::new(domain_id, vec![Ipv4Addr::new(127, 0, 0, 1)], None, &mut small_rng);
+//!     let participant = DomainParticipant::new(
+//!         domain_id,
+//!         vec![Ipv4Addr::new(127, 0, 0, 1)],
+//!         None,
+//!         &mut small_rng,
+//!     );
 //!     let topic_qos = TopicQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
@@ -118,10 +122,10 @@
 //! use umber_dds::{DdsData, DdsDeserialize, DdsSerialize};
 //!
 //! // for DdsData
-//! use umber_dds::dds::key::KeyHash;
 //! use speedy::Writable;
+//! use umber_dds::dds::key::KeyHash;
 //!
-//! #[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]
+//! #[derive(Clone, DdsData, DdsSerialize, DdsDeserialize)]
 //! struct HelloWorld {
 //!     index: u32,
 //!     message: String,
@@ -134,8 +138,12 @@
 //!     let mut small_rng = rand::rngs::SmallRng::seed_from_u64(now.as_nanos() as u64);
 //!
 //!     let domain_id = 0;
-//!     let participant =
-//!         DomainParticipant::new(domain_id, vec![Ipv4Addr::new(127, 0, 0, 1)], None, &mut small_rng);
+//!     let participant = DomainParticipant::new(
+//!         domain_id,
+//!         vec![Ipv4Addr::new(127, 0, 0, 1)],
+//!         None,
+//!         &mut small_rng,
+//!     );
 //!     let topic_qos = TopicQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
 //!         .build();
@@ -147,7 +155,6 @@
 //!     let poll = Poll::new().unwrap();
 //!
 //!     const DATAREADER: Token = Token(0);
-//!
 //!     let subscriber = participant.create_subscriber(SubscriberQos::Default);
 //!     let dr_qos = DataReaderQosBuilder::new()
 //!         .reliability(policy::Reliability::default_reliable())
@@ -171,10 +178,14 @@
 //!                     while let Ok(drc) = datareader.try_recv() {
 //!                         match drc {
 //!                             DataReaderStatusChanged::DataAvailable => {
-//!                                 let received_hello = datareader.take();
-//!                                 for hello in received_hello {
+//!                                 let received_samples = datareader.take();
+//!                                 for sample in received_samples {
 //!                                     received += 1;
-//!                                     println!("received: {:?}", hello.data());
+//!                                     let hello = sample.data();
+//!                                     println!(
+//!                                         "received: HelloWorld with index: {}, message \"{}\"",
+//!                                         hello.index, hello.message
+//!                                     );
 //!                                 }
 //!                                 if received >= 5 {
 //!                                     println!("received 5 messages. exit.");
