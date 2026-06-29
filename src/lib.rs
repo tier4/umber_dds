@@ -217,7 +217,7 @@ pub mod helper;
 mod message;
 mod rtps;
 pub mod structure;
-pub mod utils;
+mod utils;
 
 pub use dds::key::{DdsData, KeyHash};
 pub use ddsdata_derive::{DdsData, DdsDeserialize, DdsSerialize};
