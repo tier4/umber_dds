@@ -3,6 +3,28 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, LitStr};
 
+/// Derives the `DdsData` trait for a struct, providing DDS key generation and type naming.
+///
+/// This macro automatically implements the `gen_key`, `type_name`, and `is_with_key`
+/// functions required for DDS communication. Note that these methods are primarily
+/// intended for internal use by the library.
+///
+/// ## ⚠️ Prerequisites and Dependencies
+/// To use this macro, you must have the following in scope and in your `Cargo.toml`:
+/// * **`use speedy::Writable;`**: Required for serializing the key fields.
+/// * **`use umber_dds::KeyHash;`**: Required for returning the generated key.
+/// * **`md5` crate**: Required in `Cargo.toml`. Used to compute hashes for serialized keys exceeding 16 bytes.
+///
+/// ## Field Attributes
+/// * `#[key]`: Marks a field as part of the DDS Key. Can be applied to multiple fields.
+/// * `#[dds_data(type_name = "CustomName")]`: (Optional) Overrides the default type name.
+///   If omitted, the struct's exact Rust identifier is used.
+///
+/// ## Key Generation Logic (`gen_key`)
+/// When calculating the `KeyHash`, the macro extracts fields marked with `#[key]`,
+/// serializes them in Big Endian format, and applies the following rules:
+/// 1. **Length <= 16 bytes:** Padded with trailing zeros (`0`) to exactly 16 bytes.
+/// 2. **Length > 16 bytes:** Computes an MD5 hash of the bytes and uses the 16-byte digest.
 #[proc_macro_derive(DdsData, attributes(key, dds_data))]
 pub fn derive_ddsdata(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -409,6 +431,22 @@ fn gen_write_stmt(ty: &syn::Type, val_expr: TokenStream2) -> TokenStream2 {
 }
 
 #[proc_macro_derive(DdsDeserialize)]
+/// Derives the `speedy::Readable` trait with strict CDR (Common Data Representation) alignment.
+///
+/// This macro automatically generates deserialization logic that complies with DDS CDR
+/// padding and memory alignment rules (e.g., 4-byte alignment for `i32`, 8-byte alignment for `f64`).
+///
+/// ## ⚠️ Prerequisites
+/// * **`speedy` crate**: Required in `Cargo.toml`.
+///
+/// ## Supported Data Types
+/// * **Primitives:** `u8`, `i8`, `bool`, `u16`, `i16`, `u32`, `i32`, `f32`, `u64`, `i64`, `f64`.
+/// * **Characters (`char`):** Interpreted as a 1-byte C-style `char` (equivalent to `u8`) during deserialization, not as a 4-byte Rust Unicode scalar value.
+/// * **Strings:** standard Rust `String` (handles null-termination and length prefixes).
+/// * **Collections:** `Vec<T>`, Fixed-size arrays `[T; N]`, `HashMap<K, V>`, `BTreeMap<K, V>`.
+/// * **Nested Types:** Any other struct that implements the `speedy::Readable` trait.
+///
+/// *(Note: Ensure `speedy::Readable` is in scope if you are deserializing nested custom types.)*
 pub fn derive_dds_deserialize(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let name = &ast.ident;
@@ -455,6 +493,20 @@ pub fn derive_dds_deserialize(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(DdsSerialize)]
+/// Derives the `speedy::Writable` trait with strict CDR (Common Data Representation) alignment.
+///
+/// This macro automatically generates serialization logic that complies with DDS CDR
+/// padding and memory alignment rules.
+///
+/// ## ⚠️ Prerequisites
+/// * **`speedy` crate**: Required in `Cargo.toml`.
+///
+/// ## Supported Data Types
+/// * **Primitives:** `u8`, `i8`, `bool`, `u16`, `i16`, `u32`, `i32`, `f32`, `u64`, `i64`, `f64`.
+/// * **Characters (`char`):** Interpreted as a 1-byte C-style `char` (equivalent to `u8`) during serialization, not as a 4-byte Rust Unicode scalar value.
+/// * **Strings:** standard Rust `String` (handles null-termination and length prefixes).
+/// * **Collections:** `Vec<T>`, Fixed-size arrays `[T; N]`, `HashMap<K, V>`, `BTreeMap<K, V>`.
+/// * **Nested Types:** Any other struct that implements the `speedy::Writable` trait.
 pub fn derive_dds_serialize(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let name = &ast.ident;

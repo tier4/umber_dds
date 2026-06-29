@@ -30,6 +30,8 @@ Developer-Facing Logs: Highly detailed logs intended for library contributors an
 
 + trace: Offers the most granular details, specifically tracking RTPS layer events such as individual message reception, timer triggers, and low-level network activity.
 
+
+
 ## How to define exchanged data
 I'll explain using the following IDL as an example.
 ```
@@ -43,19 +45,45 @@ struct ShapeType
 };
 ```
 
-The structure representing the exchanged data must implement three traits: `speedy::{Writable, Readable}`, and `umber_dds::DdsData`.
+To represent this exchanged data in Umber DDS, your Rust structure must use the `DdsData`, `DdsSerialize`, and `DdsDeserialize` derive macros provided by `umber_dds`.
 
 Crucially, to send and receive messages in DDS, the data must be serialized and deserialized strictly following the OMG CDR (Common Data Representation) format.
 Simply deriving the standard `speedy::{Writable, Readable}` on your structure will not produce the correct CDR format due to specific alignment and padding rules.
-Instead, you must use the `DdsSerialize` and `DdsDeserialize` derive macros provided by `umber_dds`.
-These macros automatically generate the proper Writable and Readable implementations to guarantee CDR-compliant serialization and deserialization.
+Instead, you must use the `DdsSerialize` and `DdsDeserialize` macros. These automatically generate the proper `Writable` and `Readable` implementations to guarantee CDR-compliant memory alignment.
 
-`umber_dds::DdsData` is required to specify the DataType name and the key.
-If some keys exists, annotate it with `#[key]`.
-If the structure name does not match the DataType name, specify the DataType name using `#[dds_data(type_name = "{name}")]`.
+### Configuration & Data Types
++ Type Name: The `umber_dds::DdsData` trait specifies the DataType name and keys. If the Rust structure name does not match the target DataType name, specify it using `#[dds_data(type_name = "{name}")]`.
++ Keys: Annotate key fields with `#[key]`. The macro uses these fields to generate a unique 16-byte `KeyHash` (Note: Your project must depend on the `md5` crate in `Cargo.toml` for this functionality).
++ Characters: Be aware that Rust's `char` type is serialized and deserialized as a 1-byte C-style character (equivalent to `u8`), not as a 4-byte Unicode scalar value.
+
+### IDL to Rust Type Mapping
+
+When defining your data structures in Rust, use the following mapping to ensure your types correspond correctly to standard OMG IDL types. Umber DDS's `DdsSerialize` and `DdsDeserialize` macros automatically handle the strict memory alignment and padding required by the CDR (Common Data Representation) format for these types.
+
+| IDL Type | Rust Type (Umber DDS) | Notes |
+| :--- | :--- | :--- |
+| `octet` | `u8` | 1-byte unsigned integer. |
+| `char` | `char` or `u8` | Serialized and deserialized as a 1-byte C-style character. *Note: Rust's `char` is normally a 4-byte Unicode scalar, but the macro strictly treats it as 1-byte for DDS compatibility.* |
+| `boolean` | `bool` | 1-byte boolean value. |
+| `short` | `i16` | 2-byte signed integer. |
+| `unsigned short` | `u16` | 2-byte unsigned integer. |
+| `long` | `i32` | 4-byte signed integer. |
+| `unsigned long` | `u32` | 4-byte unsigned integer. |
+| `long long` | `i64` | 8-byte signed integer. |
+| `unsigned long long` | `u64` | 8-byte unsigned integer. |
+| `float` | `f32` | 4-byte floating point. |
+| `double` | `f64` | 8-byte floating point. |
+| `string` | `String` | Automatically handles length prefixes and null-termination. |
+| `sequence<T>` | `Vec<T>` | Dynamically sized array of type `T`. |
+| `T[N]` | `[T; N]` | Fixed-size array of type `T` with length `N`. |
+| `map<K, V>` | `HashMap<K, V>` / `BTreeMap<K, V>` | Key-value mapping. |
+| `struct` | `struct` | Nested structs must also derive `speedy::Readable` / `speedy::Writable` (or `DdsSerialize`/`DdsDeserialize`). |
+
+### Example Code
+Ensure that you bring `speedy::Writable` and `umber_dds::KeyHash` into scope, as the generated macro code relies on them internally.
 ```
-use umber_dds::{DdsData, DdsSerialize, DdsDeserialize, kye::KeyHash};
-use md5::compute;
+use speedy::Writable;
+use umber_dds::{DdsData, DdsSerialize, DdsDeserialize, KeyHash};
 
 #[derive(DdsData, DdsSerialize, DdsDeserialize)]
 #[dds_data(type_name = "ShapeType")]
@@ -68,13 +96,13 @@ struct Shape {
 }
 ```
 
-### examples
+## examples
 ```
 # build examples
 cargo build --examples
 ```
 
-#### shapes_demo
+### shapes_demo
 
 This can be used to demonstrate the capabilities of Umber DDS or as a proof of interoperability with other DDS/RTPS-compliant implementations.
 
