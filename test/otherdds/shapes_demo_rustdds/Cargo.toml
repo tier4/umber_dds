@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 clap = "4.2"
-rand = "0.8.4"
+rand = "0.8.6"
 rustdds = "0.10.3"
 serde = "1.0"
 mio_06 = { package = "mio" , version ="^0.6.23" }
