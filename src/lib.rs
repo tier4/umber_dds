@@ -19,11 +19,10 @@
 //! use std::net::Ipv4Addr;
 //! use std::time::{Duration, SystemTime};
 //! use umber_dds::dds::{qos::*, DataWriterStatusChanged, DomainParticipant};
-//! use umber_dds::{DdsData, DdsSerialize};
 //!
 //! // for DdsData
 //! use speedy::Writable;
-//! use umber_dds::dds::key::KeyHash;
+//! use umber_dds::{DdsData, DdsSerialize, KeyHash};
 //!
 //! #[derive(Clone, Debug, DdsData, DdsSerialize)]
 //! struct HelloWorld {
@@ -119,13 +118,12 @@
 //! use std::net::Ipv4Addr;
 //! use std::time::SystemTime;
 //! use umber_dds::dds::{qos::*, DataReaderStatusChanged, DomainParticipant};
-//! use umber_dds::{DdsData, DdsDeserialize, DdsSerialize};
 //!
 //! // for DdsData
 //! use speedy::Writable;
-//! use umber_dds::dds::key::KeyHash;
+//! use umber_dds::{DdsData, DdsDeserialize, KeyHash};
 //!
-//! #[derive(Clone, DdsData, DdsSerialize, DdsDeserialize)]
+//! #[derive(Clone, DdsData, DdsDeserialize)]
 //! struct HelloWorld {
 //!     index: u32,
 //!     message: String,
@@ -221,7 +219,7 @@ mod rtps;
 pub mod structure;
 pub mod utils;
 
-pub use dds::key::DdsData;
+pub use dds::key::{DdsData, KeyHash};
 pub use ddsdata_derive::{DdsData, DdsDeserialize, DdsSerialize};
 
 extern crate alloc;

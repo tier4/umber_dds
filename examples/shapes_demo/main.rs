@@ -11,9 +11,8 @@ use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;
 use speedy::Writable;
 use std::time::{Duration, SystemTime};
-use umber_dds::dds::key::KeyHash;
 use umber_dds::dds::{qos::*, DataReaderStatusChanged, DataWriterStatusChanged, DomainParticipant};
-use umber_dds::{DdsData, DdsDeserialize, DdsSerialize};
+use umber_dds::{DdsData, DdsDeserialize, DdsSerialize, KeyHash};
 
 #[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]
 #[dds_data(type_name = "ShapeType")]
