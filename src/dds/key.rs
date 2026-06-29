@@ -19,10 +19,9 @@ impl KeyHash {
 /// This trait is used for define exchanged data.
 ///
 /// As shown in the following example, implement this trait for your struct by using the provided macro.
-/// ```ignore
-/// use umber_dds::{DdsData, key::KeyHash};
-/// use md5::compute;
-/// use cdr::{CdrBe, Infinite}; // If key is specified
+/// ```no_run
+/// use umber_dds::{DdsData, dds::key::KeyHash};
+/// use speedy::Writable;
 ///
 /// // Struct Shape is same to following idl on other DDS.
 /// // struct ShapeType {
@@ -77,7 +76,7 @@ impl<K: Key> Key for Vec<K> {} // IDL: sequence<K: Key>
 mod test {
     use super::KeyHash;
     use crate::DdsData;
-    use speedy::{Endianness, Writable};
+    use speedy::Writable;
 
     #[derive(DdsData, Debug)]
     struct Shape {

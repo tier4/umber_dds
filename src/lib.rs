@@ -12,7 +12,7 @@
 //! ```
 //!
 //! publish sample
-//! ```rust
+//! ```no_run
 //! use mio_extras::timer::Timer;
 //! use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 //! use rand::SeedableRng;
@@ -23,6 +23,7 @@
 //!
 //! // for DdsData
 //! use umber_dds::dds::key::KeyHash;
+//! use speedy::Writable;
 //!
 //! #[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]
 //! struct HelloWorld {
@@ -108,7 +109,7 @@
 //! ```
 //!
 //! subscribe sample
-//! ```rust
+//! ```no_run
 //! use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 //! use rand::SeedableRng;
 //! use std::net::Ipv4Addr;
@@ -118,6 +119,7 @@
 //!
 //! // for DdsData
 //! use umber_dds::dds::key::KeyHash;
+//! use speedy::Writable;
 //!
 //! #[derive(Clone, Debug, DdsData, DdsSerialize, DdsDeserialize)]
 //! struct HelloWorld {

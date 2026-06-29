@@ -9,7 +9,7 @@ use log4rs::{
 use mio_extras::timer::Timer;
 use mio_v06::{Events, Poll, PollOpt, Ready, Token};
 use rand::SeedableRng;
-use speedy::{Endianness, Writable};
+use speedy::Writable;
 use std::time::{Duration, SystemTime};
 use umber_dds::dds::key::KeyHash;
 use umber_dds::dds::{qos::*, DataReaderStatusChanged, DataWriterStatusChanged, DomainParticipant};

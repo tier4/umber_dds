@@ -30,7 +30,7 @@ pub fn derive_ddsdata(input: TokenStream) -> TokenStream {
                 for attr in &field.attrs {
                     if attr.path().is_ident("key") {
                         if let Some(ident) = &field.ident {
-                            keys.push(ident);
+                            keys.push((ident, &field.ty));
                         }
                     }
                 }
@@ -46,22 +46,47 @@ pub fn derive_ddsdata(input: TokenStream) -> TokenStream {
 
     let keys_count = keys.len();
 
-    let constract_key = keys.iter().map(|key| {
-        quote! {
-            // TODO: keyがStringだったときにCDR形式からはずれてしまう。
-            let serialize_data = self.#key.write_to_vec_with_ctx(Endianness::BigEndian).unwrap();
-            for b in serialize_data {
-                result.push(b)
-            }
-        }
+    // create wrapper struct for gen_key().
+    let wrapper_name = syn::Ident::new(&format!("{}KeyWrapper", name), name.span());
+
+    // definition of wrapper struct field
+    let wrapper_fields = keys.iter().map(|(ident, ty)| {
+        quote! { #ident: #ty }
+    });
+
+    // initialization of wrapper struct field
+    let wrapper_init = keys.iter().map(|(ident, _ty)| {
+        quote! { #ident: self.#ident.clone() }
+    });
+
+    let write_stmts = keys.iter().map(|(ident, ty)| {
+        let write_stmt = gen_write_stmt(ty, quote!(self.#ident));
+        quote! { #write_stmt }
     });
 
     let expanded = quote! {
         impl DdsData for #name {
             fn gen_key(&self) -> KeyHash {
-                let mut cdr_size = 0;
-                let mut result: Vec<u8> = Vec::new();
-                #(#constract_key)*
+                #[derive(Clone)]
+                struct #wrapper_name {
+                    #(#wrapper_fields),*
+                }
+
+                impl<C: speedy::Context> speedy::Writable<C> for #wrapper_name {
+                    #[inline]
+                    fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+                        let mut __cdr_offset = 0usize;
+                        #(#write_stmts)*
+                        Ok(())
+                    }
+                }
+
+                let wrapper = #wrapper_name {
+                    #(#wrapper_init),*
+                };
+
+                let mut result = wrapper.write_to_vec_with_ctx(speedy::Endianness::BigEndian).unwrap();
+
                 let rlen = result.len();
                 if rlen <= 16 {
                     for _ in 0..(16-rlen) {
@@ -73,9 +98,11 @@ pub fn derive_ddsdata(input: TokenStream) -> TokenStream {
                     KeyHash::new(&md5.0)
                 }
             }
+
             fn type_name() -> String {
                 #final_type_name.to_string()
             }
+
             fn is_with_key() -> bool {
                 #keys_count != 0
             }

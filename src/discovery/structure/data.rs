@@ -13,7 +13,7 @@ use alloc::sync::Arc;
 use awkernel_sync::rwlock::RwLock;
 use enumflags2::BitFlags;
 use log::{trace, warn};
-use speedy::{Endianness, Writable};
+use speedy::Writable;
 
 /// rtps spec, 8.4.13.4 Data Types Associated with Built-in Endpoints used by Writer Liveliness Protocol
 /// rtps spec, 9.6.2.1 Data Representation for the ParticipantMessageData Built-in Endpoints
