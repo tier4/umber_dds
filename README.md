@@ -53,7 +53,7 @@ Instead, you must use the `DdsSerialize` and `DdsDeserialize` macros. These auto
 
 ### Configuration & Data Types
 + Type Name: The `umber_dds::DdsData` trait specifies the DataType name and keys. If the Rust structure name does not match the target DataType name, specify it using `#[dds_data(type_name = "{name}")]`.
-+ Keys: Annotate key fields with `#[key]`. The macro uses these fields to generate a unique 16-byte `KeyHash` (Note: Your project must depend on the `md5` crate in `Cargo.toml` for this functionality).
++ Keys: Annotate key fields with `#[key]`. The macro uses these fields to generate a unique 16-byte `KeyHash` (Note: If one or more `#[key]` attributes are specified, your project must depend on the `md5` crate in `Cargo.toml` for this functionality).
 + Characters: Be aware that Rust's `char` type is serialized and deserialized as a 1-byte C-style character (equivalent to `u8`), not as a 4-byte Unicode scalar value.
 
 ### IDL to Rust Type Mapping
@@ -80,7 +80,7 @@ When defining your data structures in Rust, use the following mapping to ensure 
 | `struct` | `struct` | Nested structs must also derive `speedy::Readable` / `speedy::Writable` (or `DdsSerialize`/`DdsDeserialize`). |
 
 ### Example Code
-Ensure that you bring `speedy::Writable` and `umber_dds::KeyHash` into scope, as the generated macro code relies on them internally.
+Ensure that you bring `speedy::Writable` (only if one or more `#[key]` attributes are specified) and `umber_dds::KeyHash` into scope, as the generated macro code relies on them internally.
 ```
 use speedy::Writable;
 use umber_dds::{DdsData, DdsSerialize, DdsDeserialize, KeyHash};

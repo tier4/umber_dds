@@ -5,7 +5,8 @@
 //! [dependencies]
 //! umber_dds = { git = "https://github.com/tier4/umber_dds" }
 //! speedy = { git = "https://github.com/koute/speedy" }
-//! md5 = { version = "0.7.0" }
+//! # only required if one or more `#[key]` attributes are specified to DdsData
+//! # md5 = { version = "0.7.0" }
 //! rand = { version = "0.8" }
 //! mio_v06 = { package = "mio", version = "0.6.23" }
 //! mio-extras = "2.0.6"
@@ -21,7 +22,7 @@
 //! use umber_dds::dds::{qos::*, DataWriterStatusChanged, DomainParticipant};
 //!
 //! // for DdsData
-//! use speedy::Writable;
+//! // use speedy::Writable; // only required if one or more `#[key]` attributes are specified to DdsData
 //! use umber_dds::{DdsData, DdsSerialize, KeyHash};
 //!
 //! #[derive(Clone, Debug, DdsData, DdsSerialize)]
@@ -120,7 +121,7 @@
 //! use umber_dds::dds::{qos::*, DataReaderStatusChanged, DomainParticipant};
 //!
 //! // for DdsData
-//! use speedy::Writable;
+//! // use speedy::Writable; // only required if one or more `#[key]` attributes are specified to DdsData
 //! use umber_dds::{DdsData, DdsDeserialize, KeyHash};
 //!
 //! #[derive(Clone, DdsData, DdsDeserialize)]

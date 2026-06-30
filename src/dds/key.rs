@@ -45,7 +45,7 @@ impl KeyHash {
 /// You can specify key to any type that implements the [`Key`] trait.
 /// If some key is specified, you need to import `cdr::{CdrBe, Infinite}`
 pub trait DdsData {
-    fn gen_key(&self) -> KeyHash;
+    fn gen_key(&self) -> Option<KeyHash>;
     /// Return type name of Topic.
     ///
     /// The default value is the name of the struct.
@@ -96,7 +96,7 @@ mod test {
             _shapesize: 30,
         };
 
-        let keyhash = shape.gen_key();
+        let keyhash = shape.gen_key().unwrap();
         assert_eq!(
             keyhash._hash,
             [

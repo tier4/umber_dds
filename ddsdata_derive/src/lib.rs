@@ -11,9 +11,9 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, LitStr};
 ///
 /// ## ⚠️ Prerequisites and Dependencies
 /// To use this macro, you must have the following in scope and in your `Cargo.toml`:
-/// * **`use speedy::Writable;`**: Required for serializing the key fields.
 /// * **`use umber_dds::KeyHash;`**: Required for returning the generated key.
-/// * **`md5` crate**: Required in `Cargo.toml`. Used to compute hashes for serialized keys exceeding 16 bytes.
+/// * **`use speedy::Writable;`**: Required for serializing the key fields **(only required if one or more `#[key]` attributes are specified)**.
+/// * **`md5` crate**: Required in `Cargo.toml`. Used to compute hashes for serialized keys exceeding 16 bytes **(only required if one or more `#[key]` attributes are specified)**.
 ///
 /// ## Field Attributes
 /// * `#[key]`: Marks a field as part of the DDS Key. Can be applied to multiple fields.
@@ -68,57 +68,69 @@ pub fn derive_ddsdata(input: TokenStream) -> TokenStream {
 
     let keys_count = keys.len();
 
-    // create wrapper struct for gen_key().
-    let wrapper_name = syn::Ident::new(&format!("{}KeyWrapper", name), name.span());
+    let is_with_key_val = keys_count != 0;
 
-    // definition of wrapper struct field
-    let wrapper_fields = keys.iter().map(|(ident, ty)| {
-        quote! { #ident: #ty }
-    });
+    let gen_key_body = if keys_count == 0 {
+        quote! {
+            None
+        }
+    } else {
+        // create wrapper struct for gen_key().
+        let wrapper_name = syn::Ident::new(&format!("{}KeyWrapper", name), name.span());
 
-    // initialization of wrapper struct field
-    let wrapper_init = keys.iter().map(|(ident, _ty)| {
-        quote! { #ident: self.#ident.clone() }
-    });
+        // definition of wrapper struct field
+        let wrapper_fields = keys.iter().map(|(ident, ty)| {
+            quote! { #ident: #ty }
+        });
 
-    let write_stmts = keys.iter().map(|(ident, ty)| {
-        let write_stmt = gen_write_stmt(ty, quote!(self.#ident));
-        quote! { #write_stmt }
-    });
+        // initialization of wrapper struct field
+        let wrapper_init = keys.iter().map(|(ident, _ty)| {
+            quote! { #ident: self.#ident.clone() }
+        });
+
+        let write_stmts = keys.iter().map(|(ident, ty)| {
+            let write_stmt = gen_write_stmt(ty, quote!(self.#ident));
+            quote! { #write_stmt }
+        });
+
+        quote! {
+            #[derive(Clone)]
+            struct #wrapper_name {
+                #(#wrapper_fields),*
+            }
+
+            impl<C: speedy::Context> speedy::Writable<C> for #wrapper_name {
+                #[inline]
+                fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+                    let mut __cdr_offset = 0usize;
+                    #(#write_stmts)*
+                    Ok(())
+                }
+            }
+
+            let wrapper = #wrapper_name {
+                #(#wrapper_init),*
+            };
+
+            let mut result = wrapper.write_to_vec_with_ctx(speedy::Endianness::BigEndian).unwrap();
+
+            let rlen = result.len();
+            if rlen <= 16 {
+                for _ in 0..(16-rlen) {
+                    result.push(0);
+                }
+                Some(KeyHash::new(&result[0 .. 16]))
+            } else {
+                let md5 = md5::compute(result);
+                Some(KeyHash::new(&md5.0))
+            }
+        }
+    };
 
     let expanded = quote! {
         impl DdsData for #name {
-            fn gen_key(&self) -> KeyHash {
-                #[derive(Clone)]
-                struct #wrapper_name {
-                    #(#wrapper_fields),*
-                }
-
-                impl<C: speedy::Context> speedy::Writable<C> for #wrapper_name {
-                    #[inline]
-                    fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
-                        let mut __cdr_offset = 0usize;
-                        #(#write_stmts)*
-                        Ok(())
-                    }
-                }
-
-                let wrapper = #wrapper_name {
-                    #(#wrapper_init),*
-                };
-
-                let mut result = wrapper.write_to_vec_with_ctx(speedy::Endianness::BigEndian).unwrap();
-
-                let rlen = result.len();
-                if rlen <= 16 {
-                    for _ in 0..(16-rlen) {
-                        result.push(0);
-                    }
-                    KeyHash::new(&result[0 .. 16])
-                } else {
-                    let md5 = md5::compute(result);
-                    KeyHash::new(&md5.0)
-                }
+            fn gen_key(&self) -> Option<KeyHash> {
+                #gen_key_body
             }
 
             fn type_name() -> String {
@@ -126,7 +138,7 @@ pub fn derive_ddsdata(input: TokenStream) -> TokenStream {
             }
 
             fn is_with_key() -> bool {
-                #keys_count != 0
+                #is_with_key_val
             }
         }
     };
