@@ -334,7 +334,8 @@ fn gen_write_stmt(ty: &syn::Type, val_expr: TokenStream2) -> TokenStream2 {
         return quote! {
             {
                 let pad = (4usize - (__cdr_offset % 4usize)) % 4usize;
-                for _ in 0..pad { writer.write_u8(0)?; }
+                const ZEROS: [u8; 3] = [0;3];
+                writer.write_bytes(&ZEROS[..pad])?;
                 __cdr_offset += pad;
 
                 let vec_len = (#val_expr).len();
@@ -365,7 +366,8 @@ fn gen_write_stmt(ty: &syn::Type, val_expr: TokenStream2) -> TokenStream2 {
         return quote! {
             {
                 let pad = (4usize - (__cdr_offset % 4usize)) % 4usize;
-                for _ in 0..pad { writer.write_u8(0)?; }
+                const ZEROS: [u8; 3] = [0;3];
+                writer.write_bytes(&ZEROS[..pad])?;
                 __cdr_offset += pad;
 
                 let map_len = (#val_expr).len();
@@ -384,7 +386,8 @@ fn gen_write_stmt(ty: &syn::Type, val_expr: TokenStream2) -> TokenStream2 {
         return quote! {
             {
                 let pad = (4usize - (__cdr_offset % 4usize)) % 4usize;
-                for _ in 0..pad { writer.write_u8(0)?; }
+                const ZEROS: [u8; 3] = [0;3];
+                writer.write_bytes(&ZEROS[..pad])?;
                 __cdr_offset += pad;
 
                 let cdr_name_len = (#val_expr).len() + 1;
@@ -423,10 +426,13 @@ fn gen_write_stmt(ty: &syn::Type, val_expr: TokenStream2) -> TokenStream2 {
             _ => unreachable!(),
         };
 
+        let pad_max = (align - 1) as usize;
+
         return quote! {
             {
                 let pad = ((#align as usize) - (__cdr_offset % (#align as usize))) % (#align as usize);
-                for _ in 0..pad { writer.write_u8(0)?; }
+                const ZEROS: [u8; #pad_max] = [0; #pad_max];
+                writer.write_bytes(&ZEROS[..pad])?;
                 __cdr_offset += pad;
 
                 #write_call;
